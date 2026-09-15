@@ -308,6 +308,8 @@ def validate_spec(spec) -> list:
                         isinstance(r["hp_below"], (int, float))
                         and 0.0 <= r["hp_below"] <= 1.0):
                     probs.append(f"switch[{i}].hp_below must be 0.0-1.0")
+                if r.get("out_of_pp") not in (None, True, False):
+                    probs.append(f"switch[{i}].out_of_pp must be true/false")
     if "setup" in spec:
         if not isinstance(spec["setup"], list):
             probs.append("setup must be a list")
@@ -786,7 +788,15 @@ def should_switch(obs: dict, spec: dict | None = None,
             continue
         if used.get(n, 0) >= rule.get("max_uses", 1):
             continue
-        if (ctx.get("turn") or 1) > rule.get("first_turns", 1):
+        # ...AND A RULE ABOUT RUNNING DRY CANNOT LIVE ON TURN 1. The turn
+        # gate defaults to the first turn only, which is right for a lead
+        # swap and fatal for a condition that by its nature arrives late:
+        # "switch when I am out of PP" would have read correctly and
+        # never fired once. An explicit first_turns is still obeyed.
+        _gate = rule.get("first_turns")
+        if _gate is None and not rule.get("out_of_pp"):
+            _gate = 1
+        if _gate is not None and (ctx.get("turn") or 1) > _gate:
             continue
         vs = rule.get("vs", "any")
         if vs != "any" and vs != kind:
@@ -794,6 +804,18 @@ def should_switch(obs: dict, spec: dict | None = None,
         hb = rule.get("hp_below")
         if hb is not None and _hp_frac(me) >= hb:
             continue
+        # A POKEMON WITH NOTHING LEFT TO THROW IS NOT IN THE FIGHT. When
+        # every move is at 0 PP the game gives you Struggle, Struggle is
+        # NORMAL, and NORMAL does nothing at all to a GHOST. VAPOREON ran
+        # dry against AGATHA's GENGAR and the two of them stood there:
+        # gen 1 enemies do not Struggle either (user, 2026-09-15: "i
+        # forgot that enemy mons dont use struggle in gen1"), so the foe
+        # stopped taking turns entirely and neither side could move a
+        # point of HP. Fifty minutes, foe HP frozen at 74/151. The bench
+        # was five deep and one of them was untouched.
+        if rule.get("out_of_pp"):
+            if any((m.get("pp") or 0) > 0 for m in (me.get("moves") or [])):
+                continue
         lead = rule.get("only_if_lead")
         if lead is not None and ctx.get("started_as") != lead:
             continue
