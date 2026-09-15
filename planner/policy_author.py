@@ -549,6 +549,24 @@ class Gym:
                 for _ in range(6 * len(self.arena_fights) + 8):
                     obs = self._ride(self.ex.settle())
                     here = ((obs or {}).get("map") or {}).get("id")
+                    # A MAP WITH NO NAME IS NOT A MAP YOU LEFT. Pressing
+                    # Pewter's gym guide left the observation mid-speech
+                    # with map.id None, this read it as "carried out of
+                    # the arena", broke on step 1 and scored the trial a
+                    # blackout with two Pokemon standing and no punch
+                    # thrown. Unnamed is unsettled; wait it out.
+                    if here is None:
+                        # A QUESTION LEFT OPEN IS NOT A WORLD MID-STEP.
+                        # Pewter's gym guide offers to walk you to the
+                        # top; the press came back ok with the box still
+                        # up, `tap a` only reopened it, and the trial sat
+                        # in that prompt for every iteration it had.
+                        # Nobody in an arena wants an escort: say no.
+                        if (obs or {}).get("mode") == "ui":
+                            self.b.send("menu", index=2)
+                        else:
+                            self.b.send("wait", frames=30)
+                        continue
                     if here != self.arena_map:
                         break        # blacked out, or carried out of it
                     if want and want <= self._beaten(obs):
@@ -557,7 +575,7 @@ class Gym:
                     for who in self.arena_fights:
                         if who in pressed:
                             continue
-                        r = self.b.send("interact", name=who)
+                        r = self.b.send("interact", name=who, answer="no")
                         if self._ok(r):
                             pressed.add(who)
                             hit = True
@@ -621,13 +639,18 @@ class Gym:
             except TimeoutError:
                 pass
             obs = self._ride(self.ex.settle())
+            for _ in range(6):
+                if ((obs.get("map") or {}).get("id")):
+                    break
+                self.b.send("wait", frames=30)
+                obs = self._ride(self.ex.settle())
             won = self._beaten(obs) - before
             if self.arena_flags:
                 won &= set(self.arena_flags)
             alive = [p for p in (obs.get("party") or [])
                      if (p.get("hp") or 0) > 0]
             end = ((obs.get("map") or {}).get("id"))
-            if end != self.arena_map:
+            if end and end != self.arena_map:
                 res["blackouts"] += 1
             res["beaten"] += len(won)
             # ...AND WITH HOW MUCH OF THE PARTY LEFT. Both specs swept
@@ -639,13 +662,14 @@ class Gym:
             # read 5/5 — full marks for dying, the same trap the E4
             # arena's room counting fell into. A trial that ended
             # outside the arena left nobody standing in it.
-            res["bodies"] += (0.0 if end != self.arena_map else
+            res["bodies"] += (0.0 if (end and end != self.arena_map) else
                               len(alive) / max(1, len(obs.get("party")
                                                       or [])))
             res["gauntlet_detail"].append(
                 f"beat {len(won)}/{res['standing']} in {self.arena_map} "
                 f"with {len(alive)}/{len(obs.get('party') or [])} standing"
-                + ("" if end == self.arena_map else f" (ended in {end})"))
+                + ("" if end in (None, self.arena_map)
+                   else f" (ended in {end})"))
             for d in self._log_delta(start):
                 if d.get("kind") == "blackout":
                     res["blackouts"] += 1
@@ -984,6 +1008,12 @@ def cross_text(name: str, rows) -> str:
 # each shelf); `brock` is the one that replays a plan from a new game.
 ARENAS = {
     "brock": ("brock", None, None),
+    # The Pewter tier as a ROOM, not as a replay: `brock` replays a plan
+    # from a new game and writes into the campaign's own run directory,
+    # which is not a thing to do while a checkpoint is sitting in it.
+    # Same party, same gym, in its own bridge dir like the others.
+    "pewter": ("gym", REPO / "run/arena_brock_gym.lua",
+               REPO / "plans/arena_brock_gym.json"),
     "erika": ("gym", REPO / "run/arena_erika.lua",
               REPO / "plans/arena_erika.json"),
     "koga": ("gym", REPO / "run/arena_koga.lua",

@@ -87,8 +87,8 @@ ck("the report says the total out of the arenas that produced it",
    and "erika: 75% of that arena" in A.cross_text("x", STEADY))
 
 # ---- the arenas are the ones the README built -------------------------
-ck("all four arenas are named", set(A.ARENAS) == {"brock", "erika", "koga",
-                                                  "e4"})
+ck("every tier of the game's shelves has an arena",
+   set(A.ARENAS) == {"brock", "pewter", "erika", "koga", "e4"})
 ck("brock is the one that replays a plan, the rest are savepoints",
    A.ARENAS["brock"][1] is None
    and all(v[1] is not None for k, v in A.ARENAS.items() if k != "brock"))
