@@ -120,7 +120,7 @@ ck("...but never outrank the objective itself",
    A.cross_key([("erika", dict(gymr(16), bodies=0.0))])
    > A.cross_key([("erika", dict(gymr(8), bodies=2.0))]))
 ck("a blackout leaves nobody standing in the arena it left",
-   "0.0 if end != self.arena_map" in PA)
+   "0.0 if (end and end != self.arena_map)" in PA)
 
 # ---- the picker takes the spec fit to the whole game ------------------
 def spec_file(d: Path, name: str, ev: dict) -> Path:
