@@ -674,6 +674,12 @@ class Gym:
         the objects come in IS the order of the room, and a trial that
         cannot reach the back of it simply scores what it beat."""
         ex_mod.set_active_spec(spec)
+        # PER SPEC, NOT PER GYM. This counter lived on the Gym and
+        # was never reset, so candidate #4's two lead swaps were
+        # still being reported against the baseline evaluated after
+        # it — a spec with no lead rule at all, credited with using
+        # one (2026-09-15).
+        self.leads = 0
         res = {"arena": "gym",
                "rival_wins": 0, "rival_trials": 0, "pewter": 0, "badge": 0,
                "gauntlet_trials": 0, "blackouts": 0, "agree": 0,
