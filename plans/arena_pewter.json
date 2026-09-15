@@ -28,6 +28,16 @@
         "SAND_ATTACK"
       ],
       "nickname": "PIDGEY"
+    },
+    {
+      "species": "MANKEY",
+      "level": 15,
+      "moves": [
+        "SCRATCH",
+        "LEER",
+        "KARATE_CHOP"
+      ],
+      "nickname": "MANKEY"
     }
   ],
   "bag": {

@@ -81,6 +81,18 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
              float (def 0.7)  move until the foe is below this fraction of
            max_balls: int }   the hp it appeared with, then throw (gen1
                               catch odds scale with missing hp)
+  lead: { order: "healthiest"|"first_alive"|"highest_level"|"most_hp",
+          vs: "trainer"|"wild"|"any" (default "trainer"),
+          min_hp_frac: float }
+                             WHO WALKS IN. Slot 1 starts every battle and
+                             nothing outside a faint prompt reorders the
+                             party, so a lead chewed up by the last fight
+                             leads the next one too. This is settled in
+                             the OVERWORLD, before the press, and costs no
+                             turn — unlike `switch`, which costs the turn
+                             and a free hit. There is no foe on screen
+                             yet, so the orders here read your side only;
+                             a type rule would have nothing to read.
   replacement: { order: "healthiest"|"first_alive"|"resists"|
                           "best_matchup",
                  min_hp_frac: float }
@@ -129,6 +141,7 @@ DEFAULT_SPEC = {
     # baseline spec too; the record run's values come from the model
     "catch": {"ball": "POKE_BALL", "throw_at_hp_frac": 0.7, "max_balls": 3},
     "replacement": {"order": "healthiest"},
+    "lead": None,
 }
 
 _SPEC_KEYS = set(DEFAULT_SPEC) | {"name", "provenance"}   # provenance = metadata
@@ -358,6 +371,18 @@ def validate_spec(spec) -> list:
             if "max_balls" in ca and not (isinstance(ca["max_balls"], int)
                                           and 1 <= ca["max_balls"] <= 10):
                 probs.append("catch.max_balls int in [1,10]")
+    if "lead" in spec and spec["lead"] is not None:
+        ld = spec["lead"]
+        if not isinstance(ld, dict) or ld.get("order") not in LEAD_ORDERS:
+            probs.append("lead must be null or {order, vs, min_hp_frac} "
+                         "with order one of " + "/".join(LEAD_ORDERS))
+        else:
+            if ld.get("vs") not in (None, "trainer", "wild", "any"):
+                probs.append("lead.vs must be trainer/wild/any")
+            f = ld.get("min_hp_frac")
+            if f is not None and not (isinstance(f, (int, float))
+                                      and 0.0 <= float(f) <= 1.0):
+                probs.append("lead.min_hp_frac float in [0,1]")
     if "replacement" in spec and spec["replacement"] is not None:
         rp = spec["replacement"]
         if not isinstance(rp, dict) or rp.get("order") not in (
@@ -620,6 +645,58 @@ def choose_replacement(obs: dict, spec: dict | None = None) -> int | None:
                     / max(0.125, incoming(foe_types, types)), f)
         return (f, 0.0)
 
+    return max(pool, key=key)[0]
+
+
+LEAD_ORDERS = ("healthiest", "first_alive", "highest_level", "most_hp")
+
+
+def choose_lead(obs: dict, spec: dict | None = None,
+                kind: str = "trainer") -> int | None:
+    """Which party slot should be in front when the next fight starts, or
+    None to leave the party as it is.
+
+    SLOT 1 STARTS EVERY BATTLE. Nothing outside a faint prompt reorders
+    the party, so the mon the last fight chewed up leads the next one too
+    — through a gym's whole chain of trainers and into its leader. The
+    policy's only answer was `switch`, which costs the turn and hands the
+    foe a free hit for it, and v7 spent 200 of them doing exactly that
+    (2026-09-15, user: "before facing a gym leader or elite four member it
+    should be pausing and choosing who to put first").
+
+    This is settled in the overworld before the press, so it costs
+    nothing. It also means there is NO FOE ON SCREEN: these orders read
+    your own side only, and a type rule is not offered here because it
+    would have nothing to read. Which order, and whether to have one at
+    all, is the model's."""
+    spec = spec or DEFAULT_SPEC
+    ld = spec.get("lead")
+    if not ld:
+        return None
+    vs = str(ld.get("vs") or "trainer")
+    if vs != "any" and vs != kind:
+        return None
+    party = (obs or {}).get("party") or []
+    alive = [(i + 1, m) for i, m in enumerate(party) if (m.get("hp") or 0) > 0]
+    if len(alive) < 2:
+        return None                 # nobody to choose between
+    order = ld.get("order")
+    if order == "first_alive":
+        return alive[0][0]
+    # A FLOOR, AND NEVER AN EMPTY BENCH — the same rule replacement uses:
+    # if nobody clears it, it is ignored rather than obeyed into leading
+    # with nobody.
+    try:
+        floor = float(ld.get("min_hp_frac") or 0.0)
+    except (TypeError, ValueError):
+        floor = 0.0
+    pool = [(n, m) for n, m in alive if _hp_frac(m) >= floor] or alive
+    if order == "highest_level":
+        key = lambda n_m: (n_m[1].get("level") or 0, _hp_frac(n_m[1]))
+    elif order == "most_hp":
+        key = lambda n_m: (n_m[1].get("hp") or 0, _hp_frac(n_m[1]))
+    else:
+        key = lambda n_m: (_hp_frac(n_m[1]), n_m[1].get("level") or 0)
     return max(pool, key=key)[0]
 
 

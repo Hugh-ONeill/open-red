@@ -43,6 +43,17 @@
         "CUT"
       ],
       "nickname": "FARFETCHD"
+    },
+    {
+      "species": "POLIWHIRL",
+      "level": 44,
+      "moves": [
+        "WATER_GUN",
+        "DOUBLESLAP",
+        "BODY_SLAM",
+        "AMNESIA"
+      ],
+      "nickname": "POLIWHIRL"
     }
   ],
   "bag": {
@@ -56,7 +67,7 @@
     "map": "VIRIDIAN_GYM",
     "x": 2,
     "y": 2,
-    "facing": "up"
+    "facing": "down"
   },
   "clear_flags": [
     "EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI"

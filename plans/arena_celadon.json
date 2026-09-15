@@ -41,6 +41,17 @@
         "SAND_ATTACK"
       ],
       "nickname": "EEVEE"
+    },
+    {
+      "species": "BEEDRILL",
+      "level": 25,
+      "moves": [
+        "FURY_ATTACK",
+        "FOCUS_ENERGY",
+        "TWINEEDLE",
+        "RAGE"
+      ],
+      "nickname": "BEEDRILL"
     }
   ],
   "bag": {

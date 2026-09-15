@@ -19,8 +19,20 @@ So each arena here is BUILT, not found:
     ones: level-1 moves plus everything learned at or below that level,
     last four kept, straight out of the engine's own learnset. Nothing is
     hand-picked to make a fight winnable.
-  * No free type counters. The starter line is FIRE all game, which is
-    bad into Misty, resisted by Blaine, and merely adequate elsewhere.
+  * ONE COUNTER PER ROOM, and never in slot 1. Each party carries a
+    Pokemon that is super effective against that gym, sitting on the
+    bench: Mankey's KARATE_CHOP for Brock's rock, Pikachu for Misty,
+    Diglett — which electricity cannot touch at all — for Surge,
+    Beedrill's TWINEEDLE for Erika and again for Sabrina's psychics,
+    Kadabra for Koga's poison, Poliwhirl's WATER_GUN for Blaine and for
+    Giovanni's ground. A gym's type is pamphlet tier: its guide says it
+    out loud in every gym in the game (user, 2026-09-15). Without one of
+    these on the bench there is nothing for a lead rule or a switch rule
+    to be RIGHT about, and the arena measures only whether the starter
+    can grind the room down. With one, leading correctly is worth
+    something and leading with the chewed-up starter costs.
+    The starter line is FIRE all game and is never the answer: bad into
+    Misty, resisted by Blaine, merely adequate elsewhere.
   * The bag holds what that stage of the game SELLS, and where it can, it
     holds MORE THAN ONE TIER of it. A bag with a single kind of potion
     cannot tell `best_available` from `weakest_sufficient`, so the
@@ -165,21 +177,24 @@ def pick_base(want_badges: int) -> Path | None:
 GYMS = [
     dict(name="pewter", map="PEWTER_GYM", leader="BROCK", ace=14,
          badges=0, door=(4, 13), puzzle=False, money=1500,
-         party=[("CHARMANDER", 12), ("NIDORAN_M", 11), ("PIDGEY", 10)],
+         party=[("CHARMANDER", 12), ("NIDORAN_M", 11), ("PIDGEY", 10),
+                ("MANKEY", 15)],
          bag={"POTION": 5, "ANTIDOTE": 1},
          note="Charmander's Ember is halved by ONIX's rock and its "
               "defence is the wall it is; four Potions and a Nidoran's "
               "HORN_ATTACK is the whole of the answer."),
     dict(name="cerulean", map="CERULEAN_GYM", leader="MISTY", ace=21,
          badges=1, door=(4, 13), puzzle=False, money=2800,
-         party=[("CHARMELEON", 18), ("NIDORINO", 17), ("PIDGEOTTO", 16)],
+         party=[("CHARMELEON", 18), ("NIDORINO", 17), ("PIDGEOTTO", 16),
+                ("PIKACHU", 17)],
          bag={"POTION": 8, "ANTIDOTE": 2, "PARLYZ_HEAL": 1},
          note="Fire into water, and STARMIE outspeeds all three. Single "
               "tier on purpose: POTION is the only heal a Cerulean-era "
               "shelf sells."),
     dict(name="vermilion", map="VERMILION_GYM", leader="LT_SURGE", ace=24,
          badges=2, door=(5, 2), puzzle=True, money=4200,
-         party=[("CHARMELEON", 23), ("NIDORINO", 21), ("PIDGEOTTO", 20)],
+         party=[("CHARMELEON", 23), ("NIDORINO", 21), ("PIDGEOTTO", 20),
+                ("DIGLETT", 20)],
          bag={"POTION": 5, "SUPER_POTION": 3, "PARLYZ_HEAL": 3,
               "ANTIDOTE": 1},
          note="The first mixed-tier bag, because Vermilion is where "
@@ -188,7 +203,8 @@ GYMS = [
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
          badges=3, door=(4, 17), puzzle=False, money=6000,
          party=[("CHARMELEON", 28), ("NIDORINO", 27), ("FARFETCHD", 24),
-                ("EEVEE", 22)],
+                ("EEVEE", 22),
+                ("BEEDRILL", 25)],
          bag={"POTION": 4, "SUPER_POTION": 4, "ANTIDOTE": 2,
               "PARLYZ_HEAL": 2, "REVIVE": 1},
          note="Farfetch'd carries CUT because Erika and her last three "
@@ -197,7 +213,8 @@ GYMS = [
     dict(name="fuchsia", map="FUCHSIA_GYM", leader="KOGA", ace=43,
          badges=4, door=(4, 17), puzzle=False, money=9000,
          party=[("CHARIZARD", 38), ("NIDORINO", 34), ("FARFETCHD", 30),
-                ("EEVEE", 28)],
+                ("EEVEE", 28),
+                ("KADABRA", 34)],
          bag={"POTION": 3, "SUPER_POTION": 5, "FULL_HEAL": 2, "REVIVE": 2,
               "ANTIDOTE": 2},
          note="Two members badly under level and a room that poisons: "
@@ -206,7 +223,8 @@ GYMS = [
     dict(name="saffron", map="SAFFRON_GYM", leader="SABRINA", ace=43,
          badges=5, door=(9, 9), puzzle=True, money=11000,
          party=[("CHARIZARD", 41), ("NIDOKING", 38), ("FARFETCHD", 32),
-                ("EEVEE", 30)],
+                ("EEVEE", 30),
+                ("BEEDRILL", 36)],
          bag={"SUPER_POTION": 4, "HYPER_POTION": 3, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="ALAKAZAM against a poison type is the worst matchup in the "
@@ -214,7 +232,8 @@ GYMS = [
     dict(name="cinnabar", map="CINNABAR_GYM", leader="BLAINE", ace=47,
          badges=6, door=(3, 4), puzzle=True, money=13000,
          party=[("CHARIZARD", 44), ("NIDOKING", 42), ("EEVEE", 34),
-                ("FARFETCHD", 34)],
+                ("FARFETCHD", 34),
+                ("POLIWHIRL", 40)],
          bag={"SUPER_POTION": 3, "HYPER_POTION": 4, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="Fire into fire: Charizard resists what ARCANINE throws and "
@@ -222,7 +241,8 @@ GYMS = [
     dict(name="viridian", map="VIRIDIAN_GYM", leader="VIRIDIAN_GYM_GIOVANNI",
          ace=50, badges=7, door=(2, 2), puzzle=True, money=15000,
          party=[("CHARIZARD", 48), ("NIDOKING", 45), ("EEVEE", 38),
-                ("FARFETCHD", 36)],
+                ("FARFETCHD", 36),
+                ("POLIWHIRL", 44)],
          bag={"SUPER_POTION": 2, "HYPER_POTION": 5, "FULL_HEAL": 3,
               "REVIVE": 2},
          note="RHYDON L50 hits a Charizard four times over with rock. The "
@@ -244,9 +264,18 @@ def build(g: dict) -> dict:
             mv = (mv[:3] + ["CUT"]) if "CUT" not in mv else mv
         party.append({"species": sp, "level": lv, "moves": mv,
                       "nickname": sp})
+    # FACING MATTERS BECAUSE BOOTSTRAP MASHES A. A save resumes exactly
+    # where it was written and bootstrap opens with six A presses to clear
+    # the title ceremony; parked in front of a leader FACING HIM, those
+    # presses talk to him and the fight starts during setup, which came
+    # back as "bootstrap failed (stuck in mode=battle)" on all four puzzle
+    # arenas. Gym leaders have no line of sight — they fight only when
+    # interacted with (user, 2026-09-15) — so facing away is enough, and
+    # the driver turns round and presses them itself.
+    facing = "down" if g["puzzle"] else "up"
     spec = {"party": party, "bag": dict(g["bag"]), "money": g["money"],
             "start": {"map": g["map"], "x": g["door"][0], "y": g["door"][1],
-                      "facing": "up"}}
+                      "facing": facing}}
     if g["puzzle"]:
         # THE FIGHT, NOT THE MAZE. Parked in front of the leader with the
         # rest of the room already beaten, so the score is the one fight

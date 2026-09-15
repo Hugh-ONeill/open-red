@@ -31,6 +31,17 @@
         "QUICK_ATTACK"
       ],
       "nickname": "PIDGEOTTO"
+    },
+    {
+      "species": "PIKACHU",
+      "level": 17,
+      "moves": [
+        "THUNDERSHOCK",
+        "GROWL",
+        "THUNDER_WAVE",
+        "QUICK_ATTACK"
+      ],
+      "nickname": "PIKACHU"
     }
   ],
   "bag": {

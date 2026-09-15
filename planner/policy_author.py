@@ -118,6 +118,18 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
     (during a CATCH task: weaken the wild mon with the gentlest non-KO
      move until it is below that fraction of the hp it appeared with,
      then throw — gen1 catch odds scale with missing hp)
+  lead: null or {"order": "healthiest"|"first_alive"|"highest_level"|
+                          "most_hp",
+                 "vs": "trainer"|"wild"|"any", "min_hp_frac": 0.0-1.0}
+    (WHO WALKS IN. Slot 1 starts every battle and nothing reorders the
+     party except a faint, so the Pokemon the last fight chewed up leads
+     the next one too — through a gym's whole chain of trainers and into
+     its leader. This is settled in the OVERWORLD before you press the
+     trainer, so it costs NO TURN, unlike "switch" which costs the turn
+     and hands the foe a free hit. There is no foe on screen when it is
+     decided, so these orders read your own side only and no type rule is
+     offered: there would be nothing to read. "min_hp_frac" is a floor,
+     ignored if nobody clears it.)
   replacement: {"order": "healthiest"|"first_alive"|"resists"|"best_matchup",
                 "min_hp_frac": 0.0-1.0}
     (when your active mon faints and a backup lives, which one comes in —
@@ -447,6 +459,17 @@ class Gym:
         """
         obs = self.ex.settle()
         here = ((obs or {}).get("map") or {}).get("id")
+        # AN ARENA PARKED IN FRONT OF ITS LEADER STARTS IN THE FIGHT, and
+        # an observation inside a battle carries no map. The arena's map
+        # is not a thing to discover here — the gin spec that built the
+        # save says where it parked the player, so read it there rather
+        # than fighting the leader during SETUP to find out.
+        if not here and self.arena_spec:
+            try:
+                here = ((json.loads(Path(self.arena_spec).read_text())
+                         .get("start") or {}).get("map")) or None
+            except (OSError, ValueError):
+                here = None
         party = [f"{p.get('species')} L{p.get('level')} "
                  f"{p.get('hp')}/{p.get('max_hp')}"
                  for p in (obs.get("party") or [])]
@@ -635,8 +658,11 @@ class Gym:
                 raise RuntimeError(f"arena restore failed: {rr.get('detail')}")
             res["gauntlet_trials"] += 1
             start = LOG.stat().st_size
-            obs = self._ride(self.ex.settle())
-            before = self._beaten(obs)
+            # ...AND THE FLAGS ARE READ BEFORE A PUNCH IS THROWN. This
+            # rode the battle out first and then took the "before" set, so
+            # on an arena that restores INTO the leader's fight the win
+            # was already in it and every trial scored zero.
+            before = self._beaten(self.ex.settle())
             obs = self._cross_room(self.arena_map,
                                    want=set(self.arena_flags))
             obs = self._ride(self.ex.settle())

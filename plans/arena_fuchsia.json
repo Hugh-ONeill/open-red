@@ -42,6 +42,17 @@
         "QUICK_ATTACK"
       ],
       "nickname": "EEVEE"
+    },
+    {
+      "species": "KADABRA",
+      "level": 34,
+      "moves": [
+        "CONFUSION",
+        "DISABLE",
+        "PSYBEAM",
+        "RECOVER"
+      ],
+      "nickname": "KADABRA"
     }
   ],
   "bag": {

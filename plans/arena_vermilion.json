@@ -31,6 +31,16 @@
         "QUICK_ATTACK"
       ],
       "nickname": "PIDGEOTTO"
+    },
+    {
+      "species": "DIGLETT",
+      "level": 20,
+      "moves": [
+        "SCRATCH",
+        "GROWL",
+        "DIG"
+      ],
+      "nickname": "DIGLETT"
     }
   ],
   "bag": {
@@ -44,7 +54,7 @@
     "map": "VERMILION_GYM",
     "x": 5,
     "y": 2,
-    "facing": "up"
+    "facing": "down"
   },
   "clear_flags": [
     "EVENT_BEAT_LT_SURGE"

@@ -43,6 +43,17 @@
         "CUT"
       ],
       "nickname": "FARFETCHD"
+    },
+    {
+      "species": "POLIWHIRL",
+      "level": 40,
+      "moves": [
+        "HYPNOSIS",
+        "WATER_GUN",
+        "DOUBLESLAP",
+        "BODY_SLAM"
+      ],
+      "nickname": "POLIWHIRL"
     }
   ],
   "bag": {
@@ -56,7 +67,7 @@
     "map": "CINNABAR_GYM",
     "x": 3,
     "y": 4,
-    "facing": "up"
+    "facing": "down"
   },
   "clear_flags": [
     "EVENT_BEAT_BLAINE"

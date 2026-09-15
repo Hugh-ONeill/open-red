@@ -15317,6 +15317,50 @@ class Executor:
                 keep.append(s)
         return keep, dropped
 
+    def _lead_before_a_fight(self, obs, step, sg, trace):
+        """Put the policy's chosen lead in slot 1 before a trainer press.
+
+        SLOT 1 STARTS EVERY BATTLE and nothing outside a faint prompt
+        reorders the party, so whoever the last fight chewed up leads the
+        next one — through a gym's whole chain of trainers and into its
+        leader. The policy's only answer was `switch`, which costs the
+        turn and hands the foe a free hit; v7 spent 200 of them (user,
+        2026-09-15: "before facing a gym leader or elite four member it
+        should be pausing and choosing who to put first").
+
+        Here it costs nothing: the swap happens in the overworld, on the
+        step before the press. Only for a TRAINER, because a wild
+        encounter is not a press and there is nothing to arrange for. The
+        ORDER is the model's; this only carries it out, and says in the
+        trace that it did."""
+        try:
+            name = step.get("name")
+            if not name or not ACTIVE_SPEC:
+                return obs
+            kinds = {o.get("name"): o.get("kind")
+                     for o in ((obs.get("map") or {}).get("objects") or [])}
+            if kinds.get(name) != "trainer":
+                return obs
+            want = battle_policy.choose_lead(obs, ACTIVE_SPEC, "trainer")
+            party = (obs or {}).get("party") or []
+            if not want or want == 1 or want > len(party):
+                return obs
+            who = party[want - 1] or {}
+            was = party[0] or {}
+            self._send_safe("party_swap", a=1, b=want)
+            obs = self.settle() or obs
+            self.log("lead_chosen", subgoal=sg.get("id"), against=name,
+                     slot=want, who=who.get("species"),
+                     was=was.get("species"),
+                     order=(ACTIVE_SPEC.get("lead") or {}).get("order"))
+            trace.append(
+                f"party_swap(1,{want}): {who.get('species')} leads against "
+                f"{name} instead of {was.get('species')} "
+                f"(your policy's lead rule)")
+        except Exception as e:          # a lead is never worth the round
+            self.log("lead_error", err=str(e)[:160])
+        return obs
+
     def _send_safe(self, op, **kw):
         """Bridge send that degrades a timeout to None instead of raising —
         for recovery paths (settle, checkpoints) where an uncaught
@@ -16902,6 +16946,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     continue
                 self._cant_afford.pop(step["item"], None)   # wallet grew
             if op == "interact":
+                obs = self._lead_before_a_fight(obs, step, sg, trace)
                 here_r = self._where(obs)
                 # a press by coordinates is a press of the thing on that
                 # cell (see _name_at): file it under its name
@@ -22054,10 +22099,18 @@ def bootstrap(b: Bridge, cont: bool = False):
             o = b.send("mash_a", times=2) or {}
         else:
             o = b.send("tap", btn="b") or {}
-        if (o or {}).get("mode") == "overworld":
+        # A BATTLE AT LOAD IS A SETTLED STATE, NOT A STUCK ONE. Gen 1
+        # cannot write a save mid-fight, so a battle on the first frames
+        # can only be a trainer's line of sight firing as the world comes
+        # up — which is exactly what a gym arena parked in front of its
+        # leader does. Mashing B at it reaches the overworld never, and
+        # the whole boot was failing "stuck in mode=battle" with the fight
+        # the arena exists for already on screen (2026-09-15). The caller
+        # fights it; every caller already can.
+        if (o or {}).get("mode") in ("overworld", "battle"):
             return
         o = b.obs() or {}
-        if o.get("mode") == "overworld":
+        if o.get("mode") in ("overworld", "battle"):
             return
     raise RuntimeError(
         f"bootstrap failed (stuck in mode={(b.obs() or {}).get('mode')})")

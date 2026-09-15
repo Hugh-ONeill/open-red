@@ -87,8 +87,18 @@ ck("the report says the total out of the arenas that produced it",
    and "erika: 75% of that arena" in A.cross_text("x", STEADY))
 
 # ---- the arenas are the ones the README built -------------------------
-ck("every tier of the game's shelves has an arena",
-   set(A.ARENAS) == {"brock", "pewter", "erika", "koga", "e4"})
+# Every gym in the game, in order, plus the league — and the three
+# hand-built rooms kept under _real names as the control if a built arena
+# ever reads as easier than the game did (2026-09-15).
+GYMS = ["pewter", "cerulean", "vermilion", "celadon", "fuchsia", "saffron",
+        "cinnabar", "viridian"]
+ck("every gym in the game has an arena, in order",
+   all(g in A.ARENAS for g in GYMS) and "e4" in A.ARENAS)
+ck("...each a room scored on its own beat-flags",
+   all(A.ARENAS[g][0] == "gym" and A.ARENAS[g][2] is not None
+       for g in GYMS))
+ck("...and the hand-built ones are kept as a control, not in the sweep",
+   {"erika_real", "koga_real", "brock_real"} <= set(A.ARENAS))
 ck("brock is the one that replays a plan, the rest are savepoints",
    A.ARENAS["brock"][1] is None
    and all(v[1] is not None for k, v in A.ARENAS.items() if k != "brock"))
