@@ -43,14 +43,12 @@
   "money": 15000,
   "start": {
     "map": "VIRIDIAN_GYM",
-    "x": 2,
-    "y": 2,
-    "facing": "down"
+    "x": 16,
+    "y": 17,
+    "facing": "up"
   },
   "clear_flags": [
-    "EVENT_BEAT_GIOVANNI"
-  ],
-  "set_flags": [
+    "EVENT_BEAT_GIOVANNI",
     "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_0",
     "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_1",
     "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_2",
@@ -60,7 +58,8 @@
     "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_6",
     "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_7"
   ],
-  "set_trainers": [
+  "clear_trainers": [
+    "VIRIDIAN_GYM_obj_1",
     "VIRIDIAN_GYM_obj_2",
     "VIRIDIAN_GYM_obj_3",
     "VIRIDIAN_GYM_obj_4",

@@ -215,8 +215,15 @@ GYMS = [
          # A run that reaches Misty without grinding has its starter
          # around 20. Pikachu only ever has THUNDERSHOCK until 26, so the
          # levels are the only lever.
-         party=[("CHARMELEON", 19), ("NIDORINO", 18),
-                ("PIKACHU", 18)],
+         # LIFTED ON EVIDENCE. At 19/18/18 it blacked out in every trial
+         # with medicine AND without, which measures nothing: the party
+         # takes the two gym trainers and loses to STARMIE every time.
+         # Its own history is the guide — it beat Misty at 21/20/19 when
+         # it still had a fourth body, so three need to clear her ace
+         # rather than sit under it. The bag cannot help: Cerulean's
+         # shelf sells POTION and nothing stronger.
+         party=[("CHARMELEON", 22), ("NIDORINO", 21),
+                ("PIKACHU", 21)],
          bag={"POTION": 12, "ANTIDOTE": 2, "PARLYZ_HEAL": 2},
          note="Fire into water, and STARMIE outspeeds all three. Single "
               "tier on purpose: POTION is the only heal a Cerulean-era "
@@ -325,8 +332,15 @@ GYMS = [
     # fight 0/1 with the whole party standing and no blackout, which is
     # what a wrong denominator looks like. The unused name is left alone:
     # the base save has neither set, so there is nothing to clear.
+    # THE WHOLE ROOM, NOT JUST GIOVANNI. Parked in front of him this was
+    # one fight a trial — four points of resolution over four trials, so
+    # a single trial swung the verdict and it read "thin" twice for
+    # opposite reasons (user, 2026-09-15: "we can do similar to saffron
+    # and cinnabar and direct the player to a selection of the trainers
+    # on the way to giovanni"). From the door it holds eight trainers and
+    # him. The floor is spin tiles, which the shim already settles.
     dict(name="viridian", map="VIRIDIAN_GYM", hms=["SURF"], leader="GIOVANNI",
-         ace=50, badges=7, door=(2, 2), puzzle=True, money=15000,
+         ace=50, badges=7, door=(16, 17), puzzle=False, money=15000,
          party=[("CHARIZARD", 41), ("NIDOKING", 39),
                 ("POLIWHIRL", 38)],
          bag={"SUPER_POTION": 2, "HYPER_POTION": 5, "FULL_HEAL": 3,

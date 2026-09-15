@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "CHARMELEON",
-      "level": 19,
+      "level": 22,
       "moves": [
         "SCRATCH",
         "GROWL",
@@ -13,7 +13,7 @@
     },
     {
       "species": "NIDORINO",
-      "level": 18,
+      "level": 21,
       "moves": [
         "LEER",
         "TACKLE",
@@ -24,7 +24,7 @@
     },
     {
       "species": "PIKACHU",
-      "level": 18,
+      "level": 21,
       "moves": [
         "THUNDERSHOCK",
         "GROWL",
