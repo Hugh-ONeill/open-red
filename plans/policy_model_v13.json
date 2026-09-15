@@ -1,0 +1,372 @@
+{
+  "name": "Gen1_Elite_Sustain_v2",
+  "stab": 1.5,
+  "accuracy_weight": true,
+  "prefer_ko": true,
+  "ko_margin": 1.2,
+  "avoid_status_moves": false,
+  "setup": [
+    {
+      "move": "CONFUSE_RAY",
+      "max_uses": 1,
+      "first_turns": 2,
+      "min_hp_frac": 0.5,
+      "vs": "any",
+      "only_if_best_physical": false
+    },
+    {
+      "move": "SLEEP_POWDER",
+      "max_uses": 1,
+      "first_turns": 2,
+      "min_hp_frac": 0.5,
+      "vs": "any",
+      "only_if_best_physical": false
+    }
+  ],
+  "switch": [
+    {
+      "to": "best_matchup",
+      "first_turns": 1,
+      "max_uses": 1,
+      "vs": "trainer",
+      "hp_below": null,
+      "only_if_lead": null,
+      "out_of_pp": false
+    },
+    {
+      "to": "best_matchup",
+      "first_turns": 8,
+      "max_uses": 3,
+      "vs": "trainer",
+      "hp_below": 0.6,
+      "only_if_lead": null,
+      "out_of_pp": false
+    },
+    {
+      "to": "healthiest",
+      "first_turns": 8,
+      "max_uses": 6,
+      "vs": "any",
+      "hp_below": 0.2,
+      "only_if_lead": null,
+      "out_of_pp": true
+    }
+  ],
+  "flee_wild": {
+    "when_traversal": true,
+    "hp_below": 0.3
+  },
+  "battle_items": [
+    {
+      "item": "heal",
+      "prefer": "weakest_sufficient",
+      "hp_below": 0.4,
+      "max_uses": 2,
+      "max_uses_run": 10,
+      "reserve": 2
+    },
+    {
+      "item": "revive",
+      "target": "fainted",
+      "prefer": "weakest_sufficient",
+      "hp_below": 0.0,
+      "max_uses": 3,
+      "max_uses_run": 5,
+      "reserve": 1
+    }
+  ],
+  "field_heal": {
+    "item": "heal",
+    "hp_below": 0.7,
+    "prefer": "weakest_sufficient",
+    "reserve": 2
+  },
+  "field_cure": [
+    {
+      "status": "PSN",
+      "item": "cure"
+    },
+    {
+      "status": "PAR",
+      "item": "cure"
+    },
+    {
+      "status": "BRN",
+      "item": "cure"
+    },
+    {
+      "status": "SLP",
+      "item": "cure"
+    },
+    {
+      "status": "FRZ",
+      "item": "cure"
+    }
+  ],
+  "catch": {
+    "ball": "ball",
+    "throw_at_hp_frac": 0.2,
+    "max_balls": 5
+  },
+  "lead": {
+    "order": "best_matchup",
+    "vs": "trainer",
+    "min_hp_frac": 0.6
+  },
+  "replacement": {
+    "order": "best_matchup",
+    "min_hp_frac": 0.4
+  },
+  "provenance": {
+    "authored_by": "gemma4:31b-it-q4_K_M",
+    "run": "policyv13",
+    "via": "policy_author",
+    "rounds": 4,
+    "eval": {
+      "arena": "e4_real+pewter_ideal+cerulean_ideal+vermilion_ideal+celadon_ideal+fuchsia_ideal+saffron_ideal+viridian_ideal+e4_ideal",
+      "rival_wins": 0,
+      "rival_trials": 0,
+      "pewter": 0,
+      "badge": 0,
+      "gauntlet_trials": 2,
+      "blackouts": 2,
+      "agree": 113,
+      "scored": 184,
+      "dmg_gap": 8425.0,
+      "rival_detail": [],
+      "gauntlet_detail": [
+        "beat 4/5 (stopped in PALLET_TOWN) with 6/6 standing",
+        "beat 4/5 (stopped in PALLET_TOWN) with 6/6 standing"
+      ],
+      "rooms": 8,
+      "bodies": 0.0,
+      "arena_map": "LORELEIS_ROOM",
+      "arena_party": [
+        "KABUTOPS L55 147/147",
+        "LAPRAS L55 224/224",
+        "PIDGEOT L55 172/172",
+        "GLOOM L54 145/145",
+        "DUGTRIO L54 118/118",
+        "CHARIZARD L54 164/164"
+      ],
+      "arenas": {
+        "e4_real": {
+          "arena": "e4",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 2,
+          "agree": 113,
+          "scored": 184,
+          "dmg_gap": 8425.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 4/5 (stopped in PALLET_TOWN) with 6/6 standing",
+            "beat 4/5 (stopped in PALLET_TOWN) with 6/6 standing"
+          ],
+          "rooms": 8,
+          "bodies": 0.0
+        },
+        "pewter_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 21,
+          "scored": 21,
+          "dmg_gap": 0.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 2/2 in PEWTER_GYM with 1/1 standing",
+            "beat 2/2 in PEWTER_GYM with 1/1 standing"
+          ],
+          "beaten": 4,
+          "bodies": 2.0,
+          "standing": 2,
+          "leads": 0
+        },
+        "cerulean_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 30,
+          "scored": 30,
+          "dmg_gap": 0.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 3/3 in CERULEAN_GYM with 1/1 standing",
+            "beat 3/3 in CERULEAN_GYM with 1/1 standing"
+          ],
+          "beaten": 6,
+          "bodies": 2.0,
+          "standing": 3,
+          "leads": 0
+        },
+        "vermilion_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 20,
+          "scored": 30,
+          "dmg_gap": 659.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 4/4 in VERMILION_GYM with 2/2 standing",
+            "beat 4/4 in VERMILION_GYM with 2/2 standing"
+          ],
+          "beaten": 8,
+          "bodies": 2.0,
+          "standing": 4,
+          "leads": 2
+        },
+        "celadon_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 44,
+          "scored": 62,
+          "dmg_gap": 730.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 6/8 in CELADON_GYM with 2/2 standing",
+            "beat 6/8 in CELADON_GYM with 2/2 standing"
+          ],
+          "beaten": 12,
+          "bodies": 2.0,
+          "standing": 8,
+          "leads": 4
+        },
+        "fuchsia_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 1,
+          "agree": 73,
+          "scored": 106,
+          "dmg_gap": 1194.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 5/7 in FUCHSIA_GYM with 2/2 standing (ended in CELADON_POKECENTER)",
+            "beat 6/7 in FUCHSIA_GYM with 1/2 standing"
+          ],
+          "beaten": 11,
+          "bodies": 0.5,
+          "standing": 7,
+          "leads": 4
+        },
+        "saffron_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 2,
+          "agree": 109,
+          "scored": 116,
+          "dmg_gap": 182.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 4/5 in SAFFRON_GYM with 2/2 standing (ended in FUCHSIA_POKECENTER)",
+            "beat 2/5 in SAFFRON_GYM with 2/2 standing (ended in FUCHSIA_POKECENTER)"
+          ],
+          "beaten": 6,
+          "bodies": 0.0,
+          "standing": 5,
+          "leads": 2
+        },
+        "viridian_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 52,
+          "scored": 75,
+          "dmg_gap": 3025.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 9/9 in VIRIDIAN_GYM with 2/2 standing",
+            "beat 9/9 in VIRIDIAN_GYM with 2/2 standing"
+          ],
+          "beaten": 18,
+          "bodies": 2.0,
+          "standing": 9,
+          "leads": 0
+        },
+        "e4_ideal": {
+          "arena": "e4",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 126,
+          "scored": 175,
+          "dmg_gap": 2803.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 5/5 (CHAMPION) with 6/6 standing",
+            "beat 5/5 (CHAMPION) with 6/6 standing"
+          ],
+          "rooms": 10,
+          "bodies": 2.0
+        }
+      },
+      "arena_stamps": {
+        "e4_real": "b30756db5cec",
+        "pewter_ideal": "96854f12baa8",
+        "cerulean_ideal": "7621e2e592d5",
+        "vermilion_ideal": "30c80b0c74cf",
+        "celadon_ideal": "5993a92dbbae",
+        "fuchsia_ideal": "280f5a380e5b",
+        "saffron_ideal": "535228828bdd",
+        "viridian_ideal": "937844e6741c",
+        "e4_ideal": "5d1d7624d0ac"
+      },
+      "cross_total": 8.7456
+    },
+    "baseline_typed_v0": {
+      "arena": "e4",
+      "rival_wins": 0,
+      "rival_trials": 0,
+      "pewter": 0,
+      "badge": 0,
+      "gauntlet_trials": 2,
+      "blackouts": 2,
+      "agree": 91,
+      "scored": 128,
+      "dmg_gap": 6035.0,
+      "rival_detail": [],
+      "gauntlet_detail": [
+        "beat 2/5 (stopped in PALLET_TOWN) with 6/6 standing",
+        "beat 3/5 (stopped in PALLET_TOWN) with 6/6 standing"
+      ],
+      "rooms": 5,
+      "bodies": 0.0
+    }
+  }
+}
