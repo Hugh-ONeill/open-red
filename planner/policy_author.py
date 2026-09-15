@@ -890,12 +890,50 @@ class Gym:
                     res["dmg_gap"] += d.get("dmg_gap") or 0.0
         return res
 
-    def _ride(self, obs):
+    @staticmethod
+    def _battle_mark(obs):
+        """What must change if a fight is going anywhere."""
+        b = (obs or {}).get("battle") or {}
+        foe = b.get("foe") or {}
+        me = b.get("me") or {}
+        return (b.get("enemyIndex"), b.get("partyIndex"),
+                foe.get("hp"), me.get("hp"),
+                sum(m.get("pp") or 0 for m in (foe.get("moves") or [])),
+                tuple((x.get("hp") or 0) for x in ((obs or {}).get("party")
+                                                   or [])))
+
+    def _ride(self, obs, cap: int = 400, still: int = 50):
         """Fight until the overworld: an observation in battle carries no
-        map, and the champion attacks on entry ("stopped in None")."""
-        while (obs or {}).get("mode") == "battle":
+        map, and the champion attacks on entry ("stopped in None").
+
+        A FIGHT THAT CANNOT END MUST STILL END THE TRIAL. This loop was
+        unbounded, and Gen 1 holds positions nothing can resolve: AGATHA's
+        GENGAR against a VAPOREON whose four moves were every one of them
+        at 0 PP, where Struggle is Normal and Normal does nothing at all
+        to a Ghost. Neither side could take a point off the other, the
+        enemy stopped taking turns, and the league sweep sat fifty minutes
+        on one screen with foe HP frozen at 74/151 and the turn counter
+        past 19000 while eight rooms behind it had each taken two minutes
+        (2026-09-15). Give up on a fight that has stopped changing, and on
+        one running far past any real length. The caller then reads an
+        observation with no map in it and scores the trial as stopped
+        here, which is what a policy that cannot finish the fight has
+        earned."""
+        seen, frozen = object(), 0
+        for _ in range(cap):
+            if (obs or {}).get("mode") != "battle":
+                return obs
+            mark = self._battle_mark(obs)
+            frozen = frozen + 1 if mark == seen else 0
+            seen = mark
+            if frozen >= still:
+                print(f"    [gave up on a fight that stopped changing "
+                      f"after {still} turns]", flush=True)
+                return obs
             obs = self.ex.handle_battle({"id": "e4", "done_when": {}}, obs)
             obs = self.ex.settle()
+        print(f"    [gave up on a fight still going after {cap} turns]",
+              flush=True)
         return obs
 
     def eval_spec_e4(self, spec: dict, k: int = 3) -> dict:
