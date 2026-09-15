@@ -137,16 +137,27 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
     the decision and they travel; the item names do not. Name a class.
   battle_items: list of in-battle heal rules, each:
       {"item": "heal", "prefer": "weakest_sufficient",
-       "hp_below": 0.0-1.0, "max_uses": 1-6}
+       "hp_below": 0.0-1.0, "max_uses": 1-6,
+       "max_uses_run": 1-30, "reserve": 0-30}
     (use the item — costing the turn — when own hp fraction is below
      hp_below; at most max_uses per battle, counted per RULE; only if the
      bag has something the rule can reach.
      A rule may add "target": "fainted" — then it fires while ANY party
      member is DOWN and brings one back ("revive") instead of firing on
      the active mon's own HP. A gauntlet with no Pokemon Center in it is
-     lost by running out of BODIES, not only out of HP.)
+     lost by running out of BODIES, not only out of HP.
+     max_uses starts over with EVERY trainer. A gauntlet is several
+     trainers on ONE bag, and nothing refills it between them: five
+     FULL_RESTOREs and "below 40%, three a fight" is the bag gone on the
+     first two trainers and nothing left for the ones that actually beat
+     you. Two ways to plan the whole stretch: max_uses_run caps a rule
+     across every battle until the party is next made whole (a Center, a
+     blackout); reserve makes a rule refuse to fire when it would leave
+     fewer than that many of the item — of the whole class, for a class —
+     in the bag. The bag count is on your screen; how many to hold back
+     for the rooms ahead is your call.)
   field_heal: null or {"item": "heal", "hp_below": 0.0-1.0,
-                       "prefer": ...}
+                       "prefer": ..., "reserve": 0-30}
     (one rule only here — so a class, not a name you may run out of)
     (after a battle ends while traveling: if own hp fraction is below
      hp_below and the bag has something the rule can reach, use it in the
@@ -830,6 +841,7 @@ class Gym:
         for _ in range(k):
             r = self.b.send("checkpoint_restore", token="eval_e4",
                             reseed=True, force=True)
+            battle_policy.reset_run_budget()    # a trial is a fresh bag
             rr = (r or {}).get("result") or {}
             if not rr.get("ok"):
                 raise RuntimeError(f"arena restore failed: {rr.get('detail')}")
@@ -994,6 +1006,7 @@ class Gym:
         for _ in range(k):
             r = self.b.send("checkpoint_restore", token="eval_e4",
                             reseed=True, force=True)
+            battle_policy.reset_run_budget()    # a trial is a fresh bag
             rr = (r or {}).get("result") or {}
             if not rr.get("ok"):
                 raise RuntimeError(f"arena restore failed: {rr.get('detail')}")

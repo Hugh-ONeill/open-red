@@ -47,8 +47,17 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
                                        use a healing item IN battle (costs
                     hp_below: float    the turn) when own hp frac < this
                     prefer: str        which one, when `item` is a CLASS
-                    max_uses: int } ]  per battle (default 2)
-  field_heal: { item: str, hp_below: float, prefer: str } | null
+                    max_uses: int      per battle (default 2)
+                    max_uses_run: int  across EVERY battle since the party
+                                       was last made whole (a Center, a
+                                       blackout, an arena trial); no cap
+                                       unless written
+                    reserve: int } ]   never fire if it would leave fewer
+                                       than this many of the item (of the
+                                       whole class, for a class) in the
+                                       bag (default 0)
+  field_heal: { item: str, hp_below: float, prefer: str,
+                reserve: int } | null
                              after a battle ends, if own hp frac < this and
                              the item is in the bag, use it in the field
                              (no turn cost) before travel resumes
@@ -206,6 +215,38 @@ PREFERENCES = ("weakest_sufficient", "best_available", "weakest_available")
 DEFAULT_PREFER = "weakest_sufficient"
 
 
+# WHAT THIS RUN HAS ALREADY SPENT. `max_uses` is per battle and starts
+# over with every trainer, and a gauntlet is five trainers on one bag:
+# the real-path league (2026-09-15) spent all five FULL_RESTOREs on
+# LORELEI's DEWGONG and BRUNO's ONIX — three and two, in every trial —
+# and walked into LANCE with fainted bodies and nothing to use, exactly
+# like the run it was copied from. Both rooms were won by the arm with
+# NO items at all. Nothing in the spec could say "keep some" or "five
+# for the whole way", so no authored spec could ration, whatever the
+# model had learned. This dict is the run's ledger: the executor hands
+# it to every battle and clears it when the party is made whole (a
+# Center heal, a blackout), the arena runner clears it at every trial.
+RUN_BUDGET: dict = {}
+
+
+def reset_run_budget() -> None:
+    """The party has been made whole: the run's item ledger starts over."""
+    RUN_BUDGET.clear()
+
+
+def bag_holds(name, bag, status=None) -> int:
+    """How many of this item the bag holds — or, for a class, how many of
+    every rung of its ladder together. What a `reserve` is measured
+    against."""
+    n = str(name or "")
+    bag = bag or {}
+    if not n:
+        return 0
+    if not is_item_class(n):
+        return int(bag.get(n, 0) or 0)
+    return sum(int(bag.get(i, 0) or 0) for i in class_ladder(n, status))
+
+
 def is_item_class(name) -> bool:
     return str(name or "") in ITEM_CLASSES
 
@@ -358,6 +399,14 @@ def validate_spec(spec) -> list:
                 if "target" in r and r["target"] not in ("self", "fainted"):
                     probs.append(f"battle_items[{i}].target must be "
                                  "self/fainted")
+                if "max_uses_run" in r and not (
+                        isinstance(r["max_uses_run"], int)
+                        and 1 <= r["max_uses_run"] <= 30):
+                    probs.append(f"battle_items[{i}].max_uses_run int in "
+                                 "[1,30]")
+                if "reserve" in r and not (isinstance(r["reserve"], int)
+                                           and 0 <= r["reserve"] <= 30):
+                    probs.append(f"battle_items[{i}].reserve int in [0,30]")
     if "field_heal" in spec and spec["field_heal"] is not None:
         fh = spec["field_heal"]
         if not isinstance(fh, dict) or not fh.get("item"):
@@ -368,6 +417,9 @@ def validate_spec(spec) -> list:
             if hb is not None and not (isinstance(hb, (int, float))
                                        and 0.0 <= hb <= 1.0):
                 probs.append("field_heal.hp_below in [0,1]")
+            if "reserve" in fh and not (isinstance(fh["reserve"], int)
+                                        and 0 <= fh["reserve"] <= 30):
+                probs.append("field_heal.reserve int in [0,30]")
     if "field_cure" in spec:
         if not isinstance(spec["field_cure"], list):
             probs.append("field_cure must be a list")
@@ -576,6 +628,8 @@ def should_field_heal(obs: dict,
         return None
     item = resolve_item(fh.get("item"), bag, fh.get("prefer")
                         or DEFAULT_PREFER, missing=missing)
+    if item and bag_holds(fh.get("item"), bag) - 1 < int(fh.get("reserve") or 0):
+        return None
     return (item, slot) if item else None
 
 
@@ -887,6 +941,16 @@ def choose(obs: dict, spec: dict | None = None,
                       else str(rule.get("item") or ""))
         if items_used.get(budget_key, 0) >= rule.get("max_uses", 2):
             continue
+        # ...AND A RUN SPENDS ITS BUDGET ACROSS EVERY BATTLE IN IT. The
+        # ledger is shared by every battle until the party is made whole
+        # (see RUN_BUDGET); a rule without max_uses_run is uncapped there,
+        # as every rule was before.
+        run_used = ctx.get("items_used_run")
+        if run_used is None:
+            run_used = ctx["items_used_run"] = RUN_BUDGET
+        _cap = rule.get("max_uses_run")
+        if _cap and run_used.get(budget_key, 0) >= int(_cap):
+            continue
         # A REVIVE IS FOR SOMEONE ELSE. Every rule gated on the ACTIVE
         # mon's HP and the op then targeted whoever was first in the
         # party, so "bring a fainted one back" could not be written at
@@ -926,7 +990,13 @@ def choose(obs: dict, spec: dict | None = None,
                             status=_status, missing=missing)
         if not item:
             continue
+        # A RESERVE IS WHAT YOU DO NOT SPEND HERE. The bag count is on
+        # the screen; how many to hold back for the rooms ahead is the
+        # rule's own number.
+        if bag_holds(rule.get("item"), bag, _status) - 1 < int(rule.get("reserve") or 0):
+            continue
         items_used[budget_key] = items_used.get(budget_key, 0) + 1
+        run_used[budget_key] = run_used.get(budget_key, 0) + 1
         return {"op": "battle_item", "item": item, "target": target,
                 "_why": (f"revive with {item}" if target == "fainted"
                          else f"cure {_status} with {item}" if _status

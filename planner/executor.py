@@ -1300,7 +1300,10 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
     picks = 0
     op_fails = 0
     ctx = {"turn": 0, "used": {}, "intent": intent,
-           "journal": DAMAGE_JOURNAL, "want": want}
+           "journal": DAMAGE_JOURNAL, "want": want,
+           # the run's item ledger, shared across battles until the party
+           # is made whole (battle_policy.RUN_BUDGET; see log())
+           "items_used_run": battle_policy.RUN_BUDGET}
     while obs and turns < max_turns:
         # THE FORCED PICK UNDER A BATTLE FRAME. Since a menu over a fight
         # reports the fight (battle_under_a_menu, 2026-08-26), "Use next
@@ -15097,6 +15100,12 @@ class Executor:
             {"dt": round(time.time() - self.t0, 1),
              "t": round(time.time(), 1), "kind": kind, **kw}) + "\n")
         self.logf.flush()
+        # THE PARTY MADE WHOLE STARTS THE RUN'S ITEM LEDGER OVER. A rule's
+        # max_uses_run counts across every battle since the last Center
+        # heal or blackout — the stretch a bag has to last — and both of
+        # those are journalled here and nowhere else.
+        if kind == "blackout" or (kind == "heal_done" and kw.get("ok")):
+            battle_policy.reset_run_budget()
 
     def handle_battle(self, subgoal: dict, obs: dict) -> dict:
         # traversal (spec-rule wild fleeing) is the DEFAULT: journey
