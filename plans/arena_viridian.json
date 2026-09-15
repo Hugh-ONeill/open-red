@@ -2,18 +2,18 @@
   "party": [
     {
       "species": "CHARIZARD",
-      "level": 48,
+      "level": 45,
       "moves": [
+        "EMBER",
         "LEER",
         "RAGE",
-        "SLASH",
-        "FLAMETHROWER"
+        "SLASH"
       ],
       "nickname": "CHARIZARD"
     },
     {
       "species": "NIDOKING",
-      "level": 45,
+      "level": 43,
       "moves": [
         "TACKLE",
         "HORN_ATTACK",
@@ -23,30 +23,8 @@
       "nickname": "NIDOKING"
     },
     {
-      "species": "EEVEE",
-      "level": 38,
-      "moves": [
-        "SAND_ATTACK",
-        "QUICK_ATTACK",
-        "TAIL_WHIP",
-        "BITE"
-      ],
-      "nickname": "EEVEE"
-    },
-    {
-      "species": "FARFETCHD",
-      "level": 36,
-      "moves": [
-        "LEER",
-        "FURY_ATTACK",
-        "SWORDS_DANCE",
-        "CUT"
-      ],
-      "nickname": "FARFETCHD"
-    },
-    {
       "species": "POLIWHIRL",
-      "level": 44,
+      "level": 42,
       "moves": [
         "WATER_GUN",
         "DOUBLESLAP",

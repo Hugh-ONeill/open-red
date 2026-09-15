@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "CHARMELEON",
-      "level": 21,
+      "level": 19,
       "moves": [
         "SCRATCH",
         "GROWL",
@@ -13,7 +13,7 @@
     },
     {
       "species": "NIDORINO",
-      "level": 20,
+      "level": 18,
       "moves": [
         "LEER",
         "TACKLE",
@@ -23,18 +23,8 @@
       "nickname": "NIDORINO"
     },
     {
-      "species": "PIDGEOTTO",
-      "level": 19,
-      "moves": [
-        "GUST",
-        "SAND_ATTACK",
-        "QUICK_ATTACK"
-      ],
-      "nickname": "PIDGEOTTO"
-    },
-    {
       "species": "PIKACHU",
-      "level": 20,
+      "level": 18,
       "moves": [
         "THUNDERSHOCK",
         "GROWL",

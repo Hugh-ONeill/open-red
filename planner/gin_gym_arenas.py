@@ -19,6 +19,17 @@ So each arena here is BUILT, not found:
     ones: level-1 moves plus everything learned at or below that level,
     last four kept, straight out of the engine's own learnset. Nothing is
     hand-picked to make a fight winnable.
+  * THREE POKEMON, AND UNDER THE LEADER. With four or five bodies and a
+    lead level with the ace, eight of the nine arenas were swept by every
+    candidate once the policies could lead and switch by type — the
+    capability worked and the measurement stopped (2026-09-15, user: "we
+    have to ensure each fight is still challenging, so we should either
+    have less mons or lower levels until it essentially forces usage of
+    items to not die"). Three is the smallest party that still holds a
+    starter, a counter and one spare, and the lead sits three to five
+    levels under the leader's ace. The calibration target is exact: a
+    spec that can reach its medicine should take the room, and the SAME
+    spec with its item rules stripped should not.
   * ONE COUNTER PER ROOM, and never in slot 1. Each party carries a
     Pokemon that is super effective against that gym, sitting on the
     bench: Mankey's KARATE_CHOP for Brock's rock, Pikachu for Misty,
@@ -177,8 +188,8 @@ def pick_base(want_badges: int) -> Path | None:
 GYMS = [
     dict(name="pewter", map="PEWTER_GYM", leader="BROCK", ace=14,
          badges=0, door=(4, 13), puzzle=False, money=1500,
-         party=[("CHARMANDER", 12), ("NIDORAN_M", 11), ("PIDGEY", 10),
-                ("MANKEY", 15)],
+         party=[("CHARMANDER", 11), ("NIDORAN_M", 10),
+                ("MANKEY", 13)],
          bag={"POTION": 5, "ANTIDOTE": 1},
          note="Charmander's Ember is halved by ONIX's rock and its "
               "defence is the wall it is; four Potions and a Nidoran's "
@@ -192,8 +203,8 @@ GYMS = [
          # A run that reaches Misty without grinding has its starter
          # around 20. Pikachu only ever has THUNDERSHOCK until 26, so the
          # levels are the only lever.
-         party=[("CHARMELEON", 21), ("NIDORINO", 20), ("PIDGEOTTO", 19),
-                ("PIKACHU", 20)],
+         party=[("CHARMELEON", 19), ("NIDORINO", 18),
+                ("PIKACHU", 18)],
          bag={"POTION": 8, "ANTIDOTE": 2, "PARLYZ_HEAL": 1},
          note="Fire into water, and STARMIE outspeeds all three. Single "
               "tier on purpose: POTION is the only heal a Cerulean-era "
@@ -208,8 +219,8 @@ GYMS = [
     dict(name="vermilion", map="VERMILION_GYM", leader="LT_SURGE", ace=24,
          badges=2, door=(4, 17), puzzle=False, money=4200,
          open_flags=["EVENT_1ST_LOCK_OPENED", "EVENT_2ND_LOCK_OPENED"],
-         party=[("CHARMELEON", 23), ("NIDORINO", 21), ("PIDGEOTTO", 20),
-                ("DIGLETT", 20)],
+         party=[("CHARMELEON", 21), ("NIDORINO", 20),
+                ("DIGLETT", 19)],
          bag={"POTION": 5, "SUPER_POTION": 3, "PARLYZ_HEAL": 3,
               "ANTIDOTE": 1},
          note="The first mixed-tier bag, because Vermilion is where "
@@ -217,9 +228,8 @@ GYMS = [
               "has something to do."),
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
          badges=3, door=(4, 17), puzzle=False, money=6000,
-         party=[("CHARMELEON", 28), ("NIDORINO", 27), ("FARFETCHD", 24),
-                ("EEVEE", 22),
-                ("BEEDRILL", 25)],
+         party=[("CHARMELEON", 26), ("NIDORINO", 25),
+                ("BEEDRILL", 24)],
          bag={"POTION": 4, "SUPER_POTION": 4, "ANTIDOTE": 2,
               "PARLYZ_HEAL": 2, "REVIVE": 1},
          note="Farfetch'd carries CUT because Erika and her last three "
@@ -227,9 +237,8 @@ GYMS = [
               "VILEPLUME's SLEEP_POWDER is the attrition."),
     dict(name="fuchsia", map="FUCHSIA_GYM", leader="KOGA", ace=43,
          badges=4, door=(4, 17), puzzle=False, money=9000,
-         party=[("CHARIZARD", 38), ("NIDORINO", 34), ("FARFETCHD", 30),
-                ("EEVEE", 28),
-                ("KADABRA", 34)],
+         party=[("CHARIZARD", 37), ("NIDORINO", 33),
+                ("KADABRA", 33)],
          bag={"POTION": 3, "SUPER_POTION": 5, "FULL_HEAL": 2, "REVIVE": 2,
               "ANTIDOTE": 2},
          note="Two members badly under level and a room that poisons: "
@@ -237,18 +246,16 @@ GYMS = [
               "rule is for."),
     dict(name="saffron", map="SAFFRON_GYM", leader="SABRINA", ace=43,
          badges=5, door=(9, 9), puzzle=True, money=11000,
-         party=[("CHARIZARD", 41), ("NIDOKING", 38), ("FARFETCHD", 32),
-                ("EEVEE", 30),
-                ("BEEDRILL", 36)],
+         party=[("CHARIZARD", 39), ("NIDOKING", 36),
+                ("BEEDRILL", 34)],
          bag={"SUPER_POTION": 4, "HYPER_POTION": 3, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="ALAKAZAM against a poison type is the worst matchup in the "
               "list, and three heal tiers to choose between."),
     dict(name="cinnabar", map="CINNABAR_GYM", leader="BLAINE", ace=47,
          badges=6, door=(3, 4), puzzle=True, money=13000,
-         party=[("CHARIZARD", 44), ("NIDOKING", 42), ("EEVEE", 34),
-                ("FARFETCHD", 34),
-                ("POLIWHIRL", 40)],
+         party=[("CHARIZARD", 42), ("NIDOKING", 40),
+                ("POLIWHIRL", 38)],
          bag={"SUPER_POTION": 3, "HYPER_POTION": 4, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="Fire into fire: Charizard resists what ARCANINE throws and "
@@ -262,9 +269,8 @@ GYMS = [
     # the base save has neither set, so there is nothing to clear.
     dict(name="viridian", map="VIRIDIAN_GYM", leader="GIOVANNI",
          ace=50, badges=7, door=(2, 2), puzzle=True, money=15000,
-         party=[("CHARIZARD", 48), ("NIDOKING", 45), ("EEVEE", 38),
-                ("FARFETCHD", 36),
-                ("POLIWHIRL", 44)],
+         party=[("CHARIZARD", 45), ("NIDOKING", 43),
+                ("POLIWHIRL", 42)],
          bag={"SUPER_POTION": 2, "HYPER_POTION": 5, "FULL_HEAL": 3,
               "REVIVE": 2},
          note="RHYDON L50 hits a Charizard four times over with rock. The "

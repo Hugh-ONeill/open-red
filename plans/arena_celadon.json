@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "CHARMELEON",
-      "level": 28,
+      "level": 26,
       "moves": [
         "GROWL",
         "EMBER",
@@ -13,7 +13,7 @@
     },
     {
       "species": "NIDORINO",
-      "level": 27,
+      "level": 25,
       "moves": [
         "TACKLE",
         "HORN_ATTACK",
@@ -23,33 +23,12 @@
       "nickname": "NIDORINO"
     },
     {
-      "species": "FARFETCHD",
-      "level": 24,
-      "moves": [
-        "SAND_ATTACK",
-        "LEER",
-        "FURY_ATTACK",
-        "CUT"
-      ],
-      "nickname": "FARFETCHD"
-    },
-    {
-      "species": "EEVEE",
-      "level": 22,
-      "moves": [
-        "TACKLE",
-        "SAND_ATTACK"
-      ],
-      "nickname": "EEVEE"
-    },
-    {
       "species": "BEEDRILL",
-      "level": 25,
+      "level": 24,
       "moves": [
         "FURY_ATTACK",
         "FOCUS_ENERGY",
-        "TWINEEDLE",
-        "RAGE"
+        "TWINEEDLE"
       ],
       "nickname": "BEEDRILL"
     }

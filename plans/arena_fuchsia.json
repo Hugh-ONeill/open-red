@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "CHARIZARD",
-      "level": 38,
+      "level": 37,
       "moves": [
         "EMBER",
         "LEER",
@@ -13,7 +13,7 @@
     },
     {
       "species": "NIDORINO",
-      "level": 34,
+      "level": 33,
       "moves": [
         "HORN_ATTACK",
         "POISON_STING",
@@ -23,29 +23,8 @@
       "nickname": "NIDORINO"
     },
     {
-      "species": "FARFETCHD",
-      "level": 30,
-      "moves": [
-        "SAND_ATTACK",
-        "LEER",
-        "FURY_ATTACK",
-        "CUT"
-      ],
-      "nickname": "FARFETCHD"
-    },
-    {
-      "species": "EEVEE",
-      "level": 28,
-      "moves": [
-        "TACKLE",
-        "SAND_ATTACK",
-        "QUICK_ATTACK"
-      ],
-      "nickname": "EEVEE"
-    },
-    {
       "species": "KADABRA",
-      "level": 34,
+      "level": 33,
       "moves": [
         "CONFUSION",
         "DISABLE",

@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "CHARMANDER",
-      "level": 12,
+      "level": 11,
       "moves": [
         "SCRATCH",
         "GROWL",
@@ -12,7 +12,7 @@
     },
     {
       "species": "NIDORAN_M",
-      "level": 11,
+      "level": 10,
       "moves": [
         "LEER",
         "TACKLE",
@@ -21,21 +21,11 @@
       "nickname": "NIDORAN_M"
     },
     {
-      "species": "PIDGEY",
-      "level": 10,
-      "moves": [
-        "GUST",
-        "SAND_ATTACK"
-      ],
-      "nickname": "PIDGEY"
-    },
-    {
       "species": "MANKEY",
-      "level": 15,
+      "level": 13,
       "moves": [
         "SCRATCH",
-        "LEER",
-        "KARATE_CHOP"
+        "LEER"
       ],
       "nickname": "MANKEY"
     }
