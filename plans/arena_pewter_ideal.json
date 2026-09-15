@@ -1,0 +1,33 @@
+{
+  "party": [
+    {
+      "species": "SQUIRTLE",
+      "level": 10,
+      "moves": [
+        "TACKLE",
+        "TAIL_WHIP",
+        "BUBBLE"
+      ],
+      "nickname": "SQUIRTLE"
+    }
+  ],
+  "bag": {
+    "POTION": 8
+  },
+  "money": 2000,
+  "start": {
+    "map": "PEWTER_GYM",
+    "x": 4,
+    "y": 13,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_BROCK",
+    "EVENT_BEAT_PEWTER_GYM_TRAINER_0"
+  ],
+  "clear_trainers": [
+    "PEWTER_GYM_obj_1",
+    "PEWTER_GYM_obj_2",
+    "PEWTER_GYM_obj_3"
+  ]
+}

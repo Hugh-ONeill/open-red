@@ -1,0 +1,69 @@
+{
+  "party": [
+    {
+      "species": "ODDISH",
+      "level": 19,
+      "moves": [
+        "ABSORB",
+        "POISONPOWDER",
+        "STUN_SPORE",
+        "SLEEP_POWDER"
+      ],
+      "nickname": "ODDISH"
+    },
+    {
+      "species": "CHARMELEON",
+      "level": 26,
+      "moves": [
+        "GROWL",
+        "EMBER",
+        "LEER",
+        "RAGE"
+      ],
+      "nickname": "CHARMELEON"
+    },
+    {
+      "species": "RATICATE",
+      "level": 21,
+      "moves": [
+        "TACKLE",
+        "TAIL_WHIP",
+        "QUICK_ATTACK",
+        "HYPER_FANG"
+      ],
+      "nickname": "RATICATE"
+    },
+    {
+      "species": "JIGGLYPUFF",
+      "level": 17,
+      "moves": [
+        "SING",
+        "POUND",
+        "DISABLE"
+      ],
+      "nickname": "JIGGLYPUFF"
+    }
+  ],
+  "bag": {
+    "POTION": 5,
+    "ANTIDOTE": 1
+  },
+  "money": 2400,
+  "start": {
+    "map": "CERULEAN_GYM",
+    "x": 4,
+    "y": 13,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_MISTY",
+    "EVENT_BEAT_CERULEAN_GYM_TRAINER_0",
+    "EVENT_BEAT_CERULEAN_GYM_TRAINER_1"
+  ],
+  "clear_trainers": [
+    "CERULEAN_GYM_obj_1",
+    "CERULEAN_GYM_obj_2",
+    "CERULEAN_GYM_obj_3",
+    "CERULEAN_GYM_obj_4"
+  ]
+}

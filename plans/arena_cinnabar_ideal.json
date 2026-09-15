@@ -1,0 +1,52 @@
+{
+  "party": [
+    {
+      "species": "STARMIE",
+      "level": 42,
+      "moves": [
+        "TACKLE",
+        "WATER_GUN",
+        "HARDEN",
+        "SURF"
+      ],
+      "nickname": "STARMIE"
+    },
+    {
+      "species": "CHARIZARD",
+      "level": 42,
+      "moves": [
+        "EMBER",
+        "LEER",
+        "RAGE",
+        "SLASH"
+      ],
+      "nickname": "CHARIZARD"
+    }
+  ],
+  "bag": {
+    "HYPER_POTION": 8,
+    "BURN_HEAL": 3,
+    "REVIVE": 3
+  },
+  "money": 40000,
+  "start": {
+    "map": "CINNABAR_GYM",
+    "x": 16,
+    "y": 17,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_BLAINE"
+  ],
+  "clear_trainers": [
+    "CINNABAR_GYM_obj_1",
+    "CINNABAR_GYM_obj_2",
+    "CINNABAR_GYM_obj_3",
+    "CINNABAR_GYM_obj_4",
+    "CINNABAR_GYM_obj_5",
+    "CINNABAR_GYM_obj_6",
+    "CINNABAR_GYM_obj_7",
+    "CINNABAR_GYM_obj_8",
+    "CINNABAR_GYM_obj_9"
+  ]
+}

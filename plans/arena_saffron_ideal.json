@@ -1,0 +1,63 @@
+{
+  "party": [
+    {
+      "species": "SNORLAX",
+      "level": 38,
+      "moves": [
+        "HEADBUTT",
+        "AMNESIA",
+        "REST",
+        "BODY_SLAM"
+      ],
+      "nickname": "SNORLAX"
+    },
+    {
+      "species": "CHARIZARD",
+      "level": 38,
+      "moves": [
+        "EMBER",
+        "LEER",
+        "RAGE",
+        "SLASH"
+      ],
+      "nickname": "CHARIZARD"
+    }
+  ],
+  "bag": {
+    "HYPER_POTION": 8,
+    "FULL_HEAL": 3,
+    "REVIVE": 3
+  },
+  "money": 30000,
+  "start": {
+    "map": "SAFFRON_GYM",
+    "x": 8,
+    "y": 17,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_SABRINA",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_0",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_1",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_2",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_3",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_4",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_5",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_6"
+  ],
+  "clear_trainers": [
+    "SAFFRON_GYM_obj_1",
+    "SAFFRON_GYM_obj_2",
+    "SAFFRON_GYM_obj_3",
+    "SAFFRON_GYM_obj_4",
+    "SAFFRON_GYM_obj_5",
+    "SAFFRON_GYM_obj_6",
+    "SAFFRON_GYM_obj_7",
+    "SAFFRON_GYM_obj_8",
+    "SAFFRON_GYM_obj_9"
+  ],
+  "fights": 5,
+  "score_flags": [
+    "EVENT_BEAT_SABRINA"
+  ]
+}

@@ -2,39 +2,19 @@
   "party": [
     {
       "species": "CHARMANDER",
-      "level": 11,
+      "level": 14,
       "moves": [
         "SCRATCH",
         "GROWL",
         "EMBER"
       ],
       "nickname": "CHARMANDER"
-    },
-    {
-      "species": "NIDORAN_M",
-      "level": 10,
-      "moves": [
-        "LEER",
-        "TACKLE",
-        "HORN_ATTACK"
-      ],
-      "nickname": "NIDORAN_M"
-    },
-    {
-      "species": "MANKEY",
-      "level": 13,
-      "moves": [
-        "SCRATCH",
-        "LEER"
-      ],
-      "nickname": "MANKEY"
     }
   ],
   "bag": {
-    "POTION": 5,
-    "ANTIDOTE": 1
+    "POTION": 5
   },
-  "money": 1500,
+  "money": 1600,
   "start": {
     "map": "PEWTER_GYM",
     "x": 4,

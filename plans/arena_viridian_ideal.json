@@ -1,0 +1,62 @@
+{
+  "party": [
+    {
+      "species": "STARMIE",
+      "level": 45,
+      "moves": [
+        "TACKLE",
+        "WATER_GUN",
+        "HARDEN",
+        "SURF"
+      ],
+      "nickname": "STARMIE"
+    },
+    {
+      "species": "CHARIZARD",
+      "level": 45,
+      "moves": [
+        "EMBER",
+        "LEER",
+        "RAGE",
+        "SLASH"
+      ],
+      "nickname": "CHARIZARD"
+    }
+  ],
+  "bag": {
+    "HYPER_POTION": 8,
+    "FULL_HEAL": 3,
+    "REVIVE": 3
+  },
+  "money": 50000,
+  "start": {
+    "map": "VIRIDIAN_GYM",
+    "x": 16,
+    "y": 17,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_GIOVANNI",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_0",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_1",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_2",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_3",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_4",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_5",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_6",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_7"
+  ],
+  "clear_trainers": [
+    "VIRIDIAN_GYM_obj_1",
+    "VIRIDIAN_GYM_obj_2",
+    "VIRIDIAN_GYM_obj_3",
+    "VIRIDIAN_GYM_obj_4",
+    "VIRIDIAN_GYM_obj_5",
+    "VIRIDIAN_GYM_obj_6",
+    "VIRIDIAN_GYM_obj_7",
+    "VIRIDIAN_GYM_obj_8",
+    "VIRIDIAN_GYM_obj_9",
+    "VIRIDIAN_GYM_obj_10",
+    "VIRIDIAN_GYM_obj_11"
+  ]
+}

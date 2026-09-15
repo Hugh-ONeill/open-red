@@ -1,79 +1,75 @@
 {
   "party": [
     {
-      "species": "CHARIZARD",
-      "level": 41,
+      "species": "DUGTRIO",
+      "level": 50,
       "moves": [
-        "EMBER",
-        "LEER",
-        "RAGE",
-        "SLASH"
+        "DIG",
+        "SAND_ATTACK",
+        "SLASH",
+        "EARTHQUAKE"
       ],
-      "nickname": "CHARIZARD"
+      "nickname": "DUGTRIO"
     },
     {
-      "species": "NIDOKING",
-      "level": 39,
+      "species": "GLOOM",
+      "level": 48,
       "moves": [
-        "TACKLE",
-        "HORN_ATTACK",
-        "POISON_STING",
+        "STUN_SPORE",
+        "SLEEP_POWDER",
+        "ACID",
+        "PETAL_DANCE"
+      ],
+      "nickname": "GLOOM"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 50,
+      "moves": [
+        "QUICK_ATTACK",
+        "WHIRLWIND",
+        "WING_ATTACK",
+        "AGILITY"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "KABUTO",
+      "level": 30,
+      "moves": [
+        "SCRATCH",
+        "HARDEN",
         "SURF"
       ],
-      "nickname": "NIDOKING"
+      "nickname": "KABUTO"
     },
     {
-      "species": "POLIWHIRL",
-      "level": 38,
+      "species": "LAPRAS",
+      "level": 48,
       "moves": [
-        "HYPNOSIS",
-        "WATER_GUN",
-        "DOUBLESLAP",
-        "BODY_SLAM"
+        "BODY_SLAM",
+        "CONFUSE_RAY",
+        "ICE_BEAM",
+        "HYDRO_PUMP"
       ],
-      "nickname": "POLIWHIRL"
+      "nickname": "LAPRAS"
     },
     {
       "species": "RATICATE",
-      "level": 40,
+      "level": 45,
       "moves": [
-        "TAIL_WHIP",
         "QUICK_ATTACK",
         "HYPER_FANG",
-        "FOCUS_ENERGY"
+        "FOCUS_ENERGY",
+        "SUPER_FANG"
       ],
       "nickname": "RATICATE"
-    },
-    {
-      "species": "GRAVELER",
-      "level": 37,
-      "moves": [
-        "ROCK_THROW",
-        "SELFDESTRUCT",
-        "HARDEN",
-        "EARTHQUAKE"
-      ],
-      "nickname": "GRAVELER"
-    },
-    {
-      "species": "KADABRA",
-      "level": 37,
-      "moves": [
-        "CONFUSION",
-        "DISABLE",
-        "PSYBEAM",
-        "RECOVER"
-      ],
-      "nickname": "KADABRA"
     }
   ],
   "bag": {
-    "SUPER_POTION": 2,
-    "HYPER_POTION": 5,
-    "FULL_HEAL": 3,
-    "REVIVE": 2
+    "HYPER_POTION": 5
   },
-  "money": 15000,
+  "money": 69000,
   "start": {
     "map": "VIRIDIAN_GYM",
     "x": 16,

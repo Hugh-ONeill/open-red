@@ -1,0 +1,93 @@
+{
+  "party": [
+    {
+      "species": "DUGTRIO",
+      "level": 47,
+      "moves": [
+        "DIG",
+        "SAND_ATTACK",
+        "SLASH",
+        "EARTHQUAKE"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "GLOOM",
+      "level": 48,
+      "moves": [
+        "STUN_SPORE",
+        "SLEEP_POWDER",
+        "ACID",
+        "PETAL_DANCE"
+      ],
+      "nickname": "GLOOM"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 50,
+      "moves": [
+        "QUICK_ATTACK",
+        "WHIRLWIND",
+        "WING_ATTACK",
+        "AGILITY"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "KABUTO",
+      "level": 30,
+      "moves": [
+        "SCRATCH",
+        "HARDEN",
+        "SURF"
+      ],
+      "nickname": "KABUTO"
+    },
+    {
+      "species": "LAPRAS",
+      "level": 48,
+      "moves": [
+        "BODY_SLAM",
+        "CONFUSE_RAY",
+        "ICE_BEAM",
+        "HYDRO_PUMP"
+      ],
+      "nickname": "LAPRAS"
+    },
+    {
+      "species": "RATICATE",
+      "level": 45,
+      "moves": [
+        "QUICK_ATTACK",
+        "HYPER_FANG",
+        "FOCUS_ENERGY",
+        "SUPER_FANG"
+      ],
+      "nickname": "RATICATE"
+    }
+  ],
+  "bag": {
+    "HYPER_POTION": 5
+  },
+  "money": 57000,
+  "start": {
+    "map": "CINNABAR_GYM",
+    "x": 16,
+    "y": 17,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_BLAINE"
+  ],
+  "clear_trainers": [
+    "CINNABAR_GYM_obj_1",
+    "CINNABAR_GYM_obj_2",
+    "CINNABAR_GYM_obj_3",
+    "CINNABAR_GYM_obj_4",
+    "CINNABAR_GYM_obj_5",
+    "CINNABAR_GYM_obj_6",
+    "CINNABAR_GYM_obj_7",
+    "CINNABAR_GYM_obj_8",
+    "CINNABAR_GYM_obj_9"
+  ]
+}

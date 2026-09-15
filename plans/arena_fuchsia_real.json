@@ -1,80 +1,76 @@
 {
   "party": [
     {
-      "species": "CHARIZARD",
-      "level": 37,
-      "moves": [
-        "EMBER",
-        "LEER",
-        "RAGE",
-        "SLASH"
-      ],
-      "nickname": "CHARIZARD"
-    },
-    {
-      "species": "NIDORINO",
-      "level": 33,
-      "moves": [
-        "HORN_ATTACK",
-        "POISON_STING",
-        "FOCUS_ENERGY",
-        "FURY_ATTACK"
-      ],
-      "nickname": "NIDORINO"
-    },
-    {
-      "species": "KADABRA",
-      "level": 33,
-      "moves": [
-        "CONFUSION",
-        "DISABLE",
-        "PSYBEAM",
-        "RECOVER"
-      ],
-      "nickname": "KADABRA"
-    },
-    {
       "species": "PIDGEOT",
-      "level": 34,
+      "level": 47,
       "moves": [
-        "SAND_ATTACK",
         "QUICK_ATTACK",
         "WHIRLWIND",
-        "WING_ATTACK"
+        "WING_ATTACK",
+        "AGILITY"
       ],
       "nickname": "PIDGEOT"
     },
     {
-      "species": "PRIMEAPE",
-      "level": 30,
+      "species": "GLOOM",
+      "level": 44,
+      "moves": [
+        "STUN_SPORE",
+        "SLEEP_POWDER",
+        "ACID",
+        "PETAL_DANCE"
+      ],
+      "nickname": "GLOOM"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 46,
+      "moves": [
+        "GROWL",
+        "DIG",
+        "SAND_ATTACK",
+        "SLASH"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "CHARIZARD",
+      "level": 46,
       "moves": [
         "LEER",
-        "KARATE_CHOP",
-        "FURY_SWIPES",
-        "FOCUS_ENERGY"
+        "RAGE",
+        "SLASH",
+        "FLAMETHROWER"
       ],
-      "nickname": "PRIMEAPE"
+      "nickname": "CHARIZARD"
     },
     {
       "species": "RATICATE",
-      "level": 26,
+      "level": 40,
       "moves": [
-        "TACKLE",
         "TAIL_WHIP",
         "QUICK_ATTACK",
-        "HYPER_FANG"
+        "HYPER_FANG",
+        "FOCUS_ENERGY"
       ],
       "nickname": "RATICATE"
+    },
+    {
+      "species": "JIGGLYPUFF",
+      "level": 35,
+      "moves": [
+        "DEFENSE_CURL",
+        "DOUBLESLAP",
+        "REST",
+        "BODY_SLAM"
+      ],
+      "nickname": "JIGGLYPUFF"
     }
   ],
   "bag": {
-    "POTION": 3,
-    "SUPER_POTION": 12,
-    "FULL_HEAL": 2,
-    "REVIVE": 2,
-    "ANTIDOTE": 2
+    "SUPER_POTION": 5
   },
-  "money": 12000,
+  "money": 12800,
   "start": {
     "map": "FUCHSIA_GYM",
     "x": 4,

@@ -1,0 +1,105 @@
+{
+  "party": [
+    {
+      "species": "PIDGEOT",
+      "level": 45,
+      "moves": [
+        "QUICK_ATTACK",
+        "WHIRLWIND",
+        "WING_ATTACK",
+        "AGILITY"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "GLOOM",
+      "level": 43,
+      "moves": [
+        "STUN_SPORE",
+        "SLEEP_POWDER",
+        "ACID",
+        "PETAL_DANCE"
+      ],
+      "nickname": "GLOOM"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 44,
+      "moves": [
+        "GROWL",
+        "DIG",
+        "SAND_ATTACK",
+        "SLASH"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "CHARIZARD",
+      "level": 46,
+      "moves": [
+        "LEER",
+        "RAGE",
+        "SLASH",
+        "FLAMETHROWER"
+      ],
+      "nickname": "CHARIZARD"
+    },
+    {
+      "species": "RATICATE",
+      "level": 36,
+      "moves": [
+        "TAIL_WHIP",
+        "QUICK_ATTACK",
+        "HYPER_FANG",
+        "FOCUS_ENERGY"
+      ],
+      "nickname": "RATICATE"
+    },
+    {
+      "species": "JIGGLYPUFF",
+      "level": 35,
+      "moves": [
+        "DEFENSE_CURL",
+        "DOUBLESLAP",
+        "REST",
+        "BODY_SLAM"
+      ],
+      "nickname": "JIGGLYPUFF"
+    }
+  ],
+  "bag": {
+    "HYPER_POTION": 5
+  },
+  "money": 34500,
+  "start": {
+    "map": "SAFFRON_GYM",
+    "x": 8,
+    "y": 17,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_SABRINA",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_0",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_1",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_2",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_3",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_4",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_5",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_6"
+  ],
+  "clear_trainers": [
+    "SAFFRON_GYM_obj_1",
+    "SAFFRON_GYM_obj_2",
+    "SAFFRON_GYM_obj_3",
+    "SAFFRON_GYM_obj_4",
+    "SAFFRON_GYM_obj_5",
+    "SAFFRON_GYM_obj_6",
+    "SAFFRON_GYM_obj_7",
+    "SAFFRON_GYM_obj_8",
+    "SAFFRON_GYM_obj_9"
+  ],
+  "fights": 5,
+  "score_flags": [
+    "EVENT_BEAT_SABRINA"
+  ]
+}

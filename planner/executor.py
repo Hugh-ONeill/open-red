@@ -689,6 +689,29 @@ SAVE_PATH = Path(os.environ.get(
     "RED_SAVE",
     str(Path.home() / ".local/share/love/pokemon-love2d/saves/red/slot1.lua")))
 CHECKPOINTS = RUN / "saves"
+
+
+def bind_run(path) -> Path:
+    """POINT EVERY FILE THE EXECUTOR KEEPS BESIDE ITS GAME AT `path`.
+
+    The arena runner gave each arena its own bridge directory and set
+    RED_BRIDGE_DIR to it — AFTER this module had been imported, so the
+    game ran in the arena's room while the journal, the exploration
+    memory, the checkpoint root and the footprint read here were still
+    bound to the live run's. A day of arena rooms beside a live chain
+    (2026-09-15, 08:01 to 17:10) wrote 214,000 rows into run 17's journal
+    around 1,100 of its own, and put thirteen maps the run had never
+    entered — four later gyms, the five league rooms, two Pokemon Centers
+    and the Hall of Fame — into its explored.json, which the next leg
+    launch read back as its own. Everything below that derives a path
+    from RUN reads the name at call time, so rebinding it here is enough;
+    the two bound at import are rebound by hand. The runner calls this
+    before it builds an Executor."""
+    global RUN, CHECKPOINTS
+    RUN = Path(path)
+    CHECKPOINTS = RUN / "saves"
+    Executor.MEMORY = RUN / "explored.json"
+    return RUN
 # the chain's own state files, alongside the game's save and the run's memory
 CHECKPOINT_FILES = ["run/explored.json", "run/seen.json", "run/seen_walk.json",
                     "plans/outline.txt", "plans/outline.done",
@@ -8726,7 +8749,7 @@ class Executor:
         """How many cells of `map_id` the footprint has ever painted SEEN,
         read from the shim's run/seen.json (a Lua chunk, `["MAP"] = {
         "x,y", ... }`), cached on the file's mtime. 0 when unknown."""
-        path = getattr(self, "_seen_path", None) or "run/seen.json"
+        path = getattr(self, "_seen_path", None) or (RUN / "seen.json")
         try:
             st = Path(path).stat().st_mtime_ns
         except OSError:

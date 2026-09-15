@@ -1,28 +1,6 @@
 {
   "party": [
     {
-      "species": "CHARMELEON",
-      "level": 21,
-      "moves": [
-        "SCRATCH",
-        "GROWL",
-        "EMBER",
-        "LEER"
-      ],
-      "nickname": "CHARMELEON"
-    },
-    {
-      "species": "NIDORINO",
-      "level": 20,
-      "moves": [
-        "LEER",
-        "TACKLE",
-        "HORN_ATTACK",
-        "POISON_STING"
-      ],
-      "nickname": "NIDORINO"
-    },
-    {
       "species": "DIGLETT",
       "level": 19,
       "moves": [
@@ -33,24 +11,23 @@
       "nickname": "DIGLETT"
     },
     {
-      "species": "PIDGEOTTO",
-      "level": 22,
+      "species": "CHARMELEON",
+      "level": 20,
       "moves": [
-        "GUST",
-        "SAND_ATTACK",
-        "QUICK_ATTACK",
-        "WHIRLWIND"
+        "SCRATCH",
+        "GROWL",
+        "EMBER",
+        "LEER"
       ],
-      "nickname": "PIDGEOTTO"
+      "nickname": "CHARMELEON"
     }
   ],
   "bag": {
     "POTION": 5,
-    "SUPER_POTION": 3,
-    "PARLYZ_HEAL": 3,
-    "ANTIDOTE": 1
+    "SUPER_POTION": 6,
+    "PARLYZ_HEAL": 3
   },
-  "money": 4200,
+  "money": 5000,
   "start": {
     "map": "VERMILION_GYM",
     "x": 4,

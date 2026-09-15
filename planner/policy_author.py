@@ -39,6 +39,32 @@ from bridge import Bridge, RUN
 REPO = Path(__file__).resolve().parent.parent
 LOG = RUN / "executor_log.jsonl"
 
+
+def _bind_books(run_dir: Path) -> None:
+    """AN ARENA KEEPS ITS BOOKS IN ITS OWN ROOM.
+
+    Each arena already had its own bridge directory for the game; the
+    executor's journal and exploration memory were still the live run's,
+    because RED_BRIDGE_DIR was set after the executor had been imported.
+    A day of rooms beside a live chain (2026-09-15) left run 17's journal
+    99.5% arena rows and its explored.json holding the league and four
+    gyms it had never entered. So the executor is rebound to this room
+    before the game or the executor exists, and the room starts with
+    EMPTY books: a clean room has no journal to read blackouts from and
+    no memory of the trainers in it, and both arms of a calibration meet
+    the same nothing. The footprint (seen.json) is the shim's own and is
+    left alone."""
+    global LOG
+    ex_mod.bind_run(run_dir)
+    LOG = run_dir / "executor_log.jsonl"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    for f in ("executor_log.jsonl", "explored.json", "explored.json.prev",
+              "explored.json.tmp", "last_state.json", "status.txt"):
+        try:
+            (run_dir / f).unlink()
+        except FileNotFoundError:
+            pass
+
 DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
   name: short string naming your policy
   stab: number 1.0-2.0 — weight for same-type (STAB) moves in scoring
@@ -412,8 +438,6 @@ class Gym:
 
     def boot(self):
         self._load_plan()   # fresh copy: setup escalation mutates in-memory
-        if (RUN / "obs.json").exists():
-            (RUN / "obs.json").unlink()
         if self.from_save:
             # contract.py's isolation: own love identity, own bridge dir,
             # a COPY of the save. The campaign's game is untouchable.
@@ -427,9 +451,18 @@ class Gym:
             # been through.
             self.run_dir = REPO / "run/policyarena" / str(self.arena_name
                                                           or self.arena)
-            self.game = start_game(self.run_dir, self.from_save, "200")
+            # THE BOOKS MOVE IN BEFORE ANYONE WRITES IN THEM (see
+            # _bind_books): the env for the game, the executor's paths,
+            # and only then the game.
             os.environ["RED_BRIDGE_DIR"] = str(self.run_dir)
+            _bind_books(self.run_dir)
+            self.game = start_game(self.run_dir, self.from_save, "200")
         else:
+            # THE CAMPAIGN'S OWN ROOM, and only for the arena that replays
+            # a plan from a new game there. Clearing this for a from-save
+            # arena deleted a LIVE run's observation file at every boot.
+            if (RUN / "obs.json").exists():
+                (RUN / "obs.json").unlink()
             self.game = subprocess.Popen(
                 [str(REPO / "run.sh"), "200"], cwd=REPO,
                 start_new_session=True)
@@ -1398,54 +1431,54 @@ APPROACH = {
 # clears, along with EVENT_LANCES_ROOM_LOCK_DOOR).
 E4_TRIGGERS = {"LANCES_ROOM": ((5, 1), (6, 2))}
 
-ARENAS = {
-    "brock": ("brock", None, None),
-    # EVERY GYM IN THE GAME, IN ORDER, each a clean room built by
-    # gin_gym_arenas.py rather than scavenged from whatever a run happened
-    # to be carrying: a party at the level that stage expects with one or
-    # two members under it, no free type counter, and a bag off that
-    # stage's own shelf carrying more than one tier of heal wherever the
-    # game sells more than one. The first four arenas were found rather
-    # than built and three of them saturated — once a policy could reach
-    # its own medicine, every candidate swept them (2026-09-15).
-    "pewter": ("gym", REPO / "run/arena_pewter.lua",
-               REPO / "plans/arena_pewter.json"),
-    "cerulean": ("gym", REPO / "run/arena_cerulean.lua",
-                 REPO / "plans/arena_cerulean.json"),
-    "vermilion": ("gym", REPO / "run/arena_vermilion.lua",
-                  REPO / "plans/arena_vermilion.json"),
-    "celadon": ("gym", REPO / "run/arena_celadon.lua",
-                REPO / "plans/arena_celadon.json"),
-    "fuchsia": ("gym", REPO / "run/arena_fuchsia.lua",
-                REPO / "plans/arena_fuchsia.json"),
-    "saffron": ("gym", REPO / "run/arena_saffron.lua",
-                REPO / "plans/arena_saffron.json"),
-    "cinnabar": ("gym", REPO / "run/arena_cinnabar.lua",
-                 REPO / "plans/arena_cinnabar.json"),
-    "viridian": ("gym", REPO / "run/arena_viridian.lua",
-                 REPO / "plans/arena_viridian.json"),
-    # THE LEAGUE, TWO WAYS. `e4` is the party run 16 actually walked in
-    # with, at the levels it actually had — the honest midgame-ish
-    # reading. `e4_ideal` is the party a player would BUILD for the
-    # gauntlet (user, 2026-09-15: "give it an ideal party that with
-    # switching and healing should be able to handle the full gauntlet
-    # including lance and gary"), so the league measures the top of the
-    # range rather than the bottom: all six at L65 with real endgame
-    # movesets, ALAKAZAM for Bruno and Agatha, JOLTEON for Lorelei and
-    # Lance's GYARADOS, LAPRAS's ICE_BEAM for the dragons.
-    "e4": ("e4", REPO / "run/arena_e4.lua", REPO / "plans/arena_e4.json"),
-    "e4_ideal": ("e4", REPO / "run/arena_e4_ideal.lua",
-                 REPO / "plans/arena_e4_ideal.json"),
-    # The three built by hand on 09-12 and 09-15, kept on disk and out of
-    # the default sweep: same three gyms, real-run parties, and they are
-    # the control if a built arena ever reads as easier than the game.
-    "erika_real": ("gym", REPO / "run/arena_erika.lua",
-                   REPO / "plans/arena_erika.json"),
-    "koga_real": ("gym", REPO / "run/arena_koga.lua",
-                  REPO / "plans/arena_koga.json"),
-    "brock_real": ("gym", REPO / "run/arena_brock_gym.lua",
-                   REPO / "plans/arena_brock_gym.json"),
-}
+GYM_ROOMS = ("pewter", "cerulean", "vermilion", "celadon", "fuchsia",
+             "saffron", "cinnabar", "viridian")
+PATHS = ("real", "ideal")
+
+
+def room_of(name: str) -> str:
+    """The room an arena is in, whichever path it belongs to: the
+    approach route is a property of the room, not of the party."""
+    for p in PATHS:
+        if name.endswith("_" + p):
+            return name[:-len(p) - 1]
+    return name
+
+
+# TWO PATHS THROUGH THE SAME NINE ROOMS (user, 2026-09-15: "split it up
+# into two paths like the elite four split, a realistic path with a team
+# we build up from scratch and maintain that mirrors what weve already
+# gotten in real games, and an ideal path where we actually have an ideal
+# but underleveled team that has answers but needs items"). `_real` is
+# the party the model-authored runs actually carried into that room, at
+# the levels they had, with the handful of medicine a run has been seen
+# to buy; `_ideal` is the party a player would build, five levels under
+# the leader's ace, with the shelf's medicine in the bag. Same room, same
+# door, same route; only the party and the bag differ, so the two tables
+# a calibration prints are the same policy read two ways. Built by
+# gin_gym_arenas.py, except e4_ideal, which is a hand file the user
+# tuned (all six at L50).
+ARENAS = {"brock": ("brock", None, None)}
+for _room in GYM_ROOMS:
+    for _path in PATHS:
+        ARENAS[f"{_room}_{_path}"] = (
+            "gym", REPO / f"run/arena_{_room}_{_path}.lua",
+            REPO / f"plans/arena_{_room}_{_path}.json")
+for _path in PATHS:
+    ARENAS[f"e4_{_path}"] = ("e4", REPO / f"run/arena_e4_{_path}.lua",
+                             REPO / f"plans/arena_e4_{_path}.json")
+# The three found rather than built (09-12 and 09-15): the same gyms with
+# whatever a run happened to be carrying, kept on disk and out of every
+# sweep as the control if a built arena ever reads as easier than the
+# game. Not `_real`: that name now means the model-authored runs' record.
+ARENAS.update({
+    "erika_found": ("gym", REPO / "run/arena_erika.lua",
+                    REPO / "plans/arena_erika.json"),
+    "koga_found": ("gym", REPO / "run/arena_koga.lua",
+                   REPO / "plans/arena_koga.json"),
+    "brock_found": ("gym", REPO / "run/arena_brock_gym.lua",
+                    REPO / "plans/arena_brock_gym.json"),
+})
 
 
 # WHO IS STANDING IN THE ROOM IS NOT IN THE OBSERVATION. A restored save
@@ -1547,7 +1580,7 @@ def main():
         g = Gym(args.plan, args.run_id, model=args.model,
                 from_save=save, arena=kind, trials=args.trials,
                 arena_spec=aspec, arena_name=name,
-                approach=APPROACH.get(name))
+                approach=APPROACH.get(room_of(name)))
         for attempt in (1, 2):
             try:
                 print(f"[gym] booting the {name} arena (attempt {attempt})...")

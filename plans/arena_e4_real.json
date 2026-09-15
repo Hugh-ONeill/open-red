@@ -1,0 +1,109 @@
+{
+  "party": [
+    {
+      "species": "KABUTOPS",
+      "level": 55,
+      "moves": [
+        "ABSORB",
+        "SLASH",
+        "LEER",
+        "HYDRO_PUMP"
+      ],
+      "nickname": "KABUTOPS"
+    },
+    {
+      "species": "LAPRAS",
+      "level": 55,
+      "moves": [
+        "BODY_SLAM",
+        "CONFUSE_RAY",
+        "ICE_BEAM",
+        "HYDRO_PUMP"
+      ],
+      "nickname": "LAPRAS"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 55,
+      "moves": [
+        "WHIRLWIND",
+        "WING_ATTACK",
+        "AGILITY",
+        "MIRROR_MOVE"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "GLOOM",
+      "level": 54,
+      "moves": [
+        "SLEEP_POWDER",
+        "ACID",
+        "PETAL_DANCE",
+        "SOLARBEAM"
+      ],
+      "nickname": "GLOOM"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 54,
+      "moves": [
+        "DIG",
+        "SAND_ATTACK",
+        "SLASH",
+        "EARTHQUAKE"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "CHARIZARD",
+      "level": 54,
+      "moves": [
+        "LEER",
+        "RAGE",
+        "SLASH",
+        "FLAMETHROWER"
+      ],
+      "nickname": "CHARIZARD"
+    }
+  ],
+  "bag": {
+    "FULL_RESTORE": 5
+  },
+  "money": 48500,
+  "start": {
+    "map": "LORELEIS_ROOM",
+    "x": 4,
+    "y": 11,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_LORELEIS_ROOM_TRAINER_0",
+    "EVENT_BEAT_BRUNOS_ROOM_TRAINER_0",
+    "EVENT_BEAT_AGATHAS_ROOM_TRAINER_0",
+    "EVENT_BEAT_LANCE",
+    "EVENT_BEAT_CHAMPION_RIVAL",
+    "EVENT_BEAT_LORELEI",
+    "EVENT_BEAT_BRUNO",
+    "EVENT_BEAT_AGATHA",
+    "EVENT_BEAT_CHAMPION_RIVAL_THIS_RUN",
+    "EVENT_LANCES_ROOM_LOCK_DOOR",
+    "EVENT_AUTOWALKED_INTO_LORELEIS_ROOM",
+    "EVENT_AUTOWALKED_INTO_BRUNOS_ROOM",
+    "EVENT_AUTOWALKED_INTO_AGATHAS_ROOM",
+    "EVENT_BEAT_LANCES_ROOM_TRAINER_0",
+    "EVENT_STARTED_ELITE_4"
+  ],
+  "clear_trainers": [
+    "AGATHAS_ROOM_obj_1",
+    "AGATHAS_ROOM_obj_2",
+    "BRUNOS_ROOM_obj_1",
+    "BRUNOS_ROOM_obj_2",
+    "CHAMPIONS_ROOM_obj_1",
+    "CHAMPIONS_ROOM_obj_2",
+    "LANCES_ROOM_obj_1",
+    "LANCES_ROOM_obj_2",
+    "LORELEIS_ROOM_obj_1",
+    "LORELEIS_ROOM_obj_2"
+  ]
+}

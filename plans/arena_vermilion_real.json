@@ -1,0 +1,87 @@
+{
+  "party": [
+    {
+      "species": "JIGGLYPUFF",
+      "level": 25,
+      "moves": [
+        "POUND",
+        "DISABLE",
+        "DEFENSE_CURL",
+        "DOUBLESLAP"
+      ],
+      "nickname": "JIGGLYPUFF"
+    },
+    {
+      "species": "CHARMELEON",
+      "level": 35,
+      "moves": [
+        "EMBER",
+        "LEER",
+        "RAGE",
+        "SLASH"
+      ],
+      "nickname": "CHARMELEON"
+    },
+    {
+      "species": "RATICATE",
+      "level": 25,
+      "moves": [
+        "TACKLE",
+        "TAIL_WHIP",
+        "QUICK_ATTACK",
+        "HYPER_FANG"
+      ],
+      "nickname": "RATICATE"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 24,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
+      ],
+      "nickname": "PIDGEOTTO"
+    },
+    {
+      "species": "GLOOM",
+      "level": 23,
+      "moves": [
+        "ABSORB",
+        "POISONPOWDER",
+        "STUN_SPORE",
+        "SLEEP_POWDER"
+      ],
+      "nickname": "GLOOM"
+    }
+  ],
+  "bag": {
+    "POTION": 3,
+    "SUPER_POTION": 5
+  },
+  "money": 8000,
+  "start": {
+    "map": "VERMILION_GYM",
+    "x": 4,
+    "y": 17,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_LT_SURGE",
+    "EVENT_BEAT_VERMILION_GYM_TRAINER_0",
+    "EVENT_BEAT_VERMILION_GYM_TRAINER_1",
+    "EVENT_BEAT_VERMILION_GYM_TRAINER_2"
+  ],
+  "clear_trainers": [
+    "VERMILION_GYM_obj_1",
+    "VERMILION_GYM_obj_2",
+    "VERMILION_GYM_obj_3",
+    "VERMILION_GYM_obj_4",
+    "VERMILION_GYM_obj_5"
+  ],
+  "set_flags": [
+    "EVENT_1ST_LOCK_OPENED",
+    "EVENT_2ND_LOCK_OPENED"
+  ]
+}

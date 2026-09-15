@@ -1,40 +1,52 @@
 {
   "party": [
     {
-      "species": "CHARMELEON",
-      "level": 26,
+      "species": "CHARIZARD",
+      "level": 40,
       "moves": [
-        "GROWL",
         "EMBER",
         "LEER",
+        "RAGE",
         "CUT"
       ],
-      "nickname": "CHARMELEON"
+      "nickname": "CHARIZARD"
     },
     {
-      "species": "NIDORINO",
-      "level": 25,
+      "species": "GLOOM",
+      "level": 36,
       "moves": [
-        "TACKLE",
-        "HORN_ATTACK",
-        "POISON_STING",
-        "FOCUS_ENERGY"
+        "POISONPOWDER",
+        "STUN_SPORE",
+        "SLEEP_POWDER",
+        "ACID"
       ],
-      "nickname": "NIDORINO"
+      "nickname": "GLOOM"
     },
     {
-      "species": "BEEDRILL",
-      "level": 24,
+      "species": "PIDGEOT",
+      "level": 41,
       "moves": [
-        "FURY_ATTACK",
-        "FOCUS_ENERGY",
-        "TWINEEDLE"
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND",
+        "WING_ATTACK"
       ],
-      "nickname": "BEEDRILL"
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 34,
+      "moves": [
+        "SCRATCH",
+        "GROWL",
+        "DIG",
+        "SAND_ATTACK"
+      ],
+      "nickname": "DUGTRIO"
     },
     {
       "species": "RATICATE",
-      "level": 27,
+      "level": 35,
       "moves": [
         "TAIL_WHIP",
         "QUICK_ATTACK",
@@ -44,25 +56,21 @@
       "nickname": "RATICATE"
     },
     {
-      "species": "GEODUDE",
-      "level": 23,
+      "species": "JIGGLYPUFF",
+      "level": 35,
       "moves": [
-        "TACKLE",
         "DEFENSE_CURL",
-        "ROCK_THROW",
-        "SELFDESTRUCT"
+        "DOUBLESLAP",
+        "REST",
+        "BODY_SLAM"
       ],
-      "nickname": "GEODUDE"
+      "nickname": "JIGGLYPUFF"
     }
   ],
   "bag": {
-    "POTION": 4,
-    "SUPER_POTION": 10,
-    "ANTIDOTE": 2,
-    "PARLYZ_HEAL": 2,
-    "REVIVE": 2
+    "SUPER_POTION": 3
   },
-  "money": 8000,
+  "money": 13800,
   "start": {
     "map": "CELADON_GYM",
     "x": 4,

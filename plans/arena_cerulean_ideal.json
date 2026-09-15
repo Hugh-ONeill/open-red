@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "IVYSAUR",
-      "level": 17,
+      "level": 16,
       "moves": [
         "TACKLE",
         "GROWL",
@@ -10,35 +10,12 @@
         "VINE_WHIP"
       ],
       "nickname": "IVYSAUR"
-    },
-    {
-      "species": "NIDORINO",
-      "level": 20,
-      "moves": [
-        "LEER",
-        "TACKLE",
-        "HORN_ATTACK",
-        "POISON_STING"
-      ],
-      "nickname": "NIDORINO"
-    },
-    {
-      "species": "PIDGEOTTO",
-      "level": 18,
-      "moves": [
-        "GUST",
-        "SAND_ATTACK",
-        "QUICK_ATTACK"
-      ],
-      "nickname": "PIDGEOTTO"
     }
   ],
   "bag": {
-    "POTION": 12,
-    "ANTIDOTE": 2,
-    "PARLYZ_HEAL": 2
+    "POTION": 10
   },
-  "money": 4000,
+  "money": 3000,
   "start": {
     "map": "CERULEAN_GYM",
     "x": 4,
