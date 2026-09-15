@@ -120,8 +120,18 @@ if real:
     rwin, _ = P.rank(real, badges=8)
     ck("on the real files, the league pick is not the blacked-out one",
        rwin and rwin.name != "policy_model_v6.json")
-    ck("...and an early run gets the spec whose items a Kanto mart sells",
-       (P.rank(real, badges=0)[0] or Path("x")).name == "policy_model_v1.json")
+    # WHICH RULE APPLIES DEPENDS ON WHAT IS ON DISK. The stage line is
+    # for specs that were only ever scored in one arena; a spec scored
+    # across the game plays at every badge count and needs no line.
+    _cross = [q for q in real if P.fit_across(P._eval(q))]
+    if _cross:
+        ck("...and a spec fit across the game plays at any badge count",
+           P.rank(real, badges=0)[0] in _cross
+           and P.rank(real, badges=8)[0] in _cross)
+    else:
+        ck("...and an early run gets the spec whose items a Kanto mart sells",
+           (P.rank(real, badges=0)[0] or Path("x")).name
+           == "policy_model_v1.json")
 
 bad = [n for n, ok in checks if not ok]
 for n, ok in checks:
