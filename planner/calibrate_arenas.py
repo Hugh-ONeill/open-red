@@ -55,8 +55,17 @@ def strip_medicine(spec: dict) -> dict:
     return out
 
 
-def score(arena: str, spec_path: Path, trials: int) -> tuple:
+def score(arena: str, spec_path: Path, trials: int, arm: str = "") -> tuple:
     """(beaten, of, blackouts) for one spec in one arena.
+
+    THE ARM'S OWN JOURNAL IS KEPT, and its trial lines are printed. The
+    arena writes its journal into run/policyarena/<arena>/ and starts it
+    empty at every boot, so scoring the stripped arm after the medicine
+    arm left nothing to say whether the medicine was ever spent — the
+    league on the real path came back 7/10 in both arms (2026-09-15) and
+    the only journal on disk was the one with no items in it. Each arm's
+    journal is copied aside as executor_log.<arm>.jsonl, and the runner's
+    per-trial lines go into this log rather than into a pipe.
 
     ONE ROOM THAT WILL NOT FINISH MUST NOT TAKE THE SWEEP WITH IT. The
     timeout was raised, not caught, so when the league arena wedged in a
@@ -74,6 +83,16 @@ def score(arena: str, spec_path: Path, trials: int) -> tuple:
     except subprocess.TimeoutExpired:
         print(f"  [{arena}: gave up after an hour]", flush=True)
         return None, None, None
+    if arm:
+        src = REPO / "run/policyarena" / arena / "executor_log.jsonl"
+        try:
+            (src.parent / f"executor_log.{arm}.jsonl").write_bytes(
+                src.read_bytes())
+        except OSError:
+            pass
+        for line in r.stdout.splitlines():
+            if line.startswith("  trial "):
+                print(f"    [{arena} {arm}] {line.strip()}", flush=True)
     beat = of = black = None
     for line in r.stdout.splitlines():
         # the gyms report "beat X/Y of the room", the league "Elite Four
@@ -122,8 +141,8 @@ def main():
         for room in [r for pth in paths for r in rooms(pth)]:
             if want and room not in want:
                 continue
-            w = score(room, a.spec, a.trials)
-            n = score(room, bare_p, a.trials)
+            w = score(room, a.spec, a.trials, arm="with")
+            n = score(room, bare_p, a.trials, arm="without")
             if None in w or None in n:
                 print(f"{room:16s} {'?':>14s} {'?':>10s}   COULD NOT SCORE")
                 continue
