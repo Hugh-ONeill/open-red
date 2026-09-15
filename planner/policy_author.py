@@ -552,7 +552,7 @@ class Gym:
         return {f for f in ((obs or {}).get("flags") or [])
                 if str(f).startswith("EVENT_BEAT_")}
 
-    def _arrange_before(self, obs) -> None:
+    def _arrange_before(self, obs):
         """Put the spec's chosen lead in slot 1 before a press.
 
         THE ARENA PRESSES TRAINERS ITSELF and never goes through the
@@ -564,17 +564,19 @@ class Gym:
         try:
             spec = ex_mod.ACTIVE_SPEC or {}
             if not spec.get("lead"):
-                return
+                return obs
             want = battle_policy.choose_lead(
                 obs, spec, "trainer",
                 foe_types=self.ex.room_types_here(obs))
             party = (obs or {}).get("party") or []
             if not want or want == 1 or want > len(party):
-                return
+                return obs
             self.b.send("party_swap", a=1, b=want)
             self.leads = getattr(self, "leads", 0) + 1
+            return self.ex.settle() or obs
         except Exception:
             pass                    # a lead is never worth the trial
+        return obs
 
     def _cross_room(self, here: str, want: set | None = None,
                     tries: int = 0):
@@ -613,11 +615,17 @@ class Gym:
                 break            # blacked out, or carried out of it
             if want and want <= self._beaten(obs):
                 break            # the room is beaten
+            # ONCE A PASS, AND ON A FRESH LOOK. This ran before every
+            # press ATTEMPT off one stale observation, so after swapping
+            # 1 and 4 it still saw the old order, chose 4 again and
+            # swapped straight back: thirteen swaps for two fights in
+            # Viridian, every pair of them cancelling (2026-09-15). The
+            # executor's own copy re-settles; this did not.
+            obs = self._arrange_before(obs)
             hit = busy = False
             for who in roster:
                 if who in pressed:
                     continue
-                self._arrange_before(obs)
                 r = self.b.send("interact", name=who, answer="no")
                 if self._ok(r):
                     pressed.add(who)
