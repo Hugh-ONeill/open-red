@@ -283,9 +283,15 @@ GYMS = [
                             "starter alone, L13-14, and blacked out four "
                             "times (Aug 28) and once (Sep 6) before the "
                             "badge."),
-             ideal=dict(party=[("SQUIRTLE", 10)],
+             # TWO UNDER, NOT FOUR. At 10 the room was calibrated under v12
+             # and lost under v13 with the bag full: a 20-power BUBBLE
+             # against ONIX is a long fight, and a solo cannot afford a
+             # spec that heals two a fight where another heals three. A
+             # room only one spec can pass is too sharp to rank on (user,
+             # 2026-09-15: "those two might need higher leveled mons").
+             ideal=dict(party=[("SQUIRTLE", 12)],
                         bag={"POTION": 8}, money=2000,
-                        note="SQUIRTLE's BUBBLE is the answer, four under "
+                        note="SQUIRTLE's BUBBLE is the answer, two under "
                              "the ace, and alone: the starter IS the "
                              "answer here, so nothing else is needed "
                              "(user, 2026-09-15: \"if squirt for brock we "
@@ -306,14 +312,17 @@ GYMS = [
              # without, STARMIE taking it every trial (2026-09-15). A
              # solo has no one to hand the turn to, so it needs to live
              # through a hit on its own; three under is the level.
-             ideal=dict(party=[("IVYSAUR", 18)],
+             # ...AND THE SAME ONE LEVEL HERE, for the same reason: at 18
+             # v12 took it 12/12 and v13 lost every trial on its two-a-
+             # fight cap. Two under the ace now.
+             ideal=dict(party=[("IVYSAUR", 19)],
                         bag={"POTION": 10}, money=3000,
                         note="IVYSAUR resists water and VINE_WHIP hits it "
                              "double; alone, like the SQUIRTLE at Brock: "
                              "the starter is the answer and no PIKACHU "
-                             "beside it (user, 2026-09-15). Three under "
-                             "the ace, because at five under the room "
-                             "wiped it with the bag full."))),
+                             "beside it (user, 2026-09-15). Two under "
+                             "the ace: five under wiped it with the bag "
+                             "full, three under passed only one spec."))),
     # NOT A PUZZLE ROOM AFTER ALL. Surge's trash-can locks are two
     # FLAGS (EVENT_1ST_LOCK_OPENED / EVENT_2ND_LOCK_OPENED, and the
     # second is what swaps the door block), so setting them opens the
