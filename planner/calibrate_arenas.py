@@ -16,8 +16,9 @@ Nothing else differs between the two — same move scoring, same lead,
 same switches, same party, same bag — so the gap between them is the
 medicine and only the medicine.
 
-  calibrate_arenas.py --spec plans/policy_model_v9.json
-  calibrate_arenas.py --spec ... --only cerulean --trials 2
+  calibrate_arenas.py --spec plans/policy_model_v12.json
+  calibrate_arenas.py --spec ... --path real
+  calibrate_arenas.py --spec ... --only cerulean_ideal,e4_real --trials 2
 """
 from __future__ import annotations
 
@@ -29,8 +30,19 @@ import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-ROOMS = ["pewter", "cerulean", "vermilion", "celadon", "fuchsia",
-         "saffron", "cinnabar", "viridian", "e4", "e4_ideal"]
+GYM_ROOMS = ["pewter", "cerulean", "vermilion", "celadon", "fuchsia",
+             "saffron", "cinnabar", "viridian"]
+
+
+def rooms(path: str) -> list:
+    """The nine rooms of one path, in game order, the league last.
+
+    TWO PATHS, TWO TABLES (user, 2026-09-15). `real` is the party the
+    model-authored runs carried into each room with the handful of
+    medicine a run has been seen to buy; `ideal` is the party a player
+    would build, five under the ace, with the shelf in the bag. The same
+    spec is read in both, and a room is calibrated per path."""
+    return [f"{r}_{path}" for r in GYM_ROOMS] + [f"e4_{path}"]
 
 
 def strip_medicine(spec: dict) -> dict:
@@ -89,6 +101,8 @@ def main():
     ap.add_argument("--only", default="",
                     help="one room, or several separated by commas")
     ap.add_argument("--trials", type=int, default=2)
+    ap.add_argument("--path", choices=["real", "ideal", "both"],
+                    default="both", help="which path's rooms to score")
     a = ap.parse_args()
     full = json.loads(a.spec.read_text())
     bare = strip_medicine(full)
@@ -101,16 +115,17 @@ def main():
         # scores (user, 2026-09-15: "i was misreading the 4/4 as having
         # only 4 fights"). Rooms that score one flag are reported as
         # trials won; rooms that score many are reported as fights.
-        print(f"{'arena':11s} {'with medicine':>18s} {'without':>14s}   "
+        print(f"{'arena':16s} {'with medicine':>18s} {'without':>14s}   "
               f"verdict")
         want = {r.strip() for r in a.only.split(",") if r.strip()}
-        for room in ROOMS:
+        paths = ("real", "ideal") if a.path == "both" else (a.path,)
+        for room in [r for pth in paths for r in rooms(pth)]:
             if want and room not in want:
                 continue
             w = score(room, a.spec, a.trials)
             n = score(room, bare_p, a.trials)
             if None in w or None in n:
-                print(f"{room:11s} {'?':>14s} {'?':>10s}   COULD NOT SCORE")
+                print(f"{room:16s} {'?':>14s} {'?':>10s}   COULD NOT SCORE")
                 continue
             wf = w[0] / max(1, w[1])
             nf = n[0] / max(1, n[1])
@@ -147,7 +162,7 @@ def main():
                 verdict = (f"THIN — medicine is worth only {swing} "
                            f"blackout(s) across {a.trials} trials")
             unit = "trials won" if w[1] == a.trials else "fights"
-            print(f"{room:11s} {w[0]:>3d}/{w[1]:<3d} b{w[2]:<2d} "
+            print(f"{room:16s} {w[0]:>3d}/{w[1]:<3d} b{w[2]:<2d} "
                   f"{n[0]:>4d}/{n[1]:<3d} b{n[2]:<2d} "
                   f"{unit:<10s}  {verdict}")
     return 0

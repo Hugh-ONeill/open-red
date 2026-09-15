@@ -195,253 +195,279 @@ def pick_base(want_badges: int) -> Path | None:
     return got[0] if got else None
 
 
-# ---------------------------------------------------------- the eight gyms
+# ---------------------------------------------------------- the nine rooms
 # level: the leader's ace, for reference when reading the party beside it.
-# HOW MANY BODIES A RUN ACTUALLY HAS THERE. Every arena was built with
-# three, which came from reading "keep them at 3" — said about the rooms
-# that were too hard, while the medicine was being set — as a rule for all
-# eight (user, 2026-09-15: "i dont remember specifying it had to be 3 for
-# all of the gym battles, especially for the later gyms wed have more than
-# that probably"). Nobody walks into VIRIDIAN GYM with three.
 #
-# AND NONE OF THEM MAY RESIST THE ROOM. Picked by ROLE — the FLY bird,
-# the STRENGTH rock, the SURF fish — they walled three gyms, because the
-# HM carriers are exactly the types that resist things. GRAVELER takes
-# POISON at a QUARTER and went into KOGA's gym; CHARIZARD resists
-# everything BLAINE owns and went into his, against a note in this very
-# file saying NO STARTER HERE; PIDGEOT and GOLBAT are both IMMUNE to
-# GROUND and both went to GIOVANNI. Fuchsia fell out of its band the same
-# hour, Cinnabar went to zero blackouts in both arms, and the number that
-# came back was a party nothing could hurt (2026-09-15).
+# TWO PATHS THROUGH EVERY ROOM (user, 2026-09-15: "split it up into two
+# paths like the elite four split, a realistic path with a team we build
+# up from scratch and maintain that mirrors what weve already gotten in
+# real games, and an ideal path where we actually have an ideal but
+# underleveled team that has answers but needs items, then we can get two
+# seperate comparisons ultimately and see if stuff performs better in one
+# than the other"). The room is shared — map, door, leader, flags, route —
+# and each path brings its own party, bag and money.
 #
-# So the filler is chosen against the LEADER's type, never by role: it may
-# be neutral to the room or weak to it, and it may never resist it.
+# THE REAL PATH IS THE RECORD, NOT A GUESS. Its parties are read out of
+# the journals of the two Hall of Fame runs that played on outlines the
+# model wrote itself (executor_log.065231, Aug 28, and .061446, Sep 6):
+# which species led each leader fight and what every species had last
+# been seen at when the fight started. The two runs converged on the
+# same core without consulting each other — Charmander's line, an ODDISH
+# kept as GLOOM to the very end, a PIDGEOT, a DUGTRIO, one water the
+# outline asked for, one wildcard — and led with the starter only until
+# Surge. The levels sit AT the ace, not over it; the runs on the
+# hand-written outline are a different shape (one L56 CHARIZARD carrying
+# five L41 bodies) and are not what the model builds unassisted, which is
+# what the next run, on an outline it writes again, will do. Slot order
+# is the order the run led in. Extra HM moves are the room's.
 #
-# The extra bodies are the ones a run really carries, a few levels under
-# the three that do the fighting. Depth without power, which is the shape that makes a revive
-# and a switch worth writing a rule for — a party of six equal aces just
-# wins, and a party of three cannot afford to lose one.
+# THE REAL BAG IS THE HANDFUL A RUN HAS BEEN SEEN TO BUY. Every save on
+# file walked into Koga, Sabrina, Blaine and Giovanni with NO medicine at
+# all and $12k-$85k unspent; the counter question (executor._ask_buy,
+# 2026-09-14) now buys, and what it has bought is five POTIONs at
+# Cerulean with the bag empty. Run 17 walked into Lt. Surge with
+# POTIONx3 + SUPER_POTIONx5 and into Erika with SUPER_POTIONx3 — those
+# two rooms carry exactly that, on record. Elsewhere: five of the potion
+# the last town's mart sells, no cures, no revives, because none has ever
+# been in a run's bag. The point of the path is whether the policy turns
+# THAT into fewer blackouts than the run had, which is what started this
+# work: three SUPER_POTIONs in the bag, a CHARIZARD blacking out to Erika
+# (07:18, 2026-09-15, the rule naming an item the bag did not hold).
+#
+# THE IDEAL PATH IS THE FEWEST BODIES THAT CAN TAKE THE ROOM, at a
+# reasonable level — five under the ace — so that nothing but the
+# medicine and the play decides it (user, 2026-09-15: "ideal should use
+# the least amount of pokemon viable while still being at reasonable
+# levels, medicine usage and good play is the descriminator"). One
+# starter per team, Charmander's line by preference, SQUIRTLE at Brock
+# and IVYSAUR at Misty because those are the rooms a Charmander cannot
+# answer, and where the starter IS the answer it stands alone (user:
+# "make sure were including one starter per team, pref for char but for
+# brock maybe squirt and misty ivy"; "if squirt for brock we dont need
+# mankey"). Elsewhere the starter and the one answer the room calls for:
+# DIGLETT for Surge, a FEAROW with FLY for Erika, KADABRA for Koga,
+# SNORLAX for Sabrina, STARMIE for Blaine and for Giovanni. A spare body
+# is slack the medicine would otherwise have to cover, so there is none.
+# The league's ideal party (plans/arena_e4_ideal.json, a hand file the
+# user set to six at L50) is not rebuilt here and is still six. The bag
+# is the shelf's: eight of the local potion, the cure for what the room
+# inflicts, revives from Celadon on.
+#
+# Older history, still true of the rooms: NONE OF THE FILLER MAY RESIST
+# THE ROOM (a GRAVELER took Koga's poison at a quarter, a CHARIZARD
+# resisted all of Blaine, PIDGEOT and GOLBAT were both immune to
+# Giovanni's ground — and each room went to zero blackouts in both arms).
+# The real path carries whatever the run carried, resistances and all,
+# because that is the record; the ideal path chooses.
+_LEAGUE_CLEAR_FLAGS = [
+    "EVENT_BEAT_LORELEIS_ROOM_TRAINER_0", "EVENT_BEAT_BRUNOS_ROOM_TRAINER_0",
+    "EVENT_BEAT_AGATHAS_ROOM_TRAINER_0", "EVENT_BEAT_LANCE",
+    "EVENT_BEAT_CHAMPION_RIVAL", "EVENT_BEAT_LORELEI", "EVENT_BEAT_BRUNO",
+    "EVENT_BEAT_AGATHA", "EVENT_BEAT_CHAMPION_RIVAL_THIS_RUN",
+    "EVENT_LANCES_ROOM_LOCK_DOOR", "EVENT_AUTOWALKED_INTO_LORELEIS_ROOM",
+    "EVENT_AUTOWALKED_INTO_BRUNOS_ROOM", "EVENT_AUTOWALKED_INTO_AGATHAS_ROOM",
+    "EVENT_BEAT_LANCES_ROOM_TRAINER_0", "EVENT_STARTED_ELITE_4"]
+_LEAGUE_CLEAR_TRAINERS = [
+    "AGATHAS_ROOM_obj_1", "AGATHAS_ROOM_obj_2", "BRUNOS_ROOM_obj_1",
+    "BRUNOS_ROOM_obj_2", "CHAMPIONS_ROOM_obj_1", "CHAMPIONS_ROOM_obj_2",
+    "LANCES_ROOM_obj_1", "LANCES_ROOM_obj_2", "LORELEIS_ROOM_obj_1",
+    "LORELEIS_ROOM_obj_2"]
+
 GYMS = [
     dict(name="pewter", map="PEWTER_GYM", leader="BROCK", ace=14,
-         badges=0, door=(4, 13), puzzle=False, money=1500,
-         party=[("CHARMANDER", 11), ("NIDORAN_M", 10),
-                ("MANKEY", 13)],
-         bag={"POTION": 5, "ANTIDOTE": 1},
-         note="Charmander's Ember is halved by ONIX's rock and its "
-              "defence is the wall it is; four Potions and a Nidoran's "
-              "HORN_ATTACK is the whole of the answer."),
+         badges=0, door=(4, 13), puzzle=False,
+         paths=dict(
+             real=dict(party=[("CHARMANDER", 14)],
+                       bag={"POTION": 5}, money=1600,
+                       note="Both model-authored runs walked in with the "
+                            "starter alone, L13-14, and blacked out four "
+                            "times (Aug 28) and once (Sep 6) before the "
+                            "badge."),
+             ideal=dict(party=[("SQUIRTLE", 10)],
+                        bag={"POTION": 8}, money=2000,
+                        note="SQUIRTLE's BUBBLE is the answer, four under "
+                             "the ace, and alone: the starter IS the "
+                             "answer here, so nothing else is needed "
+                             "(user, 2026-09-15: \"if squirt for brock we "
+                             "dont need mankey\")."))),
     dict(name="cerulean", map="CERULEAN_GYM", leader="MISTY", ace=21,
-         badges=1, door=(4, 13), puzzle=False, money=4000,
-         # RAISED 2026-09-15 after four candidates and a type-aware lead
-         # all lost here. At 16-18 against a L21 STARMIE the room was not
-         # hard, it was unwinnable: every spec scored 2/3, two of them
-         # playing perfectly by the oracle, so the arena measured nothing.
-         # A run that reaches Misty without grinding has its starter
-         # around 20. Pikachu only ever has THUNDERSHOCK until 26, so the
-         # levels are the only lever.
-         # LIFTED ON EVIDENCE. At 19/18/18 it blacked out in every trial
-         # with medicine AND without, which measures nothing: the party
-         # takes the two gym trainers and loses to STARMIE every time.
-         # Its own history is the guide — it beat Misty at 21/20/19 when
-         # it still had a fourth body, so three need to clear her ace
-         # rather than sit under it. The bag cannot help: Cerulean's
-         # shelf sells POTION and nothing stronger.
-         # THE COUNTER HAS TO SURVIVE THE HIT, or the medicine cannot
-         # matter. Three configurations of a CHARMELEON party were
-         # measured here and the arm with NO healing beat the arm with it
-         # every time: POTION restores a flat 20, STARMIE outspeeds and
-         # hits a Fire type for double, and a Cerulean-era shelf sells
-         # nothing stronger. Healing only buys turns when you live
-         # through the turn. PIKACHU is the designated counter and cannot
-         # rescue it either — THUNDERSHOCK is all it knows until 26, and
-         # STARMIE is faster than it too.
-         #
-         # An IVYSAUR resists WATER, so BUBBLEBEAM chips instead of
-         # halving, and 20 HP is suddenly worth a turn (user, 2026-09-15:
-         # "levels not potions are what works there -- that or having an
-         # ivysaur instead of a charmeleon"). Underlevelled on purpose at
-         # 16, just evolved and five under MISTY's ace: it is the only
-         # body that can fight the room and it cannot do it untended.
-         #
-         # PIKACHU OUT, AND THE IVYSAUR AT ITS REAL LEVEL. Underlevelling
-         # the counter to 16 was paying twice for the same difficulty: the
-         # party already held a second WATER answer in PIKACHU, so the room
-         # had two ways to be right and the IVYSAUR had to be crippled to
-         # keep it hard (user, 2026-09-15: "we might be able to do a
-         # properly leveled ivysaur if we took out pika from there").
-         #
-         # With one counter and no spare, the room IS the counter. NIDORINO
-         # and PIDGEOTTO cannot fight water; if the IVYSAUR goes down the
-         # trial is over. Keeping it standing is the whole test, which is
-         # exactly the shape the medicine is supposed to decide — and it
-         # can, now, because a body that resists the hit is a body 20 HP
-         # can keep alive.
-         # ...AND FOUR UNDER THE ACE, not one. At 20 it swept the room
-         # without touching the bag (12/12, no blackouts), helped along
-         # by a LEECH_SEED its own learnset hands it at that level — a
-         # heal the bag did not give it and the stripped arm cannot be
-         # stripped of. Underlevelled, the seed still ticks but it no
-         # longer covers a whole hit.
-         party=[("IVYSAUR", 17), ("NIDORINO", 20),
-                ("PIDGEOTTO", 18)],
-         bag={"POTION": 12, "ANTIDOTE": 2, "PARLYZ_HEAL": 2},
-         note="One counter and no spare. NIDORINO and PIDGEOTTO cannot "
-              "fight water at all, so the room is the IVYSAUR and the "
-              "question is whether it stays up. Single "
-              "tier on purpose: POTION is the only heal a Cerulean-era "
-              "shelf sells."),
+         badges=1, door=(4, 13), puzzle=False,
+         paths=dict(
+             real=dict(party=[("ODDISH", 19), ("CHARMELEON", 26),
+                              ("RATICATE", 21), ("JIGGLYPUFF", 17)],
+                       bag={"POTION": 5, "ANTIDOTE": 1}, money=2400,
+                       note="The ODDISH led in both runs, caught for the "
+                            "'WATER or GRASS' leg and sent out at 16-19 "
+                            "against a L21 STARMIE. Five POTIONs is what "
+                            "the counter question bought here, on "
+                            "record."),
+             ideal=dict(party=[("IVYSAUR", 16)],
+                        bag={"POTION": 10}, money=3000,
+                        note="IVYSAUR resists water and VINE_WHIP hits it "
+                             "double; five under the ace it cannot do the "
+                             "room untended. Alone, like the SQUIRTLE at "
+                             "Brock: the starter is the answer and no "
+                             "PIKACHU beside it (user, 2026-09-15)."))),
     # NOT A PUZZLE ROOM AFTER ALL. Surge's trash-can locks are two
     # FLAGS (EVENT_1ST_LOCK_OPENED / EVENT_2ND_LOCK_OPENED, and the
     # second is what swaps the door block), so setting them opens the
-    # gym and the whole room is crossable from its door. That is worth
-    # more than parking past it: the two gym trainers are ELECTRIC, so
-    # fighting them is how the room tells the lead rule what it is made
-    # of before Surge. A one-fight arena can never say that.
+    # gym and the whole room is crossable from its door. The two gym
+    # trainers are ELECTRIC, so fighting them is how the room tells the
+    # lead rule what it is made of before Surge.
     dict(name="vermilion", map="VERMILION_GYM", leader="LT_SURGE", ace=24,
-         badges=2, door=(4, 17), puzzle=False, money=4200,
+         badges=2, door=(4, 17), puzzle=False,
          open_flags=["EVENT_1ST_LOCK_OPENED", "EVENT_2ND_LOCK_OPENED"],
-         party=[("CHARMELEON", 21), ("NIDORINO", 20),
-                ("DIGLETT", 19), ("PIDGEOTTO", 22)],
-         bag={"POTION": 5, "SUPER_POTION": 3, "PARLYZ_HEAL": 3,
-              "ANTIDOTE": 1},
-         note="The first mixed-tier bag, because Vermilion is where "
-              "SUPER_POTION appears. RAICHU paralyses, so the cure class "
-              "has something to do."),
+         paths=dict(
+             real=dict(party=[("JIGGLYPUFF", 25), ("CHARMELEON", 35),
+                              ("RATICATE", 25), ("PIDGEOTTO", 24),
+                              ("GLOOM", 23)],
+                       bag={"POTION": 3, "SUPER_POTION": 5}, money=8000,
+                       note="JIGGLYPUFF led (Aug 28; a L24 GYARADOS on "
+                            "Sep 6), the starter ten over the ace and "
+                            "everyone else at it. The bag is run 17's at "
+                            "this door, on record."),
+             ideal=dict(party=[("DIGLETT", 19), ("CHARMELEON", 20)],
+                        bag={"POTION": 5, "SUPER_POTION": 6,
+                             "PARLYZ_HEAL": 3}, money=5000,
+                        note="DIGLETT with DIG, which electricity cannot "
+                             "touch, and the starter; VOLTORB's SONICBOOM "
+                             "and RAICHU's paralysis are what the bag is "
+                             "for."))),
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
-         badges=3, needs_cut=True, door=(4, 17), puzzle=False, money=8000,
-         party=[("CHARMELEON", 26), ("NIDORINO", 25),
-                ("BEEDRILL", 24), ("RATICATE", 27), ("GEODUDE", 23)],
-         bag={"POTION": 4, "SUPER_POTION": 10, "ANTIDOTE": 2,
-              "PARLYZ_HEAL": 2, "REVIVE": 2},
-         note="Farfetch'd carries CUT because Erika and her last three "
-              "trainers sit inside a bed with two bushes in it. "
-              "VILEPLUME's SLEEP_POWDER is the attrition."),
+         badges=3, needs_cut=True, door=(4, 17), puzzle=False,
+         paths=dict(
+             real=dict(party=[("CHARIZARD", 40), ("GLOOM", 36),
+                              ("PIDGEOT", 41), ("DUGTRIO", 34),
+                              ("RATICATE", 35), ("JIGGLYPUFF", 35)],
+                       bag={"SUPER_POTION": 3}, money=13800,
+                       note="GLOOM led (Aug 28), a PIDGEOTTO on Sep 6; the "
+                            "starter carries CUT. Three SUPER_POTIONs is "
+                            "the bag run 17 blacked out with here."),
+             ideal=dict(party=[("FEAROW", 24), ("CHARMELEON", 25)],
+                        hms=["FLY"],
+                        bag={"SUPER_POTION": 8, "FULL_HEAL": 3,
+                             "REVIVE": 2}, money=12000,
+                        note="FEAROW with FLY off Route 16 is the flyer a "
+                             "gen 1 route has for grass, and the starter "
+                             "burns it and carries CUT. FULL_HEAL for "
+                             "SLEEP_POWDER. Eight fights on two bodies."))),
     dict(name="fuchsia", map="FUCHSIA_GYM", leader="KOGA", ace=43,
-         badges=4, door=(4, 17), puzzle=False, money=12000,
-         party=[("CHARIZARD", 37), ("NIDORINO", 33),
-                ("KADABRA", 33), ("PIDGEOT", 34), ("PRIMEAPE", 30),
-                ("RATICATE", 26)],
-         bag={"POTION": 3, "SUPER_POTION": 12, "FULL_HEAL": 2,
-              "REVIVE": 2, "ANTIDOTE": 2},
-         note="Two members badly under level and a room that poisons: "
-              "bodies run out before HP does, which is what the revive "
-              "rule is for."),
+         badges=4, door=(4, 17), puzzle=False,
+         paths=dict(
+             real=dict(party=[("PIDGEOT", 47), ("GLOOM", 44),
+                              ("DUGTRIO", 46), ("CHARIZARD", 46),
+                              ("RATICATE", 40), ("JIGGLYPUFF", 35)],
+                       bag={"SUPER_POTION": 5}, money=12800,
+                       note="PIDGEOT led (Aug 28), DUGTRIO on Sep 6. Both "
+                            "outlines did Sabrina before Koga, so this "
+                            "party is the Saffron one a few levels on."),
+             ideal=dict(party=[("KADABRA", 38), ("CHARIZARD", 38)],
+                        bag={"SUPER_POTION": 10, "ANTIDOTE": 4,
+                             "FULL_HEAL": 2, "REVIVE": 3}, money=20000,
+                        note="Psychic into poison, five under the ace, "
+                             "and the starter; Fuchsia's shelf tops out "
+                             "at SUPER_POTION."))),
     dict(name="saffron", map="SAFFRON_GYM", leader="SABRINA", ace=43,
-         # THE PADS DECIDE WHO YOU MEET. Parked in front of SABRINA this
-         # was one fight and could not be calibrated at any level: three
-         # levels flipped it from 4/4 to 0/4 with nothing in between. From
-         # the door, the prescribed route (policy_author.APPROACH) crosses
-         # four chambers and their trainers before her. Everyone is reset
-         # so they all fight; only SABRINA is scored, because the route
-         # meets four of the seven.
-         badges=5, door=(8, 17), puzzle=False, money=11000,
+         # THE PADS DECIDE WHO YOU MEET. From the door, the prescribed
+         # route (policy_author.APPROACH) crosses four chambers and their
+         # trainers before her. Everyone is reset so they all fight; only
+         # SABRINA is scored, because the route meets four of the seven.
+         badges=5, door=(8, 17), puzzle=False,
          score_only=["EVENT_BEAT_SABRINA"], fights=5,
-         # BACK UP AGAIN. Dropped three levels while it was still a
-         # one-fight room, then the route added four fights before
-         # SABRINA — two changes the same way, and it wiped every trial.
-         # The route is the difficulty now.
-         # +2 after the route landed: 0/4 without medicine and 2/4 with
-         # it says the medicine is doing its job and the room is simply
-         # tilted a shade too hard. The bag is already 800 HP across five
-         # fights, so this is levels, not potions.
-         party=[("CHARIZARD", 38), ("NIDOKING", 36),
-                ("BEEDRILL", 34), ("PIDGEOT", 37), ("GRAVELER", 33),
-                ("TENTACRUEL", 32)],
-         bag={"SUPER_POTION": 4, "HYPER_POTION": 3, "FULL_HEAL": 2,
-              "REVIVE": 2},
-         note="ALAKAZAM against a poison type is the worst matchup in the "
-              "list, and three heal tiers to choose between."),
-    # NOT A PUZZLE ROOM EITHER. Blaine's quiz doors are six flags,
-    # EVENT_CINNABAR_GYM_GATE0..5_UNLOCKED, and the engine opens a gate
-    # when its flag is set OR its guardian is beaten — so setting them
-    # opens the gym and leaves all six Super Nerds standing. ONE FIGHT
-    # CANNOT CREATE ATTRITION and so cannot show whether medicine
-    # matters: across the suite the blackout swing tracked the FIGHT
-    # COUNT almost exactly, and every one-fight room swung 0 or 1
-    # (2026-09-15). Seven fights can. Only BLAINE's flag scores, because
-    # this gym has no numbered trainer events, but the wearing down on
+         paths=dict(
+             real=dict(party=[("PIDGEOT", 45), ("GLOOM", 43),
+                              ("DUGTRIO", 44), ("CHARIZARD", 46),
+                              ("RATICATE", 36), ("JIGGLYPUFF", 35)],
+                       bag={"HYPER_POTION": 5}, money=34500,
+                       note="PIDGEOT led (Aug 28), DUGTRIO on Sep 6, the "
+                            "GLOOM at the ace and two bodies well under."),
+             ideal=dict(party=[("SNORLAX", 38), ("CHARIZARD", 38)],
+                        bag={"HYPER_POTION": 8, "FULL_HEAL": 3,
+                             "REVIVE": 3}, money=30000,
+                        note="Nothing is super effective on a gen 1 "
+                             "psychic that anyone carries, so the answer "
+                             "is bulk and physical power: SNORLAX's "
+                             "BODY_SLAM, with the starter beside it."))),
+    # THE GATES STAY SHUT. A guardian only fights you if you answer his
+    # quiz WRONG; the route answers each one wrong, which fights all six
+    # and opens the gates the way playing it does. Only BLAINE's flag
+    # scores (no numbered trainer events here), but the wearing down on
     # the way to him is the point.
     dict(name="cinnabar", map="CINNABAR_GYM", hms=["SURF"], leader="BLAINE",
-         ace=47, badges=6, door=(16, 17), puzzle=False, money=13000,
-         # THE GATES STAY SHUT. Opening them by flag skipped the quizzes
-         # entirely, and a guardian only fights you if you answer his
-         # WRONG — so with the gates open and the driver answering `no`
-         # (right at four of the six machines) barely a punch was thrown
-         # and the room was won by a lead that took no damage. The route
-         # answers each one wrong instead, which fights all six and opens
-         # the gates the way playing it does.
-         # NO WATER TYPE HERE. A counter should be an option, not an "I
-         # win" button: POLIWHIRL led every fight in the room and won the
-         # whole gym alone, 108 hp down to 58, while NIDOKING and
-         # VICTREEBEL took not one point of damage in nine battles
-         # (traced 2026-09-15). Water against fire hits for double AND
-         # takes half, so it walls Blaine's entire roster and leaves the
-         # medicine nothing to do. NIDOKING already carries SURF from the
-         # crossing to the island, which is the same super-effective
-         # offence with NONE of the defensive wall — fire hits it square.
-         party=[("NIDOKING", 41), ("VICTREEBEL", 38),
-                ("PIDGEOT", 39), ("PRIMEAPE", 40), ("KADABRA", 36),
-                ("GOLBAT", 36)],
-         bag={"SUPER_POTION": 3, "HYPER_POTION": 4, "FULL_HEAL": 2,
-              "REVIVE": 2},
-         note="NO STARTER HERE. The Charizard line is FIRE/FLYING and "
-              "resists everything Blaine owns, so the room was won "
-              "without healing at two different party levels — not a "
-              "matter of levels at all (2026-09-15). VICTREEBEL takes "
-              "fire at double and is the reason anyone reaches for a "
-              "potion; POLIWHIRL is the counter and NIDOKING the body."),
-    # THE FLAG THE FIGHT ACTUALLY SETS. pokered checks
-    # EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI and both names are in the flag
-    # table, but this port sets EVENT_BEAT_GIOVANNI on winning the gym
-    # battle (data/scripts/gyms.lua). Counting the other one scored a won
-    # fight 0/1 with the whole party standing and no blackout, which is
-    # what a wrong denominator looks like. The unused name is left alone:
-    # the base save has neither set, so there is nothing to clear.
-    # THE WHOLE ROOM, NOT JUST GIOVANNI. Parked in front of him this was
-    # one fight a trial — four points of resolution over four trials, so
-    # a single trial swung the verdict and it read "thin" twice for
-    # opposite reasons (user, 2026-09-15: "we can do similar to saffron
-    # and cinnabar and direct the player to a selection of the trainers
-    # on the way to giovanni"). From the door it holds eight trainers and
-    # him. The floor is spin tiles, which the shim already settles.
+         ace=47, badges=6, door=(16, 17), puzzle=False,
+         paths=dict(
+             real=dict(party=[("DUGTRIO", 47), ("GLOOM", 48),
+                              ("PIDGEOT", 50), ("KABUTO", 30),
+                              ("LAPRAS", 48), ("RATICATE", 45)],
+                       bag={"HYPER_POTION": 5}, money=57000,
+                       note="DUGTRIO led (Aug 28), GLOOM on Sep 6. The "
+                            "CHARIZARD was boxed at this point of the "
+                            "Aug 28 run, and a L30 KABUTO was not: the "
+                            "record, resistances and dead weight "
+                            "included. KABUTO carries SURF."),
+             ideal=dict(party=[("STARMIE", 42), ("CHARIZARD", 42)],
+                        bag={"HYPER_POTION": 8, "BURN_HEAL": 3,
+                             "REVIVE": 3}, money=40000,
+                        note="STARMIE off the Super Rod with SURF, and "
+                             "the starter, which resists the whole room: "
+                             "an ideal pair at Blaine may read easy, and "
+                             "the table will say so if it does."))),
+    # THE FLAG THE FIGHT ACTUALLY SETS. This port sets EVENT_BEAT_GIOVANNI
+    # on winning the gym battle (data/scripts/gyms.lua), not
+    # EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI. From the door the room holds eight
+    # trainers and him; the floor is spin tiles, which the shim settles.
     dict(name="viridian", map="VIRIDIAN_GYM", hms=["SURF"], leader="GIOVANNI",
-         ace=50, badges=7, door=(16, 17), puzzle=False, money=15000,
-         party=[("CHARIZARD", 41), ("NIDOKING", 39),
-                ("POLIWHIRL", 38), ("RATICATE", 40), ("GRAVELER", 37),
-                ("KADABRA", 37)],
-         bag={"SUPER_POTION": 2, "HYPER_POTION": 5, "FULL_HEAL": 3,
-              "REVIVE": 2},
-         note="RHYDON L50 hits a Charizard four times over with rock. The "
-              "last gym, and the last arena before the league."),
+         ace=50, badges=7, door=(16, 17), puzzle=False,
+         paths=dict(
+             real=dict(party=[("DUGTRIO", 50), ("GLOOM", 48),
+                              ("PIDGEOT", 50), ("KABUTO", 30),
+                              ("LAPRAS", 48), ("RATICATE", 45)],
+                       bag={"HYPER_POTION": 5}, money=69000,
+                       note="DUGTRIO led (Aug 28), HITMONLEE on Sep 6; "
+                            "the Cinnabar party three levels on. RHYDON "
+                            "L50 against a L48 LAPRAS is the fight."),
+             ideal=dict(party=[("STARMIE", 45), ("CHARIZARD", 45)],
+                        bag={"HYPER_POTION": 8, "FULL_HEAL": 3,
+                             "REVIVE": 3}, money=50000,
+                        note="SURF into ground, quadruple on RHYDON, five "
+                             "under the ace, and the starter; nine fights "
+                             "on two bodies."))),
+    # THE LEAGUE. Not a gym: no room objects to clear by name and no base
+    # picked by badges — it is ginned on top of run/arena_e4.lua, the
+    # savepoint parked at LORELEI's door, with the same flags and trainers
+    # cleared that plans/arena_e4_ideal.json clears. Only the real path is
+    # built here; e4_ideal is the user's hand file.
+    dict(name="e4", map="LORELEIS_ROOM", leader="LORELEI", ace=62,
+         league=True, base=REPO / "run/arena_e4.lua", door=(4, 11),
+         puzzle=False,
+         paths=dict(
+             real=dict(party=[("KABUTOPS", 55), ("LAPRAS", 55),
+                              ("PIDGEOT", 55), ("GLOOM", 54),
+                              ("DUGTRIO", 54), ("CHARIZARD", 54)],
+                       bag={"FULL_RESTORE": 5}, money=48500,
+                       note="The Aug 28 run's first league attempt: "
+                            "KABUTOPS led, six at 54-55 against a Lance "
+                            "at 58-62. It took three attempts at "
+                            "LORELEI."))),
 ]
 
 
-def build(g: dict) -> dict:
-    objs = room_objects(g["map"])
-    leader_obj = next((i for i, n, _x, _y in objs
-                       if g["leader"].replace("_", "") in n.replace("_", "")
-                       or n.endswith(g["leader"])), None)
-    lead_flag = "EVENT_BEAT_" + g["leader"]
-    others = trainer_flags(g["map"])
-    # A ROOM WITH A BUSH IN IT NEEDS SOMEBODY WHO CAN CUT. Celadon pens
-    # Erika and her last three trainers inside a bed with two CUT_TREEs,
-    # and the Cut carrier was FARFETCH'D — who was cut from the party
-    # when it went from five to three. The room then capped at exactly
-    # four of eight, every trial, with no blackouts and no difference
-    # between full medicine and none: not a party losing, a party that
-    # could not reach the other half (2026-09-15). Whoever is here, one
-    # of them carries it.
+def build(g: dict, path: str) -> dict:
+    p = g["paths"][path]
     party = []
-    for sp, lv in g["party"]:
+    for sp, lv in p["party"]:
         party.append({"species": sp, "level": lv,
                       "moves": natural_moves(sp, lv), "nickname": sp})
-    # ...AND A ROOM YOU CANNOT REACH WITHOUT AN HM IS A ROOM WHOSE PARTY
-    # HAS IT. Cinnabar Island is across water: no party is standing in
-    # that gym without SURF, and the same party is still carrying it at
-    # Viridian afterwards (user, 2026-09-15: "nido would also know surf
-    # by then"). It is not a detail — SURF is double on everything
-    # Blaine owns and QUADRUPLE on Giovanni's RHYDON.
-    for hm in (["CUT"] if g.get("needs_cut") else []) + list(g.get("hms") or []):
+    # A ROOM WITH A BUSH IN IT NEEDS SOMEBODY WHO CAN CUT (Celadon pens
+    # Erika and her last three trainers inside a bed with two CUT_TREEs;
+    # without a carrier the room capped at four of eight every trial with
+    # no blackouts and no difference between full medicine and none,
+    # 2026-09-15). AND A ROOM YOU CANNOT REACH WITHOUT AN HM IS A ROOM
+    # WHOSE PARTY HAS IT: nobody stands in Cinnabar's gym without SURF,
+    # and the same party still carries it at Viridian. The first member
+    # in slot order who can learn it carries it, in its last slot.
+    for hm in ((["CUT"] if g.get("needs_cut") else [])
+               + list(g.get("hms") or []) + list(p.get("hms") or [])):
         if any(hm in m["moves"] for m in party):
             continue
         for m in party:
@@ -449,24 +475,29 @@ def build(g: dict) -> dict:
                 m["moves"] = m["moves"][:3] + [hm]
                 break
         else:
-            sys.exit(f"{g['name']}: nobody in this party can learn {hm}")
-    # FACING MATTERS BECAUSE BOOTSTRAP MASHES A. A save resumes exactly
-    # where it was written and bootstrap opens with six A presses to clear
-    # the title ceremony; parked in front of a leader FACING HIM, those
-    # presses talk to him and the fight starts during setup, which came
-    # back as "bootstrap failed (stuck in mode=battle)" on all four puzzle
-    # arenas. Gym leaders have no line of sight — they fight only when
-    # interacted with (user, 2026-09-15) — so facing away is enough, and
-    # the driver turns round and presses them itself.
+            sys.exit(f"{g['name']}_{path}: nobody in this party can learn {hm}")
+    # FACING MATTERS BECAUSE BOOTSTRAP MASHES A: parked facing a leader,
+    # the title-clearing presses talk to him and the fight starts during
+    # setup. Leaders fight only when interacted with, so facing away is
+    # enough, and the driver turns round and presses them itself.
     facing = "down" if g["puzzle"] else "up"
-    spec = {"party": party, "bag": dict(g["bag"]), "money": g["money"],
+    spec = {"party": party, "bag": dict(p["bag"]), "money": p["money"],
             "start": {"map": g["map"], "x": g["door"][0], "y": g["door"][1],
                       "facing": facing}}
+    if g.get("league"):
+        spec["clear_flags"] = list(_LEAGUE_CLEAR_FLAGS)
+        spec["clear_trainers"] = list(_LEAGUE_CLEAR_TRAINERS)
+        return spec
+    objs = room_objects(g["map"])
+    leader_obj = next((i for i, n, _x, _y in objs
+                       if g["leader"].replace("_", "") in n.replace("_", "")
+                       or n.endswith(g["leader"])), None)
+    lead_flag = "EVENT_BEAT_" + g["leader"]
+    others = trainer_flags(g["map"])
     extra = list(g.get("also_clear") or [])
     if g["puzzle"]:
-        # THE FIGHT, NOT THE MAZE. Parked in front of the leader with the
-        # rest of the room already beaten, so the score is the one fight
-        # and never the navigation.
+        # THE FIGHT, NOT THE MAZE: parked in front of the leader with the
+        # rest of the room already beaten.
         spec["clear_flags"] = [lead_flag] + extra
         spec["set_flags"] = others
         spec["set_trainers"] = [f"{g['map']}_obj_{i}" for i, n, _x, _y in objs
@@ -489,42 +520,51 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true",
                     help="say what would be built and stop")
-    ap.add_argument("--only", default="", help="one arena by name")
+    ap.add_argument("--only", default="",
+                    help="one room by name (pewter ... viridian, e4)")
+    ap.add_argument("--path", choices=["real", "ideal", "both"],
+                    default="both", help="which path's rooms to build")
     a = ap.parse_args()
     rc = 0
     for g in GYMS:
         if a.only and g["name"] != a.only:
             continue
-        base = pick_base(g["badges"])
-        spec = build(g)
-        n_beat = len(spec.get("clear_flags") or [])
-        print(f"\n=== {g['name']}  {g['map']}  "
-              f"{'ONE FIGHT (puzzle room)' if g['puzzle'] else str(n_beat) + ' to beat'}"
-              f"  leader's ace L{g['ace']}")
-        print(f"    base {base.parent.name if base else 'MISSING'} "
-              f"({len(badges_of(base)) if base else 0} badge(s))")
-        for m in spec["party"]:
-            print(f"    {m['species']:11s} L{m['level']:<3d} "
-                  + "/".join(m["moves"]))
-        print("    bag " + ", ".join(f"{k} x{v}"
-                                     for k, v in spec["bag"].items()))
-        print(f"    {g['note']}")
-        if a.list:
-            continue
-        if not base:
-            print(f"    SKIPPED: no base save with {g['badges']} badge(s)")
-            rc = 1
-            continue
-        sp = REPO / f"plans/arena_{g['name']}.json"
-        sp.write_text(json.dumps(spec, indent=2))
-        out = REPO / f"run/arena_{g['name']}.lua"
-        r = subprocess.run([sys.executable, str(REPO / "planner/gin_save.py"),
-                            "--base", str(base), "--spec", str(sp),
-                            "--out", str(out)],
-                           capture_output=True, text=True)
-        print("    " + (r.stdout.strip().replace("\n", "\n    ")
-                        or r.stderr.strip()[:300]))
-        rc = rc or r.returncode
+        for path in (("real", "ideal") if a.path == "both" else (a.path,)):
+            p = g["paths"].get(path)
+            if p is None:
+                continue        # the league's ideal party is a hand file
+            name = f"{g['name']}_{path}"
+            base = g.get("base") or pick_base(g["badges"])
+            spec = build(g, path)
+            n_beat = len(spec.get("clear_flags") or [])
+            print(f"\n=== {name}  {g['map']}  "
+                  f"{'ONE FIGHT (puzzle room)' if g['puzzle'] else str(n_beat) + ' to beat'}"
+                  f"  leader's ace L{g['ace']}")
+            print(f"    base {base.parent.name if base else 'MISSING'} "
+                  f"({len(badges_of(base)) if base else 0} badge(s))")
+            for m in spec["party"]:
+                print(f"    {m['species']:11s} L{m['level']:<3d} "
+                      + "/".join(m["moves"]))
+            print("    bag " + ", ".join(f"{k} x{v}"
+                                         for k, v in spec["bag"].items())
+                  + f"; money {spec['money']}")
+            print(f"    {p['note']}")
+            if a.list:
+                continue
+            if not base or not Path(base).exists():
+                print(f"    SKIPPED: no base save for {name}")
+                rc = 1
+                continue
+            sp = REPO / f"plans/arena_{name}.json"
+            sp.write_text(json.dumps(spec, indent=2))
+            out = REPO / f"run/arena_{name}.lua"
+            r = subprocess.run([sys.executable, str(REPO / "planner/gin_save.py"),
+                                "--base", str(base), "--spec", str(sp),
+                                "--out", str(out)],
+                               capture_output=True, text=True)
+            print("    " + (r.stdout.strip().replace("\n", "\n    ")
+                            or r.stderr.strip()[:300]))
+            rc = rc or r.returncode
     return rc
 
 

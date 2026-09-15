@@ -87,18 +87,32 @@ ck("the report says the total out of the arenas that produced it",
    and "erika: 75% of that arena" in A.cross_text("x", STEADY))
 
 # ---- the arenas are the ones the README built -------------------------
-# Every gym in the game, in order, plus the league — and the three
-# hand-built rooms kept under _real names as the control if a built arena
-# ever reads as easier than the game did (2026-09-15).
+# Every gym in the game, in order, plus the league — TWICE, one path
+# each: `_real` is the party the model-authored runs carried, `_ideal` the
+# party a player would build, five under the ace (user, 2026-09-15: "two
+# paths like the elite four split"). The three hand-built rooms are kept
+# under _found names as the control if a built arena ever reads as easier
+# than the game did.
 GYMS = ["pewter", "cerulean", "vermilion", "celadon", "fuchsia", "saffron",
         "cinnabar", "viridian"]
-ck("every gym in the game has an arena, in order",
-   all(g in A.ARENAS for g in GYMS) and "e4" in A.ARENAS)
+PATHS = ["real", "ideal"]
+ck("every gym in the game has an arena on each path, and so does the league",
+   all(f"{g}_{p}" in A.ARENAS for g in GYMS for p in PATHS)
+   and all(f"e4_{p}" in A.ARENAS for p in PATHS))
 ck("...each a room scored on its own beat-flags",
-   all(A.ARENAS[g][0] == "gym" and A.ARENAS[g][2] is not None
-       for g in GYMS))
+   all(A.ARENAS[f"{g}_{p}"][0] == "gym" and A.ARENAS[f"{g}_{p}"][2] is not None
+       for g in GYMS for p in PATHS))
+ck("...and the league rooms are league arenas on both paths",
+   all(A.ARENAS[f"e4_{p}"][0] == "e4" for p in PATHS))
+ck("a path suffix is not part of the room: the approach route is the room's",
+   all(A.room_of(f"{g}_{p}") == g for g in GYMS for p in PATHS)
+   and A.room_of("saffron_ideal") in A.APPROACH and A.room_of("brock") == "brock")
+ck("the single-path names are gone, so nothing can score the old rooms",
+   not any(g in A.ARENAS for g in GYMS) and "e4" not in A.ARENAS)
 ck("...and the hand-built ones are kept as a control, not in the sweep",
-   {"erika_real", "koga_real", "brock_real"} <= set(A.ARENAS))
+   {"erika_found", "koga_found", "brock_found"} <= set(A.ARENAS)
+   and not any(k.endswith("_real") for k in ("erika_real", "koga_real", "brock_real")
+               if k in A.ARENAS))
 ck("brock is the one that replays a plan, the rest are savepoints",
    A.ARENAS["brock"][1] is None
    and all(v[1] is not None for k, v in A.ARENAS.items() if k != "brock"))
