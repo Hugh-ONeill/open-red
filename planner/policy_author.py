@@ -566,6 +566,7 @@ class Gym:
             if not want or want == 1 or want > len(party):
                 return
             self.b.send("party_swap", a=1, b=want)
+            self.leads = getattr(self, "leads", 0) + 1
         except Exception:
             pass                    # a lead is never worth the trial
 
@@ -722,6 +723,7 @@ class Gym:
             res["bodies"] += (0.0 if (end and end != self.arena_map) else
                               len(alive) / max(1, len(obs.get("party")
                                                       or [])))
+            res["leads"] = getattr(self, "leads", 0)
             res["gauntlet_detail"].append(
                 f"beat {len(won)}/{res['standing']} in {self.arena_map} "
                 f"with {len(alive)}/{len(obs.get('party') or [])} standing"
@@ -980,7 +982,9 @@ def feedback_text(name: str, r: dict) -> str:
     ag = f"{r['agree']}/{r['scored']}" if r["scored"] else "n/a"
     if r.get("arena") == "gym" or r.get("standing"):
         n = max(1, r.get("gauntlet_trials", 1))
-        out = (f"{name}: beat {r.get('beaten', 0)}/"
+        out = (f"{name}: "
+               + (f"[{r['leads']} lead swap(s)] " if r.get("leads") else "")
+               + f"beat {r.get('beaten', 0)}/"
                f"{n * (r.get('standing') or 1)} of the room across "
                f"{n} trial(s), blackouts {r['blackouts']}; oracle "
                f"agreement {ag}, damage left on the table {r['dmg_gap']:.0f}")
