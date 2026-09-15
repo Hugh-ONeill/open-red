@@ -131,6 +131,38 @@ op = fought(CLASSED, battle(90, 116, {"REVIVE": 1, "MAX_REVIVE": 1},
 ck("a revive brings a body back, the cheap one first",
    op.get("op") == "battle_item" and op.get("item") == "REVIVE"
    and op.get("target") == "fainted")
+# A CURE IN A FIGHT HAS A STATUS TOO: the one the ACTIVE mon is
+# suffering. The class existed only for `field_cure`, where the rule
+# carries its own status; written into `battle_items` it had none to
+# resolve against and sat there dead however full the bag was. The first
+# spec ever authored with classes wrote exactly that rule (v7,
+# 2026-09-15) — it is the obvious thing to mean, and a rule that can
+# never fire whatever you carry is the bug this DSL exists to kill.
+BATTLE_CURE = {"battle_items": [{"item": "cure", "max_uses": 2}]}
+
+
+def poisoned(bag, status="PSN", hp=100):
+    o = battle(hp, 116, bag)
+    o["battle"]["me"]["status"] = status
+    return o
+
+
+op = B.choose(poisoned({"ANTIDOTE": 1, "FULL_RESTORE": 1}), BATTLE_CURE,
+              {"turn": 2})
+ck("a cure rule in a fight reads the active mon's own status",
+   op.get("op") == "battle_item" and op.get("item") == "ANTIDOTE")
+ck("...and holds the FULL_RESTORE back for when it is needed",
+   op.get("item") != "FULL_RESTORE")
+ck("...and does not fire on a clean Pokemon, whatever its HP",
+   B.choose(battle(10, 116, {"ANTIDOTE": 1}), BATTLE_CURE,
+            {"turn": 2}).get("op") == "battle_move")
+ck("a burn is cured with what cures a burn",
+   B.choose(poisoned({"BURN_HEAL": 1, "ANTIDOTE": 1}, "BRN"), BATTLE_CURE,
+            {"turn": 2}).get("item") == "BURN_HEAL")
+ck("the status, not an HP threshold, is the condition",
+   B.choose(poisoned({"ANTIDOTE": 1}, hp=115), BATTLE_CURE,
+            {"turn": 2}).get("op") == "battle_item")
+
 ck("the one-of-a-kind ball is not a rung any ladder climbs",
    "MASTER_BALL" not in B.BALL_LADDER
    and "SAFARI_BALL" not in B.BALL_LADDER

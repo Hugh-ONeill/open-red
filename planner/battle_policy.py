@@ -57,7 +57,10 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
       heal    POTION, SUPER_POTION, HYPER_POTION, MAX_POTION, FULL_RESTORE
       revive  REVIVE, MAX_REVIVE
       cure    the dedicated cure for that rule's status, then FULL_HEAL,
-              then FULL_RESTORE
+              then FULL_RESTORE. In `field_cure` the status is the rule's
+              own; in `battle_items` it is whatever the ACTIVE mon is
+              suffering, and the rule does not fire on a clean one (its
+              hp_below is ignored: the status is the condition)
       ball    POKE_BALL, GREAT_BALL, ULTRA_BALL
   Each ladder runs weakest first. `prefer` says which rung is taken:
       weakest_sufficient  (default) the smallest one that covers the HP
@@ -738,7 +741,21 @@ def choose(obs: dict, spec: dict | None = None,
         # while ANY party member is down; the harness picks which.
         target = str(rule.get("target") or "self")
         missing = None
-        if target == "fainted":
+        # A CURE IN A FIGHT READS THE ACTIVE MON'S OWN STATUS. The class
+        # existed only for `field_cure`, where the rule carries a status
+        # to resolve against; written into `battle_items` it had none, so
+        # it resolved to nothing and sat there dead however full the bag
+        # was. The first spec authored with classes wrote exactly that
+        # rule (v7, 2026-09-15) — it is the obvious thing to mean, and a
+        # rule that can never fire whatever you carry is the bug this
+        # whole DSL change exists to kill.
+        _status = None
+        if str(rule.get("item") or "") == "cure":
+            # the status IS the condition here; hp_below is not read
+            _status = str((me or {}).get("status") or "").upper()
+            if _status in ("", "0", "NONE", "OK"):
+                continue
+        elif target == "fainted":
             if not any((p.get("hp") or 0) <= 0
                        for p in (obs.get("party") or [])):
                 continue
@@ -751,12 +768,13 @@ def choose(obs: dict, spec: dict | None = None,
                           - (me.get("hp") or 0))
         item = resolve_item(rule.get("item"), bag,
                             rule.get("prefer") or DEFAULT_PREFER,
-                            missing=missing)
+                            status=_status, missing=missing)
         if not item:
             continue
         items_used[budget_key] = items_used.get(budget_key, 0) + 1
         return {"op": "battle_item", "item": item, "target": target,
                 "_why": (f"revive with {item}" if target == "fainted"
+                         else f"cure {_status} with {item}" if _status
                          else f"heal with {item}")}
     scored = [score_move(m, me, foe, spec, ctx.get("journal")) for m in moves]
     damaging = [s for s in scored if (s["power"] or 0) > 0]

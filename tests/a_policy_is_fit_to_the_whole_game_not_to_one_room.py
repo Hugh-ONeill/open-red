@@ -113,6 +113,16 @@ ck("...and the leader is in the last row, behind all seven",
    and min(y for n, _x, y in ROSTER) == 3)
 ck("a bed with a bush in it is cut, not treated as a wall",
    'move="CUT"' in PA and 'o.get("kind") != "cut_tree"' in PA)
+# ...AND THE LEAGUE'S ROOMS NEED THE SAME CROSSING. The E4 scorer read
+# its boss out of `map.objects` and worked only while its bridge
+# directory happened to carry a seen mask from an earlier run of itself.
+# The first multi-arena run booted three other arenas into that same
+# directory first, and all four candidates scored 0/10, "stopped in
+# LORELEIS_ROOM with 6/6 standing", no punch thrown (2026-09-15).
+ck("both scorers cross a room the same way, through one method",
+   PA.count("self._cross_room(") == 2 and "def _cross_room(" in PA)
+ck("...and no arena boots into another arena's bridge directory",
+   'REPO / "run/policyarena" / str(self.arena_name' in PA)
 ck("bodies left break a tie the objective cannot see",
    A.cross_key([("erika", dict(gymr(16), bodies=1.6))])
    > A.cross_key([("erika", dict(gymr(16), bodies=0.8))]))

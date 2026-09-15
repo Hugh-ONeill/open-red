@@ -349,8 +349,10 @@ class Gym:
 
     def __init__(self, plan_path: Path, run_id: str, model: str = "",
                  from_save: Path | None = None, arena: str = "brock",
-                 trials: int = 3, arena_spec: Path | None = None):
+                 trials: int = 3, arena_spec: Path | None = None,
+                 arena_name: str = ""):
         self.arena_spec = arena_spec
+        self.arena_name = arena_name
         self.plan_path = plan_path
         self.trials = max(1, int(trials))
         self.run_id = run_id
@@ -383,7 +385,14 @@ class Gym:
             # a COPY of the save. The campaign's game is untouchable.
             sys.path.insert(0, str(REPO / "tests"))
             from contract import start_game            # noqa: E402
-            self.run_dir = REPO / "run/policyarena"
+            # ONE DIRECTORY PER ARENA. They shared `run/policyarena`,
+            # so each boot overwrote the last one's seen mask and
+            # explored graph — invisible until the E4 scorer, which had
+            # been quietly relying on a mask left behind by an earlier
+            # run of itself, met a directory three other arenas had just
+            # been through.
+            self.run_dir = REPO / "run/policyarena" / str(self.arena_name
+                                                          or self.arena)
             self.game = start_game(self.run_dir, self.from_save, "200")
             os.environ["RED_BRIDGE_DIR"] = str(self.run_dir)
         else:
@@ -508,6 +517,101 @@ class Gym:
         return {f for f in ((obs or {}).get("flags") or [])
                 if str(f).startswith("EVENT_BEAT_")}
 
+    def _cross_room(self, here: str, want: set | None = None,
+                    tries: int = 0):
+        """Press everyone in this room, fighting whatever starts.
+
+        A RESTORED SAVE HAS SEEN NOTHING OF THE ROOM IT IS PARKED IN, and
+        a walk only paths through ground that has been on screen — so
+        every press fails "no reachable tile adjacent to target" and a
+        scorer reading the observation for who is there presses nobody.
+        The room's own table has them; `interact` resolves a name against
+        the live NPC list. When nobody is in reach, walk to the nearest
+        edge of what has been seen so more comes into view; when that
+        runs out, cut a bush. A trainer whose line of sight the walk
+        crosses starts the fight without being pressed, which is most of
+        them."""
+        roster = [n for n, _x, _y in
+                  sorted(room_roster(here), key=lambda t: -t[2])]
+        pressed, cut = set(), set()
+        for _ in range(tries or (6 * max(1, len(roster)) + 8)):
+            obs = self._ride(self.ex.settle())
+            mid = ((obs or {}).get("map") or {}).get("id")
+            # A MAP WITH NO NAME IS NOT A MAP YOU LEFT. Pewter's gym
+            # guide left the observation mid-speech with map.id None, and
+            # reading that as "carried out of the arena" ended the trial
+            # on step 1 with no punch thrown. Unnamed is unsettled — and
+            # a question left open is not a world mid-step either: the
+            # guide offers to walk you to the top, `tap a` only reopens
+            # the box, and nobody in an arena wants an escort.
+            if mid is None:
+                if (obs or {}).get("mode") == "ui":
+                    self.b.send("menu", index=2)
+                else:
+                    self.b.send("wait", frames=30)
+                continue
+            if mid != here:
+                break            # blacked out, or carried out of it
+            if want and want <= self._beaten(obs):
+                break            # the room is beaten
+            hit = busy = False
+            for who in roster:
+                if who in pressed:
+                    continue
+                r = self.b.send("interact", name=who, answer="no")
+                if self._ok(r):
+                    pressed.add(who)
+                    hit = True
+                    break
+                if self._mid_sequence(r):
+                    # A TRAINER WHO HAS SPOTTED YOU IS ALREADY WALKING
+                    # OVER, and until they arrive every op is refused
+                    # while the observation still reads a clean
+                    # overworld. That is not a wall; it is the fight
+                    # starting.
+                    busy = True
+                    break
+            if busy:
+                self.b.send("wait", frames=30)
+                continue
+            if not hit:
+                for c in sorted(((obs.get("map") or {}).get("frontier")
+                                 or []), key=lambda c: c.get("d") or 99):
+                    w = self.b.send("walk_to", x=c.get("x"), y=c.get("y"))
+                    if self._ok(w):
+                        hit = True
+                        break
+                    if self._mid_sequence(w):
+                        busy = True
+                        break
+            if not hit and not busy:
+                # ...AND THE BACK OF A ROOM CAN BE BEHIND A BUSH.
+                # Celadon pens Erika and her last three trainers inside a
+                # bed with two CUT_TREEs in it: every press came back
+                # unreachable, the frontier was empty because everything
+                # reachable HAD been seen, and the trial stopped at 4 of
+                # 8 with the leader never fought.
+                for o in ((obs.get("map") or {}).get("objects") or []):
+                    if o.get("kind") != "cut_tree" \
+                            or not o.get("reachable") \
+                            or (o.get("x"), o.get("y")) in cut:
+                        continue
+                    cut.add((o.get("x"), o.get("y")))
+                    c2 = self.b.send("field_move", move="CUT",
+                                     x=o.get("x"), y=o.get("y"))
+                    if self._ok(c2):
+                        hit = True
+                        break
+                    if self._mid_sequence(c2):
+                        busy = True
+                        break
+            if busy:
+                self.b.send("wait", frames=30)
+                continue
+            if not hit:
+                break            # nobody in reach and nowhere to look
+        return self._ride(self.ex.settle())
+
     def eval_spec_gym(self, spec: dict, k: int = 3) -> dict:
         """One room, everyone in it. Press each trainer in turn and fight;
         the score is how many of the room's beat-flags come up.
@@ -533,111 +637,8 @@ class Gym:
             start = LOG.stat().st_size
             obs = self._ride(self.ex.settle())
             before = self._beaten(obs)
-            # A RESTORED SAVE HAS SEEN NOTHING OF THE ROOM IT IS PARKED
-            # IN, and a walk only paths through ground that has been on
-            # screen — so every press failed with "no reachable tile
-            # adjacent to target" and the first run of this scored 0/8
-            # without a punch thrown. Crossing the room is the job: press
-            # whoever is reachable, and when nobody is, walk to the
-            # nearest edge of what has been seen so more of it comes into
-            # view. A trainer whose line of sight the walk crosses starts
-            # the fight without being pressed at all, which is most of
-            # them.
-            pressed, cut = set(), set()
-            want = set(self.arena_flags)
-            try:
-                for _ in range(6 * len(self.arena_fights) + 8):
-                    obs = self._ride(self.ex.settle())
-                    here = ((obs or {}).get("map") or {}).get("id")
-                    # A MAP WITH NO NAME IS NOT A MAP YOU LEFT. Pressing
-                    # Pewter's gym guide left the observation mid-speech
-                    # with map.id None, this read it as "carried out of
-                    # the arena", broke on step 1 and scored the trial a
-                    # blackout with two Pokemon standing and no punch
-                    # thrown. Unnamed is unsettled; wait it out.
-                    if here is None:
-                        # A QUESTION LEFT OPEN IS NOT A WORLD MID-STEP.
-                        # Pewter's gym guide offers to walk you to the
-                        # top; the press came back ok with the box still
-                        # up, `tap a` only reopened it, and the trial sat
-                        # in that prompt for every iteration it had.
-                        # Nobody in an arena wants an escort: say no.
-                        if (obs or {}).get("mode") == "ui":
-                            self.b.send("menu", index=2)
-                        else:
-                            self.b.send("wait", frames=30)
-                        continue
-                    if here != self.arena_map:
-                        break        # blacked out, or carried out of it
-                    if want and want <= self._beaten(obs):
-                        break        # the room is beaten
-                    hit = busy = False
-                    for who in self.arena_fights:
-                        if who in pressed:
-                            continue
-                        r = self.b.send("interact", name=who, answer="no")
-                        if self._ok(r):
-                            pressed.add(who)
-                            hit = True
-                            break
-                        if self._mid_sequence(r):
-                            busy = True
-                            break
-                    if busy:
-                        # A TRAINER WHO HAS SPOTTED YOU IS ALREADY WALKING
-                        # OVER, and until they arrive every op is refused
-                        # "stuck in a menu/dialog" while the observation
-                        # still reads a clean overworld with no box in it.
-                        # The first version of this loop read that refusal
-                        # as a wall, gave up at step 0 and scored the room
-                        # 0/8 with the challenge pending on screen. It is
-                        # not a wall; it is the fight starting.
-                        self.b.send("wait", frames=30)
-                        continue
-                    if hit:
-                        continue
-                    fr = sorted(((obs.get("map") or {}).get("frontier")
-                                 or []), key=lambda c: c.get("d") or 99)
-                    for c in fr:
-                        w = self.b.send("walk_to", x=c.get("x"),
-                                        y=c.get("y"))
-                        if self._ok(w):
-                            hit = True
-                            break
-                        if self._mid_sequence(w):
-                            busy = True
-                            break
-                    if not hit and not busy:
-                        # ...AND THE BACK OF THIS ROOM IS BEHIND A BUSH.
-                        # Celadon's gym pens its leader and her last three
-                        # trainers inside a bed with two CUT_TREEs in it:
-                        # every press came back "no reachable tile
-                        # adjacent to target", the frontier was empty
-                        # because everything reachable HAD been seen, and
-                        # the trial stopped at 4 of 8 with Erika never
-                        # fought — the one fight the arena exists for.
-                        for o in ((obs.get("map") or {}).get("objects")
-                                  or []):
-                            if o.get("kind") != "cut_tree" \
-                                    or not o.get("reachable") \
-                                    or (o.get("x"), o.get("y")) in cut:
-                                continue
-                            cut.add((o.get("x"), o.get("y")))
-                            c2 = self.b.send("field_move", move="CUT",
-                                             x=o.get("x"), y=o.get("y"))
-                            if self._ok(c2):
-                                hit = True
-                                break
-                            if self._mid_sequence(c2):
-                                busy = True
-                                break
-                    if busy:
-                        self.b.send("wait", frames=30)
-                        continue
-                    if not hit:
-                        break        # nobody in reach and nowhere to look
-            except TimeoutError:
-                pass
+            obs = self._cross_room(self.arena_map,
+                                   want=set(self.arena_flags))
             obs = self._ride(self.ex.settle())
             for _ in range(6):
                 if ((obs.get("map") or {}).get("id")):
@@ -717,13 +718,19 @@ class Gym:
                     # STANDS, so the walk failed, no fight started, and
                     # every trial scored "reached room 2" without a single
                     # punch thrown. Press him instead.
-                    boss = next((o.get("name") for o in
-                                 ((obs.get("map") or {}).get("objects") or [])
-                                 if o.get("kind") in ("trainer", "npc")
-                                 and o.get("name")), None)
-                    if boss:
-                        self.b.send("interact", name=boss)
-                        obs = self.ex.settle()
+                    # ...AND THE BOSS IS NOT IN THE OBSERVATION EITHER.
+                    # This read `map.objects`, which lists only what has
+                    # been SEEN, and a restored save has seen nothing of
+                    # the room it is parked in. It worked only while the
+                    # arena's bridge directory happened to carry a seen
+                    # mask from an earlier run of the same arena; the
+                    # first multi-arena run cleared it by booting three
+                    # other arenas first, and all four candidates scored
+                    # 0/10 "stopped in LORELEIS_ROOM with 6/6 standing",
+                    # no punch thrown (2026-09-15). The room's own table
+                    # has them, and `interact` resolves a name against
+                    # the live NPC list.
+                    obs = self._cross_room(here)
                     obs = self._ride(obs)
                     # the champion has no next room: he counts when his
                     # flag is up and the party still stands
@@ -1120,7 +1127,7 @@ def main():
             save = args.from_save          # an explicit save still wins
         g = Gym(args.plan, args.run_id, model=args.model,
                 from_save=save, arena=kind, trials=args.trials,
-                arena_spec=aspec)
+                arena_spec=aspec, arena_name=name)
         for attempt in (1, 2):
             try:
                 print(f"[gym] booting the {name} arena (attempt {attempt})...")
