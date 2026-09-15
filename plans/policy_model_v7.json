@@ -1,0 +1,225 @@
+{
+  "name": "Gen1_Balanced_Aggression",
+  "stab": 1.5,
+  "accuracy_weight": true,
+  "prefer_ko": true,
+  "ko_margin": 1.2,
+  "avoid_status_moves": false,
+  "setup": [
+    {
+      "move": "GROWL",
+      "max_uses": 2,
+      "first_turns": 3,
+      "min_hp_frac": 0.5,
+      "vs": "trainer",
+      "only_if_best_physical": true
+    }
+  ],
+  "switch": [
+    {
+      "to": 3,
+      "first_turns": 1,
+      "max_uses": 1,
+      "vs": "trainer",
+      "hp_below": null,
+      "only_if_lead": 1
+    }
+  ],
+  "flee_wild": {
+    "when_traversal": true,
+    "hp_below": 0.2
+  },
+  "battle_items": [
+    {
+      "item": "heal",
+      "prefer": "weakest_sufficient",
+      "hp_below": 0.3,
+      "max_uses": 3
+    },
+    {
+      "item": "revive",
+      "prefer": "weakest_sufficient",
+      "target": "fainted",
+      "hp_below": 0.0,
+      "max_uses": 2
+    },
+    {
+      "item": "cure",
+      "prefer": "weakest_sufficient",
+      "hp_below": 0.5,
+      "max_uses": 2
+    }
+  ],
+  "field_heal": {
+    "item": "heal",
+    "hp_below": 0.6,
+    "prefer": "weakest_sufficient"
+  },
+  "field_cure": [
+    {
+      "status": "PSN",
+      "item": "cure"
+    },
+    {
+      "status": "PAR",
+      "item": "cure"
+    },
+    {
+      "status": "BRN",
+      "item": "cure"
+    },
+    {
+      "status": "SLP",
+      "item": "cure"
+    },
+    {
+      "status": "FRZ",
+      "item": "cure"
+    }
+  ],
+  "catch": {
+    "ball": "ball",
+    "throw_at_hp_frac": 0.25,
+    "max_balls": 5
+  },
+  "replacement": {
+    "order": "best_matchup",
+    "min_hp_frac": 0.1
+  },
+  "provenance": {
+    "authored_by": "gemma4:31b-it-q4_K_M",
+    "run": "policyv7b",
+    "via": "policy_author",
+    "rounds": 4,
+    "eval": {
+      "arena": "koga+pewter+erika+e4",
+      "rival_wins": 0,
+      "rival_trials": 0,
+      "pewter": 0,
+      "badge": 0,
+      "gauntlet_trials": 2,
+      "blackouts": 0,
+      "agree": 31,
+      "scored": 45,
+      "dmg_gap": 169.0,
+      "rival_detail": [],
+      "gauntlet_detail": [
+        "beat 7/7 in FUCHSIA_GYM with 4/5 standing",
+        "beat 7/7 in FUCHSIA_GYM with 4/5 standing"
+      ],
+      "beaten": 14,
+      "bodies": 1.6,
+      "standing": 7,
+      "arena_map": "FUCHSIA_GYM",
+      "arena_party": [
+        "NIDORINA L37 113/113",
+        "GLOOM L34 93/93",
+        "CHARIZARD L41 135/135",
+        "EEVEE L25 68/68",
+        "DODUO L22 47/47"
+      ],
+      "arenas": {
+        "koga": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 31,
+          "scored": 45,
+          "dmg_gap": 169.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 7/7 in FUCHSIA_GYM with 4/5 standing",
+            "beat 7/7 in FUCHSIA_GYM with 4/5 standing"
+          ],
+          "beaten": 14,
+          "bodies": 1.6,
+          "standing": 7
+        },
+        "pewter": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 26,
+          "scored": 40,
+          "dmg_gap": 17.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 2/2 in PEWTER_GYM with 2/2 standing",
+            "beat 2/2 in PEWTER_GYM with 1/2 standing"
+          ],
+          "beaten": 4,
+          "bodies": 1.5,
+          "standing": 2
+        },
+        "erika": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 17,
+          "scored": 38,
+          "dmg_gap": 611.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 8/8 in CELADON_GYM with 4/4 standing",
+            "beat 8/8 in CELADON_GYM with 4/4 standing"
+          ],
+          "beaten": 16,
+          "bodies": 2.0,
+          "standing": 8
+        },
+        "e4": {
+          "arena": "e4",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 2,
+          "blackouts": 0,
+          "agree": 128,
+          "scored": 172,
+          "dmg_gap": 335.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 3/5 (stopped in CHAMPIONS_ROOM) with 6/6 standing",
+            "beat 3/5 (stopped in CHAMPIONS_ROOM) with 6/6 standing"
+          ],
+          "rooms": 6,
+          "bodies": 2.0
+        }
+      },
+      "cross_total": 3.6
+    },
+    "baseline_typed_v0": {
+      "arena": "gym",
+      "rival_wins": 0,
+      "rival_trials": 0,
+      "pewter": 0,
+      "badge": 0,
+      "gauntlet_trials": 2,
+      "blackouts": 2,
+      "agree": 22,
+      "scored": 24,
+      "dmg_gap": 25.0,
+      "rival_detail": [],
+      "gauntlet_detail": [
+        "beat 1/7 in FUCHSIA_GYM with 5/5 standing (ended in CELADON_POKECENTER)",
+        "beat 1/7 in FUCHSIA_GYM with 5/5 standing (ended in CELADON_POKECENTER)"
+      ],
+      "beaten": 2,
+      "bodies": 0.0,
+      "standing": 7
+    }
+  }
+}
