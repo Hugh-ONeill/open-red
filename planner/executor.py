@@ -1754,6 +1754,7 @@ class Executor:
         self._touch_mark: dict = {}
         # map id -> {TYPE: times a trainer on it sent one out}
         self._room_types: dict = {}
+        self._last_map: str = ""
         self.hints: dict = {}
         self.hints_at: dict = {}     # region -> {line: flags fired when heard}
         self._item_from: dict = {}   # item -> {who, at, said}: who handed it over
@@ -4495,6 +4496,12 @@ class Executor:
     def _note(self, obs):
         global PRINTED_MAP_HELD
         PRINTED_MAP_HELD = bool(self._holding_town_map(obs))
+        # THE LAST MAP THAT HAD A NAME. An observation inside a battle
+        # carries none, which is exactly when the run most needs to say
+        # WHERE it is fighting.
+        _m = ((obs or {}).get("map") or {}).get("id")
+        if _m:
+            self._last_map = str(_m)
         self._mark_now = self._world_mark(obs)
         self._drop_what_a_thrown_away_world_did(obs)
         # ...AND WHERE IT WAS CARRIED. The mark at the last time the run stood
@@ -15143,7 +15150,14 @@ class Executor:
         # Trainer fights only — what wanders out of the grass is a fact
         # about the grass and is already counted elsewhere.
         if str((obs.get("battle") or {}).get("kind") or "") == "trainer":
-            _mid = str(((obs or {}).get("map") or {}).get("id") or "")
+            # ...AND A FIGHT HAS NO MAP UNDER IT. This read obs.map.id,
+            # which is None for the whole of a battle, so `_mid` was
+            # always empty and not one type was ever recorded: the rule
+            # that reads them was inert from the moment it was written
+            # (2026-09-15). The map you were standing on is the map you
+            # are fighting on.
+            _mid = str(((obs or {}).get("map") or {}).get("id")
+                       or getattr(self, "_last_map", "") or "")
             _tys = [str(t).upper() for t in (foe.get("types") or [])]
             if _mid and _tys:
                 _d = self._room_types.setdefault(_mid, {})
@@ -15343,7 +15357,8 @@ class Executor:
         common first. The run's own record of its own fights — nothing is
         read out of the game's tables, and a room never fought is silent."""
         d = (getattr(self, "_room_types", {}) or {}).get(
-            str(((obs or {}).get("map") or {}).get("id") or "")) or {}
+            str(((obs or {}).get("map") or {}).get("id")
+                or getattr(self, "_last_map", "") or "")) or {}
         return [t for t, _n in sorted(d.items(), key=lambda kv: -kv[1])]
 
     def _lead_before_a_fight(self, obs, step, sg, trace):

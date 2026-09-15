@@ -185,8 +185,15 @@ GYMS = [
               "HORN_ATTACK is the whole of the answer."),
     dict(name="cerulean", map="CERULEAN_GYM", leader="MISTY", ace=21,
          badges=1, door=(4, 13), puzzle=False, money=2800,
-         party=[("CHARMELEON", 18), ("NIDORINO", 17), ("PIDGEOTTO", 16),
-                ("PIKACHU", 17)],
+         # RAISED 2026-09-15 after four candidates and a type-aware lead
+         # all lost here. At 16-18 against a L21 STARMIE the room was not
+         # hard, it was unwinnable: every spec scored 2/3, two of them
+         # playing perfectly by the oracle, so the arena measured nothing.
+         # A run that reaches Misty without grinding has its starter
+         # around 20. Pikachu only ever has THUNDERSHOCK until 26, so the
+         # levels are the only lever.
+         party=[("CHARMELEON", 21), ("NIDORINO", 20), ("PIDGEOTTO", 19),
+                ("PIKACHU", 20)],
          bag={"POTION": 8, "ANTIDOTE": 2, "PARLYZ_HEAL": 1},
          note="Fire into water, and STARMIE outspeeds all three. Single "
               "tier on purpose: POTION is the only heal a Cerulean-era "

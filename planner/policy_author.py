@@ -680,6 +680,17 @@ class Gym:
         the objects come in IS the order of the room, and a trial that
         cannot reach the back of it simply scores what it beat."""
         ex_mod.set_active_spec(spec)
+        # AND EVERY CANDIDATE MEETS THE ROOM COLD. What a room is made of
+        # is learned by fighting it, and one executor scores every
+        # candidate in an arena — so candidate #1 would meet Cerulean
+        # knowing nothing and candidate #4 would meet it already told,
+        # and the ranking would be reading the order they were scored in.
+        # Inside a trial the learning still happens, which is the honest
+        # part: you fight a gym's trainers on the way to its leader.
+        try:
+            (self.ex._room_types or {}).pop(self.arena_map, None)
+        except Exception:
+            pass
         # PER SPEC, NOT PER GYM. This counter lived on the Gym and
         # was never reset, so candidate #4's two lead swaps were
         # still being reported against the baseline evaluated after
