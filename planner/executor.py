@@ -4394,10 +4394,84 @@ class Executor:
             self.log("plan_deeds_undone", undone=[n for _, n in undone])
         return self._wipe_note
 
+    def _drop_what_a_thrown_away_world_did(self, obs) -> None:
+        """Records of deeds the world that actually loaded has not done.
+
+        THE LEDGER IS WRITTEN CONTINUOUSLY AND THE SAVE IS NOT. Kill the
+        executor between one save and the next — stop_all has SIGKILLed it
+        on every stop this week, the executor never answering inside its
+        90 seconds — and the game reloads a world that is BEHIND its own
+        ledger. Nothing put the two back in step.
+
+        Run 17 walked into the Game Corner and the page told it, in the
+        block of what people have said: POSTER: "Hey! A switch behind the
+        poster!? Let's push it!". It had never touched the poster in this
+        world. The Rocket who guards it was still standing in front of
+        it, unfought. Thirteen minutes of play — the Rocket beaten, the
+        poster pressed, the switch found — had been written to the ledger
+        and lost from the save. The model reasoned correctly from a page
+        that lied to it, concluded the switch was already thrown, and
+        spent its rounds pressing slot machines one after another looking
+        for a staircase that nothing had opened (user, 2026-09-15: "it
+        has not interacted with the poster yet, the rocket is still in
+        front of it").
+
+        Event flags in gen 1 only ever go UP within one world. A flag
+        count that has gone DOWN is therefore not something that
+        happened; it is a different and earlier world. Every record made
+        at a count this world has not reached is a record of a future
+        that was thrown away, and saying nothing about it is the one
+        thing that cannot be allowed — this file's own rule is that a
+        wrong FACT is the model's to hold and a page that licensed it is
+        ours to fix."""
+        if getattr(self, "_rollback_checked", False):
+            return
+        self._rollback_checked = True
+        now = len((obs or {}).get("flags") or [])
+        if not now:
+            return              # no flag list to compare: claim nothing
+        gone = []
+        for region, names in list((self._touch_mark or {}).items()):
+            for name, rec in list((names or {}).items()):
+                then = (rec or {}).get("then") or []
+                try:
+                    ahead = len(then) > 1 and int(then[1]) > now
+                except (TypeError, ValueError):
+                    ahead = False
+                if ahead:
+                    names.pop(name, None)
+                    gone.append((region, name))
+        hints = 0
+        for region, lines in list((getattr(self, "hints_at", {}) or {}).items()):
+            for line, rec in list((lines or {}).items()):
+                try:
+                    ahead = int((rec or {}).get("flags") or 0) > now
+                except (TypeError, ValueError):
+                    ahead = False
+                if ahead:
+                    lines.pop(line, None)
+                    hints += 1
+        # ...AND THE OUTCOME THE SAME PRESS WROTE, which carries no mark
+        # of its own: it is dropped with the press it belongs to, which is
+        # the only thing that can identify it.
+        for region, name in gone:
+            for key, names in list((getattr(self, "_outcomes", {}) or {}).items()):
+                if region in str(key):
+                    (names or {}).pop(name, None)
+            self._tried_objs.get(region, set()).discard(name)
+        if gone or hints:
+            self.log("world_rolled_back", flags_now=now, presses=len(gone),
+                     hints=hints, names=[n for _, n in gone][:12])
+            print(f"[ledger] THE SAVE IS BEHIND ITS OWN LEDGER: dropped "
+                  f"{len(gone)} press record(s) and {hints} hint(s) made "
+                  f"in a world this one has not reached "
+                  f"({', '.join(n for _, n in gone[:6]) or 'none named'})")
+
     def _note(self, obs):
         global PRINTED_MAP_HELD
         PRINTED_MAP_HELD = bool(self._holding_town_map(obs))
         self._mark_now = self._world_mark(obs)
+        self._drop_what_a_thrown_away_world_did(obs)
         # ...AND WHERE IT WAS CARRIED. The mark at the last time the run stood
         # in each region, so a return can be judged against it (see
         # _unchanged_return_note).
