@@ -1,4 +1,4 @@
-# The two midgame arenas
+# The room arenas
 
 Built 2026-09-12 to sit between the Brock arena and the Elite Four one, so
 a battle spec can be scored at the stage it will actually play.
@@ -8,7 +8,7 @@ an item the run can buy, and the shops change three times.
 
 | first sold at | what appears | arena |
 |---|---|---|
-| Pewter | POTION | `plans/brock.json` (existing) |
+| Pewter | POTION | **`run/arena_brock_gym.lua`** |
 | Vermilion | SUPER_POTION | **`run/arena_erika.lua`** |
 | Lavender | GREAT_BALL, REVIVE | " |
 | Fuchsia | ULTRA_BALL, FULL_HEAL | **`run/arena_koga.lua`** |
@@ -20,6 +20,24 @@ not sold anywhere in Red.** Both are field-find only. `policy_model_v6`
 named MAX_REVIVE, and FULL_RESTORE and MAX_POTION which are sold in exactly
 one shop in the game — three of its five battle-item rules could not have
 fired however well the run shopped.
+
+## arena_brock_gym — the Potion tier
+
+Added 2026-09-15, so the earliest shelf is a ROOM like the others rather
+than a plan replayed from a new game. `--arena brock` still exists and
+still works; it boots into the campaign's own `run/` directory, which is
+not a thing to do while a checkpoint is sitting in it waiting to resume.
+
+Base: `run/saves/leg_05_defeat_brock_for_the_boulder_badg.20260913-091044`.
+Parked at PEWTER_GYM (4,13), Brock and his one trainer unbeaten.
+
+    CHARMANDER L15   NIDORAN_M L12
+
+Bag off Pewter's shelf at what 1,611 affords: POTION x4, ANTIDOTE x1,
+POKE_BALL x1. Charmander's only damage against a Rock/Ground ONIX is
+SCRATCH, so this is the fight it really is: four Potions and a Nidoran's
+HORN_ATTACK. The hand-seeded baseline blacks out here; v1 wins it with one
+Pokemon standing.
 
 ## arena_erika — the Super Potion tier
 
@@ -53,9 +71,36 @@ mons with the same training, standing up, rather than a fresh party at
 default DVs. The derived max HP came back 113/93/135, matching the
 original exactly, which is the check that it worked.
 
-## What is NOT done
+## Scoring a room
 
-`policy_author.py` cannot score these yet. It knows two arenas: `brock`
-replays a plan, and `e4` walks room to room by map id and flag. A gym is
-one room with N trainers in it, which neither shape fits. The saves are
-ready; the scorer is the remaining work.
+Done 2026-09-15. `--arena gym` (and the named arenas `pewter`, `erika`,
+`koga`) crosses one room and fights everyone in it:
+
+* The roster comes from the ENGINE'S map table, not from the observation —
+  a restored save has seen nothing of the room it is parked in, so
+  `map.objects` is empty at the door and a scorer reading it presses
+  nobody. `interact` resolves a name against the live NPC list, so the
+  names are enough.
+* Trainers nearest the door come first. Most never need pressing: a
+  trainer whose line of sight the walk crosses starts the fight itself.
+* When nobody is in reach, the walk goes to the nearest edge of what has
+  been seen, so more of the room comes into view.
+* When that runs out too, a CUT_TREE is cut. Celadon pens Erika and her
+  last three trainers inside a bed with two bushes in it; without the cut
+  every trial stopped at 4 of 8 with the leader never fought.
+* A prompt is answered `no` — Pewter's gym guide offers to walk you to the
+  top, and the trial otherwise sits in that box forever.
+* The score is the arena's own beat-flags, from the gin spec's
+  `clear_flags`: what the save reset is exactly what is standing. Bodies
+  left at the end break ties, and count zero if the trial ended somewhere
+  else, because a blackout heals the party and would otherwise score full
+  marks for dying.
+
+## One spec, every arena
+
+`--arenas koga,pewter,erika,e4` authors in the first and carries every
+candidate to the rest. Each arena's result becomes the fraction of ITS OWN
+objective the spec reached, and those fractions add, so a spec that sweeps
+the league by dying everywhere else cannot hide behind a number only the
+league produces. The winner records every arena in its provenance, and
+`pick_policy` takes a spec fit across the game over any stage line.
