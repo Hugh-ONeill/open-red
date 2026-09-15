@@ -905,9 +905,14 @@ class Gym:
         b = (obs or {}).get("battle") or {}
         foe = b.get("foe") or {}
         me = b.get("me") or {}
+        # OUR OWN PP IS THE SIGNAL, and the foe's is not available: gen 1
+        # never shows you the enemy's, and the shim no longer pretends to.
+        # Ours ticks down every turn, so a stall war where nobody lands a
+        # hit still reads as movement — right up to the turn everyone runs
+        # dry, which is the turn the fight really did stop.
         return (b.get("enemyIndex"), b.get("partyIndex"),
                 foe.get("hp"), me.get("hp"),
-                sum(m.get("pp") or 0 for m in (foe.get("moves") or [])),
+                sum(m.get("pp") or 0 for m in (me.get("moves") or [])),
                 tuple((x.get("hp") or 0) for x in ((obs or {}).get("party")
                                                    or [])))
 

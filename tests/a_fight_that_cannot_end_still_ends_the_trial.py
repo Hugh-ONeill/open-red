@@ -30,7 +30,7 @@ def obs_at(foe_hp, my_hp, enemy=1, party=(100,)):
             "battle": {"enemyIndex": enemy, "partyIndex": 0,
                        "foe": {"hp": foe_hp,
                                "moves": [{"pp": 10}, {"pp": 10}]},
-                       "me": {"hp": my_hp}}}
+                       "me": {"hp": my_hp, "moves": [{"pp": 10}]}}}
 
 
 class Ex:
@@ -97,13 +97,20 @@ ck("the next enemy coming out counts",
    m(obs_at(74, 12, enemy=1)) != m(obs_at(74, 12, enemy=2)))
 ck("a party member falling counts",
    m(obs_at(74, 12, party=(100, 30))) != m(obs_at(74, 12, party=(100, 0))))
-ck("the foe spending PP counts",
+ck("spending our own PP counts, so a stall war is still a fight",
    m(obs_at(74, 12)) != m({"mode": "battle", "party": [{"hp": 100}],
                            "battle": {"enemyIndex": 1, "partyIndex": 0,
                                       "foe": {"hp": 74,
-                                              "moves": [{"pp": 9},
+                                              "moves": [{"pp": 10},
                                                         {"pp": 10}]},
-                                      "me": {"hp": 12}}}))
+                                      "me": {"hp": 12,
+                                             "moves": [{"pp": 9}]}}}))
+ck("...and the foe's PP is not read, because it cannot be seen",
+   m(obs_at(74, 12)) == m({"mode": "battle", "party": [{"hp": 100}],
+                           "battle": {"enemyIndex": 1, "partyIndex": 0,
+                                      "foe": {"hp": 74, "moves": []},
+                                      "me": {"hp": 12,
+                                             "moves": [{"pp": 10}]}}}))
 ck("nothing moving does not count", m(obs_at(74, 12)) == m(obs_at(74, 12)))
 
 # ---- the outer bound --------------------------------------------------------
