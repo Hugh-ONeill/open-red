@@ -518,6 +518,7 @@ class Gym:
         # flags a trial is allowed to score on — a gym guide in the
         # roster is someone to press, never someone to beat.
         self.arena_flags = []
+        self.arena_fight_count = 0
         if self.arena_spec:
             try:
                 _sp = json.loads(Path(self.arena_spec).read_text())
@@ -532,6 +533,7 @@ class Gym:
                     f for f in (_sp.get("score_flags")
                                 or _sp.get("clear_flags") or [])
                     if str(f).startswith("EVENT_BEAT_")]
+                self.arena_fight_count = int(_sp.get("fights") or 0)
             except (OSError, ValueError) as e:
                 print(f"[gym] arena spec unreadable ({e})")
         if self.arena == "gym":
@@ -544,6 +546,18 @@ class Gym:
     # A FLAG THAT FLIPPED IS A FIGHT THAT WAS WON, and the save keeps that
     # record itself in every observation, in every mode. Counting map
     # arrivals or trainer sprites cannot tell a win from a walk past.
+    def _note_down(self, obs):
+        """Remember how many of the room's trainers are down WHILE THE
+        PARTY IS STILL IN IT. A trial that wipes finishes in a Pokemon
+        Center, where the room reports nothing, so reading the count at
+        the end scored a trial that beat four and lost to the fifth as
+        zero."""
+        m = (obs or {}).get("map") or {}
+        if m.get("id") == self.arena_map and m.get("trainers_here"):
+            self._down_seen = max(getattr(self, "_down_seen", 0),
+                                  m.get("trainers_down") or 0)
+        return obs
+
     @staticmethod
     def _ok(r) -> bool:
         return bool(((r or {}).get("result") or {}).get("ok"))
@@ -633,8 +647,8 @@ class Gym:
                             answer=st["answer"])
             elif "pad" in st:
                 self.b.send("walk_to", x=st["pad"][0], y=st["pad"][1])
-            obs = self._ride(self.ex.settle())
-        return self._ride(self.ex.settle())
+            obs = self._note_down(self._ride(self.ex.settle()))
+        return self._note_down(self._ride(self.ex.settle()))
 
     def _cross_room(self, here: str, want: set | None = None,
                     tries: int = 0):
@@ -654,7 +668,7 @@ class Gym:
                   sorted(room_roster(here), key=lambda t: -t[2])]
         pressed, cut = set(), set()
         for _ in range(tries or (6 * max(1, len(roster)) + 8)):
-            obs = self._ride(self.ex.settle())
+            obs = self._note_down(self._ride(self.ex.settle()))
             mid = ((obs or {}).get("map") or {}).get("id")
             # A MAP WITH NO NAME IS NOT A MAP YOU LEFT. Pewter's gym
             # guide left the observation mid-speech with map.id None, and
@@ -746,6 +760,7 @@ class Gym:
         the objects come in IS the order of the room, and a trial that
         cannot reach the back of it simply scores what it beat."""
         ex_mod.set_active_spec(spec)
+        self._room_size = 0
         # AND EVERY CANDIDATE MEETS THE ROOM COLD. What a room is made of
         # is learned by fighting it, and one executor scores every
         # candidate in an arena — so candidate #1 would meet Cerulean
@@ -782,7 +797,19 @@ class Gym:
             # rode the battle out first and then took the "before" set, so
             # on an arena that restores INTO the leader's fight the win
             # was already in it and every trial scored zero.
-            before = self._beaten(self.ex.settle())
+            _pre = self.ex.settle()
+            before = self._beaten(_pre)
+            # ...AND THE TRAINERS THIS ROOM HOLDS, which is the same
+            # measure in every room, unlike the flags.
+            _down0 = ((_pre.get("map") or {}).get("trainers_down") or 0)
+            self._down_seen = _down0
+            # the room's size is read on ARRIVAL, not at the end: a trial
+            # that wipes finishes in a Pokemon Center and would report no
+            # trainers at all
+            _t0 = ((_pre.get("map") or {}).get("trainers_here") or 0)
+            if _t0:
+                self._room_size = (self.arena_fight_count
+                                   or max(1, _t0 - _down0))
             if self.approach:
                 obs = self._walk_the_approach(self.arena_map, self.approach,
                                               want=set(self.arena_flags))
@@ -798,12 +825,44 @@ class Gym:
             won = self._beaten(obs) - before
             if self.arena_flags:
                 won &= set(self.arena_flags)
+            # A ROOM IS SCORED BY THE FIGHTS IT HOLDS. Cinnabar and
+            # Saffron name no per-trainer events, only a leader, so
+            # scoring by flags made a seven-fight room and a one-fight
+            # room both read "4/4" across four trials and weigh the same
+            # in a policy's total. The save counts every trainer beaten;
+            # use that where the room reports it, and fall back to flags
+            # where it does not.
+            # ...and read from wherever the party ENDED, which after a
+            # blackout is another map entirely: a trial that wiped
+            # reported no trainers at all and fell back to the flag
+            # denominator, so one trial of a pair printed "0/1" while
+            # the other printed "1/8".
+            _here = (obs.get("map") or {})
+            _total = _here.get("trainers_here") or 0
+            _down = _here.get("trainers_down") or 0
+            if _total:
+                # WHAT IS STILL STANDING WHEN THE TRIAL BEGINS, not what
+                # the map defines: Viridian parks in front of GIOVANNI
+                # with nine of its ten trainers already beaten, so the
+                # map's total would score a won fight as one of ten. And
+                # where a prescribed route reaches only part of a room,
+                # the arena says how many fights it actually holds.
+                self._room_size = (self.arena_fight_count
+                                   or max(1, _total - _down0))
+            _size = getattr(self, "_room_size", 0)
+            if _size:
+                res["standing"] = _size
+                _seen = max(_down, getattr(self, "_down_seen", 0))
+                _gain = (max(0, _seen - _down0) if (_total or _seen)
+                         else len(won))
+            else:
+                _gain = len(won)
+            res["beaten"] += _gain
             alive = [p for p in (obs.get("party") or [])
                      if (p.get("hp") or 0) > 0]
             end = ((obs.get("map") or {}).get("id"))
             if end and end != self.arena_map:
                 res["blackouts"] += 1
-            res["beaten"] += len(won)
             # ...AND WITH HOW MUCH OF THE PARTY LEFT. Both specs swept
             # this room; one finished it with three bodies up and one
             # with two, which is the whole of what a healing rule buys
@@ -818,7 +877,7 @@ class Gym:
                                                       or [])))
             res["leads"] = getattr(self, "leads", 0)
             res["gauntlet_detail"].append(
-                f"beat {len(won)}/{res['standing']} in {self.arena_map} "
+                f"beat {_gain}/{res['standing']} in {self.arena_map} "
                 f"with {len(alive)}/{len(obs.get('party') or [])} standing"
                 + ("" if end in (None, self.arena_map)
                    else f" (ended in {end})"))

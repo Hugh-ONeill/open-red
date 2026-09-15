@@ -265,7 +265,7 @@ GYMS = [
          # so they all fight; only SABRINA is scored, because the route
          # meets four of the seven.
          badges=5, door=(8, 17), puzzle=False, money=11000,
-         score_only=["EVENT_BEAT_SABRINA"],
+         score_only=["EVENT_BEAT_SABRINA"], fights=5,
          # BACK UP AGAIN. Dropped three levels while it was still a
          # one-fight room, then the route added four fights before
          # SABRINA — two changes the same way, and it wiped every trial.
@@ -395,6 +395,8 @@ def build(g: dict) -> dict:
         spec["clear_flags"] = [lead_flag] + others + extra
         spec["clear_trainers"] = [f"{g['map']}_obj_{i}"
                                   for i, _n, _x, _y in objs]
+    if g.get("fights"):
+        spec["fights"] = int(g["fights"])
     if g.get("score_only"):
         spec["score_flags"] = list(g["score_only"])
     if g.get("open_flags"):

@@ -68,6 +68,7 @@
     "SAFFRON_GYM_obj_8",
     "SAFFRON_GYM_obj_9"
   ],
+  "fights": 5,
   "score_flags": [
     "EVENT_BEAT_SABRINA"
   ]

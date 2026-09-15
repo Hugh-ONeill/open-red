@@ -82,7 +82,14 @@ def main():
     with tempfile.TemporaryDirectory() as td:
         bare_p = Path(td) / "nomeds.json"
         bare_p.write_text(json.dumps(bare, indent=1))
-        print(f"{'arena':11s} {'with medicine':>14s} {'without':>10s}   verdict")
+        # SAY WHAT THE DENOMINATOR IS. A room that scores one flag over
+        # four trials printed "4/4", which reads as four fights — and
+        # Saffron fights FIVE battles a trial to reach the one flag it
+        # scores (user, 2026-09-15: "i was misreading the 4/4 as having
+        # only 4 fights"). Rooms that score one flag are reported as
+        # trials won; rooms that score many are reported as fights.
+        print(f"{'arena':11s} {'with medicine':>18s} {'without':>14s}   "
+              f"verdict")
         for room in ROOMS:
             if a.only and room != a.only:
                 continue
@@ -116,8 +123,10 @@ def main():
             else:
                 verdict = (f"THIN — medicine is worth only {swing} "
                            f"blackout(s) across {a.trials} trials")
-            print(f"{room:11s} {w[0]:>6d}/{w[1]:<3d} b{w[2]:<2d} "
-                  f"{n[0]:>3d}/{n[1]:<3d} b{n[2]:<2d}   {verdict}")
+            unit = "trials won" if w[1] == a.trials else "fights"
+            print(f"{room:11s} {w[0]:>3d}/{w[1]:<3d} b{w[2]:<2d} "
+                  f"{n[0]:>4d}/{n[1]:<3d} b{n[2]:<2d} "
+                  f"{unit:<10s}  {verdict}")
     return 0
 
 

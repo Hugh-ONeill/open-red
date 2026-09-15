@@ -3167,6 +3167,31 @@ local function observe(G, seq, result)
       end
       o.map.dormant = dormant
     end
+    -- HOW MANY OF THIS ROOM'S TRAINERS ARE DOWN. Scoring an arena by
+    -- EVENT FLAGS only works where the game names one per trainer, and
+    -- Cinnabar and Saffron name none — only their leader — so a
+    -- seven-fight room and a one-fight room both scored "4/4" over four
+    -- trials and counted the same toward a policy's total (user,
+    -- 2026-09-15: "why not base it off all the fights if thats how the
+    -- rest of them are?"). The save records every trainer beaten, which
+    -- is the same thing the per-object `beaten` field above already
+    -- says; this is that, counted, so a room can be scored by the
+    -- fights it actually holds.
+    do
+      local dt = (G.save and G.save.defeatedTrainers) or {}
+      local mid = tostring((G.overworld.map or {}).id or "?")
+      local total, down = 0, 0
+      for _, od in ipairs((md and md.objects) or {}) do
+        if od.trainerClass then
+          total = total + 1
+          if dt[("%s_obj_%d"):format(mid, tonumber(od.index or 0) or 0)]
+             == true then
+            down = down + 1
+          end
+        end
+      end
+      o.map.trainers_here, o.map.trainers_down = total, down
+    end
     -- SIGNS ARE THINGS YOU PRESS A ON. They live in a separate map list
     -- from objects and were never observed at all, so anything that is
     -- scenery rather than a person was invisible: notice boards, the
