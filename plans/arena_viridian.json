@@ -32,6 +32,39 @@
         "BODY_SLAM"
       ],
       "nickname": "POLIWHIRL"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 40,
+      "moves": [
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND",
+        "WING_ATTACK"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "GRAVELER",
+      "level": 37,
+      "moves": [
+        "ROCK_THROW",
+        "SELFDESTRUCT",
+        "HARDEN",
+        "EARTHQUAKE"
+      ],
+      "nickname": "GRAVELER"
+    },
+    {
+      "species": "GOLBAT",
+      "level": 37,
+      "moves": [
+        "BITE",
+        "SUPERSONIC",
+        "CONFUSE_RAY",
+        "WING_ATTACK"
+      ],
+      "nickname": "GOLBAT"
     }
   ],
   "bag": {

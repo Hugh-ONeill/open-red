@@ -32,6 +32,39 @@
         "WING_ATTACK"
       ],
       "nickname": "PIDGEOT"
+    },
+    {
+      "species": "CHARIZARD",
+      "level": 42,
+      "moves": [
+        "EMBER",
+        "LEER",
+        "RAGE",
+        "SLASH"
+      ],
+      "nickname": "CHARIZARD"
+    },
+    {
+      "species": "GRAVELER",
+      "level": 36,
+      "moves": [
+        "ROCK_THROW",
+        "SELFDESTRUCT",
+        "HARDEN",
+        "EARTHQUAKE"
+      ],
+      "nickname": "GRAVELER"
+    },
+    {
+      "species": "GOLBAT",
+      "level": 36,
+      "moves": [
+        "BITE",
+        "SUPERSONIC",
+        "CONFUSE_RAY",
+        "WING_ATTACK"
+      ],
+      "nickname": "GOLBAT"
     }
   ],
   "bag": {

@@ -32,6 +32,39 @@
         "PIN_MISSILE"
       ],
       "nickname": "BEEDRILL"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 37,
+      "moves": [
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND",
+        "WING_ATTACK"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "GRAVELER",
+      "level": 33,
+      "moves": [
+        "DEFENSE_CURL",
+        "ROCK_THROW",
+        "SELFDESTRUCT",
+        "HARDEN"
+      ],
+      "nickname": "GRAVELER"
+    },
+    {
+      "species": "TENTACRUEL",
+      "level": 32,
+      "moves": [
+        "WRAP",
+        "POISON_STING",
+        "WATER_GUN",
+        "CONSTRICT"
+      ],
+      "nickname": "TENTACRUEL"
     }
   ],
   "bag": {

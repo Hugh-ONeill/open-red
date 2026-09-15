@@ -31,6 +31,17 @@
         "DIG"
       ],
       "nickname": "DIGLETT"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 22,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
+      ],
+      "nickname": "PIDGEOTTO"
     }
   ],
   "bag": {

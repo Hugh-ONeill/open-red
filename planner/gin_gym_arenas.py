@@ -197,6 +197,18 @@ def pick_base(want_badges: int) -> Path | None:
 
 # ---------------------------------------------------------- the eight gyms
 # level: the leader's ace, for reference when reading the party beside it.
+# HOW MANY BODIES A RUN ACTUALLY HAS THERE. Every arena was built with
+# three, which came from reading "keep them at 3" — said about the rooms
+# that were too hard, while the medicine was being set — as a rule for all
+# eight (user, 2026-09-15: "i dont remember specifying it had to be 3 for
+# all of the gym battles, especially for the later gyms wed have more than
+# that probably"). Nobody walks into VIRIDIAN GYM with three.
+#
+# The extra bodies are the ones a run really carries: the FLY bird, the
+# STRENGTH rock, the SURF fish, a few levels under the three that do the
+# fighting. Depth without power, which is the shape that makes a revive
+# and a switch worth writing a rule for — a party of six equal aces just
+# wins, and a party of three cannot afford to lose one.
 GYMS = [
     dict(name="pewter", map="PEWTER_GYM", leader="BROCK", ace=14,
          badges=0, door=(4, 13), puzzle=False, money=1500,
@@ -222,8 +234,8 @@ GYMS = [
          # it still had a fourth body, so three need to clear her ace
          # rather than sit under it. The bag cannot help: Cerulean's
          # shelf sells POTION and nothing stronger.
-         party=[("CHARMELEON", 22), ("NIDORINO", 21),
-                ("PIKACHU", 21)],
+         party=[("CHARMELEON", 21), ("NIDORINO", 20),
+                ("PIKACHU", 19), ("PIDGEOTTO", 18)],
          bag={"POTION": 12, "ANTIDOTE": 2, "PARLYZ_HEAL": 2},
          note="Fire into water, and STARMIE outspeeds all three. Single "
               "tier on purpose: POTION is the only heal a Cerulean-era "
@@ -239,7 +251,7 @@ GYMS = [
          badges=2, door=(4, 17), puzzle=False, money=4200,
          open_flags=["EVENT_1ST_LOCK_OPENED", "EVENT_2ND_LOCK_OPENED"],
          party=[("CHARMELEON", 21), ("NIDORINO", 20),
-                ("DIGLETT", 19)],
+                ("DIGLETT", 19), ("PIDGEOTTO", 22)],
          bag={"POTION": 5, "SUPER_POTION": 3, "PARLYZ_HEAL": 3,
               "ANTIDOTE": 1},
          note="The first mixed-tier bag, because Vermilion is where "
@@ -248,7 +260,7 @@ GYMS = [
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
          badges=3, needs_cut=True, door=(4, 17), puzzle=False, money=8000,
          party=[("CHARMELEON", 26), ("NIDORINO", 25),
-                ("BEEDRILL", 24)],
+                ("BEEDRILL", 24), ("PIDGEOTTO", 27), ("GEODUDE", 23)],
          bag={"POTION": 4, "SUPER_POTION": 10, "ANTIDOTE": 2,
               "PARLYZ_HEAL": 2, "REVIVE": 2},
          note="Farfetch'd carries CUT because Erika and her last three "
@@ -257,7 +269,8 @@ GYMS = [
     dict(name="fuchsia", map="FUCHSIA_GYM", leader="KOGA", ace=43,
          badges=4, door=(4, 17), puzzle=False, money=12000,
          party=[("CHARIZARD", 37), ("NIDORINO", 33),
-                ("KADABRA", 33)],
+                ("KADABRA", 33), ("PIDGEOT", 34), ("GRAVELER", 30),
+                ("TENTACOOL", 26)],
          bag={"POTION": 3, "SUPER_POTION": 12, "FULL_HEAL": 2,
               "REVIVE": 2, "ANTIDOTE": 2},
          note="Two members badly under level and a room that poisons: "
@@ -282,7 +295,8 @@ GYMS = [
          # tilted a shade too hard. The bag is already 800 HP across five
          # fights, so this is levels, not potions.
          party=[("CHARIZARD", 38), ("NIDOKING", 36),
-                ("BEEDRILL", 34)],
+                ("BEEDRILL", 34), ("PIDGEOT", 37), ("GRAVELER", 33),
+                ("TENTACRUEL", 32)],
          bag={"SUPER_POTION": 4, "HYPER_POTION": 3, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="ALAKAZAM against a poison type is the worst matchup in the "
@@ -316,7 +330,8 @@ GYMS = [
          # crossing to the island, which is the same super-effective
          # offence with NONE of the defensive wall — fire hits it square.
          party=[("NIDOKING", 41), ("VICTREEBEL", 38),
-                ("PIDGEOT", 39)],
+                ("PIDGEOT", 39), ("CHARIZARD", 42), ("GRAVELER", 36),
+                ("GOLBAT", 36)],
          bag={"SUPER_POTION": 3, "HYPER_POTION": 4, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="NO STARTER HERE. The Charizard line is FIRE/FLYING and "
@@ -342,7 +357,8 @@ GYMS = [
     dict(name="viridian", map="VIRIDIAN_GYM", hms=["SURF"], leader="GIOVANNI",
          ace=50, badges=7, door=(16, 17), puzzle=False, money=15000,
          party=[("CHARIZARD", 41), ("NIDOKING", 39),
-                ("POLIWHIRL", 38)],
+                ("POLIWHIRL", 38), ("PIDGEOT", 40), ("GRAVELER", 37),
+                ("GOLBAT", 37)],
          bag={"SUPER_POTION": 2, "HYPER_POTION": 5, "FULL_HEAL": 3,
               "REVIVE": 2},
          note="RHYDON L50 hits a Charizard four times over with rock. The "

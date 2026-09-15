@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "CHARIZARD",
-      "level": 58,
+      "level": 50,
       "nickname": "CHARIZARD",
       "moves": [
         "FLAMETHROWER",
@@ -13,7 +13,7 @@
     },
     {
       "species": "STARMIE",
-      "level": 58,
+      "level": 50,
       "nickname": "STARMIE",
       "moves": [
         "SURF",
@@ -24,7 +24,7 @@
     },
     {
       "species": "ALAKAZAM",
-      "level": 58,
+      "level": 50,
       "nickname": "ALAKAZAM",
       "moves": [
         "PSYCHIC_M",
@@ -35,7 +35,7 @@
     },
     {
       "species": "SNORLAX",
-      "level": 58,
+      "level": 50,
       "nickname": "SNORLAX",
       "moves": [
         "BODY_SLAM",
@@ -46,7 +46,7 @@
     },
     {
       "species": "JOLTEON",
-      "level": 58,
+      "level": 50,
       "nickname": "JOLTEON",
       "moves": [
         "THUNDERBOLT",
@@ -57,7 +57,7 @@
     },
     {
       "species": "LAPRAS",
-      "level": 58,
+      "level": 50,
       "nickname": "LAPRAS",
       "moves": [
         "ICE_BEAM",

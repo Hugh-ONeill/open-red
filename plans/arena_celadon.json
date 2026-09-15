@@ -31,6 +31,28 @@
         "TWINEEDLE"
       ],
       "nickname": "BEEDRILL"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 27,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
+      ],
+      "nickname": "PIDGEOTTO"
+    },
+    {
+      "species": "GEODUDE",
+      "level": 23,
+      "moves": [
+        "TACKLE",
+        "DEFENSE_CURL",
+        "ROCK_THROW",
+        "SELFDESTRUCT"
+      ],
+      "nickname": "GEODUDE"
     }
   ],
   "bag": {

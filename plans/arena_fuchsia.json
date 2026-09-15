@@ -32,6 +32,39 @@
         "RECOVER"
       ],
       "nickname": "KADABRA"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 34,
+      "moves": [
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND",
+        "WING_ATTACK"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "GRAVELER",
+      "level": 30,
+      "moves": [
+        "DEFENSE_CURL",
+        "ROCK_THROW",
+        "SELFDESTRUCT",
+        "HARDEN"
+      ],
+      "nickname": "GRAVELER"
+    },
+    {
+      "species": "TENTACOOL",
+      "level": 26,
+      "moves": [
+        "SUPERSONIC",
+        "WRAP",
+        "POISON_STING",
+        "WATER_GUN"
+      ],
+      "nickname": "TENTACOOL"
     }
   ],
   "bag": {
