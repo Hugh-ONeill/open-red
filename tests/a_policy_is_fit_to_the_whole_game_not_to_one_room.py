@@ -160,6 +160,22 @@ with tempfile.TemporaryDirectory() as td:
                                    "e4": e4r(6)},
                            cross_total=A.cross_key(STEADY)[0]))
     paths = [early, league, whole]
+    # A SUM IS NOT COMPARABLE BETWEEN SPECS SCORED IN DIFFERENT ROOMS:
+    # nine fractions add up to more than four whatever is in them.
+    few = spec_file(d, "policy_model_v7.json",
+                    dict(brockr(3, 6), arena="a+b+c+d",
+                         arenas={k: gymr(16) for k in "abcd"},
+                         cross_total=4.0))
+    many = spec_file(d, "policy_model_v8.json",
+                     dict(brockr(3, 6), arena="+".join("abcdefghi"),
+                          arenas={k: gymr(12) for k in "abcdefghi"},
+                          cross_total=6.75))
+    ck("a spec asked to hold up in more rooms outranks one asked in fewer",
+       P.rank([few, many], badges=3)[0] == many)
+    ck("...and a bigger sum from fewer rooms does not win on arithmetic",
+       P.cross_score(P._eval(few))[1] > P.cross_score(P._eval(many))[1]
+       and P.rank([few, many], badges=3)[0] == many)
+
     ck("a cross-arena spec wins at three badges, where the line said Brock",
        P.rank(paths, badges=3)[0] == whole)
     ck("...and at eight, where the line said the league",

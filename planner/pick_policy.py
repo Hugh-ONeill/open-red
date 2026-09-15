@@ -72,16 +72,24 @@ def fit_across(ev: dict) -> dict:
 
 
 def cross_score(ev: dict) -> tuple:
-    """Higher is better, across arenas. The total is already a sum of
-    per-arena fractions, so it is comparable between specs scored in
-    different sets of arenas — and the count of arenas breaks a tie
-    toward the spec that was asked to hold up in more of them."""
+    """Higher is better, across arenas.
+
+    A SUM IS NOT COMPARABLE BETWEEN SPECS SCORED IN DIFFERENT ROOMS, and
+    this said it was. v7 was scored in four arenas for 3.60 and v8 in
+    nine for 8.27, and the sum ranked v8 first for the arithmetic reason
+    that nine fractions add up to more than four — it would have ranked a
+    WORSE spec first just as happily (2026-09-15). What the sums are
+    actually claiming is two different things, so both are said: how many
+    rooms the spec was asked to hold up in, and how well it held up on
+    average. More evidence first, because that is what "fit to the whole
+    game" means; then the fraction, which IS comparable."""
     ar = fit_across(ev)
     try:
         total = float(ev.get("cross_total") or 0.0)
     except (TypeError, ValueError):
         total = 0.0
-    return (round(total, 6), len(ar),
+    mean = total / len(ar) if ar else 0.0
+    return (len(ar), round(mean, 6),
             -sum(int((r or {}).get("blackouts") or 0) for r in ar.values()))
 
 
@@ -167,8 +175,9 @@ def main():
             mark = "WINNER" if p == win else ("  ok  " if ok else "REJECT")
             _ac = fit_across(_eval(p))
             print(f"{mark} {p.name:28s} arena={arena:6s} "
-                  + (why or (f"across {len(_ac)} arenas, total "
-                             f"{cross_score(_eval(p))[0]:.2f}" if _ac
+                  + (why or (f"across {len(_ac)} arenas, "
+                             f"{cross_score(_eval(p))[1]:.0%} of each"
+                             if _ac
                              else f"score={sc}")), file=sys.stderr)
             # A SCORE IS UNREADABLE WITHOUT THE PARTY THAT PRODUCED IT.
             # v3's eight rooms with no healing rules at all look like a
