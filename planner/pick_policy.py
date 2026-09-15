@@ -144,6 +144,14 @@ def rank(paths, badges: int | None = None):
         return None, rows
     # A SPEC FIT ACROSS THE GAME NEEDS NO STAGE LINE DRAWN THROUGH IT.
     whole = [r for r in sound if fit_across(_eval(r[0]))]
+    # ...BUT ONLY SCORES FROM THE SAME ROOMS CAN BE COMPARED. Arenas get
+    # rebuilt; a percentage from an older version of a room is a
+    # measurement on a different instrument. Specs carrying arena stamps
+    # are ranked among themselves, and an unstamped one — every spec
+    # written before 2026-09-15 — is not trusted above them.
+    _stamped = [r for r in whole if (_eval(r[0]).get("arena_stamps") or {})]
+    if _stamped:
+        whole = _stamped
     if whole:
         return max(whole, key=lambda r: cross_score(_eval(r[0])))[0], rows
     want = None

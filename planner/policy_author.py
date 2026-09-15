@@ -1124,6 +1124,28 @@ def rank_key(r: dict):
 # A spec scored in three arenas can therefore be compared with one scored
 # in three others, and a spec that wins one arena by dying fast in the rest
 # cannot hide behind a number that only that arena produces.
+def arena_stamp(name: str) -> str:
+    """What this arena WAS when a score was taken.
+
+    A SCORE IS ONLY COMPARABLE TO ANOTHER TAKEN ON THE SAME INSTRUMENT.
+    v9 recorded 96% of each of nine arenas and v10 89% of each of six,
+    and pick_policy preferred v9 on those numbers — but between the two
+    runs Celadon lost and regained its CUT carrier, Cinnabar's gates were
+    opened and shut again, Saffron went from one fight to five, and every
+    party and bag in the suite was retuned. The percentages were measured
+    on different rooms and nothing recorded that (2026-09-15). This does:
+    the spec that built the save, hashed, stored beside the score."""
+    import hashlib
+    _, save, spec = ARENAS.get(name, (None, None, None))
+    h = hashlib.sha256()
+    for f in (spec, save):
+        try:
+            h.update(Path(f).read_bytes() if f else b"")
+        except OSError:
+            h.update(b"?")
+    return h.hexdigest()[:12]
+
+
 def arena_fraction(r: dict) -> float:
     t = max(1, r.get("gauntlet_trials") or 0)
     a = r.get("arena") or ("e4" if "rooms" in r else "brock")
@@ -1459,6 +1481,7 @@ def main():
                      # room, and pick_policy has to be able to tell.
                      arenas=({an: rr for an, rr in across[best_i]}
                              if len(names) > 1 else None),
+                     arena_stamps={an: arena_stamp(an) for an in names},
                      cross_total=(round(cross_key(across[best_i])[0], 4)
                                   if len(names) > 1 else None)),
         "baseline_typed_v0": base,
