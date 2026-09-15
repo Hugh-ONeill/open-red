@@ -3100,7 +3100,8 @@ class Executor:
                     order.get(c.kind, 4), c.key)
         outs = self._outcomes_here(obs)
         things = sorted((c for c in cands
-                         if c.status in ("untouched", "unspoken", "cuttable")
+                         if c.status in ("untouched", "unspoken",
+                                         "unbeaten", "cuttable")
                          and c.reachable
                          and c.kind not in ("door", "seam", "op")
                          # the observation called it reachable and the press
@@ -3623,7 +3624,8 @@ class Executor:
                               want_explore=False)
         outs2 = self._outcomes_here(cur)
         things2 = sorted((c for c in cands2
-                          if c.status in ("untouched", "unspoken", "cuttable")
+                          if c.status in ("untouched", "unspoken",
+                                         "unbeaten", "cuttable")
                           and c.reachable
                           and c.kind not in ("door", "seam", "op")
                           and "no reachable tile" not in

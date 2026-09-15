@@ -30,8 +30,13 @@ ck("a boulder counts as unfinished business",
 ck("...and a floor holding one is not fully worked",
    not ledger.fully_worked([ledger.Candidate(key="B", kind="boulder",
                                              status="pushable")]))
+# Pinned on the tuple's exact text until 2026-09-15, when "unbeaten" was
+# added to it for the Game Corner Rocket and the pin broke while the claim
+# stayed true. Ask the claim: whatever else that list gains, a boulder is
+# not a thing to press.
+_things = src[src.find("things = sorted(("):][:400]
 ck("...but explore's things list still excludes it",
-   '"untouched", "unspoken", "cuttable"' in src)
+   '"untouched"' in _things and '"pushable"' not in _things)
 
 i = src.find("A BOULDER IS UNFINISHED BUSINESS THIS OP CANNOT FINISH")
 block = src[i:i + 1800] if i > 0 else ""

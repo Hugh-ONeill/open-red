@@ -3114,9 +3114,28 @@ local function observe(G, seq, result)
       elseif name:find("SIGN") or (d.text and not d.sprite) then
         kind = "sign"
       end
+      -- A TRAINER YOU HAVE NOT BEATEN IS NOT FINISHED BUSINESS. The
+      -- ledger's rule is "a pressed trainer is finished business", written
+      -- for Route 16's bikers, every one of whom had been BEATEN. Press a
+      -- trainer and lose the thread of the fight and he is marked pressed
+      -- all the same, so the Rocket standing on (9,5) in front of the Game
+      -- Corner poster — the one body between the run and the switch that
+      -- opens the hideout — was counted done, the page read "Everything
+      -- you can REACH here is done", and the run went off pressing slot
+      -- machines one by one (2026-09-15). The game keeps the answer in the
+      -- save and a player always knows it: a trainer you have beaten does
+      -- not fight you again.
+      local beaten = nil
+      if kind == "trainer" then
+        local dt = (G.save and G.save.defeatedTrainers) or {}
+        local key = ("%s_obj_%d"):format(
+          tostring((G.overworld.map or {}).id or "?"),
+          tonumber(d.index or 0) or 0)
+        beaten = dt[key] == true
+      end
       o.map.objects[#o.map.objects + 1] = {
         x = npc.cellX, y = npc.cellY, kind = kind, name = name,
-        facing = npc.facing,
+        facing = npc.facing, beaten = beaten,
         -- can we actually get next to it from here? "The Super Nerd is on
         -- this floor but not reachable from this room" is knowable on
         -- arrival; without it the run spends 10 escalation rounds finding

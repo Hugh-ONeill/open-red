@@ -64,6 +64,7 @@ STATUS_RANK = {
     "unlooked": 0,      # a spot where the seen ground ends (frontier)
     "untouched": 0,     # a thing / person here never pressed
     "unspoken": 0,      # a person here never spoken to (alias of untouched)
+    "unbeaten": 0,      # a trainer standing here you have not beaten
     "reopened": 1,      # a shut door, now that the world has moved
     "taken": 2,         # walked before; count and destination known
     "lift_door": 2,     # a car's doorway: never fresh, never a discovery
@@ -638,8 +639,8 @@ def other_part_note(ex, dest: str, here: str) -> str:
                else ", and no walked route between them is recorded"))
 
 
-UNWORKED = ("untried", "untouched", "unspoken", "reopened", "cuttable",
-            "pushable", "unlooked")
+UNWORKED = ("untried", "untouched", "unspoken", "unbeaten", "reopened",
+            "cuttable", "pushable", "unlooked")
 
 
 def switches(cands: list) -> list:
@@ -1459,6 +1460,21 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                 # recall's ops contract beside it); the note keeps only
                 # the WHY, when the screen gave one
                 c.note = _join(c.note, str(o.get("why") or ""))
+        # A TRAINER YOU HAVE NOT BEATEN IS NOT DONE. Same shape as the
+        # shutter below: a thing marked pressed that is still, in plain
+        # fact, in the way. "A pressed trainer is finished business" was
+        # written for Route 16's bikers, every one of whom had been
+        # BEATEN. Press one and lose the thread of the fight and he is
+        # marked pressed all the same — so the Rocket on (9,5) in front
+        # of the Game Corner poster, the one body between the run and the
+        # switch that opens the hideout, was counted done at item 24, the
+        # page read "Everything you can REACH here is done", and the run
+        # spent its rounds pressing slot machines (2026-09-15, user: "it
+        # has not interacted with the poster yet, the rocket is still in
+        # front of it"). The save knows, and so does any player: a
+        # trainer you have beaten does not fight you again.
+        if kind == "trainer" and o.get("beaten") is False:
+            c.status = "unbeaten"
         out.append(c)
 
     # A SHUTTER THAT ASKED FOR A THING YOU NOW HOLD IS NOT DONE. Silph 9F
@@ -1794,7 +1810,8 @@ def plan_explore(ex, obs: dict, cands: list[Candidate] | None = None,
     # said "press SILPHCO2F_SILPH_WORKER_F here" with the refusal printed
     # directly underneath it.
     things = sorted((c for c in cands
-                     if c.status in ("untouched", "unspoken", "cuttable")
+                     if c.status in ("untouched", "unspoken", "unbeaten",
+                                     "cuttable")
                      and c.reachable and not _refused(c)
                      and not _asking(c)
                      and c.kind not in ("door", "seam", "op")),
@@ -2220,6 +2237,8 @@ _STATUS_WORDS = {
                  "you out is set by the panel, not by which door you pick",
     "untouched": "never pressed",
     "unspoken": "never spoken to",
+    "unbeaten": "pressed {n}x and still standing here — you have not "
+                "beaten them",
     "touched": "pressed {n}x",
     "worth_a_word": "pressed {n}x, when you were carrying different things "
                     "— people here say different things once the world moves",
