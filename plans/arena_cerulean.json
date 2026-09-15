@@ -1,15 +1,15 @@
 {
   "party": [
     {
-      "species": "CHARMELEON",
-      "level": 21,
+      "species": "IVYSAUR",
+      "level": 17,
       "moves": [
-        "SCRATCH",
+        "TACKLE",
         "GROWL",
-        "EMBER",
-        "LEER"
+        "LEECH_SEED",
+        "VINE_WHIP"
       ],
-      "nickname": "CHARMELEON"
+      "nickname": "IVYSAUR"
     },
     {
       "species": "NIDORINO",
@@ -21,17 +21,6 @@
         "POISON_STING"
       ],
       "nickname": "NIDORINO"
-    },
-    {
-      "species": "PIKACHU",
-      "level": 19,
-      "moves": [
-        "THUNDERSHOCK",
-        "GROWL",
-        "THUNDER_WAVE",
-        "QUICK_ATTACK"
-      ],
-      "nickname": "PIKACHU"
     },
     {
       "species": "PIDGEOTTO",

@@ -45,26 +45,26 @@
       "nickname": "PIDGEOT"
     },
     {
-      "species": "GRAVELER",
+      "species": "PRIMEAPE",
       "level": 30,
       "moves": [
-        "DEFENSE_CURL",
-        "ROCK_THROW",
-        "SELFDESTRUCT",
-        "HARDEN"
+        "LEER",
+        "KARATE_CHOP",
+        "FURY_SWIPES",
+        "FOCUS_ENERGY"
       ],
-      "nickname": "GRAVELER"
+      "nickname": "PRIMEAPE"
     },
     {
-      "species": "TENTACOOL",
+      "species": "RATICATE",
       "level": 26,
       "moves": [
-        "SUPERSONIC",
-        "WRAP",
-        "POISON_STING",
-        "WATER_GUN"
+        "TACKLE",
+        "TAIL_WHIP",
+        "QUICK_ATTACK",
+        "HYPER_FANG"
       ],
-      "nickname": "TENTACOOL"
+      "nickname": "RATICATE"
     }
   ],
   "bag": {

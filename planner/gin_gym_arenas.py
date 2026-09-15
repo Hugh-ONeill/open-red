@@ -204,9 +204,21 @@ def pick_base(want_badges: int) -> Path | None:
 # all of the gym battles, especially for the later gyms wed have more than
 # that probably"). Nobody walks into VIRIDIAN GYM with three.
 #
-# The extra bodies are the ones a run really carries: the FLY bird, the
-# STRENGTH rock, the SURF fish, a few levels under the three that do the
-# fighting. Depth without power, which is the shape that makes a revive
+# AND NONE OF THEM MAY RESIST THE ROOM. Picked by ROLE — the FLY bird,
+# the STRENGTH rock, the SURF fish — they walled three gyms, because the
+# HM carriers are exactly the types that resist things. GRAVELER takes
+# POISON at a QUARTER and went into KOGA's gym; CHARIZARD resists
+# everything BLAINE owns and went into his, against a note in this very
+# file saying NO STARTER HERE; PIDGEOT and GOLBAT are both IMMUNE to
+# GROUND and both went to GIOVANNI. Fuchsia fell out of its band the same
+# hour, Cinnabar went to zero blackouts in both arms, and the number that
+# came back was a party nothing could hurt (2026-09-15).
+#
+# So the filler is chosen against the LEADER's type, never by role: it may
+# be neutral to the room or weak to it, and it may never resist it.
+#
+# The extra bodies are the ones a run really carries, a few levels under
+# the three that do the fighting. Depth without power, which is the shape that makes a revive
 # and a switch worth writing a rule for — a party of six equal aces just
 # wins, and a party of three cannot afford to lose one.
 GYMS = [
@@ -234,10 +246,48 @@ GYMS = [
          # it still had a fourth body, so three need to clear her ace
          # rather than sit under it. The bag cannot help: Cerulean's
          # shelf sells POTION and nothing stronger.
-         party=[("CHARMELEON", 21), ("NIDORINO", 20),
-                ("PIKACHU", 19), ("PIDGEOTTO", 18)],
+         # THE COUNTER HAS TO SURVIVE THE HIT, or the medicine cannot
+         # matter. Three configurations of a CHARMELEON party were
+         # measured here and the arm with NO healing beat the arm with it
+         # every time: POTION restores a flat 20, STARMIE outspeeds and
+         # hits a Fire type for double, and a Cerulean-era shelf sells
+         # nothing stronger. Healing only buys turns when you live
+         # through the turn. PIKACHU is the designated counter and cannot
+         # rescue it either — THUNDERSHOCK is all it knows until 26, and
+         # STARMIE is faster than it too.
+         #
+         # An IVYSAUR resists WATER, so BUBBLEBEAM chips instead of
+         # halving, and 20 HP is suddenly worth a turn (user, 2026-09-15:
+         # "levels not potions are what works there -- that or having an
+         # ivysaur instead of a charmeleon"). Underlevelled on purpose at
+         # 16, just evolved and five under MISTY's ace: it is the only
+         # body that can fight the room and it cannot do it untended.
+         #
+         # PIKACHU OUT, AND THE IVYSAUR AT ITS REAL LEVEL. Underlevelling
+         # the counter to 16 was paying twice for the same difficulty: the
+         # party already held a second WATER answer in PIKACHU, so the room
+         # had two ways to be right and the IVYSAUR had to be crippled to
+         # keep it hard (user, 2026-09-15: "we might be able to do a
+         # properly leveled ivysaur if we took out pika from there").
+         #
+         # With one counter and no spare, the room IS the counter. NIDORINO
+         # and PIDGEOTTO cannot fight water; if the IVYSAUR goes down the
+         # trial is over. Keeping it standing is the whole test, which is
+         # exactly the shape the medicine is supposed to decide — and it
+         # can, now, because a body that resists the hit is a body 20 HP
+         # can keep alive.
+         # ...AND FOUR UNDER THE ACE, not one. At 20 it swept the room
+         # without touching the bag (12/12, no blackouts), helped along
+         # by a LEECH_SEED its own learnset hands it at that level — a
+         # heal the bag did not give it and the stripped arm cannot be
+         # stripped of. Underlevelled, the seed still ticks but it no
+         # longer covers a whole hit.
+         party=[("IVYSAUR", 17), ("NIDORINO", 20),
+                ("PIDGEOTTO", 18)],
          bag={"POTION": 12, "ANTIDOTE": 2, "PARLYZ_HEAL": 2},
-         note="Fire into water, and STARMIE outspeeds all three. Single "
+         note="One counter and no spare. NIDORINO and PIDGEOTTO cannot "
+              "fight water at all, so the room is the IVYSAUR and the "
+              "question is whether it stays up. Single "
               "tier on purpose: POTION is the only heal a Cerulean-era "
               "shelf sells."),
     # NOT A PUZZLE ROOM AFTER ALL. Surge's trash-can locks are two
@@ -260,7 +310,7 @@ GYMS = [
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
          badges=3, needs_cut=True, door=(4, 17), puzzle=False, money=8000,
          party=[("CHARMELEON", 26), ("NIDORINO", 25),
-                ("BEEDRILL", 24), ("PIDGEOTTO", 27), ("GEODUDE", 23)],
+                ("BEEDRILL", 24), ("RATICATE", 27), ("GEODUDE", 23)],
          bag={"POTION": 4, "SUPER_POTION": 10, "ANTIDOTE": 2,
               "PARLYZ_HEAL": 2, "REVIVE": 2},
          note="Farfetch'd carries CUT because Erika and her last three "
@@ -269,8 +319,8 @@ GYMS = [
     dict(name="fuchsia", map="FUCHSIA_GYM", leader="KOGA", ace=43,
          badges=4, door=(4, 17), puzzle=False, money=12000,
          party=[("CHARIZARD", 37), ("NIDORINO", 33),
-                ("KADABRA", 33), ("PIDGEOT", 34), ("GRAVELER", 30),
-                ("TENTACOOL", 26)],
+                ("KADABRA", 33), ("PIDGEOT", 34), ("PRIMEAPE", 30),
+                ("RATICATE", 26)],
          bag={"POTION": 3, "SUPER_POTION": 12, "FULL_HEAL": 2,
               "REVIVE": 2, "ANTIDOTE": 2},
          note="Two members badly under level and a room that poisons: "
@@ -330,7 +380,7 @@ GYMS = [
          # crossing to the island, which is the same super-effective
          # offence with NONE of the defensive wall — fire hits it square.
          party=[("NIDOKING", 41), ("VICTREEBEL", 38),
-                ("PIDGEOT", 39), ("CHARIZARD", 42), ("GRAVELER", 36),
+                ("PIDGEOT", 39), ("PRIMEAPE", 40), ("KADABRA", 36),
                 ("GOLBAT", 36)],
          bag={"SUPER_POTION": 3, "HYPER_POTION": 4, "FULL_HEAL": 2,
               "REVIVE": 2},
@@ -357,8 +407,8 @@ GYMS = [
     dict(name="viridian", map="VIRIDIAN_GYM", hms=["SURF"], leader="GIOVANNI",
          ace=50, badges=7, door=(16, 17), puzzle=False, money=15000,
          party=[("CHARIZARD", 41), ("NIDOKING", 39),
-                ("POLIWHIRL", 38), ("PIDGEOT", 40), ("GRAVELER", 37),
-                ("GOLBAT", 37)],
+                ("POLIWHIRL", 38), ("RATICATE", 40), ("GRAVELER", 37),
+                ("KADABRA", 37)],
          bag={"SUPER_POTION": 2, "HYPER_POTION": 5, "FULL_HEAL": 3,
               "REVIVE": 2},
          note="RHYDON L50 hits a Charizard four times over with rock. The "

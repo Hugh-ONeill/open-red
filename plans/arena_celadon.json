@@ -33,15 +33,15 @@
       "nickname": "BEEDRILL"
     },
     {
-      "species": "PIDGEOTTO",
+      "species": "RATICATE",
       "level": 27,
       "moves": [
-        "GUST",
-        "SAND_ATTACK",
+        "TAIL_WHIP",
         "QUICK_ATTACK",
-        "WHIRLWIND"
+        "HYPER_FANG",
+        "FOCUS_ENERGY"
       ],
-      "nickname": "PIDGEOTTO"
+      "nickname": "RATICATE"
     },
     {
       "species": "GEODUDE",

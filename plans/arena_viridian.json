@@ -34,15 +34,15 @@
       "nickname": "POLIWHIRL"
     },
     {
-      "species": "PIDGEOT",
+      "species": "RATICATE",
       "level": 40,
       "moves": [
-        "SAND_ATTACK",
+        "TAIL_WHIP",
         "QUICK_ATTACK",
-        "WHIRLWIND",
-        "WING_ATTACK"
+        "HYPER_FANG",
+        "FOCUS_ENERGY"
       ],
-      "nickname": "PIDGEOT"
+      "nickname": "RATICATE"
     },
     {
       "species": "GRAVELER",
@@ -56,15 +56,15 @@
       "nickname": "GRAVELER"
     },
     {
-      "species": "GOLBAT",
+      "species": "KADABRA",
       "level": 37,
       "moves": [
-        "BITE",
-        "SUPERSONIC",
-        "CONFUSE_RAY",
-        "WING_ATTACK"
+        "CONFUSION",
+        "DISABLE",
+        "PSYBEAM",
+        "RECOVER"
       ],
-      "nickname": "GOLBAT"
+      "nickname": "KADABRA"
     }
   ],
   "bag": {

@@ -34,26 +34,26 @@
       "nickname": "PIDGEOT"
     },
     {
-      "species": "CHARIZARD",
-      "level": 42,
+      "species": "PRIMEAPE",
+      "level": 40,
       "moves": [
-        "EMBER",
-        "LEER",
-        "RAGE",
-        "SLASH"
+        "KARATE_CHOP",
+        "FURY_SWIPES",
+        "FOCUS_ENERGY",
+        "SEISMIC_TOSS"
       ],
-      "nickname": "CHARIZARD"
+      "nickname": "PRIMEAPE"
     },
     {
-      "species": "GRAVELER",
+      "species": "KADABRA",
       "level": 36,
       "moves": [
-        "ROCK_THROW",
-        "SELFDESTRUCT",
-        "HARDEN",
-        "EARTHQUAKE"
+        "CONFUSION",
+        "DISABLE",
+        "PSYBEAM",
+        "RECOVER"
       ],
-      "nickname": "GRAVELER"
+      "nickname": "KADABRA"
     },
     {
       "species": "GOLBAT",
