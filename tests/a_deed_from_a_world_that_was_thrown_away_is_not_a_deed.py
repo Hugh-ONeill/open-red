@@ -56,6 +56,10 @@ def rig(flags_now):
     ex._outcomes = {KEY: {"POSTER": {"n": 1, "kind": "fixture",
                                      "last": f'ok (moved) — it said: "{LINE}"'},
                           "GAMECORNER_CLERK1": {"n": 1, "kind": "npc"}}}
+    # TWO STRUCTURES, ONE HINT: `hints_at` stamps the line with the flag
+    # count it was heard at, and `hints` is the LIST the page renders.
+    ex.hints = {REG: [f"POSTER: {LINE}",
+                      "GAMECORNER_MIDDLE_AGED_MAN1: run by TEAM ROCKET."]}
     ex._tried_objs = {REG: {"POSTER", "GAMECORNER_CLERK1"}}
     ex._logged = []
     ex.log = lambda kind, **kw: ex._logged.append((kind, kw))
@@ -86,7 +90,27 @@ ck("a press from this world's own past is kept",
    and "GAMECORNER_CLERK1" in ex._outcomes[KEY]
    and "GAMECORNER_CLERK1" in ex._tried_objs[REG])
 ck("...and so is what a man in the corner actually said",
-   "GAMECORNER_MIDDLE_AGED_MAN1: run by TEAM ROCKET." in ex.hints_at[REG])
+   "GAMECORNER_MIDDLE_AGED_MAN1: run by TEAM ROCKET." in ex.hints_at[REG]
+   and "GAMECORNER_MIDDLE_AGED_MAN1: run by TEAM ROCKET." in ex.hints[REG])
+
+# DROPPING THE STAMP AND LEAVING THE LINE takes the evidence away and
+# leaves the claim standing. The first cut of this did exactly that: ten
+# minutes after it fired, the page still read POSTER: "Hey! A switch
+# behind the poster!? Let's push it!", and the model was still working
+# from it (user, 2026-09-15: "but this was its thinking").
+ck("the line the page renders goes with the stamp, not just the stamp",
+   f"POSTER: {LINE}" not in ex.hints[REG])
+
+# ...AND THE STAMP IS THE HALF THAT CAN GO MISSING. A hint is a fixture's
+# own speech, filed as "WHO: what they said", so a dropped press names
+# the line that came out of it whether or not it was ever stamped.
+ex6, obs6 = rig(120)
+ex6.hints_at[REG].pop(f"POSTER: {LINE}")        # stamp gone, line orphaned
+ex6._drop_what_a_thrown_away_world_did(obs6)
+ck("an unstamped line still goes with the press that produced it",
+   f"POSTER: {LINE}" not in ex6.hints[REG])
+ck("...and a line nobody's dropped press produced is left alone",
+   "GAMECORNER_MIDDLE_AGED_MAN1: run by TEAM ROCKET." in ex6.hints[REG])
 
 # ---- a world that is level with its ledger loses nothing ---------------
 ex2, obs2 = rig(121)

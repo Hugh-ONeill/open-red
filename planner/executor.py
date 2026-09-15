@@ -4430,7 +4430,7 @@ class Executor:
         now = len((obs or {}).get("flags") or [])
         if not now:
             return              # no flag list to compare: claim nothing
-        gone = []
+        gone, hints = [], 0
         for region, names in list((self._touch_mark or {}).items()):
             for name, rec in list((names or {}).items()):
                 then = (rec or {}).get("then") or []
@@ -4441,7 +4441,15 @@ class Executor:
                 if ahead:
                     names.pop(name, None)
                     gone.append((region, name))
-        hints = 0
+        # TWO STRUCTURES, ONE HINT. `hints_at` stamps a line with the flag
+        # count it was heard at; `hints` is the LIST the page actually
+        # renders. Dropping the stamp and leaving the line took the
+        # evidence away and left the claim standing: ten minutes after
+        # the first drop fired, the page was still saying POSTER: "Hey! A
+        # switch behind the poster!? Let's push it!", and the model was
+        # still working from it (user, 2026-09-15: "but this was its
+        # thinking ... and no it didnt engage the rocket"). The line goes
+        # where the stamp goes.
         for region, lines in list((getattr(self, "hints_at", {}) or {}).items()):
             for line, rec in list((lines or {}).items()):
                 try:
@@ -4450,6 +4458,9 @@ class Executor:
                     ahead = False
                 if ahead:
                     lines.pop(line, None)
+                    said = getattr(self, "hints", {}).get(region)
+                    if isinstance(said, list) and line in said:
+                        said.remove(line)
                     hints += 1
         # ...AND THE OUTCOME THE SAME PRESS WROTE, which carries no mark
         # of its own: it is dropped with the press it belongs to, which is
@@ -4459,6 +4470,16 @@ class Executor:
                 if region in str(key):
                     (names or {}).pop(name, None)
             self._tried_objs.get(region, set()).discard(name)
+            # ...AND A HINT IS A FIXTURE'S OWN SPEECH, filed as "WHO: what
+            # they said". The press that was dropped names the line that
+            # came out of it, so the line goes too — stamped or not, which
+            # matters because the stamp is the half that can go missing.
+            said = getattr(self, "hints", {}).get(region)
+            if isinstance(said, list):
+                for line in [l for l in said
+                             if str(l).startswith(f"{name}: ")]:
+                    said.remove(line)
+                    hints += 1
         if gone or hints:
             self.log("world_rolled_back", flags_now=now, presses=len(gone),
                      hints=hints, names=[n for _, n in gone][:12])
