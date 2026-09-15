@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import atexit
 import json
+import re
 import os
 import re as _re
 import signal
@@ -348,7 +349,8 @@ class Gym:
 
     def __init__(self, plan_path: Path, run_id: str, model: str = "",
                  from_save: Path | None = None, arena: str = "brock",
-                 trials: int = 3):
+                 trials: int = 3, arena_spec: Path | None = None):
+        self.arena_spec = arena_spec
         self.plan_path = plan_path
         self.trials = max(1, int(trials))
         self.run_id = run_id
@@ -457,12 +459,30 @@ class Gym:
         # by map id. The room's own objects are the list of fights in it,
         # counted here so a score can be read as a fraction of what was
         # standing when the trial started.
-        self.arena_fights = [o.get("name") for o in
-                             ((obs.get("map") or {}).get("objects") or [])
-                             if o.get("kind") in ("trainer", "npc")
-                             and o.get("name")]
+        # ...FROM THE ROOM'S OWN TABLE, not from the observation, which a
+        # restored save has seen none of: `map.objects` comes back empty
+        # at the door and a scorer reading it presses nobody and reports
+        # 0 of 1. The trainers nearest the door come first, which is the
+        # order a player crosses a gym in.
+        self.arena_fights = [n for n, _x, _y in
+                             sorted(room_roster(self.arena_map),
+                                    key=lambda t: -t[2])]
+        # WHAT WAS STANDING IS WHAT THE SAVE CLEARED. The gin spec that
+        # built this arena lists exactly the beat-flags it reset, leader
+        # included, so that list is both the denominator and the set of
+        # flags a trial is allowed to score on — a gym guide in the
+        # roster is someone to press, never someone to beat.
+        self.arena_flags = []
+        if self.arena_spec:
+            try:
+                _sp = json.loads(Path(self.arena_spec).read_text())
+                self.arena_flags = [f for f in (_sp.get("clear_flags") or [])
+                                    if str(f).startswith("EVENT_BEAT_")]
+            except (OSError, ValueError) as e:
+                print(f"[gym] arena spec unreadable ({e})")
         if self.arena == "gym":
-            print(f"[gym] {len(self.arena_fights)} standing: "
+            print(f"[gym] {len(self.arena_flags)} to beat, "
+                  f"{len(self.arena_fights)} to press: "
                   + ", ".join(self.arena_fights))
         self.b.send("checkpoint_capture", token="eval_e4")
         self.rival_ok = False
@@ -470,6 +490,19 @@ class Gym:
     # A FLAG THAT FLIPPED IS A FIGHT THAT WAS WON, and the save keeps that
     # record itself in every observation, in every mode. Counting map
     # arrivals or trainer sprites cannot tell a win from a walk past.
+    @staticmethod
+    def _ok(r) -> bool:
+        return bool(((r or {}).get("result") or {}).get("ok"))
+
+    @staticmethod
+    def _mid_sequence(r) -> bool:
+        """A refusal that waiting fixes: the world is mid-sequence, not
+        blocked. Nothing in the observation says so — mode reads
+        overworld, ui is null, recent_text is None — only the op's own
+        refusal does."""
+        d = str(((r or {}).get("result") or {}).get("detail") or "")
+        return "not in overworld" in d or "stuck in a menu" in d
+
     @staticmethod
     def _beaten(obs) -> set:
         return {f for f in ((obs or {}).get("flags") or [])
@@ -487,8 +520,9 @@ class Gym:
                "rival_wins": 0, "rival_trials": 0, "pewter": 0, "badge": 0,
                "gauntlet_trials": 0, "blackouts": 0, "agree": 0,
                "scored": 0, "dmg_gap": 0.0, "rival_detail": [],
-               "gauntlet_detail": [], "beaten": 0,
-               "standing": len(getattr(self, "arena_fights", []) or []) or 1}
+               "gauntlet_detail": [], "beaten": 0, "bodies": 0.0,
+               "standing": len(getattr(self, "arena_flags", []) or [])
+               or len(getattr(self, "arena_fights", []) or []) or 1}
         for _ in range(k):
             r = self.b.send("checkpoint_restore", token="eval_e4",
                             reseed=True, force=True)
@@ -499,33 +533,115 @@ class Gym:
             start = LOG.stat().st_size
             obs = self._ride(self.ex.settle())
             before = self._beaten(obs)
-            pressed = set()
+            # A RESTORED SAVE HAS SEEN NOTHING OF THE ROOM IT IS PARKED
+            # IN, and a walk only paths through ground that has been on
+            # screen — so every press failed with "no reachable tile
+            # adjacent to target" and the first run of this scored 0/8
+            # without a punch thrown. Crossing the room is the job: press
+            # whoever is reachable, and when nobody is, walk to the
+            # nearest edge of what has been seen so more of it comes into
+            # view. A trainer whose line of sight the walk crosses starts
+            # the fight without being pressed at all, which is most of
+            # them.
+            pressed, cut = set(), set()
+            want = set(self.arena_flags)
             try:
-                for _ in range(2 * res["standing"] + 2):
+                for _ in range(6 * len(self.arena_fights) + 8):
                     obs = self._ride(self.ex.settle())
                     here = ((obs or {}).get("map") or {}).get("id")
                     if here != self.arena_map:
                         break        # blacked out, or carried out of it
-                    nxt = next((o.get("name") for o in
-                                ((obs.get("map") or {}).get("objects") or [])
-                                if o.get("kind") in ("trainer", "npc")
-                                and o.get("name")
-                                and o.get("name") not in pressed), None)
-                    if not nxt:
-                        break        # nobody left in reach
-                    pressed.add(nxt)
-                    self.b.send("interact", name=nxt)
-                    obs = self._ride(self.ex.settle())
+                    if want and want <= self._beaten(obs):
+                        break        # the room is beaten
+                    hit = busy = False
+                    for who in self.arena_fights:
+                        if who in pressed:
+                            continue
+                        r = self.b.send("interact", name=who)
+                        if self._ok(r):
+                            pressed.add(who)
+                            hit = True
+                            break
+                        if self._mid_sequence(r):
+                            busy = True
+                            break
+                    if busy:
+                        # A TRAINER WHO HAS SPOTTED YOU IS ALREADY WALKING
+                        # OVER, and until they arrive every op is refused
+                        # "stuck in a menu/dialog" while the observation
+                        # still reads a clean overworld with no box in it.
+                        # The first version of this loop read that refusal
+                        # as a wall, gave up at step 0 and scored the room
+                        # 0/8 with the challenge pending on screen. It is
+                        # not a wall; it is the fight starting.
+                        self.b.send("wait", frames=30)
+                        continue
+                    if hit:
+                        continue
+                    fr = sorted(((obs.get("map") or {}).get("frontier")
+                                 or []), key=lambda c: c.get("d") or 99)
+                    for c in fr:
+                        w = self.b.send("walk_to", x=c.get("x"),
+                                        y=c.get("y"))
+                        if self._ok(w):
+                            hit = True
+                            break
+                        if self._mid_sequence(w):
+                            busy = True
+                            break
+                    if not hit and not busy:
+                        # ...AND THE BACK OF THIS ROOM IS BEHIND A BUSH.
+                        # Celadon's gym pens its leader and her last three
+                        # trainers inside a bed with two CUT_TREEs in it:
+                        # every press came back "no reachable tile
+                        # adjacent to target", the frontier was empty
+                        # because everything reachable HAD been seen, and
+                        # the trial stopped at 4 of 8 with Erika never
+                        # fought — the one fight the arena exists for.
+                        for o in ((obs.get("map") or {}).get("objects")
+                                  or []):
+                            if o.get("kind") != "cut_tree" \
+                                    or not o.get("reachable") \
+                                    or (o.get("x"), o.get("y")) in cut:
+                                continue
+                            cut.add((o.get("x"), o.get("y")))
+                            c2 = self.b.send("field_move", move="CUT",
+                                             x=o.get("x"), y=o.get("y"))
+                            if self._ok(c2):
+                                hit = True
+                                break
+                            if self._mid_sequence(c2):
+                                busy = True
+                                break
+                    if busy:
+                        self.b.send("wait", frames=30)
+                        continue
+                    if not hit:
+                        break        # nobody in reach and nowhere to look
             except TimeoutError:
                 pass
             obs = self._ride(self.ex.settle())
             won = self._beaten(obs) - before
+            if self.arena_flags:
+                won &= set(self.arena_flags)
             alive = [p for p in (obs.get("party") or [])
                      if (p.get("hp") or 0) > 0]
             end = ((obs.get("map") or {}).get("id"))
             if end != self.arena_map:
                 res["blackouts"] += 1
             res["beaten"] += len(won)
+            # ...AND WITH HOW MUCH OF THE PARTY LEFT. Both specs swept
+            # this room; one finished it with three bodies up and one
+            # with two, which is the whole of what a healing rule buys
+            # and is invisible in "8/8". It breaks ties, it never
+            # outranks the objective.
+            # A BLACKOUT HEALS THE PARTY, so the bodies left after one
+            # read 5/5 — full marks for dying, the same trap the E4
+            # arena's room counting fell into. A trial that ended
+            # outside the arena left nobody standing in it.
+            res["bodies"] += (0.0 if end != self.arena_map else
+                              len(alive) / max(1, len(obs.get("party")
+                                                      or [])))
             res["gauntlet_detail"].append(
                 f"beat {len(won)}/{res['standing']} in {self.arena_map} "
                 f"with {len(alive)}/{len(obs.get('party') or [])} standing"
@@ -554,7 +670,7 @@ class Gym:
                "rival_wins": 0, "rival_trials": 0, "pewter": 0, "badge": 0,
                "gauntlet_trials": 0, "blackouts": 0, "agree": 0,
                "scored": 0, "dmg_gap": 0.0, "rival_detail": [],
-               "gauntlet_detail": [], "rooms": 0}
+               "gauntlet_detail": [], "rooms": 0, "bodies": 0.0}
         for _ in range(k):
             r = self.b.send("checkpoint_restore", token="eval_e4",
                             reseed=True, force=True)
@@ -626,6 +742,10 @@ class Gym:
             if not champion and _end not in self.E4_ROOMS:
                 res["blackouts"] += 1
             res["rooms"] += cleared
+            res["bodies"] += (0.0 if (not champion
+                                      and _end not in self.E4_ROOMS)
+                              else len(alive)
+                              / max(1, len(obs.get("party") or [])))
             res["gauntlet_detail"].append(
                 f"beat {cleared}/5 ({'CHAMPION' if champion else 'stopped in ' + str(_end)}) "
                 f"with {len(alive)}/{len(obs.get('party') or [])} standing")
@@ -771,6 +891,15 @@ class Gym:
 
 def feedback_text(name: str, r: dict) -> str:
     ag = f"{r['agree']}/{r['scored']}" if r["scored"] else "n/a"
+    if r.get("arena") == "gym" or r.get("standing"):
+        n = max(1, r.get("gauntlet_trials", 1))
+        out = (f"{name}: beat {r.get('beaten', 0)}/"
+               f"{n * (r.get('standing') or 1)} of the room across "
+               f"{n} trial(s), blackouts {r['blackouts']}; oracle "
+               f"agreement {ag}, damage left on the table {r['dmg_gap']:.0f}")
+        for i, g in enumerate(r.get("gauntlet_detail") or []):
+            out += f"\n  trial {i+1}: {g}"
+        return out
     rv = (f"{r['rival_wins']}/{r['rival_trials']}" if r["rival_trials"]
           else "not evaluable")
     if r.get("rooms") or r.get("gauntlet_detail") and not r.get("pewter") \
@@ -829,6 +958,9 @@ def cross_key(rows) -> tuple:
     """rows: [(arena name, result)]. Higher is better."""
     return (round(sum(arena_fraction(r) for _, r in rows), 6),
             -sum(r.get("blackouts", 0) for _, r in rows),
+            round(sum((r.get("bodies") or 0.0)
+                      / max(1, r.get("gauntlet_trials") or 1)
+                      for _, r in rows), 4),
             -sum(r.get("dmg_gap", 0.0) for _, r in rows))
 
 
@@ -838,7 +970,8 @@ def cross_text(name: str, rows) -> str:
            f"{len(rows)}.00"]
     for an, r in rows:
         out.append(f"  {an}: {arena_fraction(r):.0%} of that arena, "
-                   f"blackouts {r.get('blackouts', 0)}")
+                   f"blackouts {r.get('blackouts', 0)}, party left "
+                   f"{(r.get('bodies') or 0.0) / max(1, r.get('gauntlet_trials') or 1):.0%}")
         for g in (r.get("gauntlet_detail") or []):
             out.append(f"    {g}")
         if r.get("rival_detail"):
@@ -850,11 +983,63 @@ def cross_text(name: str, rows) -> str:
 # (plans/arena_midgame.README.md has how they were built and what is on
 # each shelf); `brock` is the one that replays a plan from a new game.
 ARENAS = {
-    "brock": ("brock", None),
-    "erika": ("gym", REPO / "run/arena_erika.lua"),
-    "koga": ("gym", REPO / "run/arena_koga.lua"),
-    "e4": ("e4", REPO / "run/arena_e4.lua"),
+    "brock": ("brock", None, None),
+    "erika": ("gym", REPO / "run/arena_erika.lua",
+              REPO / "plans/arena_erika.json"),
+    "koga": ("gym", REPO / "run/arena_koga.lua",
+             REPO / "plans/arena_koga.json"),
+    "e4": ("e4", REPO / "run/arena_e4.lua", None),
 }
+
+
+# WHO IS STANDING IN THE ROOM IS NOT IN THE OBSERVATION. A restored save
+# has SEEN nothing of the room it is parked in, so `map.objects` comes
+# back empty and a scorer reading it presses nobody and reports 0/1. The
+# room's own object table is in the engine's map data, and `interact`
+# resolves a name against the LIVE npc list, not against what has been
+# seen — so the roster can be read here and pressed by name. Check-side
+# only: this never reaches a prompt, and nothing the model plays with is
+# told where anyone stands.
+def room_roster(map_id: str) -> list:
+    """[(name, x, y)] for one map, from the engine's own map table."""
+    src = Path.home() / "Developer/gen1recomp/data/generated/maps.lua"
+    try:
+        txt = src.read_text(errors="ignore")
+    except OSError:
+        return []
+    m = re.search(r"\n  " + re.escape(str(map_id)) + r" = \{", txt)
+    if not m:
+        return []
+    i, depth = m.end() - 1, 0
+    for j in range(i, len(txt)):
+        if txt[j] == "{":
+            depth += 1
+        elif txt[j] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+    blk = txt[i:j + 1]
+    o = re.search(r"objects = \{", blk)
+    if not o:
+        return []
+    i2, depth = o.end() - 1, 0
+    for j2 in range(i2, len(blk)):
+        if blk[j2] == "{":
+            depth += 1
+        elif blk[j2] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+    out = []
+    for e in re.finditer(r"\{(.*?)\}", blk[i2:j2 + 1], re.S):
+        body = e.group(1)
+        nm = re.search(r'name = "([A-Z0-9_]+)"', body)
+        # `index = 1` ends in "x = 1"; the coordinate needs its own word
+        x = re.search(r"\bx = (\d+)", body)
+        y = re.search(r"\by = (\d+)", body)
+        if nm and x and y:
+            out.append((nm.group(1), int(x.group(1)), int(y.group(1))))
+    return out
 
 
 def main():
@@ -900,11 +1085,12 @@ def main():
             sys.exit(f"unknown arena {n}; known: {', '.join(ARENAS)}")
 
     def build(name: str) -> Gym:
-        kind, save = ARENAS.get(name, (name, args.from_save))
+        kind, save, aspec = ARENAS.get(name, (name, args.from_save, None))
         if name == names[0] and args.from_save:
             save = args.from_save          # an explicit save still wins
         g = Gym(args.plan, args.run_id, model=args.model,
-                from_save=save, arena=kind, trials=args.trials)
+                from_save=save, arena=kind, trials=args.trials,
+                arena_spec=aspec)
         for attempt in (1, 2):
             try:
                 print(f"[gym] booting the {name} arena (attempt {attempt})...")

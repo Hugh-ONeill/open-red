@@ -28,6 +28,8 @@ sys.path.insert(0, str(ROOT / "planner"))
 import policy_author as A                                  # noqa: E402
 import pick_policy as P                                    # noqa: E402
 
+PA = (ROOT / "planner" / "policy_author.py").read_text()
+
 checks = []
 def ck(name, cond): checks.append((name, bool(cond)))
 
@@ -96,6 +98,29 @@ ck("a gym room is scored by the flags that flipped, not by sprites",
    "_beaten(obs)" in (ROOT / "planner" / "policy_author.py").read_text()
    and 'startswith("EVENT_BEAT_")' in
    (ROOT / "planner" / "policy_author.py").read_text())
+
+# ---- who is in the room, and what a win in it is worth ----------------
+ROSTER = A.room_roster("CELADON_GYM")
+ck("the room's roster comes from the engine's own map table",
+   len(ROSTER) == 8 and ("CELADONGYM_ERIKA", 4, 3) in ROSTER)
+ck("...and not from the observation, which a restored save has none of",
+   "room_roster(self.arena_map)" in PA)
+ORDER = [n for n, _x, _y in sorted(ROSTER, key=lambda t: -t[2])]
+ck("the trainer nearest the door is pressed first",
+   ORDER[0] == "CELADONGYM_COOLTRAINER_F1")
+ck("...and the leader is in the last row, behind all seven",
+   ORDER.index("CELADONGYM_ERIKA") >= 4
+   and min(y for n, _x, y in ROSTER) == 3)
+ck("a bed with a bush in it is cut, not treated as a wall",
+   'move="CUT"' in PA and 'o.get("kind") != "cut_tree"' in PA)
+ck("bodies left break a tie the objective cannot see",
+   A.cross_key([("erika", dict(gymr(16), bodies=1.6))])
+   > A.cross_key([("erika", dict(gymr(16), bodies=0.8))]))
+ck("...but never outrank the objective itself",
+   A.cross_key([("erika", dict(gymr(16), bodies=0.0))])
+   > A.cross_key([("erika", dict(gymr(8), bodies=2.0))]))
+ck("a blackout leaves nobody standing in the arena it left",
+   "0.0 if end != self.arena_map" in PA)
 
 # ---- the picker takes the spec fit to the whole game ------------------
 def spec_file(d: Path, name: str, ev: dict) -> Path:
