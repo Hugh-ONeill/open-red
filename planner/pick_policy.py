@@ -36,10 +36,23 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
-# Where the stage line falls. The gauntlet arena is the last fight in the
-# game and the Brock arena is the first; a run is on the endgame side of
-# that once it holds the badges that open the league. Nothing subtler is
-# claimed — a midgame tier, when one is authored, adds a row here.
+# Where the stage line falls, FOR SPECS THAT WERE ONLY EVER SCORED IN ONE
+# ARENA. The gauntlet arena is the last fight in the game and the Brock
+# arena is the first; a run is on the endgame side of that once it holds
+# the badges that open the league.
+#
+# A stage line is a workaround, not the design. It exists because every
+# spec on disk was authored inside one arena and named that arena's items:
+# v1 heals with POTION and cures with ANTIDOTE, which a Kanto mart stocks,
+# and v6 reaches for HYPER_POTION and MAX_REVIVE, which no early party has
+# seen. Switching specs at a badge count patches over that, and badly —
+# the seam is exactly where the bag and the policy disagree, and run 17
+# crossed no seam at all, playing v1's POTION rule into Erika with three
+# SUPER_POTIONs in the bag (2026-09-15). The answer is ONE SPEC FIT TO THE
+# WHOLE GAME (user, 2026-08-24: "not one per stage"), which the item
+# classes make writable and the multi-arena run makes scorable. A spec
+# that carries `arenas` was scored in more than one and needs no line
+# drawn through the game; it wins outright, at any badge count.
 E4_FROM_BADGES = 8
 
 
@@ -49,6 +62,27 @@ def _eval(p: Path) -> dict:
     except (OSError, ValueError):
         return {}
     return (d.get("provenance") or {}).get("eval") or {}
+
+
+def fit_across(ev: dict) -> dict:
+    """The per-arena results of a spec scored in more than one arena, or
+    {} for the single-arena specs that came before."""
+    ar = ev.get("arenas")
+    return ar if isinstance(ar, dict) and len(ar) > 1 else {}
+
+
+def cross_score(ev: dict) -> tuple:
+    """Higher is better, across arenas. The total is already a sum of
+    per-arena fractions, so it is comparable between specs scored in
+    different sets of arenas — and the count of arenas breaks a tie
+    toward the spec that was asked to hold up in more of them."""
+    ar = fit_across(ev)
+    try:
+        total = float(ev.get("cross_total") or 0.0)
+    except (TypeError, ValueError):
+        total = 0.0
+    return (round(total, 6), len(ar),
+            -sum(int((r or {}).get("blackouts") or 0) for r in ar.values()))
 
 
 def arena_of(ev: dict) -> str:
@@ -100,6 +134,10 @@ def rank(paths, badges: int | None = None):
     sound = [r for r in rows if r[2]]
     if not sound:
         return None, rows
+    # A SPEC FIT ACROSS THE GAME NEEDS NO STAGE LINE DRAWN THROUGH IT.
+    whole = [r for r in sound if fit_across(_eval(r[0]))]
+    if whole:
+        return max(whole, key=lambda r: cross_score(_eval(r[0])))[0], rows
     want = None
     if badges is not None:
         want = "e4" if badges >= E4_FROM_BADGES else "brock"
@@ -127,8 +165,11 @@ def main():
     if a.why:
         for p, arena, ok, why, sc in sorted(rows, key=lambda r: -r[4][0]):
             mark = "WINNER" if p == win else ("  ok  " if ok else "REJECT")
+            _ac = fit_across(_eval(p))
             print(f"{mark} {p.name:28s} arena={arena:6s} "
-                  + (why or f"score={sc}"), file=sys.stderr)
+                  + (why or (f"across {len(_ac)} arenas, total "
+                             f"{cross_score(_eval(p))[0]:.2f}" if _ac
+                             else f"score={sc}")), file=sys.stderr)
             # A SCORE IS UNREADABLE WITHOUT THE PARTY THAT PRODUCED IT.
             # v3's eight rooms with no healing rules at all look like a
             # finding about the spec until you see the L71 CHARIZARD that

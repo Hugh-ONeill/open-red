@@ -347,8 +347,10 @@ class Gym:
     scores candidate specs with reseeded restore trials."""
 
     def __init__(self, plan_path: Path, run_id: str, model: str = "",
-                 from_save: Path | None = None, arena: str = "brock"):
+                 from_save: Path | None = None, arena: str = "brock",
+                 trials: int = 3):
         self.plan_path = plan_path
+        self.trials = max(1, int(trials))
         self.run_id = run_id
         self.model = model
         self.game = None
@@ -421,7 +423,7 @@ class Gym:
                 "EVENT_BEAT_AGATHAS_ROOM_TRAINER_0",
                 "EVENT_BEAT_LANCE", "EVENT_BEAT_CHAMPION_RIVAL"]
 
-    def prepare_e4(self):
+    def prepare_arena(self):
         """Checkpoint the save exactly as it stands, and score from there.
 
         THE SAVEPOINT IS THE CONTROL SURFACE (user, 2026-08-24: "can we
@@ -450,8 +452,92 @@ class Gym:
         # item usage"). The number was never wrong; it was never legible.
         self.arena_party = list(party)
         self.arena_map = here
+        # A GYM IS ONE ROOM WITH N TRAINERS IN IT, which is neither shape
+        # the gym knew: `brock` replays a plan and `e4` walks room to room
+        # by map id. The room's own objects are the list of fights in it,
+        # counted here so a score can be read as a fraction of what was
+        # standing when the trial started.
+        self.arena_fights = [o.get("name") for o in
+                             ((obs.get("map") or {}).get("objects") or [])
+                             if o.get("kind") in ("trainer", "npc")
+                             and o.get("name")]
+        if self.arena == "gym":
+            print(f"[gym] {len(self.arena_fights)} standing: "
+                  + ", ".join(self.arena_fights))
         self.b.send("checkpoint_capture", token="eval_e4")
         self.rival_ok = False
+
+    # A FLAG THAT FLIPPED IS A FIGHT THAT WAS WON, and the save keeps that
+    # record itself in every observation, in every mode. Counting map
+    # arrivals or trainer sprites cannot tell a win from a walk past.
+    @staticmethod
+    def _beaten(obs) -> set:
+        return {f for f in ((obs or {}).get("flags") or [])
+                if str(f).startswith("EVENT_BEAT_")}
+
+    def eval_spec_gym(self, spec: dict, k: int = 3) -> dict:
+        """One room, everyone in it. Press each trainer in turn and fight;
+        the score is how many of the room's beat-flags come up.
+
+        The leader is behind the others in most gym layouts, so the order
+        the objects come in IS the order of the room, and a trial that
+        cannot reach the back of it simply scores what it beat."""
+        ex_mod.set_active_spec(spec)
+        res = {"arena": "gym",
+               "rival_wins": 0, "rival_trials": 0, "pewter": 0, "badge": 0,
+               "gauntlet_trials": 0, "blackouts": 0, "agree": 0,
+               "scored": 0, "dmg_gap": 0.0, "rival_detail": [],
+               "gauntlet_detail": [], "beaten": 0,
+               "standing": len(getattr(self, "arena_fights", []) or []) or 1}
+        for _ in range(k):
+            r = self.b.send("checkpoint_restore", token="eval_e4",
+                            reseed=True, force=True)
+            rr = (r or {}).get("result") or {}
+            if not rr.get("ok"):
+                raise RuntimeError(f"arena restore failed: {rr.get('detail')}")
+            res["gauntlet_trials"] += 1
+            start = LOG.stat().st_size
+            obs = self._ride(self.ex.settle())
+            before = self._beaten(obs)
+            pressed = set()
+            try:
+                for _ in range(2 * res["standing"] + 2):
+                    obs = self._ride(self.ex.settle())
+                    here = ((obs or {}).get("map") or {}).get("id")
+                    if here != self.arena_map:
+                        break        # blacked out, or carried out of it
+                    nxt = next((o.get("name") for o in
+                                ((obs.get("map") or {}).get("objects") or [])
+                                if o.get("kind") in ("trainer", "npc")
+                                and o.get("name")
+                                and o.get("name") not in pressed), None)
+                    if not nxt:
+                        break        # nobody left in reach
+                    pressed.add(nxt)
+                    self.b.send("interact", name=nxt)
+                    obs = self._ride(self.ex.settle())
+            except TimeoutError:
+                pass
+            obs = self._ride(self.ex.settle())
+            won = self._beaten(obs) - before
+            alive = [p for p in (obs.get("party") or [])
+                     if (p.get("hp") or 0) > 0]
+            end = ((obs.get("map") or {}).get("id"))
+            if end != self.arena_map:
+                res["blackouts"] += 1
+            res["beaten"] += len(won)
+            res["gauntlet_detail"].append(
+                f"beat {len(won)}/{res['standing']} in {self.arena_map} "
+                f"with {len(alive)}/{len(obs.get('party') or [])} standing"
+                + ("" if end == self.arena_map else f" (ended in {end})"))
+            for d in self._log_delta(start):
+                if d.get("kind") == "blackout":
+                    res["blackouts"] += 1
+                elif d.get("kind") == "oracle_score":
+                    res["scored"] += 1
+                    res["agree"] += 1 if d.get("agree") else 0
+                    res["dmg_gap"] += d.get("dmg_gap") or 0.0
+        return res
 
     def _ride(self, obs):
         """Fight until the overworld: an observation in battle carries no
@@ -464,7 +550,8 @@ class Gym:
     def eval_spec_e4(self, spec: dict, k: int = 3) -> dict:
         """How far up the Elite Four does this policy get, from healed?"""
         ex_mod.set_active_spec(spec)
-        res = {"rival_wins": 0, "rival_trials": 0, "pewter": 0, "badge": 0,
+        res = {"arena": "e4",
+               "rival_wins": 0, "rival_trials": 0, "pewter": 0, "badge": 0,
                "gauntlet_trials": 0, "blackouts": 0, "agree": 0,
                "scored": 0, "dmg_gap": 0.0, "rival_detail": [],
                "gauntlet_detail": [], "rooms": 0}
@@ -616,14 +703,16 @@ class Gym:
 
     def score(self, spec: dict) -> dict:
         """Whichever arena this gym was built for."""
+        if self.arena == "gym":
+            return self.eval_spec_gym(spec, k=self.trials)
         if self.arena == "e4":
-            return self.eval_spec_e4(spec)
+            return self.eval_spec_e4(spec, k=self.trials)
         return self.eval_spec(spec)
 
     def eval_spec(self, spec: dict, k_rival: int = 6,
                   k_gauntlet: int = 3) -> dict:
         ex_mod.set_active_spec(spec)
-        res = {"rival_wins": 0, "rival_trials": 0,
+        res = {"arena": "brock", "rival_wins": 0, "rival_trials": 0,
                "pewter": 0, "badge": 0, "gauntlet_trials": 0,
                "blackouts": 0, "agree": 0, "scored": 0, "dmg_gap": 0.0,
                "rival_detail": [], "gauntlet_detail": []}
@@ -710,9 +799,62 @@ def feedback_text(name: str, r: dict) -> str:
 def rank_key(r: dict):
     # ROOMS is the E4 arena's own measure and is absent from a brock run,
     # so it simply sorts first when it is there.
-    return (r.get("rooms", 0), r["badge"], r["pewter"],
+    return (r.get("rooms", 0), r.get("beaten", 0), r["badge"], r["pewter"],
             r["rival_wins"] / max(1, r["rival_trials"]),
             -r["blackouts"], -r["dmg_gap"])
+
+
+# ------------------------------------------------ one spec, the whole game
+# THE ARENAS MEASURE DIFFERENT THINGS AND CANNOT BE ADDED AS THEY STAND:
+# rooms cleared, trainers beaten, a badge, six rival fights. Each is turned
+# into the FRACTION OF ITS OWN OBJECTIVE the spec reached, and those add.
+# A spec scored in three arenas can therefore be compared with one scored
+# in three others, and a spec that wins one arena by dying fast in the rest
+# cannot hide behind a number that only that arena produces.
+def arena_fraction(r: dict) -> float:
+    t = max(1, r.get("gauntlet_trials") or 0)
+    a = r.get("arena") or ("e4" if "rooms" in r else "brock")
+    if a == "gym":
+        return r.get("beaten", 0) / (t * max(1, r.get("standing") or 1))
+    if a == "e4":
+        return r.get("rooms", 0) / (t * 5)
+    # the Brock arena runs two trials of different kinds and they weigh
+    # the same: the badge at the end of the walk, and the rival
+    badge = r.get("badge", 0) / t
+    rival = r.get("rival_wins", 0) / max(1, r.get("rival_trials") or 1)
+    return (badge + rival) / 2
+
+
+def cross_key(rows) -> tuple:
+    """rows: [(arena name, result)]. Higher is better."""
+    return (round(sum(arena_fraction(r) for _, r in rows), 6),
+            -sum(r.get("blackouts", 0) for _, r in rows),
+            -sum(r.get("dmg_gap", 0.0) for _, r in rows))
+
+
+def cross_text(name: str, rows) -> str:
+    out = [f"{name}: fit across {len(rows)} arena(s), "
+           f"total {sum(arena_fraction(r) for _, r in rows):.2f} of "
+           f"{len(rows)}.00"]
+    for an, r in rows:
+        out.append(f"  {an}: {arena_fraction(r):.0%} of that arena, "
+                   f"blackouts {r.get('blackouts', 0)}")
+        for g in (r.get("gauntlet_detail") or []):
+            out.append(f"    {g}")
+        if r.get("rival_detail"):
+            out.append("    rival: " + "; ".join(r["rival_detail"]))
+    return "\n".join(out)
+
+
+# THE ARENAS, BY NAME. Each is a savepoint parked where the fight starts
+# (plans/arena_midgame.README.md has how they were built and what is on
+# each shelf); `brock` is the one that replays a plan from a new game.
+ARENAS = {
+    "brock": ("brock", None),
+    "erika": ("gym", REPO / "run/arena_erika.lua"),
+    "koga": ("gym", REPO / "run/arena_koga.lua"),
+    "e4": ("e4", REPO / "run/arena_e4.lua"),
+}
 
 
 def main():
@@ -730,30 +872,56 @@ def main():
                     help="boot an ISOLATED COPY of this save and use it as "
                          "the arena, instead of replaying --plan. Make one "
                          "with planner/make_savepoint.py")
-    ap.add_argument("--arena", default="brock", choices=("brock", "e4"),
+    ap.add_argument("--arena", default="brock",
+                    choices=("brock", "e4", "gym"),
                     help="brock: the L5 rival and the Boulder Badge run. "
                          "e4: how far up the Elite Four a candidate gets "
-                         "from the savepoint")
+                         "from the savepoint. gym: one room, everyone in "
+                         "it, from the savepoint")
+    ap.add_argument("--arenas", default=None,
+                    help="score every candidate in EACH of these, comma "
+                         "separated (" + "/".join(ARENAS) + "), and pick "
+                         "the one that fits them all best. The first is "
+                         "where the authoring rounds iterate.")
+    ap.add_argument("--trials", type=int, default=3,
+                    help="restore trials per candidate per savepoint arena")
     args = ap.parse_args()
 
-    gym = Gym(args.plan, args.run_id, model=args.model,
-              from_save=args.from_save, arena=args.arena)
-    for attempt in (1, 2):
-        try:
-            print(f"[gym] booting + replaying to the eval checkpoints "
-                  f"(attempt {attempt})...")
-            gym.boot()
-            if args.arena == "e4":
-                gym.prepare_e4()
-            else:
-                gym.prepare()
-            break
-        except Exception as e:
-            print(f"[gym] setup attempt {attempt} failed: {e}")
-            gym.shutdown()
-            if attempt == 2:
-                raise
-            time.sleep(3)
+    # ONE POLICY ACROSS STAGES, not one per stage (user, 2026-08-24). A
+    # spec authored in one arena names that arena's items and dies
+    # everywhere else: v1 named POTION at Pewter and could not heal at
+    # Celadon; v6 named HYPER_POTION at the league and would not survive
+    # Brock. Scoring a candidate in every arena is what makes "fits the
+    # whole game" a number rather than a hope.
+    names = [n.strip() for n in (args.arenas or args.arena).split(",")
+             if n.strip()]
+    for n in names:
+        if n not in ARENAS and n not in ("brock", "e4", "gym"):
+            sys.exit(f"unknown arena {n}; known: {', '.join(ARENAS)}")
+
+    def build(name: str) -> Gym:
+        kind, save = ARENAS.get(name, (name, args.from_save))
+        if name == names[0] and args.from_save:
+            save = args.from_save          # an explicit save still wins
+        g = Gym(args.plan, args.run_id, model=args.model,
+                from_save=save, arena=kind, trials=args.trials)
+        for attempt in (1, 2):
+            try:
+                print(f"[gym] booting the {name} arena (attempt {attempt})...")
+                g.boot()
+                if kind in ("e4", "gym"):
+                    g.prepare_arena()
+                else:
+                    g.prepare()
+                return g
+            except Exception as e:
+                print(f"[gym] setup attempt {attempt} failed: {e}")
+                g.shutdown()
+                if attempt == 2:
+                    raise
+                time.sleep(3)
+
+    gym = build(names[0])
     print(f"[gym] ready (rival fight re-armable: {gym.rival_ok})")
     # The brief is assembled AFTER the boot, so the party and bag in it are
     # the ones this spec will actually be handed. It used to be a module
@@ -808,7 +976,33 @@ def main():
     base = gym.score(battle_policy.DEFAULT_SPEC)
     print("[baseline] " + feedback_text("typed_v0", base))
 
-    best_spec, best_r = max(candidates, key=lambda c: rank_key(c[1]))
+    # ---------------------------------------- the rest of the game
+    # The authoring rounds iterate in ONE arena, because feedback has to
+    # arrive between rounds and a boot per arena per round is hours. The
+    # candidates that come out of it are then carried to every other
+    # arena and scored there, and the winner is the one that holds up
+    # across all of them.
+    across = {s["name"]: [(names[0], r)] for s, r in candidates}
+    primary_map = getattr(gym, "arena_map", None)
+    primary_party = getattr(gym, "arena_party", [])
+    for an in names[1:]:
+        gym.shutdown()
+        print(f"\n[gym] carrying {len(candidates)} candidate(s) to {an}")
+        gym = build(an)
+        for spec, _ in candidates:
+            rr = gym.score(spec)
+            across[spec["name"]].append((an, rr))
+            print(f"[{an}] " + feedback_text(spec["name"], rr))
+
+    if len(names) > 1:
+        print("\n[across] one spec, the whole game:")
+        for s, _ in candidates:
+            print(cross_text(s["name"], across[s["name"]]))
+        best_spec = max(candidates,
+                        key=lambda c: cross_key(across[c[0]["name"]]))[0]
+        best_r = across[best_spec["name"]][0][1]
+    else:
+        best_spec, best_r = max(candidates, key=lambda c: rank_key(c[1]))
     artifact = dict(best_spec)
     artifact["provenance"] = {
         "authored_by": args.model, "run": args.run_id,
@@ -819,14 +1013,27 @@ def main():
         # and every gauntlet spec beats every Brock spec for free. It
         # was inferable from the shape of the score and now it is not
         # guessed (2026-09-12).
-        "eval": dict(best_r, arena=gym.arena,
-                     arena_map=getattr(gym, "arena_map", None),
-                     arena_party=getattr(gym, "arena_party", [])),
+        "eval": dict(best_r, arena=gym.arena if len(names) == 1
+                     else "+".join(names),
+                     arena_map=primary_map,
+                     arena_party=primary_party,
+                     # ...AND WHAT IT DID IN EACH. A spec fit across the
+                     # game is not the same artifact as a spec fit to one
+                     # room, and pick_policy has to be able to tell.
+                     arenas=({an: rr for an, rr
+                              in across[best_spec["name"]]}
+                             if len(names) > 1 else None),
+                     cross_total=(round(cross_key(
+                         across[best_spec["name"]])[0], 4)
+                         if len(names) > 1 else None)),
         "baseline_typed_v0": base,
     }
     args.out.write_text(json.dumps(artifact, indent=2))
     print(f"\nBEST: {best_spec['name']} -> {args.out}")
-    print(feedback_text(best_spec["name"], best_r))
+    if len(names) > 1:
+        print(cross_text(best_spec["name"], across[best_spec["name"]]))
+    else:
+        print(feedback_text(best_spec["name"], best_r))
     gym.shutdown()
 
 

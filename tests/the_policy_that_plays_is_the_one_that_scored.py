@@ -95,14 +95,22 @@ ck("fresh_run.sh is still valid shell",
 
 PA = (ROOT / "planner" / "policy_author.py").read_text()
 ck("a spec written from now on records the arena that judged it",
-   "dict(best_r, arena=gym.arena," in PA)
+   '"eval": dict(best_r, arena=' in PA)
+# ...AND EVERY ARENA, once a candidate is carried to more than one. The
+# stage line in pick_policy exists only for specs that were scored in a
+# single arena; a spec fit across the game carries its own per-arena
+# record and needs no line drawn through the game (user, 2026-08-24:
+# "ONE BATTLE POLICY ACROSS STAGES, not one per stage").
+ck("...and every arena it was carried to, when there was more than one",
+   "arenas=(" in PA and "cross_total=" in PA)
 # A SCORE IS UNREADABLE WITHOUT THE PARTY THAT PRODUCED IT. v3's eight
 # rooms with no healing rules at all read as a finding about the spec
 # until you see the CHARIZARD L71 that swept them against a league topping
 # out in the low sixties (user, 2026-09-12: "we must have given it
 # overlevelled mons if it was able to solve it without item usage").
 ck("...and the party it was scored against",
-   "arena_party=getattr(gym" in PA and "self.arena_party = list(party)" in PA)
+   "arena_party=primary_party" in PA
+   and "self.arena_party = list(party)" in PA)
 ck("the ranking prints that party when the file has it",
    "scored on: " in (ROOT / "planner" / "pick_policy.py").read_text())
 
