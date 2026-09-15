@@ -23,7 +23,14 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
              vs: "trainer"|"wild"|"any" (default "trainer")
              only_if_best_physical: bool  only when our best damage move is
                 physical (e.g. TAIL_WHIP helps TACKLE, not BUBBLE) } ]
-  switch: [ { to: int          bring in this party slot MID-BATTLE, e.g.
+  switch: [ { to: int|str      bring in this party slot MID-BATTLE, or
+                             name an ORDER and let it pick: "resists",
+                             "best_matchup", "healthiest", "first_alive".
+                             A raw slot number is a POSITION and means a
+                             different Pokemon in every party; an order
+                             means the same thing always. The foe IS on
+                             screen here, so unlike `lead` the type
+                             orders have something to read.
               first_turns: int   only in the battle's first N turns (def. 1)
               max_uses: int      per battle (default 1)
               vs: "trainer"|"wild"|"any" (default "any")
@@ -275,10 +282,13 @@ def validate_spec(spec) -> list:
             probs.append("switch must be a list")
         else:
             for i, r in enumerate(spec["switch"]):
-                if not isinstance(r, dict) or not isinstance(r.get("to"), int):
-                    probs.append(f"switch[{i}] needs to=<party slot int>")
+                if not isinstance(r, dict) or not (
+                        isinstance(r.get("to"), int)
+                        or isinstance(r.get("to"), str)):
+                    probs.append(f"switch[{i}] needs to=<party slot 1-6, "
+                                 "or an order name>")
                     continue
-                if not (1 <= r["to"] <= 6):
+                if isinstance(r["to"], int) and not (1 <= r["to"] <= 6):
                     probs.append(f"switch[{i}].to must be a slot in [1,6]")
                 if r.get("vs") not in (None, "trainer", "wild", "any"):
                     probs.append(f"switch[{i}].vs must be trainer/wild/any")
@@ -315,6 +325,12 @@ def validate_spec(spec) -> list:
                         isinstance(r["min_hp_frac"], (int, float))
                         and 0.0 <= r["min_hp_frac"] <= 1.0):
                     probs.append(f"setup[{i}].min_hp_frac must be in [0,1]")
+    for i, r in enumerate(spec.get("switch") or []):
+        if isinstance(r, dict) and isinstance(r.get("to"), str) \
+                and r["to"] not in ("resists", "best_matchup",
+                                    "healthiest", "first_alive"):
+            probs.append(f"switch[{i}].to must be a slot 1-6 or one of "
+                         "resists/best_matchup/healthiest/first_alive")
     if "battle_items" in spec:
         if not isinstance(spec["battle_items"], list):
             probs.append("battle_items must be a list")
@@ -725,7 +741,19 @@ def should_switch(obs: dict, spec: dict | None = None,
     party = (obs or {}).get("party") or []
     used = ctx.setdefault("switched", {})
     for n, rule in enumerate(spec.get("switch") or []):
+        # A SLOT NUMBER IS A POSITION, NOT A POKEMON. `to: 3` is a
+        # different animal in every party and at every hour of the same
+        # run — v7 named slot 3 and it was a PIDGEY at Pewter, a
+        # PIDGEOTTO at Vermilion and a FARFETCH'D at Celadon, so one rule
+        # meant three unrelated things and could not be RIGHT about any
+        # of them. The same mistake as naming POTION instead of a heal.
+        # Mid-fight the foe IS on screen, which is exactly when the type
+        # orders have something to read: `to: "best_matchup"` finds the
+        # counter on the bench whoever it is and wherever it sits.
         to = rule.get("to")
+        if isinstance(to, str):
+            to = choose_replacement(obs, {"replacement": {
+                "order": to, "min_hp_frac": rule.get("min_hp_frac")}})
         if not isinstance(to, int) or not (1 <= to <= len(party)):
             continue
         if used.get(n, 0) >= rule.get("max_uses", 1):

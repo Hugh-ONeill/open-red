@@ -56,9 +56,17 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      to fights where our best damage move is PHYSICAL — a Defense-drop
      like TAIL_WHIP does nothing for a special move like BUBBLE)
   switch: list of mid-battle switch rules, each:
-      {"to": 1-6, "first_turns": 1-8, "max_uses": 1-6,
+      {"to": 1-6 OR "resists"|"best_matchup"|"healthiest"|"first_alive",
+       "first_turns": 1-8, "max_uses": 1-6,
        "vs": "trainer"|"wild"|"any", "hp_below": null or 0.0-1.0,
        "only_if_lead": null or 1-6}
+    (A SLOT NUMBER IS A POSITION, NOT A POKEMON. "to": 3 is a different
+     animal in every party and at every hour of the same run — v7 named
+     slot 3 and it was a PIDGEY at Pewter, a PIDGEOTTO at Vermilion and a
+     FARFETCH'D at Celadon, so one rule meant three unrelated things. Name
+     an ORDER instead and it means the same thing always. The foe IS on
+     screen here, unlike `lead`, so the type orders have something to
+     read: "best_matchup" finds the counter on your bench whoever it is.)
     (bring party slot `to` in, in the battle's first `first_turns` turns,
      up to max_uses times, only against that battle kind, only while the
      ACTIVE mon's hp fraction is below hp_below if given, and only when

@@ -238,7 +238,14 @@ GYMS = [
               "REVIVE": 2},
          note="Fire into fire: Charizard resists what ARCANINE throws and "
               "cannot burn it down either, so nobody sweeps."),
-    dict(name="viridian", map="VIRIDIAN_GYM", leader="VIRIDIAN_GYM_GIOVANNI",
+    # THE FLAG THE FIGHT ACTUALLY SETS. pokered checks
+    # EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI and both names are in the flag
+    # table, but this port sets EVENT_BEAT_GIOVANNI on winning the gym
+    # battle (data/scripts/gyms.lua). Counting the other one scored a won
+    # fight 0/1 with the whole party standing and no blackout, which is
+    # what a wrong denominator looks like. The unused name is left alone:
+    # the base save has neither set, so there is nothing to clear.
+    dict(name="viridian", map="VIRIDIAN_GYM", leader="GIOVANNI",
          ace=50, badges=7, door=(2, 2), puzzle=True, money=15000,
          party=[("CHARIZARD", 48), ("NIDOKING", 45), ("EEVEE", 38),
                 ("FARFETCHD", 36),
@@ -276,16 +283,17 @@ def build(g: dict) -> dict:
     spec = {"party": party, "bag": dict(g["bag"]), "money": g["money"],
             "start": {"map": g["map"], "x": g["door"][0], "y": g["door"][1],
                       "facing": facing}}
+    extra = list(g.get("also_clear") or [])
     if g["puzzle"]:
         # THE FIGHT, NOT THE MAZE. Parked in front of the leader with the
         # rest of the room already beaten, so the score is the one fight
         # and never the navigation.
-        spec["clear_flags"] = [lead_flag]
+        spec["clear_flags"] = [lead_flag] + extra
         spec["set_flags"] = others
         spec["set_trainers"] = [f"{g['map']}_obj_{i}" for i, n, _x, _y in objs
                                 if i != leader_obj]
     else:
-        spec["clear_flags"] = [lead_flag] + others
+        spec["clear_flags"] = [lead_flag] + others + extra
         spec["clear_trainers"] = [f"{g['map']}_obj_{i}"
                                   for i, _n, _x, _y in objs]
     return spec

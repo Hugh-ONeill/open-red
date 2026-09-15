@@ -100,6 +100,47 @@ ck("the model is offered the rule in its own brief",
    '"vs": "trainer"|"wild"|"any", "min_hp_frac"' in PA
    and "costs NO TURN" in PA)
 
+# ---- and a switch may name an order too -------------------------------
+# A SLOT NUMBER IS A POSITION, NOT A POKEMON. v7 named slot 3 and it was a
+# PIDGEY at Pewter, a PIDGEOTTO at Vermilion and a FARFETCH'D at Celadon:
+# one rule meaning three unrelated things. Mid-fight the foe IS on screen,
+# which is when the type orders have something to read.
+MV = [{"index": 1, "id": "SCRATCH", "pp": 20, "type": "NORMAL",
+       "power": 40, "accuracy": 100, "category": "physical"}]
+KC = [{"index": 1, "id": "KARATE_CHOP", "pp": 25, "type": "FIGHTING",
+       "power": 50, "accuracy": 100, "category": "physical"}]
+ROOM = [{"species": "CHARMANDER", "hp": 30, "max_hp": 40, "level": 12,
+         "types": ["FIRE"], "moves": MV},
+        {"species": "NIDORAN_M", "hp": 35, "max_hp": 38, "level": 11,
+         "types": ["POISON"], "moves": MV},
+        {"species": "PIDGEY", "hp": 30, "max_hp": 34, "level": 10,
+         "types": ["NORMAL", "FLYING"], "moves": MV},
+        {"species": "MANKEY", "hp": 42, "max_hp": 45, "level": 15,
+         "types": ["FIGHTING"], "moves": KC}]
+FIGHT = {"party": ROOM,
+         "battle": {"kind": "trainer", "me": ROOM[0],
+                    "foe": {"species": "ONIX", "hp": 50,
+                            "types": ["ROCK", "GROUND"]}}}
+
+
+def sw(to):
+    return B.should_switch(FIGHT, {"switch": [{"to": to, "first_turns": 2}]},
+                           {"turn": 1})
+
+
+ck("a switch may name an order, and it finds the counter",
+   sw("best_matchup") == 4 and sw("resists") == 4)
+ck("...while a raw slot still means that slot",
+   sw(3) == 3)
+ck("an order nobody defined is refused",
+   any("resists/best_matchup" in p for p in
+       B.validate_spec({"switch": [{"to": "strongest"}]})))
+ck("a slot out of the party is still refused",
+   any("[1,6]" in p for p in B.validate_spec({"switch": [{"to": 9}]})))
+ck("both forms are valid specs",
+   B.validate_spec({"switch": [{"to": "best_matchup"}]}) == []
+   and B.validate_spec({"switch": [{"to": 3}]}) == [])
+
 bad = [n for n, ok in checks if not ok]
 for n, ok in checks:
     print(("  ok   " if ok else "  FAIL ") + n)
