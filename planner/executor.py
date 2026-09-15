@@ -1752,6 +1752,8 @@ class Executor:
         self._touch_bag: dict = {}   # region -> key items held when pressed
         # region -> {object name: [world mark when pressed, times re-offered]}
         self._touch_mark: dict = {}
+        # map id -> {TYPE: times a trainer on it sent one out}
+        self._room_types: dict = {}
         self.hints: dict = {}
         self.hints_at: dict = {}     # region -> {line: flags fired when heard}
         self._item_from: dict = {}   # item -> {who, at, said}: who handed it over
@@ -4701,6 +4703,7 @@ class Executor:
                                 (data.get("touched") or {}).items()}
             self._touch_bag = data.get("touch_bag") or {}
             self._touch_mark = data.get("touch_mark") or {}
+            self._room_types = data.get("room_types") or {}
             self._no_cross = {r: set(v) for r, v in
                               (data.get("no_cross") or {}).items()}
             self._no_cross_at = data.get("no_cross_at") or {}
@@ -5264,6 +5267,7 @@ class Executor:
                           (getattr(self, "_gone", {}) or {}).items()},
                  "touch_bag": self._touch_bag,
                  "touch_mark": self._touch_mark,
+                 "room_types": getattr(self, "_room_types", {}),
                  "region_anchors": self.region_anchors,
                  "parts_by_map": getattr(self, "_parts_by_map", {}),
                  "contested": self.contested,
@@ -15128,6 +15132,23 @@ class Executor:
                              + [(f"{foe.get('species')} L{foe.get('level')}",
                                  str(((obs or {}).get("map") or {}).get("id")
                                      or ""))])[-6:]
+        # WHAT THIS ROOM IS MADE OF, LEARNED BY FIGHTING IT. A gym's
+        # trainers all use its type, and a player knows the type before
+        # the leader — the guide says it out loud, and the seven fights on
+        # the way say it again. Nothing wrote it down, so `lead` had
+        # nothing to read and could only order by level or health: at
+        # Cerulean that picks the L18 CHARMELEON over the L17 PIKACHU and
+        # sends fire into Misty, which is how four candidates in a row
+        # blacked out there with the counter on the bench (2026-09-15).
+        # Trainer fights only — what wanders out of the grass is a fact
+        # about the grass and is already counted elsewhere.
+        if str((obs.get("battle") or {}).get("kind") or "") == "trainer":
+            _mid = str(((obs or {}).get("map") or {}).get("id") or "")
+            _tys = [str(t).upper() for t in (foe.get("types") or [])]
+            if _mid and _tys:
+                _d = self._room_types.setdefault(_mid, {})
+                for _t in _tys:
+                    _d[_t] = _d.get(_t, 0) + 1
         self.log("battle_start", subgoal=subgoal["id"], policy=name,
                  foe=f"{foe.get('species')} L{foe.get('level')}",
                  me=f"{me.get('species')} L{me.get('level')} "
@@ -15317,6 +15338,14 @@ class Executor:
                 keep.append(s)
         return keep, dropped
 
+    def room_types_here(self, obs) -> list:
+        """The types this map's trainers have been seen to send out, most
+        common first. The run's own record of its own fights — nothing is
+        read out of the game's tables, and a room never fought is silent."""
+        d = (getattr(self, "_room_types", {}) or {}).get(
+            str(((obs or {}).get("map") or {}).get("id") or "")) or {}
+        return [t for t, _n in sorted(d.items(), key=lambda kv: -kv[1])]
+
     def _lead_before_a_fight(self, obs, step, sg, trace):
         """Put the policy's chosen lead in slot 1 before a trainer press.
 
@@ -15341,7 +15370,9 @@ class Executor:
                      for o in ((obs.get("map") or {}).get("objects") or [])}
             if kinds.get(name) != "trainer":
                 return obs
-            want = battle_policy.choose_lead(obs, ACTIVE_SPEC, "trainer")
+            want = battle_policy.choose_lead(
+                obs, ACTIVE_SPEC, "trainer",
+                foe_types=self.room_types_here(obs))
             party = (obs or {}).get("party") or []
             if not want or want == 1 or want > len(party):
                 return obs

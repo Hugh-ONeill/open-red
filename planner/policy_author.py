@@ -127,7 +127,7 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      move until it is below that fraction of the hp it appeared with,
      then throw — gen1 catch odds scale with missing hp)
   lead: null or {"order": "healthiest"|"first_alive"|"highest_level"|
-                          "most_hp",
+                          "most_hp"|"resists"|"best_matchup",
                  "vs": "trainer"|"wild"|"any", "min_hp_frac": 0.0-1.0}
     (WHO WALKS IN. Slot 1 starts every battle and nothing reorders the
      party except a faint, so the Pokemon the last fight chewed up leads
@@ -135,9 +135,13 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      its leader. This is settled in the OVERWORLD before you press the
      trainer, so it costs NO TURN, unlike "switch" which costs the turn
      and hands the foe a free hit. There is no foe on screen when it is
-     decided, so these orders read your own side only and no type rule is
-     offered: there would be nothing to read. "min_hp_frac" is a floor,
-     ignored if nobody clears it.)
+     decided. The health and level orders read your own side only. The
+     TYPE orders read WHAT THIS ROOM HAS BEEN SEEN TO SEND OUT: a gym's
+     trainers all use its type, and you fight past them to reach its
+     leader, so by then the room has told you what it is made of several
+     times over. A room you have never fought in is silent and they fall
+     back to health. "min_hp_frac" is a floor, ignored if nobody clears
+     it.)
   replacement: {"order": "healthiest"|"first_alive"|"resists"|"best_matchup",
                 "min_hp_frac": 0.0-1.0}
     (when your active mon faints and a backup lives, which one comes in —
@@ -561,7 +565,9 @@ class Gym:
             spec = ex_mod.ACTIVE_SPEC or {}
             if not spec.get("lead"):
                 return
-            want = battle_policy.choose_lead(obs, spec, "trainer")
+            want = battle_policy.choose_lead(
+                obs, spec, "trainer",
+                foe_types=self.ex.room_types_here(obs))
             party = (obs or {}).get("party") or []
             if not want or want == 1 or want > len(party):
                 return

@@ -76,9 +76,13 @@ ck("one Pokemon standing is not a choice",
 ck("a lead rule is a valid spec",
    B.validate_spec({"lead": {"order": "healthiest", "vs": "trainer",
                              "min_hp_frac": 0.4}}) == [])
-ck("a type order is refused, because there is no foe to read",
+# Until 2026-09-15 a type order here WAS refused, because nothing wrote
+# down what a room was made of and it would have had nothing to read.
+# The run's own fights record it now, so the refusal is gone and the
+# fallback took its place (see the room-types block below).
+ck("an order nobody defined is still refused",
    any("order one of" in p for p in
-       B.validate_spec({"lead": {"order": "resists"}})))
+       B.validate_spec({"lead": {"order": "strongest"}})))
 ck("every spec on disk is still valid",
    all(B.validate_spec(B.load_spec(q)) == []
        for q in sorted((ROOT / "plans").glob("policy_model_v*.json"))))
@@ -99,6 +103,52 @@ ck("a failure to arrange the party never costs the round",
 ck("the model is offered the rule in its own brief",
    '"vs": "trainer"|"wild"|"any", "min_hp_frac"' in PA
    and "costs NO TURN" in PA)
+
+# ---- a room tells you what it is made of, by fighting you -------------
+# A gym's trainers all use its type and you fight past them to reach its
+# leader. Nothing wrote that down, so `lead` could only order by level or
+# health — and at Cerulean that picks the L18 CHARMELEON over the L17
+# PIKACHU and sends fire into Misty. Four candidates in a row blacked out
+# there with the counter on the bench (2026-09-15).
+def mon(sp, lv, hp, types, mv_type, power=40):
+    return {"species": sp, "level": lv, "hp": hp, "max_hp": hp,
+            "types": types,
+            "moves": [{"index": 1, "id": "X", "type": mv_type, "pp": 30,
+                       "power": power, "accuracy": 100}]}
+
+
+GYM = {"party": [mon("CHARMELEON", 18, 60, ["FIRE"], "FIRE"),
+                 mon("NIDORINO", 17, 55, ["POISON"], "NORMAL", 65),
+                 mon("PIDGEOTTO", 16, 50, ["NORMAL", "FLYING"], "NORMAL"),
+                 mon("PIKACHU", 17, 45, ["ELECTRIC"], "ELECTRIC")]}
+
+
+def led(order, types=None):
+    return B.choose_lead(GYM, {"lead": {"order": order}}, "trainer",
+                         foe_types=types)
+
+
+ck("best_matchup leads with the counter once the room is known",
+   led("best_matchup", ["WATER"]) == 4)
+ck("resists leads with what the room hurts least",
+   led("resists", ["WATER"]) == 2)
+ck("...and level order still cannot find it, which is the whole problem",
+   led("highest_level", ["WATER"]) == 1)
+ck("a room never fought is silent, and a type order falls back to health",
+   led("best_matchup") == 1 and led("resists") == 1)
+ck("both type orders are valid in a lead rule",
+   B.validate_spec({"lead": {"order": "best_matchup"}}) == []
+   and B.validate_spec({"lead": {"order": "resists"}}) == [])
+ck("the record is the run's own fights, kept per map",
+   '_d = self._room_types.setdefault(_mid, {})' in EXE
+   and '"room_types": getattr(self, "_room_types", {})' in EXE)
+ck("...from trainer fights only, not from what the grass offers",
+   '"trainer"' in EXE[EXE.index("WHAT THIS ROOM IS MADE OF"):
+                      EXE.index("WHAT THIS ROOM IS MADE OF") + 1400])
+ck("...and both the run and the arena read it the same way",
+   "room_types_here(obs)" in EXE
+   and "self.ex.room_types_here(obs)" in
+   (ROOT / "planner" / "policy_author.py").read_text())
 
 # ---- and a switch may name an order too -------------------------------
 # A SLOT NUMBER IS A POSITION, NOT A POKEMON. v7 named slot 3 and it was a

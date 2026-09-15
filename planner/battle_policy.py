@@ -88,7 +88,8 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
              float (def 0.7)  move until the foe is below this fraction of
            max_balls: int }   the hp it appeared with, then throw (gen1
                               catch odds scale with missing hp)
-  lead: { order: "healthiest"|"first_alive"|"highest_level"|"most_hp",
+  lead: { order: "healthiest"|"first_alive"|"highest_level"|"most_hp"|
+                 "resists"|"best_matchup",
           vs: "trainer"|"wild"|"any" (default "trainer"),
           min_hp_frac: float }
                              WHO WALKS IN. Slot 1 starts every battle and
@@ -98,8 +99,13 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
                              the OVERWORLD, before the press, and costs no
                              turn — unlike `switch`, which costs the turn
                              and a free hit. There is no foe on screen
-                             yet, so the orders here read your side only;
-                             a type rule would have nothing to read.
+                             yet: the health and level orders read your
+                             side only, and the TYPE orders read what
+                             THIS ROOM has been seen to send out — a
+                             gym's trainers all use its type and you
+                             fight past them to reach its leader. A room
+                             never fought is silent and they fall back to
+                             health.
   replacement: { order: "healthiest"|"first_alive"|"resists"|
                           "best_matchup",
                  min_hp_frac: float }
@@ -664,11 +670,12 @@ def choose_replacement(obs: dict, spec: dict | None = None) -> int | None:
     return max(pool, key=key)[0]
 
 
-LEAD_ORDERS = ("healthiest", "first_alive", "highest_level", "most_hp")
+LEAD_ORDERS = ("healthiest", "first_alive", "highest_level", "most_hp",
+               "resists", "best_matchup")
 
 
 def choose_lead(obs: dict, spec: dict | None = None,
-                kind: str = "trainer") -> int | None:
+                kind: str = "trainer", foe_types=None) -> int | None:
     """Which party slot should be in front when the next fight starts, or
     None to leave the party as it is.
 
@@ -681,10 +688,15 @@ def choose_lead(obs: dict, spec: dict | None = None,
     should be pausing and choosing who to put first").
 
     This is settled in the overworld before the press, so it costs
-    nothing. It also means there is NO FOE ON SCREEN: these orders read
-    your own side only, and a type rule is not offered here because it
-    would have nothing to read. Which order, and whether to have one at
-    all, is the model's."""
+    nothing — and it means there is no foe on screen. The health and
+    level orders read your own side only. The TYPE orders read what this
+    ROOM has been seen to send out: a gym's trainers all use its type,
+    the run fights its way past them to reach the leader, and by then it
+    has been told what the room is made of seven times over. A room never
+    fought is silent and they fall back to health, the same rule
+    `replacement` follows when there is no foe.
+
+    Which order, and whether to have one at all, is the model's."""
     spec = spec or DEFAULT_SPEC
     ld = spec.get("lead")
     if not ld:
@@ -707,6 +719,22 @@ def choose_lead(obs: dict, spec: dict | None = None,
     except (TypeError, ValueError):
         floor = 0.0
     pool = [(n, m) for n, m in alive if _hp_frac(m) >= floor] or alive
+    ft = [str(t).upper() for t in (foe_types or [])]
+    if order in ("resists", "best_matchup"):
+        if not ft:
+            order = "healthiest"        # nothing learned here yet
+        elif order == "resists":
+            return max(pool, key=lambda n_m: (
+                -incoming(ft, [str(t).upper()
+                               for t in (n_m[1].get("types") or [])]),
+                _hp_frac(n_m[1])))[0]
+        else:
+            return max(pool, key=lambda n_m: (
+                outgoing(n_m[1], ft)
+                / max(0.125, incoming(ft, [str(t).upper()
+                                           for t in (n_m[1].get("types")
+                                                     or [])])),
+                _hp_frac(n_m[1])))[0]
     if order == "highest_level":
         key = lambda n_m: (n_m[1].get("level") or 0, _hp_frac(n_m[1]))
     elif order == "most_hp":
