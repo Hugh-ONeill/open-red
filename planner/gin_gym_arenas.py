@@ -290,13 +290,12 @@ GYMS = [
              # heals three (user, 2026-09-15: "those two might need higher
              # leveled mons"). At 12 it was 8/8 in BOTH arms for BOTH
              # specs, and so was 11: the bag mattered at 10 and nowhere
-             # above it, because BUBBLE and ONIX's chip are both slow.
-             # Kept at 11 on the user's steer, so this room reads as a
-             # pass-check; drop it to 10 for the room that separated v12
-             # from v13 on their per-fight caps.
-             ideal=dict(party=[("SQUIRTLE", 11)],
+             # above it, because BUBBLE and ONIX's chip are both slow. So
+             # ten, the one level that separated v12 from v13 on their
+             # per-fight caps (user, 2026-09-15: "put squirt back to 10").
+             ideal=dict(party=[("SQUIRTLE", 10)],
                         bag={"POTION": 8}, money=2000,
-                        note="SQUIRTLE's BUBBLE is the answer, three under "
+                        note="SQUIRTLE's BUBBLE is the answer, four under "
                              "the ace, and alone: the starter IS the "
                              "answer here, so nothing else is needed "
                              "(user, 2026-09-15: \"if squirt for brock we "
