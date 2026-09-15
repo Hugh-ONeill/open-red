@@ -30,7 +30,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 ROOMS = ["pewter", "cerulean", "vermilion", "celadon", "fuchsia",
-         "saffron", "cinnabar", "viridian"]
+         "saffron", "cinnabar", "viridian", "e4", "e4_ideal"]
 
 
 def strip_medicine(spec: dict) -> dict:
@@ -52,9 +52,14 @@ def score(arena: str, spec_path: Path, trials: int) -> tuple:
         capture_output=True, text=True, cwd=REPO, timeout=3600)
     beat = of = black = None
     for line in r.stdout.splitlines():
-        if ": beat " in line or "] beat " in line:
+        # the gyms report "beat X/Y of the room", the league "Elite Four
+        # rooms cleared X/Y" — same measurement, two sentences
+        _mark = ("rooms cleared " if "rooms cleared " in line
+                 else "beat " if (": beat " in line or "] beat " in line)
+                 else "")
+        if _mark:
             try:
-                head = line.split("beat ", 1)[1]
+                head = line.split(_mark, 1)[1]
                 beat, rest = head.split("/", 1)
                 of = rest.split(" ", 1)[0]
                 black = line.split("blackouts ", 1)[1].split(";")[0]

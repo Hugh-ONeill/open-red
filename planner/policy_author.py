@@ -1313,7 +1313,18 @@ ARENAS = {
                  REPO / "plans/arena_cinnabar.json"),
     "viridian": ("gym", REPO / "run/arena_viridian.lua",
                  REPO / "plans/arena_viridian.json"),
-    "e4": ("e4", REPO / "run/arena_e4.lua", None),
+    # THE LEAGUE, TWO WAYS. `e4` is the party run 16 actually walked in
+    # with, at the levels it actually had — the honest midgame-ish
+    # reading. `e4_ideal` is the party a player would BUILD for the
+    # gauntlet (user, 2026-09-15: "give it an ideal party that with
+    # switching and healing should be able to handle the full gauntlet
+    # including lance and gary"), so the league measures the top of the
+    # range rather than the bottom: all six at L65 with real endgame
+    # movesets, ALAKAZAM for Bruno and Agatha, JOLTEON for Lorelei and
+    # Lance's GYARADOS, LAPRAS's ICE_BEAM for the dragons.
+    "e4": ("e4", REPO / "run/arena_e4.lua", REPO / "plans/arena_e4.json"),
+    "e4_ideal": ("e4", REPO / "run/arena_e4_ideal.lua",
+                 REPO / "plans/arena_e4_ideal.json"),
     # The three built by hand on 09-12 and 09-15, kept on disk and out of
     # the default sweep: same three gyms, real-run parties, and they are
     # the control if a built arena ever reads as easier than the game.

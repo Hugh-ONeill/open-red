@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "CHARIZARD",
-      "level": 65,
+      "level": 58,
       "nickname": "CHARIZARD",
       "moves": [
         "FLAMETHROWER",
@@ -13,7 +13,7 @@
     },
     {
       "species": "STARMIE",
-      "level": 65,
+      "level": 58,
       "nickname": "STARMIE",
       "moves": [
         "SURF",
@@ -24,7 +24,7 @@
     },
     {
       "species": "ALAKAZAM",
-      "level": 65,
+      "level": 58,
       "nickname": "ALAKAZAM",
       "moves": [
         "PSYCHIC_M",
@@ -35,7 +35,7 @@
     },
     {
       "species": "SNORLAX",
-      "level": 65,
+      "level": 58,
       "nickname": "SNORLAX",
       "moves": [
         "BODY_SLAM",
@@ -46,7 +46,7 @@
     },
     {
       "species": "JOLTEON",
-      "level": 65,
+      "level": 58,
       "nickname": "JOLTEON",
       "moves": [
         "THUNDERBOLT",
@@ -57,7 +57,7 @@
     },
     {
       "species": "LAPRAS",
-      "level": 65,
+      "level": 58,
       "nickname": "LAPRAS",
       "moves": [
         "ICE_BEAM",
@@ -91,18 +91,23 @@
     "EVENT_BEAT_BRUNO",
     "EVENT_BEAT_AGATHA",
     "EVENT_BEAT_CHAMPION_RIVAL_THIS_RUN",
-    "EVENT_LANCES_ROOM_LOCK_DOOR"
+    "EVENT_LANCES_ROOM_LOCK_DOOR",
+    "EVENT_AUTOWALKED_INTO_LORELEIS_ROOM",
+    "EVENT_AUTOWALKED_INTO_BRUNOS_ROOM",
+    "EVENT_AUTOWALKED_INTO_AGATHAS_ROOM",
+    "EVENT_BEAT_LANCES_ROOM_TRAINER_0",
+    "EVENT_STARTED_ELITE_4"
   ],
   "clear_trainers": [
-    "LORELEIS_ROOM_obj_1",
-    "LORELEIS_ROOM_obj_2",
-    "BRUNOS_ROOM_obj_1",
-    "BRUNOS_ROOM_obj_2",
     "AGATHAS_ROOM_obj_1",
     "AGATHAS_ROOM_obj_2",
+    "BRUNOS_ROOM_obj_1",
+    "BRUNOS_ROOM_obj_2",
+    "CHAMPIONS_ROOM_obj_1",
+    "CHAMPIONS_ROOM_obj_2",
     "LANCES_ROOM_obj_1",
     "LANCES_ROOM_obj_2",
-    "CHAMPIONS_ROOM_obj_1",
-    "CHAMPIONS_ROOM_obj_2"
+    "LORELEIS_ROOM_obj_1",
+    "LORELEIS_ROOM_obj_2"
   ]
 }
