@@ -39,15 +39,40 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
   battle_items: [ { item: str, target: "self"|"fainted" (def self)
                                        use a healing item IN battle (costs
                     hp_below: float    the turn) when own hp frac < this
+                    prefer: str        which one, when `item` is a CLASS
                     max_uses: int } ]  per battle (default 2)
-  field_heal: { item: str, hp_below: float } | null
+  field_heal: { item: str, hp_below: float, prefer: str } | null
                              after a battle ends, if own hp frac < this and
                              the item is in the bag, use it in the field
                              (no turn cost) before travel resumes
-  field_cure: [ { status: "PSN"|"PAR"|"BRN"|"SLP"|"FRZ", item: str } ]
+  field_cure: [ { status: "PSN"|"PAR"|"BRN"|"SLP"|"FRZ", item: str,
+                  prefer: str } ]
                              after a battle: cure the listed status with
                              the item if any party mon has it (field item
                              rules cover the WHOLE party, neediest first)
+
+  AN ITEM NAME IS A STAGE OF THE GAME; A CLASS IS A DECISION. Anywhere a
+  rule names an item it may name a CLASS instead, in lower case, and the
+  interpreter resolves it against the bag AT THE MOMENT THE RULE FIRES:
+      heal    POTION, SUPER_POTION, HYPER_POTION, MAX_POTION, FULL_RESTORE
+      revive  REVIVE, MAX_REVIVE
+      cure    the dedicated cure for that rule's status, then FULL_HEAL,
+              then FULL_RESTORE
+      ball    POKE_BALL, GREAT_BALL, ULTRA_BALL
+  Each ladder runs weakest first. `prefer` says which rung is taken:
+      weakest_sufficient  (default) the smallest one that covers the HP
+                          missing; the largest held when none covers it.
+                          For a cure, every rung cures, so this is the
+                          dedicated one and the FULL_RESTORE is saved.
+      best_available      the strongest one held
+      weakest_available   the weakest one held, whatever the deficit
+  A class rule cannot go inert the way a named one does: it dies only when
+  the bag holds nothing of that kind at all. MASTER_BALL and SAFARI_BALL
+  are outside the `ball` ladder on purpose — one of a kind and zone-bound
+  are not choices a ladder should make for you; name them by hand.
+  A class rule's max_uses counts USES OF THE RULE, not of each item it
+  reaches for in turn.
+
   catch: { ball: str          throw this ball at wild mons during a CATCH
            throw_at_hp_frac:  subgoal; weaken with the gentlest non-KO
              float (def 0.7)  move until the foe is below this fraction of
@@ -111,6 +136,106 @@ _SPEC_KEYS = set(DEFAULT_SPEC) | {"name", "provenance"}   # provenance = metadat
 # confusion are left out on purpose.
 CATCH_STATUS_MOVES = {"SLEEP_POWDER", "STUN_SPORE", "THUNDER_WAVE", "HYPNOSIS",
                       "SING", "SPORE", "LOVELY_KISS", "GLARE"}
+
+# ------------------------------------------------------------- item classes
+# A RULE NAMING AN ITEM IS ONLY EVER RIGHT FOR ONE STAGE OF THE GAME. v1
+# was authored in the Pewter arena, where POTION is what a party holds, and
+# it named POTION in both of its healing rules; by Celadon the bag held
+# three SUPER_POTIONs and neither rule could fire, so CHARIZARD walked into
+# Erika at 17 of 116 hp and the run blacked out (2026-09-15). v6 was
+# authored at the Elite Four and names HYPER_POTION, which no early party
+# has ever seen; it would fail at Brock the same way, in the other
+# direction. The decision the model is making — heal below this fraction,
+# spend at most this many — is not stage-specific at all. Only the NAMES
+# are. So a rule may name the kind and let the bag supply the name (user,
+# 2026-08-24: "ONE BATTLE POLICY ACROSS STAGES, not one per stage").
+#
+# Each ladder is ordered WEAKEST FIRST, and holds only the items a player
+# restocks. MASTER_BALL and SAFARI_BALL are left out: one of a kind and
+# zone-bound, they are not a rung any ladder should climb on its own.
+HEAL_LADDER = ("POTION", "SUPER_POTION", "HYPER_POTION", "MAX_POTION",
+               "FULL_RESTORE")
+REVIVE_LADDER = ("REVIVE", "MAX_REVIVE")
+BALL_LADDER = ("POKE_BALL", "GREAT_BALL", "ULTRA_BALL")
+CURE_LADDERS = {
+    "PSN": ("ANTIDOTE", "FULL_HEAL", "FULL_RESTORE"),
+    "PAR": ("PARLYZ_HEAL", "FULL_HEAL", "FULL_RESTORE"),
+    "BRN": ("BURN_HEAL", "FULL_HEAL", "FULL_RESTORE"),
+    "SLP": ("AWAKENING", "FULL_HEAL", "FULL_RESTORE"),
+    "FRZ": ("ICE_HEAL", "FULL_HEAL", "FULL_RESTORE"),
+}
+ITEM_CLASSES = {"heal": HEAL_LADDER, "revive": REVIVE_LADDER,
+                "ball": BALL_LADDER, "cure": ()}   # cure reads the status
+
+# What the item says on its own description screen. MAX_POTION and
+# FULL_RESTORE say "fully restores", which no deficit can exceed.
+FULL = 10 ** 6
+HEAL_AMOUNT = {"POTION": 20, "SUPER_POTION": 50, "HYPER_POTION": 200,
+               "MAX_POTION": FULL, "FULL_RESTORE": FULL}
+
+PREFERENCES = ("weakest_sufficient", "best_available", "weakest_available")
+DEFAULT_PREFER = "weakest_sufficient"
+
+
+def is_item_class(name) -> bool:
+    return str(name or "") in ITEM_CLASSES
+
+
+def class_ladder(name, status=None) -> tuple:
+    """The items a class stands for, weakest first."""
+    n = str(name or "")
+    if n == "cure":
+        return CURE_LADDERS.get(str(status or "").upper(), ())
+    return ITEM_CLASSES.get(n, ())
+
+
+def resolve_item(name, bag, prefer=DEFAULT_PREFER, *, status=None,
+                 missing=None) -> str:
+    """The item this rule actually reaches for, given the bag RIGHT NOW.
+
+    A literal name resolves to itself when carried and to "" when not —
+    exactly what the call sites used to check by hand. A class resolves to
+    a rung of its ladder, or "" when the bag holds no rung at all."""
+    n = str(name or "")
+    bag = bag or {}
+    if not n:
+        return ""
+    if not is_item_class(n):
+        return n if bag.get(n, 0) > 0 else ""
+    held = [i for i in class_ladder(n, status) if bag.get(i, 0) > 0]
+    if not held:
+        return ""
+    if prefer == "best_available":
+        return held[-1]
+    if prefer == "weakest_available":
+        return held[0]
+    # weakest_sufficient. With no deficit to measure — a revive, a cure,
+    # anything whose rungs all do the whole job — the weakest rung IS the
+    # sufficient one, and the strong medicine is kept for when it is not.
+    if not missing:
+        return held[0]
+    for i in held:
+        if HEAL_AMOUNT.get(i, FULL) >= missing:
+            return i
+    return held[-1]
+
+
+def _prefer_problems(rule: dict, where: str) -> list:
+    """`prefer` is only a choice where there is a ladder to choose on. A
+    rule naming one item and preferring `best_available` is not wrong so
+    much as confused about what it wrote, and saying so is cheaper than
+    letting it believe the bag is being searched."""
+    pref = rule.get("prefer")
+    if pref is None:
+        return []
+    if pref not in PREFERENCES:
+        return [f"{where}.prefer must be one of " + "/".join(PREFERENCES)]
+    if not is_item_class(rule.get("item")):
+        return [f"{where}.prefer only means something when the item is a "
+                f"CLASS ({'/'.join(sorted(ITEM_CLASSES))}); "
+                f"{rule.get('item')} names one item"]
+    return []
+
 
 def validate_spec(spec) -> list:
     """Return a list of problems (empty = valid)."""
@@ -182,6 +307,7 @@ def validate_spec(spec) -> list:
                 if not isinstance(r, dict) or not r.get("item"):
                     probs.append(f"battle_items[{i}] needs an item name")
                     continue
+                probs += _prefer_problems(r, f"battle_items[{i}]")
                 hb = r.get("hp_below")
                 if hb is not None and not (isinstance(hb, (int, float))
                                            and 0.0 <= hb <= 1.0):
@@ -197,6 +323,7 @@ def validate_spec(spec) -> list:
         if not isinstance(fh, dict) or not fh.get("item"):
             probs.append("field_heal must be null or {item, hp_below}")
         else:
+            probs += _prefer_problems(fh, "field_heal")
             hb = fh.get("hp_below")
             if hb is not None and not (isinstance(hb, (int, float))
                                        and 0.0 <= hb <= 1.0):
@@ -211,12 +338,16 @@ def validate_spec(spec) -> list:
                                                    "SLP", "FRZ"):
                     probs.append(f"field_cure[{i}] needs status "
                                  "PSN/PAR/BRN/SLP/FRZ and an item")
+                else:
+                    probs += _prefer_problems(r, f"field_cure[{i}]")
     if "catch" in spec and spec["catch"] is not None:
         ca = spec["catch"]
         if not isinstance(ca, dict) or not ca.get("ball"):
             probs.append("catch must be null or {ball, throw_at_hp_frac, "
                          "max_balls}")
         else:
+            probs += _prefer_problems({"item": ca.get("ball"),
+                                       "prefer": ca.get("prefer")}, "catch")
             th = ca.get("throw_at_hp_frac")
             if th is not None and not (isinstance(th, (int, float))
                                        and 0.0 < th <= 1.0):
@@ -375,18 +506,25 @@ def should_field_heal(obs: dict,
         return None
     if (obs or {}).get("mode") != "overworld":
         return None
-    item = fh.get("item")
     bag = (obs or {}).get("bag") or {}
-    if not bag or bag.get(item, 0) < 1:
+    if not bag:
         return None
-    worst, slot = 1.0, None
+    # WHO NEEDS IT DECIDES WHAT IS REACHED FOR, so the neediest mon is
+    # found first and the item resolved against ITS deficit.
+    worst, slot, missing = 1.0, None, 0
     for i, mon in enumerate((obs or {}).get("party") or []):
         if (mon.get("hp") or 0) <= 0:
             continue
         f = _hp_frac(mon)
         if f < fh.get("hp_below", 0.5) and f < worst:
             worst, slot = f, i + 1
-    return (item, slot) if slot else None
+            missing = max(0, (mon.get("max_hp") or mon.get("maxhp") or 0)
+                          - (mon.get("hp") or 0))
+    if not slot:
+        return None
+    item = resolve_item(fh.get("item"), bag, fh.get("prefer")
+                        or DEFAULT_PREFER, missing=missing)
+    return (item, slot) if item else None
 
 
 def should_field_cure(obs: dict,
@@ -406,9 +544,13 @@ def should_field_cure(obs: dict,
         if status in (None, "", "0", "NONE", "OK"):
             continue
         for rule in spec.get("field_cure") or []:
-            if rule.get("status") == status \
-                    and bag.get(rule.get("item"), 0) > 0:
-                return (rule["item"], i + 1)
+            if rule.get("status") != status:
+                continue
+            item = resolve_item(rule.get("item"), bag,
+                                rule.get("prefer") or DEFAULT_PREFER,
+                                status=status)
+            if item:
+                return (item, i + 1)
     return None
 
 
@@ -576,11 +718,16 @@ def choose(obs: dict, spec: dict | None = None,
     # fainting (the model's rule decides the threshold and budget)
     bag = obs.get("bag") or {}
     items_used = ctx.setdefault("items_used", {})
-    for rule in spec.get("battle_items") or []:
-        item = rule.get("item")
-        if not item or not bag or bag.get(item, 0) < 1:
-            continue
-        if items_used.get(item, 0) >= rule.get("max_uses", 2):
+    for _i, rule in enumerate(spec.get("battle_items") or []):
+        # A CLASS RULE SPENDS ITS BUDGET ON ITSELF, not on each rung it
+        # reaches for in turn: `heal` with max_uses 3 is three heals, not
+        # three POTIONs and then three SUPER_POTIONs. A rule naming one
+        # item keeps counting by that name, so two rules naming the same
+        # item still share a budget the way they always have.
+        budget_key = (f"#{_i}:{rule.get('item')}"
+                      if is_item_class(rule.get("item"))
+                      else str(rule.get("item") or ""))
+        if items_used.get(budget_key, 0) >= rule.get("max_uses", 2):
             continue
         # A REVIVE IS FOR SOMEONE ELSE. Every rule gated on the ACTIVE
         # mon's HP and the op then targeted whoever was first in the
@@ -590,13 +737,24 @@ def choose(obs: dict, spec: dict | None = None,
         # those revives if it wants to win"). `target: "fainted"` fires
         # while ANY party member is down; the harness picks which.
         target = str(rule.get("target") or "self")
+        missing = None
         if target == "fainted":
             if not any((p.get("hp") or 0) <= 0
                        for p in (obs.get("party") or [])):
                 continue
         elif _hp_frac(me) >= rule.get("hp_below", 0.3):
             continue
-        items_used[item] = items_used.get(item, 0) + 1
+        else:
+            # A TURN SPENT HEALING 20 OF 180 IS A TURN GIVEN AWAY. The
+            # deficit is what the ladder is measured against.
+            missing = max(0, (me.get("max_hp") or me.get("maxhp") or 0)
+                          - (me.get("hp") or 0))
+        item = resolve_item(rule.get("item"), bag,
+                            rule.get("prefer") or DEFAULT_PREFER,
+                            missing=missing)
+        if not item:
+            continue
+        items_used[budget_key] = items_used.get(budget_key, 0) + 1
         return {"op": "battle_item", "item": item, "target": target,
                 "_why": (f"revive with {item}" if target == "fainted"
                          else f"heal with {item}")}
@@ -630,7 +788,8 @@ def choose(obs: dict, spec: dict | None = None,
         frac = (foe.get("hp") or 0) / max(1, hp0)
         balls = ctx.get("balls", 0)
         bag = obs.get("bag") or {}
-        have_ball = bag and bag.get(ca.get("ball"), 0) > 0
+        have_ball = resolve_item(ca.get("ball"), bag,
+                                 ca.get("prefer") or DEFAULT_PREFER)
         if have_ball and balls < ca.get("max_balls", 3):
             # A BALL LANDS ON A WEAKENED, SLEEPING OR PARALYSED POKEMON FAR
             # MORE OFTEN THAN ON A FRESH ONE. With a target named, this used
@@ -663,7 +822,7 @@ def choose(obs: dict, spec: dict | None = None,
                 throw_at = min(throw_at, ca.get("throw_at_hp_frac_wanted", 0.4))
             if frac <= throw_at or not safe:
                 ctx["balls"] = balls + 1
-                return {"op": "throw_ball", "ball": ca["ball"],
+                return {"op": "throw_ball", "ball": have_ball,
                         "_why": f"throw (foe at {frac:.0%}"
                                 + (", nothing safe to weaken it with"
                                    if frac > throw_at else "") + ")"}

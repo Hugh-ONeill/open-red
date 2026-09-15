@@ -68,32 +68,51 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
     (when_traversal: flee wild battles while traveling to save HP;
      hp_below: also flee ANY wild when own hp fraction is below this.
      Trainers can never be fled. Fleeing can fail; after 3 fails we fight.)
+  ITEM CLASSES — read this before writing any rule that names an item.
+    Anywhere a rule takes an item you may write a CLASS in lower case
+    instead, and the bag is searched when the rule FIRES:
+      "heal"    POTION, SUPER_POTION, HYPER_POTION, MAX_POTION,
+                FULL_RESTORE
+      "revive"  REVIVE, MAX_REVIVE
+      "cure"    the dedicated cure for that rule's status, then FULL_HEAL,
+                then FULL_RESTORE
+      "ball"    POKE_BALL, GREAT_BALL, ULTRA_BALL
+    Add "prefer" to say which one is taken:
+      "weakest_sufficient" (the default) the smallest one that covers the
+        HP missing right now, the largest held when none covers it; for a
+        cure, the dedicated one, saving the FULL_RESTORE
+      "best_available"     the strongest one in the bag
+      "weakest_available"  the weakest one in the bag, whatever is missing
+    NAMING ONE ITEM IS HOW A RULE DIES. This policy plays the WHOLE game,
+    from a bag of POTIONs to a bag of FULL_RESTOREs. v1 named POTION and
+    by the Elite Four carried none, so `battle_item` fired ONCE in 6041
+    battle turns while three MAX_REVIVEs sat in the bag; it named POTION
+    again for the field and walked into Erika at 17 of 116 hp past three
+    SUPER_POTIONs. v6 named HYPER_POTION, which no early party has ever
+    seen, and would die at Brock the other way round. Your THRESHOLDS are
+    the decision and they travel; the item names do not. Name a class.
   battle_items: list of in-battle heal rules, each:
-      {"item": "POTION", "hp_below": 0.0-1.0, "max_uses": 1-6}
+      {"item": "heal", "prefer": "weakest_sufficient",
+       "hp_below": 0.0-1.0, "max_uses": 1-6}
     (use the item — costing the turn — when own hp fraction is below
-     hp_below; at most max_uses per battle; only if the bag has it.
-     IT IS A LIST, AND NAMING ONE ITEM IS HOW THESE RULES DIE. A rule
-     naming an item you have run out of does nothing at all: v1 named
-     POTION and by the Elite Four the party carried none, so `battle_item`
-     fired ONCE in 6041 battle turns while three MAX_REVIVEs sat in the
-     bag; v2 named HYPER_POTION and went dead the same way two fights
-     later. Name every healing item you would actually spend, strongest
-     last, and the party keeps healing as the bag empties.
+     hp_below; at most max_uses per battle, counted per RULE; only if the
+     bag has something the rule can reach.
      A rule may add "target": "fainted" — then it fires while ANY party
-     member is DOWN and brings one back (REVIVE, MAX_REVIVE) instead of
-     firing on the active mon's own HP. A gauntlet with no Pokemon Center
-     in it is lost by running out of BODIES, not only out of HP.)
-  field_heal: null or {"item": "POTION", "hp_below": 0.0-1.0}
-    (one item only here — so pick one you will still have)
+     member is DOWN and brings one back ("revive") instead of firing on
+     the active mon's own HP. A gauntlet with no Pokemon Center in it is
+     lost by running out of BODIES, not only out of HP.)
+  field_heal: null or {"item": "heal", "hp_below": 0.0-1.0,
+                       "prefer": ...}
+    (one rule only here — so a class, not a name you may run out of)
     (after a battle ends while traveling: if own hp fraction is below
-     hp_below and the item is in the bag, use it in the FIELD — no turn
-     cost — before walking on)
+     hp_below and the bag has something the rule can reach, use it in the
+     FIELD — no turn cost — before walking on)
   field_cure: list of {"status": "PSN"|"PAR"|"BRN"|"SLP"|"FRZ",
-                       "item": "ANTIDOTE"}
-    (after a battle: cure that status with that item if the bag has one —
+                       "item": "cure"}
+    (after a battle: cure that status if the bag has something for it —
      poison keeps draining HP every few steps until cured. Field item
      rules cover the WHOLE party, neediest mon first.)
-  catch: {"ball": "POKE_BALL", "throw_at_hp_frac": 0.0-1.0,
+  catch: {"ball": "ball", "throw_at_hp_frac": 0.0-1.0,
           "max_balls": 1-10}
     (during a CATCH task: weaken the wild mon with the gentlest non-KO
      move until it is below that fraction of the hp it appeared with,

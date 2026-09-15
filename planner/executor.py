@@ -11686,12 +11686,23 @@ class Executor:
                                               "ELIXER", "ETHER")))
         if not rules:
             return [], held
-        dead = [str(r.get("item")) for r in rules
+        dead = [Executor._reach_of(r.get("item")) for r in rules
                 if isinstance(r, dict) and r.get("item")
-                and not bag.get(str(r.get("item")))]
+                and not battle_policy.resolve_item(r.get("item"), bag)]
         if not dead or len(dead) < len(rules):
             return [], held
         return dead, held
+
+    @staticmethod
+    def _reach_of(item, status=None) -> str:
+        """What a rule reaches for, in words. A rule naming one item is
+        that item; a rule naming a CLASS is dead only when the bag holds
+        no rung of its ladder, and saying "heal" would name the rule
+        rather than the shelf it came up empty on."""
+        if not battle_policy.is_item_class(item):
+            return str(item)
+        lad = battle_policy.class_ladder(item, status)
+        return ("any of " + ", ".join(lad)) if lad else str(item)
 
     @staticmethod
     def _policy_field_unmet(obs):
@@ -11703,8 +11714,9 @@ class Executor:
         if not item:
             return "", 0
         bag = (obs or {}).get("bag") or {}
-        if bag.get(item):
+        if battle_policy.resolve_item(item, bag):
             return "", 0
+        item = Executor._reach_of(item)
         try:
             below = float(fh.get("hp_below") or 0)
         except (TypeError, ValueError):
