@@ -1198,27 +1198,33 @@ def main():
     # candidates that come out of it are then carried to every other
     # arena and scored there, and the winner is the one that holds up
     # across all of them.
-    across = {s["name"]: [(names[0], r)] for s, r in candidates}
+    # KEYED BY THE ROUND, NOT BY THE NAME. Two rounds can hand back the
+    # same `name` — the model often reuses it while changing the rules —
+    # and a name key would silently merge two different specs' results.
+    across = {i: [(names[0], r)] for i, (_s, r) in enumerate(candidates)}
     primary_map = getattr(gym, "arena_map", None)
     primary_party = getattr(gym, "arena_party", [])
     for an in names[1:]:
         gym.shutdown()
         print(f"\n[gym] carrying {len(candidates)} candidate(s) to {an}")
         gym = build(an)
-        for spec, _ in candidates:
+        for i, (spec, _) in enumerate(candidates):
             rr = gym.score(spec)
-            across[spec["name"]].append((an, rr))
+            across[i].append((an, rr))
             print(f"[{an}] " + feedback_text(spec["name"], rr))
 
     if len(names) > 1:
         print("\n[across] one spec, the whole game:")
-        for s, _ in candidates:
-            print(cross_text(s["name"], across[s["name"]]))
-        best_spec = max(candidates,
-                        key=lambda c: cross_key(across[c[0]["name"]]))[0]
-        best_r = across[best_spec["name"]][0][1]
+        for i, (sp, _) in enumerate(candidates):
+            print(cross_text(f"candidate #{i+1} ({sp['name']})", across[i]))
+        best_i = max(range(len(candidates)),
+                     key=lambda i: cross_key(across[i]))
+        best_spec = candidates[best_i][0]
+        best_r = across[best_i][0][1]
     else:
-        best_spec, best_r = max(candidates, key=lambda c: rank_key(c[1]))
+        best_i = max(range(len(candidates)),
+                     key=lambda i: rank_key(candidates[i][1]))
+        best_spec, best_r = candidates[best_i]
     artifact = dict(best_spec)
     artifact["provenance"] = {
         "authored_by": args.model, "run": args.run_id,
@@ -1236,18 +1242,16 @@ def main():
                      # ...AND WHAT IT DID IN EACH. A spec fit across the
                      # game is not the same artifact as a spec fit to one
                      # room, and pick_policy has to be able to tell.
-                     arenas=({an: rr for an, rr
-                              in across[best_spec["name"]]}
+                     arenas=({an: rr for an, rr in across[best_i]}
                              if len(names) > 1 else None),
-                     cross_total=(round(cross_key(
-                         across[best_spec["name"]])[0], 4)
-                         if len(names) > 1 else None)),
+                     cross_total=(round(cross_key(across[best_i])[0], 4)
+                                  if len(names) > 1 else None)),
         "baseline_typed_v0": base,
     }
     args.out.write_text(json.dumps(artifact, indent=2))
     print(f"\nBEST: {best_spec['name']} -> {args.out}")
     if len(names) > 1:
-        print(cross_text(best_spec["name"], across[best_spec["name"]]))
+        print(cross_text(best_spec["name"], across[best_i]))
     else:
         print(feedback_text(best_spec["name"], best_r))
     gym.shutdown()
