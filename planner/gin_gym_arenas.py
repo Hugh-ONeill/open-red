@@ -257,7 +257,15 @@ GYMS = [
               "bodies run out before HP does, which is what the revive "
               "rule is for."),
     dict(name="saffron", map="SAFFRON_GYM", leader="SABRINA", ace=43,
-         badges=5, door=(9, 9), puzzle=True, money=11000,
+         # THE PADS DECIDE WHO YOU MEET. Parked in front of SABRINA this
+         # was one fight and could not be calibrated at any level: three
+         # levels flipped it from 4/4 to 0/4 with nothing in between. From
+         # the door, the prescribed route (policy_author.APPROACH) crosses
+         # four chambers and their trainers before her. Everyone is reset
+         # so they all fight; only SABRINA is scored, because the route
+         # meets four of the seven.
+         badges=5, door=(8, 17), puzzle=False, money=11000,
+         score_only=["EVENT_BEAT_SABRINA"],
          party=[("CHARIZARD", 33), ("NIDOKING", 31),
                 ("BEEDRILL", 30)],
          bag={"SUPER_POTION": 4, "HYPER_POTION": 3, "FULL_HEAL": 2,
@@ -276,10 +284,24 @@ GYMS = [
     # the way to him is the point.
     dict(name="cinnabar", map="CINNABAR_GYM", hms=["SURF"], leader="BLAINE",
          ace=47, badges=6, door=(16, 17), puzzle=False, money=13000,
-         open_flags=[f"EVENT_CINNABAR_GYM_GATE{i}_UNLOCKED"
-                     for i in range(6)],
+         # THE GATES STAY SHUT. Opening them by flag skipped the quizzes
+         # entirely, and a guardian only fights you if you answer his
+         # WRONG — so with the gates open and the driver answering `no`
+         # (right at four of the six machines) barely a punch was thrown
+         # and the room was won by a lead that took no damage. The route
+         # answers each one wrong instead, which fights all six and opens
+         # the gates the way playing it does.
+         # NO WATER TYPE HERE. A counter should be an option, not an "I
+         # win" button: POLIWHIRL led every fight in the room and won the
+         # whole gym alone, 108 hp down to 58, while NIDOKING and
+         # VICTREEBEL took not one point of damage in nine battles
+         # (traced 2026-09-15). Water against fire hits for double AND
+         # takes half, so it walls Blaine's entire roster and leaves the
+         # medicine nothing to do. NIDOKING already carries SURF from the
+         # crossing to the island, which is the same super-effective
+         # offence with NONE of the defensive wall — fire hits it square.
          party=[("NIDOKING", 41), ("VICTREEBEL", 38),
-                ("POLIWHIRL", 38)],
+                ("PIDGEOT", 39)],
          bag={"SUPER_POTION": 3, "HYPER_POTION": 4, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="NO STARTER HERE. The Charizard line is FIRE/FLYING and "
@@ -365,6 +387,8 @@ def build(g: dict) -> dict:
         spec["clear_flags"] = [lead_flag] + others + extra
         spec["clear_trainers"] = [f"{g['map']}_obj_{i}"
                                   for i, _n, _x, _y in objs]
+    if g.get("score_only"):
+        spec["score_flags"] = list(g["score_only"])
     if g.get("open_flags"):
         spec["set_flags"] = sorted(set(spec.get("set_flags") or [])
                                    | set(g["open_flags"]))

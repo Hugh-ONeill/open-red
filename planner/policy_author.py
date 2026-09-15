@@ -374,7 +374,8 @@ class Gym:
     def __init__(self, plan_path: Path, run_id: str, model: str = "",
                  from_save: Path | None = None, arena: str = "brock",
                  trials: int = 3, arena_spec: Path | None = None,
-                 arena_name: str = ""):
+                 arena_name: str = "", approach=None):
+        self.approach = list(approach or [])
         self.arena_spec = arena_spec
         self.arena_name = arena_name
         self.plan_path = plan_path
@@ -520,8 +521,17 @@ class Gym:
         if self.arena_spec:
             try:
                 _sp = json.loads(Path(self.arena_spec).read_text())
-                self.arena_flags = [f for f in (_sp.get("clear_flags") or [])
-                                    if str(f).startswith("EVENT_BEAT_")]
+                # SCORE WHAT THE ROUTE ACTUALLY REACHES. `clear_flags`
+                # says what the save RESET, which for a room crossed by a
+                # prescribed route is more than the route meets: Saffron
+                # resets all seven trainers so they fight, but the pads
+                # only take you past four of them, and counting eight
+                # would cap the room at 62% for ever. `score_flags` says
+                # what to count when the two differ.
+                self.arena_flags = [
+                    f for f in (_sp.get("score_flags")
+                                or _sp.get("clear_flags") or [])
+                    if str(f).startswith("EVENT_BEAT_")]
             except (OSError, ValueError) as e:
                 print(f"[gym] arena spec unreadable ({e})")
         if self.arena == "gym":
@@ -577,6 +587,54 @@ class Gym:
         except Exception:
             pass                    # a lead is never worth the trial
         return obs
+
+    def _walk_the_approach(self, here: str, steps, want: set | None = None):
+        """Work a room by a PRESCRIBED route instead of by exploring it.
+
+        Two gyms cannot be crossed by pressing whoever is in reach.
+        Saffron is a three-by-three grid of chambers joined by teleport
+        pads, so which trainers you meet depends entirely on which pads
+        you step on — and parking in front of SABRINA made it one fight,
+        which cannot create attrition and so cannot show whether medicine
+        matters. Cinnabar's guardians only fight you IF YOU ANSWER THEIR
+        QUIZ WRONG (user, 2026-09-15), and the driver answered every
+        prompt `no`, which is the RIGHT answer at four of the six
+        machines — so four of six never fought at all and the room was
+        won by a lead that took no damage.
+
+        A route fixes both: the same chambers in the same order, the same
+        trainers, every trial. The route is scaffolding, not policy — how
+        to get across a room is not what a battle policy is judged on."""
+        obs = self._ride(self.ex.settle())
+        for st in steps:
+            if want and want <= self._beaten(obs):
+                break
+            for _ in range(6):          # a step may need the world to settle
+                mid = ((obs or {}).get("map") or {}).get("id")
+                if mid == here:
+                    break
+                if mid is None:
+                    if (obs or {}).get("mode") == "ui":
+                        self.b.send("menu", index=2)
+                    else:
+                        self.b.send("wait", frames=30)
+                    obs = self._ride(self.ex.settle())
+                else:
+                    break
+            if ((obs or {}).get("map") or {}).get("id") != here:
+                break                   # blacked out, or carried out
+            obs = self._arrange_before(obs)
+            if "press" in st:
+                self.b.send("interact", name=st["press"],
+                            answer=st.get("answer", "no"))
+            elif "quiz" in st:
+                # the WRONG answer is the point: it is what starts the fight
+                self.b.send("interact", x=st["quiz"][0], y=st["quiz"][1],
+                            answer=st["answer"])
+            elif "pad" in st:
+                self.b.send("walk_to", x=st["pad"][0], y=st["pad"][1])
+            obs = self._ride(self.ex.settle())
+        return self._ride(self.ex.settle())
 
     def _cross_room(self, here: str, want: set | None = None,
                     tries: int = 0):
@@ -725,8 +783,12 @@ class Gym:
             # on an arena that restores INTO the leader's fight the win
             # was already in it and every trial scored zero.
             before = self._beaten(self.ex.settle())
-            obs = self._cross_room(self.arena_map,
-                                   want=set(self.arena_flags))
+            if self.approach:
+                obs = self._walk_the_approach(self.arena_map, self.approach,
+                                              want=set(self.arena_flags))
+            else:
+                obs = self._cross_room(self.arena_map,
+                                       want=set(self.arena_flags))
             obs = self._ride(self.ex.settle())
             for _ in range(6):
                 if ((obs.get("map") or {}).get("id")):
@@ -1104,6 +1166,29 @@ def cross_text(name: str, rows) -> str:
 # THE ARENAS, BY NAME. Each is a savepoint parked where the fight starts
 # (plans/arena_midgame.README.md has how they were built and what is on
 # each shelf); `brock` is the one that replays a plan from a new game.
+# A PRESCRIBED ROUTE, for the two rooms that cannot be crossed by
+# pressing whoever is in reach. Saffron's chambers are joined by teleport
+# pads, so the route decides which trainers you meet at all; this one
+# takes four of them before SABRINA. Cinnabar's guardians fight only on a
+# WRONG quiz answer, and the machine table (data/scripts/story6.lua
+# GYM_MACHINES) says which answer is right at each — so each is pressed
+# with the other one.
+APPROACH = {
+    "saffron": [{"pad": (11, 15)},                    # -> bottom-right
+                {"press": "SAFFRONGYM_YOUNGSTER3"}, {"pad": (15, 17)},
+                {"press": "SAFFRONGYM_CHANNELER3"}, {"pad": (5, 17)},
+                {"press": "SAFFRONGYM_CHANNELER2"}, {"pad": (1, 11)},
+                {"press": "SAFFRONGYM_YOUNGSTER4"}, {"pad": (1, 5)},
+                {"press": "SAFFRONGYM_SABRINA"}],
+    "cinnabar": [{"quiz": (15, 7), "answer": "no"},   # right answer: yes
+                 {"quiz": (10, 1), "answer": "yes"},  # right answer: no
+                 {"quiz": (9, 7), "answer": "yes"},
+                 {"quiz": (9, 13), "answer": "yes"},
+                 {"quiz": (1, 13), "answer": "no"},
+                 {"quiz": (1, 7), "answer": "yes"},
+                 {"press": "CINNABARGYM_BLAINE"}],
+}
+
 ARENAS = {
     "brock": ("brock", None, None),
     # EVERY GYM IN THE GAME, IN ORDER, each a clean room built by
@@ -1241,7 +1326,8 @@ def main():
             save = args.from_save          # an explicit save still wins
         g = Gym(args.plan, args.run_id, model=args.model,
                 from_save=save, arena=kind, trials=args.trials,
-                arena_spec=aspec, arena_name=name)
+                arena_spec=aspec, arena_name=name,
+                approach=APPROACH.get(name))
         for attempt in (1, 2):
             try:
                 print(f"[gym] booting the {name} arena (attempt {attempt})...")

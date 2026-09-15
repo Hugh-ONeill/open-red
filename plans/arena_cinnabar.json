@@ -23,15 +23,15 @@
       "nickname": "VICTREEBEL"
     },
     {
-      "species": "POLIWHIRL",
-      "level": 38,
+      "species": "PIDGEOT",
+      "level": 39,
       "moves": [
-        "HYPNOSIS",
-        "WATER_GUN",
-        "DOUBLESLAP",
-        "BODY_SLAM"
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND",
+        "WING_ATTACK"
       ],
-      "nickname": "POLIWHIRL"
+      "nickname": "PIDGEOT"
     }
   ],
   "bag": {
@@ -60,13 +60,5 @@
     "CINNABAR_GYM_obj_7",
     "CINNABAR_GYM_obj_8",
     "CINNABAR_GYM_obj_9"
-  ],
-  "set_flags": [
-    "EVENT_CINNABAR_GYM_GATE0_UNLOCKED",
-    "EVENT_CINNABAR_GYM_GATE1_UNLOCKED",
-    "EVENT_CINNABAR_GYM_GATE2_UNLOCKED",
-    "EVENT_CINNABAR_GYM_GATE3_UNLOCKED",
-    "EVENT_CINNABAR_GYM_GATE4_UNLOCKED",
-    "EVENT_CINNABAR_GYM_GATE5_UNLOCKED"
   ]
 }
