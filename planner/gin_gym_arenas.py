@@ -266,12 +266,16 @@ GYMS = [
               "list, and three heal tiers to choose between."),
     dict(name="cinnabar", map="CINNABAR_GYM", leader="BLAINE", ace=47,
          badges=6, door=(3, 4), puzzle=True, money=13000,
-         party=[("CHARIZARD", 39), ("NIDOKING", 37),
-                ("POLIWHIRL", 36)],
+         party=[("NIDOKING", 41), ("VICTREEBEL", 38),
+                ("POLIWHIRL", 38)],
          bag={"SUPER_POTION": 3, "HYPER_POTION": 4, "FULL_HEAL": 2,
               "REVIVE": 2},
-         note="Fire into fire: Charizard resists what ARCANINE throws and "
-              "cannot burn it down either, so nobody sweeps."),
+         note="NO STARTER HERE. The Charizard line is FIRE/FLYING and "
+              "resists everything Blaine owns, so the room was won "
+              "without healing at two different party levels — not a "
+              "matter of levels at all (2026-09-15). VICTREEBEL takes "
+              "fire at double and is the reason anyone reaches for a "
+              "potion; POLIWHIRL is the counter and NIDOKING the body."),
     # THE FLAG THE FIGHT ACTUALLY SETS. pokered checks
     # EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI and both names are in the flag
     # table, but this port sets EVENT_BEAT_GIOVANNI on winning the gym
