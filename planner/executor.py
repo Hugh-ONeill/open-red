@@ -5558,6 +5558,18 @@ class Executor:
             # observations — and marked with the other observation that
             # bears on it: you have stood there since and it was not there.
             self._gone.setdefault(here, set()).update(gone)
+        # ...AND A THING SEEN AGAIN IS NOT GONE. `_gone` only ever grew, so
+        # one frame that did not list something marked it departed for the
+        # rest of the run, and the note rode along with everything it had
+        # ever said: "GAMECORNER_ROCKET: I'm guarding this poster! — and
+        # GAMECORNER_ROCKET is NOT THERE ANY MORE", while the Rocket stood
+        # at (9,5) in the very next observation, unbeaten, between the run
+        # and the switch it needed (2026-09-15). The observation that
+        # retracts it is the same kind as the one that made it.
+        back = (self._gone.get(here) or set()) & live
+        if back:
+            self.log("sighting_back", area=here, names=sorted(back))
+            self._gone[here] -= back
         keep = (was - gone) | set(names)
         if keep != was:
             self.sightings[here] = sorted(keep)

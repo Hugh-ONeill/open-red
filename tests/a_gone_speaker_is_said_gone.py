@@ -29,6 +29,22 @@ ck("...written from the same block that already detects them",
 ck("...and survive a restart",
    'data.get("gone") or {}' in src and '"gone": {r: sorted(v)' in src)
 
+# ...AND A THING SEEN AGAIN IS NOT GONE. `_gone` only ever grew, so one
+# frame that did not list something marked it departed for the rest of the
+# run, and the note rode along with everything it had ever said:
+# "GAMECORNER_ROCKET: I'm guarding this poster! — and GAMECORNER_ROCKET is
+# NOT THERE ANY MORE", while the Rocket stood at (9,5) in the very next
+# observation, unbeaten, between the run and the switch it needed
+# (2026-09-15). The claim and its retraction come from the same kind of
+# observation, so one cannot be kept without the other.
+ck("a name the observation lists again is taken off the gone list",
+   "back = (self._gone.get(here) or set()) & live" in src
+   and "self._gone[here] -= back" in src)
+ck("...the retraction is said out loud, like the claim was",
+   'self.log("sighting_back", area=here' in src)
+ck("...and it is read from the same live list that made the claim",
+   src.index("live = {o.get(\"name\")") < src.index("back = (self._gone"))
+
 def ex_with(gone, at):
     ex = E.Executor.__new__(E.Executor)
     ex._gone, ex.hints_at = gone, at
