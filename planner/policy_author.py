@@ -882,6 +882,45 @@ class Gym:
                     # has them, and `interact` resolves a name against
                     # the live NPC list.
                     obs = self._cross_room(here)
+                    # LANCE IS A COORDINATE TRIGGER, NOT A TALK. The
+                    # engine's own note: "(5,1)/(6,2) beside Lance -> his
+                    # battle starts (a coordinate trigger, not a talk)".
+                    # The driver presses trainers by name, which does
+                    # nothing to him, so every trial walked past him to
+                    # the exit warp and out — Lance and the Champion both
+                    # cost the party ZERO hp while three rooms behind
+                    # them cost real damage, and every spec scored
+                    # exactly 3 of 5 for months (2026-09-15). Stand on
+                    # the cell instead.
+                    _flag = self.E4_FLAGS[self.E4_ROOMS.index(here)]
+                    _cells = E4_TRIGGERS.get(here, ())
+                    for _ in range(8):
+                        if not _cells or _flag in (obs.get("flags") or []):
+                            break
+                        _hit = False
+                        for _tx, _ty in _cells:
+                            if self._ok(self.b.send("walk_to", x=_tx,
+                                                    y=_ty)):
+                                _hit = True
+                                break
+                        obs = self._ride(self.ex.settle())
+                        if _hit or _flag in (obs.get("flags") or []):
+                            continue
+                        # ...AND YOU CANNOT WALK TO GROUND YOU HAVE NEVER
+                        # SEEN. The party lands at (4,11) and the trigger
+                        # is at (5,1): "has NEVER BEEN ON SCREEN — you
+                        # only know ground that has been on". Walk at the
+                        # northmost edge of what IS seen until the cell
+                        # comes into view.
+                        _fr = sorted(((obs.get("map") or {}).get("frontier")
+                                      or []), key=lambda c: c.get("y", 99))
+                        if not _fr:
+                            break
+                        if not self._ok(self.b.send(
+                                "walk_to", x=_fr[0].get("x"),
+                                y=_fr[0].get("y"))):
+                            break
+                        obs = self._ride(self.ex.settle())
                     obs = self._ride(obs)
                     # the champion has no next room: he counts when his
                     # flag is up and the party still stands
@@ -1210,6 +1249,12 @@ APPROACH = {
     # pressing whoever is reachable and walking on is the route. That is
     # what the generic crossing already does.
 }
+
+# The league's last two rooms do not answer to a press. Lance starts on a
+# CELL, and the Champion starts on ENTERING FROM THE SOUTH with
+# EVENT_BEAT_CHAMPION_RIVAL_THIS_RUN unset (which the arena spec now
+# clears, along with EVENT_LANCES_ROOM_LOCK_DOOR).
+E4_TRIGGERS = {"LANCES_ROOM": ((5, 1), (6, 2))}
 
 ARENAS = {
     "brock": ("brock", None, None),
