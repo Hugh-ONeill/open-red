@@ -1173,8 +1173,16 @@ def main():
             feedback += f"\ncandidate #{rnd}: INVALID ({probs}) — fix these."
             continue
         spec.setdefault("name", f"model_r{rnd}")
-        print(f"[round {rnd}] evaluating {spec['name']}: "
-              f"{json.dumps(spec, separators=(',', ':'))[:200]}")
+        # THE WHOLE SPEC, NOT THE FIRST 200 CHARACTERS OF IT. Every rule
+        # that matters — battle_items, field_heal, whether they name an
+        # item or a CLASS — sits past the truncation, so a finished run
+        # could not answer "did it use the new DSL at all?" for any
+        # candidate but the winner. Losers are kept too: a pick is only
+        # readable beside what it beat.
+        _cand = REPO / f"run/policy_cand_{args.run_id}_{rnd}.json"
+        _cand.write_text(json.dumps(spec, indent=2))
+        print(f"[round {rnd}] evaluating {spec['name']} -> {_cand.name}\n"
+              f"  {json.dumps(spec, separators=(',', ':'))}")
         r = gym.score(spec)
         candidates.append((spec, r))
         fb = feedback_text(f"candidate #{rnd} ({spec['name']})", r)
