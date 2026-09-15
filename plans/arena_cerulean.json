@@ -35,11 +35,11 @@
     }
   ],
   "bag": {
-    "POTION": 8,
+    "POTION": 12,
     "ANTIDOTE": 2,
-    "PARLYZ_HEAL": 1
+    "PARLYZ_HEAL": 2
   },
-  "money": 2800,
+  "money": 4000,
   "start": {
     "map": "CERULEAN_GYM",
     "x": 4,

@@ -35,12 +35,12 @@
   ],
   "bag": {
     "POTION": 4,
-    "SUPER_POTION": 4,
+    "SUPER_POTION": 10,
     "ANTIDOTE": 2,
     "PARLYZ_HEAL": 2,
-    "REVIVE": 1
+    "REVIVE": 2
   },
-  "money": 6000,
+  "money": 8000,
   "start": {
     "map": "CELADON_GYM",
     "x": 4,

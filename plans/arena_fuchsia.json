@@ -36,12 +36,12 @@
   ],
   "bag": {
     "POTION": 3,
-    "SUPER_POTION": 5,
+    "SUPER_POTION": 12,
     "FULL_HEAL": 2,
     "REVIVE": 2,
     "ANTIDOTE": 2
   },
-  "money": 9000,
+  "money": 12000,
   "start": {
     "map": "FUCHSIA_GYM",
     "x": 4,

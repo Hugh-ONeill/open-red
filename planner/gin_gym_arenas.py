@@ -29,7 +29,19 @@ So each arena here is BUILT, not found:
     starter, a counter and one spare, and the lead sits three to five
     levels under the leader's ace. The calibration target is exact: a
     spec that can reach its medicine should take the room, and the SAME
-    spec with its item rules stripped should not.
+    spec with its item rules stripped should not, and
+    planner/calibrate_arenas.py asks exactly that, a verdict a room.
+    FIRST MEASUREMENT, 2026-09-15: three right, three too hard, two too
+    easy. The too-hard three were not short of BODIES, they were short of
+    MEDICINE — Celadon carried 280 HP of healing across EIGHT fights with
+    three Pokemon of 70-odd HP, about 35 a fight, when one Victreebel
+    exchange costs more than that (user: "yeah do the medicine, keep them
+    at 3"). So their bags roughly double and move a tier up, and the
+    parties stay at three, which keeps the healing rather than the spare
+    bodies as the thing that carries a room. The too-easy two come DOWN
+    in level instead. Viridian is untouched and is the proof that room
+    length is not the lever: one fight, and RHYDON L50 against a L45
+    CHARIZARD bites where SABRINA L43 against a L39 does not.
   * ONE COUNTER PER ROOM, and never in slot 1. Each party carries a
     Pokemon that is super effective against that gym, sitting on the
     bench: Mankey's KARATE_CHOP for Brock's rock, Pikachu for Misty,
@@ -195,7 +207,7 @@ GYMS = [
               "defence is the wall it is; four Potions and a Nidoran's "
               "HORN_ATTACK is the whole of the answer."),
     dict(name="cerulean", map="CERULEAN_GYM", leader="MISTY", ace=21,
-         badges=1, door=(4, 13), puzzle=False, money=2800,
+         badges=1, door=(4, 13), puzzle=False, money=4000,
          # RAISED 2026-09-15 after four candidates and a type-aware lead
          # all lost here. At 16-18 against a L21 STARMIE the room was not
          # hard, it was unwinnable: every spec scored 2/3, two of them
@@ -205,7 +217,7 @@ GYMS = [
          # levels are the only lever.
          party=[("CHARMELEON", 19), ("NIDORINO", 18),
                 ("PIKACHU", 18)],
-         bag={"POTION": 8, "ANTIDOTE": 2, "PARLYZ_HEAL": 1},
+         bag={"POTION": 12, "ANTIDOTE": 2, "PARLYZ_HEAL": 2},
          note="Fire into water, and STARMIE outspeeds all three. Single "
               "tier on purpose: POTION is the only heal a Cerulean-era "
               "shelf sells."),
@@ -227,35 +239,35 @@ GYMS = [
               "SUPER_POTION appears. RAICHU paralyses, so the cure class "
               "has something to do."),
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
-         badges=3, door=(4, 17), puzzle=False, money=6000,
+         badges=3, door=(4, 17), puzzle=False, money=8000,
          party=[("CHARMELEON", 26), ("NIDORINO", 25),
                 ("BEEDRILL", 24)],
-         bag={"POTION": 4, "SUPER_POTION": 4, "ANTIDOTE": 2,
-              "PARLYZ_HEAL": 2, "REVIVE": 1},
+         bag={"POTION": 4, "SUPER_POTION": 10, "ANTIDOTE": 2,
+              "PARLYZ_HEAL": 2, "REVIVE": 2},
          note="Farfetch'd carries CUT because Erika and her last three "
               "trainers sit inside a bed with two bushes in it. "
               "VILEPLUME's SLEEP_POWDER is the attrition."),
     dict(name="fuchsia", map="FUCHSIA_GYM", leader="KOGA", ace=43,
-         badges=4, door=(4, 17), puzzle=False, money=9000,
+         badges=4, door=(4, 17), puzzle=False, money=12000,
          party=[("CHARIZARD", 37), ("NIDORINO", 33),
                 ("KADABRA", 33)],
-         bag={"POTION": 3, "SUPER_POTION": 5, "FULL_HEAL": 2, "REVIVE": 2,
-              "ANTIDOTE": 2},
+         bag={"POTION": 3, "SUPER_POTION": 12, "FULL_HEAL": 2,
+              "REVIVE": 2, "ANTIDOTE": 2},
          note="Two members badly under level and a room that poisons: "
               "bodies run out before HP does, which is what the revive "
               "rule is for."),
     dict(name="saffron", map="SAFFRON_GYM", leader="SABRINA", ace=43,
          badges=5, door=(9, 9), puzzle=True, money=11000,
-         party=[("CHARIZARD", 39), ("NIDOKING", 36),
-                ("BEEDRILL", 34)],
+         party=[("CHARIZARD", 36), ("NIDOKING", 34),
+                ("BEEDRILL", 32)],
          bag={"SUPER_POTION": 4, "HYPER_POTION": 3, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="ALAKAZAM against a poison type is the worst matchup in the "
               "list, and three heal tiers to choose between."),
     dict(name="cinnabar", map="CINNABAR_GYM", leader="BLAINE", ace=47,
          badges=6, door=(3, 4), puzzle=True, money=13000,
-         party=[("CHARIZARD", 42), ("NIDOKING", 40),
-                ("POLIWHIRL", 38)],
+         party=[("CHARIZARD", 39), ("NIDOKING", 37),
+                ("POLIWHIRL", 36)],
          bag={"SUPER_POTION": 3, "HYPER_POTION": 4, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="Fire into fire: Charizard resists what ARCANINE throws and "
