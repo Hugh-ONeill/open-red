@@ -301,13 +301,19 @@ GYMS = [
                             "against a L21 STARMIE. Five POTIONs is what "
                             "the counter question bought here, on "
                             "record."),
-             ideal=dict(party=[("IVYSAUR", 16)],
+             # FIVE UNDER WAS NOT REASONABLE ALONE. At 16 the room wiped
+             # both arms, ten POTIONs and all: 4/6 with medicine, 4/6
+             # without, STARMIE taking it every trial (2026-09-15). A
+             # solo has no one to hand the turn to, so it needs to live
+             # through a hit on its own; three under is the level.
+             ideal=dict(party=[("IVYSAUR", 18)],
                         bag={"POTION": 10}, money=3000,
                         note="IVYSAUR resists water and VINE_WHIP hits it "
-                             "double; five under the ace it cannot do the "
-                             "room untended. Alone, like the SQUIRTLE at "
-                             "Brock: the starter is the answer and no "
-                             "PIKACHU beside it (user, 2026-09-15)."))),
+                             "double; alone, like the SQUIRTLE at Brock: "
+                             "the starter is the answer and no PIKACHU "
+                             "beside it (user, 2026-09-15). Three under "
+                             "the ace, because at five under the room "
+                             "wiped it with the bag full."))),
     # NOT A PUZZLE ROOM AFTER ALL. Surge's trash-can locks are two
     # FLAGS (EVENT_1ST_LOCK_OPENED / EVENT_2ND_LOCK_OPENED, and the
     # second is what swaps the door block), so setting them opens the
