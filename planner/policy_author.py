@@ -1199,9 +1199,40 @@ def arena_fraction(r: dict) -> float:
     return (badge + rival) / 2
 
 
+def arena_quality(r: dict) -> float:
+    """How WELL a room was taken, in [0,1) — bodies still standing and
+    damage not left on the table, averaged over the trials."""
+    t = max(1, r.get("gauntlet_trials") or 0)
+    bodies = min(1.0, (r.get("bodies") or 0.0) / t)
+    scored = max(1, r.get("scored") or 0)
+    # agreement with the move oracle, which is the only per-turn measure
+    # of play quality the arena has
+    agree = min(1.0, (r.get("agree") or 0) / scored)
+    return max(0.0, min(0.999, 0.6 * bodies + 0.4 * agree))
+
+
+def arena_points(r: dict) -> float:
+    """A room's contribution: what it WON, plus how well it won it.
+
+    THE OBJECTIVE WAS THE ONLY THING THAT COUNTED and most rooms are
+    swept, so four candidates tied 32/32 at Celadon and the sum could not
+    tell them apart — while one of them left 1831 damage on the table and
+    another 3299 (user, 2026-09-15: "is there a way we can incorporate
+    the tiebreak values into the total score?").
+
+    The bonus is bounded by ONE FIGHT in that room, so winning an extra
+    fight always beats playing the same fights better, and two specs that
+    won exactly the same fights are ordered by how much of the party
+    they had left and how close to the oracle they played."""
+    base = arena_fraction(r)
+    of = (max(1, r.get("gauntlet_trials") or 1)
+          * (r.get("standing") or (5 if (r.get("arena") == "e4") else 1)))
+    return base + arena_quality(r) / max(1, of)
+
+
 def cross_key(rows) -> tuple:
     """rows: [(arena name, result)]. Higher is better."""
-    return (round(sum(arena_fraction(r) for _, r in rows), 6),
+    return (round(sum(arena_points(r) for _, r in rows), 6),
             -sum(r.get("blackouts", 0) for _, r in rows),
             round(sum((r.get("bodies") or 0.0)
                       / max(1, r.get("gauntlet_trials") or 1)
