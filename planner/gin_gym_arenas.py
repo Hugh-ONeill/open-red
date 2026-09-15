@@ -264,7 +264,7 @@ GYMS = [
               "REVIVE": 2},
          note="ALAKAZAM against a poison type is the worst matchup in the "
               "list, and three heal tiers to choose between."),
-    dict(name="cinnabar", map="CINNABAR_GYM", leader="BLAINE", ace=47,
+    dict(name="cinnabar", map="CINNABAR_GYM", hms=["SURF"], leader="BLAINE", ace=47,
          badges=6, door=(3, 4), puzzle=True, money=13000,
          party=[("NIDOKING", 41), ("VICTREEBEL", 38),
                 ("POLIWHIRL", 38)],
@@ -283,7 +283,7 @@ GYMS = [
     # fight 0/1 with the whole party standing and no blackout, which is
     # what a wrong denominator looks like. The unused name is left alone:
     # the base save has neither set, so there is nothing to clear.
-    dict(name="viridian", map="VIRIDIAN_GYM", leader="GIOVANNI",
+    dict(name="viridian", map="VIRIDIAN_GYM", hms=["SURF"], leader="GIOVANNI",
          ace=50, badges=7, door=(2, 2), puzzle=True, money=15000,
          party=[("CHARIZARD", 45), ("NIDOKING", 43),
                 ("POLIWHIRL", 42)],
@@ -313,13 +313,21 @@ def build(g: dict) -> dict:
     for sp, lv in g["party"]:
         party.append({"species": sp, "level": lv,
                       "moves": natural_moves(sp, lv), "nickname": sp})
-    if g.get("needs_cut") and not any("CUT" in m["moves"] for m in party):
+    # ...AND A ROOM YOU CANNOT REACH WITHOUT AN HM IS A ROOM WHOSE PARTY
+    # HAS IT. Cinnabar Island is across water: no party is standing in
+    # that gym without SURF, and the same party is still carrying it at
+    # Viridian afterwards (user, 2026-09-15: "nido would also know surf
+    # by then"). It is not a detail — SURF is double on everything
+    # Blaine owns and QUADRUPLE on Giovanni's RHYDON.
+    for hm in (["CUT"] if g.get("needs_cut") else []) + list(g.get("hms") or []):
+        if any(hm in m["moves"] for m in party):
+            continue
         for m in party:
-            if can_learn(m["species"], "CUT"):
-                m["moves"] = m["moves"][:3] + ["CUT"]
+            if can_learn(m["species"], hm):
+                m["moves"] = m["moves"][:3] + [hm]
                 break
         else:
-            sys.exit(f"{g['name']}: nobody in this party can learn CUT")
+            sys.exit(f"{g['name']}: nobody in this party can learn {hm}")
     # FACING MATTERS BECAUSE BOOTSTRAP MASHES A. A save resumes exactly
     # where it was written and bootstrap opens with six A presses to clear
     # the title ceremony; parked in front of a leader FACING HIM, those
