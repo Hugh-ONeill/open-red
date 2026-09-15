@@ -3711,6 +3711,29 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                      % sum(len(k) for k, _ in _shown)
                      + " → ".join(_run_words(k, t) for k, t in _shown)
                      + ". The order is the record; what it means is yours to read.")
+    # A BUILDING YOU CAN SEE, WHOSE DOORWAY YOU HAVE NOT MADE OUT. The
+    # shim keeps a building once ANY of its footprint has been on screen
+    # and filters its doors one by one, on the reading that making out a
+    # doorway is a nearer thing than seeing a roof — and then this page
+    # showed buildings only through their doors, so one with no door seen
+    # sat in the observation and never reached the prompt. The run stood
+    # in Celadon on "enter the gym" with the gym's pale roof and the GYM
+    # across its face plainly on screen, and worked through every other
+    # door in the city instead (2026-09-15, from the user's screenshot).
+    # What is DRAWN is said. What is inside one is not: Saffron draws the
+    # FIGHTING DOJO the way it draws its gym.
+    _blds = [b for b in (((obs or {}).get("map") or {}).get("buildings") or [])
+             if isinstance(b, dict) and not (b.get("doors") or [])]
+    if _blds:
+        lines.append(
+            "BUILDINGS IN SIGHT HERE WHOSE DOORWAY YOU HAVE NOT MADE OUT: "
+            + "; ".join(
+                f"a {b.get('look') or 'building'}, its walls covering "
+                f"({b.get('x0')},{b.get('y0')}) to ({b.get('x1')},{b.get('y1')})"
+                for b in _blds[:6])
+            + ". You can see it from here; the way in is not on screen yet, "
+              "and walking up to it is what brings a doorway into view. "
+              "What is inside one is not said by what is drawn on it.")
     lines.append("Every entry above may be taken; the ones marked never "
                  "taken / never pressed are the only ones that can find "
                  "anything new here. Which matters is your call.")

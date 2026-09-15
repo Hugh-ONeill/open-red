@@ -39,6 +39,35 @@ HAND_SCENERY = {"OVERWORLD": {42, 43, 58, 59, 14, 85, 50}}
 # 76 on the left and 77 on the right.
 ROOF_LEFT = {"OVERWORLD": {5, 21, 76}}
 ROOF_RIGHT = {"OVERWORLD": {9, 25, 77}}
+# ...AND THE PALE ROOF THE PUBLIC BUILDINGS SHARE. The flat test read the
+# Center's and Mart's corner tiles (76/77) only, so a GYM — drawn with the
+# same pale roof and its own corners — came out "house", and the page would
+# have called Celadon's gym somebody's cottage (2026-09-15). Tile 83 is that
+# roof's top row and appears in no other building's.
+ROOF_FLAT = {"OVERWORLD": {76, 77, 83}}
+# WHAT IS WRITTEN ON THE FRONT. A gym has GYM across its face, twice, in
+# tiles the engine draws nowhere else (47 and 63, which live in exactly one
+# block of the OVERWORLD tileset). A player reads it from across the street,
+# before any sign is pressed and before the doorway is made out — which is
+# how the run stood in Celadon with the building on screen and nothing on
+# its page about it (user, 2026-09-15: "it says GYM twice and has a
+# distinctive roof the way the mart and center both do").
+#
+# WHAT IS DRAWN, NOT WHAT IS INSIDE. Saffron draws the FIGHTING DOJO exactly
+# this way too, so the lettering marks a building drawn the way a gym is
+# drawn and never "the gym" (user: "this is sorta subverted in saffron which
+# has two of those buildings one of them being the fighting dojo"). Across
+# Kanto's outdoor maps it picks out the eight city gyms and that dojo, and
+# nothing else.
+# ...AND THE OTHER TWO SIGNS ARE THE SAME KIND OF FACT. A Center wears
+# POKé and a Mart wears MART, drawn the same way in the same place, each
+# pair of glyph tiles living in exactly one block of the tileset: every
+# Pokemon Center in Kanto carries the POKé block and every Mart the MART
+# one (user, 2026-09-15: "all centers have a sign that says poke and all
+# marts have a sign that says mart readable from the sprite"). The word is
+# copied off the wall; what the place does is not said here.
+FACE_WORDS = {"OVERWORLD": {"GYM": {47, 63}, "POK\u00e9": {66, 67},
+                            "MART": {68, 69}}}
 
 
 def lua_blocks(txt, start):
@@ -267,20 +296,33 @@ def buildings():
             # the flat one (76/77). A player tells a house from a public
             # building by exactly this, before ever reading its sign.
             _top = [cell_tiles(mp, tsd, cx, y0) or [] for cx in range(x0, x1 + 1)]
-            flat = any(76 in t or 77 in t for t in _top)
+            _roof = ROOF_FLAT.get(mp["tileset"], set())
+            flat = any(_roof & set(t) for t in _top)
+            # the glyph tiles of one word land in DIFFERENT cells of the
+            # one block that carries them, so this asks per cell for any
+            _cells = [set(cell_tiles(mp, tsd, cx, cy) or [])
+                      for cx in range(x0, x1 + 1) for cy in range(y0, y1 + 1)]
+            face = next((w for w, ts in sorted(FACE_WORDS.get(mp["tileset"], {}).items())
+                         if any(ts & c for c in _cells)), "")
             _walls = sum(1 for cx in range(x0, x1 + 1) for cy in range(y0, y1 + 1) if kind.get((cx, cy)) == "wall")
             _doors = sum(1 for cx in range(x0, x1 + 1) for cy in range(y0, y1 + 1) if kind.get((cx, cy)) == "door")
             if _walls <= _doors:
                 continue          # a cave mouth in rock, a pier's end: no building drawn around it
             blds.append({"x0": x0, "y0": y0, "x1": x1, "y1": y1, "w": x1 - x0 + 1, "h": y1 - y0 + 1,
-                         "flat": flat, "doors": sorted(doors)})
+                         "flat": flat, "face": face, "doors": sorted(doors)})
         if blds:
             out[mp["id"]] = blds
     return out
 
 
-def size_word(w, h, flat=False):
+def size_word(w, h, flat=False, face=""):
     a = w * h
+    if face:
+        # the word is copied off the wall; what is inside is not said here.
+        # THE SIZE STAYS IN FRONT OF IT: Celadon's department store and a
+        # corner Mart both wear MART, and one of them is four times the
+        # building (2026-09-15).
+        return size_word(w, h, flat) + f" with {face} written across its face"
     if flat:
         if a <= 20:
             return "small flat-roofed building"
@@ -301,7 +343,7 @@ def lua_table(B):
         for i, b in enumerate(B[mid], 1):
             doors = ", ".join(f'"{x},{y}"' for x, y, _ in b["doors"])
             lines.append(f'    {{ x0 = {b["x0"]}, y0 = {b["y0"]}, x1 = {b["x1"]}, y1 = {b["y1"]}, '
-                         f'look = "{size_word(b["w"], b["h"], b.get("flat"))}", doors = {{ {doors} }} }},')
+                         f'look = "{size_word(b["w"], b["h"], b.get("flat"), b.get("face"))}", doors = {{ {doors} }} }},')
         lines.append("  },")
     lines.append("}")
     return "\n".join(lines)
@@ -313,7 +355,7 @@ def main():
         for mid in sys.argv[sys.argv.index("--show") + 1:]:
             print(f"== {mid}")
             for b in B.get(mid, []):
-                print(f"  {b['w']}x{b['h']} at ({b['x0']},{b['y0']})-({b['x1']},{b['y1']}) {size_word(b['w'], b['h'], b.get('flat'))}: "
+                print(f"  {b['w']}x{b['h']} at ({b['x0']},{b['y0']})-({b['x1']},{b['y1']}) {size_word(b['w'], b['h'], b.get('flat'), b.get('face'))}: "
                       + ", ".join(f"({x},{y})->{d}" for x, y, d in b["doors"]))
         return
     txt = lua_table(B)
