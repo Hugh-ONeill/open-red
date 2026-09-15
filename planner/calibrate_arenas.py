@@ -88,16 +88,29 @@ def main():
                 continue
             wf = w[0] / max(1, w[1])
             nf = n[0] / max(1, n[1])
-            if wf >= 1.0 and nf < 1.0:
+            # A ROOM IS CALIBRATED WHEN THE MEDICINE DECIDES IT, not when
+            # the healing spec is flawless. The first rule demanded a
+            # perfect sweep, so Vermilion — which blacks out in EVERY
+            # trial without healing and in one of four with it — was
+            # filed as "hard" for losing a single fight out of sixteen
+            # (2026-09-15). What matters is the gap: win most of the
+            # room, and cost real blackouts when the medicine is taken
+            # away.
+            swing = n[2] - w[2]
+            if wf >= 0.85 and swing >= a.trials / 2:
                 verdict = "CALIBRATED — the medicine is what wins it"
-            elif wf >= 1.0 and nf >= 1.0:
+            elif nf >= 0.85 and swing <= 0:
                 verdict = "TOO EASY — it is won without healing at all"
-            elif wf < 1.0 and nf < 1.0:
-                verdict = ("TOO HARD — healing does not save it"
-                           if wf <= nf else
-                           "HARD — healing helps but does not finish it")
+            elif swing >= a.trials / 2:
+                verdict = (f"HARD — medicine decides it ({swing} fewer "
+                           f"blackouts) but only wins {wf:.0%}")
+            elif wf < 0.5:
+                verdict = "TOO HARD — healing does not save it"
+            elif swing <= 0:
+                verdict = "TOO EASY — healing costs it nothing"
             else:
-                verdict = "NOISE — the stripped spec did better"
+                verdict = (f"THIN — medicine is worth only {swing} "
+                           f"blackout(s) across {a.trials} trials")
             print(f"{room:11s} {w[0]:>6d}/{w[1]:<3d} b{w[2]:<2d} "
                   f"{n[0]:>3d}/{n[1]:<3d} b{n[2]:<2d}   {verdict}")
     return 0

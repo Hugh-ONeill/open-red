@@ -1180,13 +1180,13 @@ APPROACH = {
                 {"press": "SAFFRONGYM_CHANNELER2"}, {"pad": (1, 11)},
                 {"press": "SAFFRONGYM_YOUNGSTER4"}, {"pad": (1, 5)},
                 {"press": "SAFFRONGYM_SABRINA"}],
-    "cinnabar": [{"quiz": (15, 7), "answer": "no"},   # right answer: yes
-                 {"quiz": (10, 1), "answer": "yes"},  # right answer: no
-                 {"quiz": (9, 7), "answer": "yes"},
-                 {"quiz": (9, 13), "answer": "yes"},
-                 {"quiz": (1, 13), "answer": "no"},
-                 {"quiz": (1, 7), "answer": "yes"},
-                 {"press": "CINNABARGYM_BLAINE"}],
+    # CINNABAR NEEDS NO ROUTE. Its machine coordinates are in some other
+    # frame than the observation's cells — every scripted press came back
+    # "no reachable tile adjacent to target" from the door, Blaine
+    # included — and it does not need them: with the gates SHUT, beating
+    # a guardian opens his own gate (syncGymGatesAfterBattle), so
+    # pressing whoever is reachable and walking on is the route. That is
+    # what the generic crossing already does.
 }
 
 ARENAS = {

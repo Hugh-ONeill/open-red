@@ -2,18 +2,18 @@
   "party": [
     {
       "species": "CHARIZARD",
-      "level": 33,
+      "level": 38,
       "moves": [
-        "GROWL",
         "EMBER",
         "LEER",
-        "RAGE"
+        "RAGE",
+        "SLASH"
       ],
       "nickname": "CHARIZARD"
     },
     {
       "species": "NIDOKING",
-      "level": 31,
+      "level": 36,
       "moves": [
         "TACKLE",
         "HORN_ATTACK",
@@ -24,7 +24,7 @@
     },
     {
       "species": "BEEDRILL",
-      "level": 30,
+      "level": 34,
       "moves": [
         "FOCUS_ENERGY",
         "TWINEEDLE",

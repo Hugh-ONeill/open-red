@@ -266,8 +266,16 @@ GYMS = [
          # meets four of the seven.
          badges=5, door=(8, 17), puzzle=False, money=11000,
          score_only=["EVENT_BEAT_SABRINA"],
-         party=[("CHARIZARD", 33), ("NIDOKING", 31),
-                ("BEEDRILL", 30)],
+         # BACK UP AGAIN. Dropped three levels while it was still a
+         # one-fight room, then the route added four fights before
+         # SABRINA — two changes the same way, and it wiped every trial.
+         # The route is the difficulty now.
+         # +2 after the route landed: 0/4 without medicine and 2/4 with
+         # it says the medicine is doing its job and the room is simply
+         # tilted a shade too hard. The bag is already 800 HP across five
+         # fights, so this is levels, not potions.
+         party=[("CHARIZARD", 38), ("NIDOKING", 36),
+                ("BEEDRILL", 34)],
          bag={"SUPER_POTION": 4, "HYPER_POTION": 3, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="ALAKAZAM against a poison type is the worst matchup in the "
