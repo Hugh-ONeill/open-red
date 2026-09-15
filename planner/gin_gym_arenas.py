@@ -258,14 +258,26 @@ GYMS = [
               "rule is for."),
     dict(name="saffron", map="SAFFRON_GYM", leader="SABRINA", ace=43,
          badges=5, door=(9, 9), puzzle=True, money=11000,
-         party=[("CHARIZARD", 36), ("NIDOKING", 34),
-                ("BEEDRILL", 32)],
+         party=[("CHARIZARD", 33), ("NIDOKING", 31),
+                ("BEEDRILL", 30)],
          bag={"SUPER_POTION": 4, "HYPER_POTION": 3, "FULL_HEAL": 2,
               "REVIVE": 2},
          note="ALAKAZAM against a poison type is the worst matchup in the "
               "list, and three heal tiers to choose between."),
-    dict(name="cinnabar", map="CINNABAR_GYM", hms=["SURF"], leader="BLAINE", ace=47,
-         badges=6, door=(3, 4), puzzle=True, money=13000,
+    # NOT A PUZZLE ROOM EITHER. Blaine's quiz doors are six flags,
+    # EVENT_CINNABAR_GYM_GATE0..5_UNLOCKED, and the engine opens a gate
+    # when its flag is set OR its guardian is beaten — so setting them
+    # opens the gym and leaves all six Super Nerds standing. ONE FIGHT
+    # CANNOT CREATE ATTRITION and so cannot show whether medicine
+    # matters: across the suite the blackout swing tracked the FIGHT
+    # COUNT almost exactly, and every one-fight room swung 0 or 1
+    # (2026-09-15). Seven fights can. Only BLAINE's flag scores, because
+    # this gym has no numbered trainer events, but the wearing down on
+    # the way to him is the point.
+    dict(name="cinnabar", map="CINNABAR_GYM", hms=["SURF"], leader="BLAINE",
+         ace=47, badges=6, door=(16, 17), puzzle=False, money=13000,
+         open_flags=[f"EVENT_CINNABAR_GYM_GATE{i}_UNLOCKED"
+                     for i in range(6)],
          party=[("NIDOKING", 41), ("VICTREEBEL", 38),
                 ("POLIWHIRL", 38)],
          bag={"SUPER_POTION": 3, "HYPER_POTION": 4, "FULL_HEAL": 2,
@@ -285,8 +297,8 @@ GYMS = [
     # the base save has neither set, so there is nothing to clear.
     dict(name="viridian", map="VIRIDIAN_GYM", hms=["SURF"], leader="GIOVANNI",
          ace=50, badges=7, door=(2, 2), puzzle=True, money=15000,
-         party=[("CHARIZARD", 45), ("NIDOKING", 43),
-                ("POLIWHIRL", 42)],
+         party=[("CHARIZARD", 41), ("NIDOKING", 39),
+                ("POLIWHIRL", 38)],
          bag={"SUPER_POTION": 2, "HYPER_POTION": 5, "FULL_HEAL": 3,
               "REVIVE": 2},
          note="RHYDON L50 hits a Charizard four times over with rock. The "

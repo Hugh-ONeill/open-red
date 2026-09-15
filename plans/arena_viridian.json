@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "CHARIZARD",
-      "level": 45,
+      "level": 41,
       "moves": [
         "EMBER",
         "LEER",
@@ -13,7 +13,7 @@
     },
     {
       "species": "NIDOKING",
-      "level": 43,
+      "level": 39,
       "moves": [
         "TACKLE",
         "HORN_ATTACK",
@@ -24,12 +24,12 @@
     },
     {
       "species": "POLIWHIRL",
-      "level": 42,
+      "level": 38,
       "moves": [
+        "HYPNOSIS",
         "WATER_GUN",
         "DOUBLESLAP",
-        "BODY_SLAM",
-        "AMNESIA"
+        "BODY_SLAM"
       ],
       "nickname": "POLIWHIRL"
     }
