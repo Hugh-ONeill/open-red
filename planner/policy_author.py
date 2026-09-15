@@ -1015,17 +1015,40 @@ def cross_text(name: str, rows) -> str:
 # each shelf); `brock` is the one that replays a plan from a new game.
 ARENAS = {
     "brock": ("brock", None, None),
-    # The Pewter tier as a ROOM, not as a replay: `brock` replays a plan
-    # from a new game and writes into the campaign's own run directory,
-    # which is not a thing to do while a checkpoint is sitting in it.
-    # Same party, same gym, in its own bridge dir like the others.
-    "pewter": ("gym", REPO / "run/arena_brock_gym.lua",
-               REPO / "plans/arena_brock_gym.json"),
-    "erika": ("gym", REPO / "run/arena_erika.lua",
-              REPO / "plans/arena_erika.json"),
-    "koga": ("gym", REPO / "run/arena_koga.lua",
-             REPO / "plans/arena_koga.json"),
+    # EVERY GYM IN THE GAME, IN ORDER, each a clean room built by
+    # gin_gym_arenas.py rather than scavenged from whatever a run happened
+    # to be carrying: a party at the level that stage expects with one or
+    # two members under it, no free type counter, and a bag off that
+    # stage's own shelf carrying more than one tier of heal wherever the
+    # game sells more than one. The first four arenas were found rather
+    # than built and three of them saturated — once a policy could reach
+    # its own medicine, every candidate swept them (2026-09-15).
+    "pewter": ("gym", REPO / "run/arena_pewter.lua",
+               REPO / "plans/arena_pewter.json"),
+    "cerulean": ("gym", REPO / "run/arena_cerulean.lua",
+                 REPO / "plans/arena_cerulean.json"),
+    "vermilion": ("gym", REPO / "run/arena_vermilion.lua",
+                  REPO / "plans/arena_vermilion.json"),
+    "celadon": ("gym", REPO / "run/arena_celadon.lua",
+                REPO / "plans/arena_celadon.json"),
+    "fuchsia": ("gym", REPO / "run/arena_fuchsia.lua",
+                REPO / "plans/arena_fuchsia.json"),
+    "saffron": ("gym", REPO / "run/arena_saffron.lua",
+                REPO / "plans/arena_saffron.json"),
+    "cinnabar": ("gym", REPO / "run/arena_cinnabar.lua",
+                 REPO / "plans/arena_cinnabar.json"),
+    "viridian": ("gym", REPO / "run/arena_viridian.lua",
+                 REPO / "plans/arena_viridian.json"),
     "e4": ("e4", REPO / "run/arena_e4.lua", None),
+    # The three built by hand on 09-12 and 09-15, kept on disk and out of
+    # the default sweep: same three gyms, real-run parties, and they are
+    # the control if a built arena ever reads as easier than the game.
+    "erika_real": ("gym", REPO / "run/arena_erika.lua",
+                   REPO / "plans/arena_erika.json"),
+    "koga_real": ("gym", REPO / "run/arena_koga.lua",
+                  REPO / "plans/arena_koga.json"),
+    "brock_real": ("gym", REPO / "run/arena_brock_gym.lua",
+                   REPO / "plans/arena_brock_gym.json"),
 }
 
 

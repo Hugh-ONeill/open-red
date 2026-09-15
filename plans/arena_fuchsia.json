@@ -1,0 +1,80 @@
+{
+  "party": [
+    {
+      "species": "CHARIZARD",
+      "level": 38,
+      "moves": [
+        "EMBER",
+        "LEER",
+        "RAGE",
+        "SLASH"
+      ],
+      "nickname": "CHARIZARD"
+    },
+    {
+      "species": "NIDORINO",
+      "level": 34,
+      "moves": [
+        "HORN_ATTACK",
+        "POISON_STING",
+        "FOCUS_ENERGY",
+        "FURY_ATTACK"
+      ],
+      "nickname": "NIDORINO"
+    },
+    {
+      "species": "FARFETCHD",
+      "level": 30,
+      "moves": [
+        "SAND_ATTACK",
+        "LEER",
+        "FURY_ATTACK",
+        "CUT"
+      ],
+      "nickname": "FARFETCHD"
+    },
+    {
+      "species": "EEVEE",
+      "level": 28,
+      "moves": [
+        "TACKLE",
+        "SAND_ATTACK",
+        "QUICK_ATTACK"
+      ],
+      "nickname": "EEVEE"
+    }
+  ],
+  "bag": {
+    "POTION": 3,
+    "SUPER_POTION": 5,
+    "FULL_HEAL": 2,
+    "REVIVE": 2,
+    "ANTIDOTE": 2
+  },
+  "money": 9000,
+  "start": {
+    "map": "FUCHSIA_GYM",
+    "x": 4,
+    "y": 17,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_KOGA",
+    "EVENT_BEAT_FUCHSIA_GYM_TRAINER_0",
+    "EVENT_BEAT_FUCHSIA_GYM_TRAINER_1",
+    "EVENT_BEAT_FUCHSIA_GYM_TRAINER_2",
+    "EVENT_BEAT_FUCHSIA_GYM_TRAINER_3",
+    "EVENT_BEAT_FUCHSIA_GYM_TRAINER_4",
+    "EVENT_BEAT_FUCHSIA_GYM_TRAINER_5"
+  ],
+  "clear_trainers": [
+    "FUCHSIA_GYM_obj_1",
+    "FUCHSIA_GYM_obj_2",
+    "FUCHSIA_GYM_obj_3",
+    "FUCHSIA_GYM_obj_4",
+    "FUCHSIA_GYM_obj_5",
+    "FUCHSIA_GYM_obj_6",
+    "FUCHSIA_GYM_obj_7",
+    "FUCHSIA_GYM_obj_8"
+  ]
+}

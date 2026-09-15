@@ -1,0 +1,86 @@
+{
+  "party": [
+    {
+      "species": "CHARIZARD",
+      "level": 48,
+      "moves": [
+        "LEER",
+        "RAGE",
+        "SLASH",
+        "FLAMETHROWER"
+      ],
+      "nickname": "CHARIZARD"
+    },
+    {
+      "species": "NIDOKING",
+      "level": 45,
+      "moves": [
+        "TACKLE",
+        "HORN_ATTACK",
+        "POISON_STING",
+        "THRASH"
+      ],
+      "nickname": "NIDOKING"
+    },
+    {
+      "species": "EEVEE",
+      "level": 38,
+      "moves": [
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "TAIL_WHIP",
+        "BITE"
+      ],
+      "nickname": "EEVEE"
+    },
+    {
+      "species": "FARFETCHD",
+      "level": 36,
+      "moves": [
+        "LEER",
+        "FURY_ATTACK",
+        "SWORDS_DANCE",
+        "CUT"
+      ],
+      "nickname": "FARFETCHD"
+    }
+  ],
+  "bag": {
+    "SUPER_POTION": 2,
+    "HYPER_POTION": 5,
+    "FULL_HEAL": 3,
+    "REVIVE": 2
+  },
+  "money": 15000,
+  "start": {
+    "map": "VIRIDIAN_GYM",
+    "x": 2,
+    "y": 2,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI"
+  ],
+  "set_flags": [
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_0",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_1",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_2",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_3",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_4",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_5",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_6",
+    "EVENT_BEAT_VIRIDIAN_GYM_TRAINER_7"
+  ],
+  "set_trainers": [
+    "VIRIDIAN_GYM_obj_2",
+    "VIRIDIAN_GYM_obj_3",
+    "VIRIDIAN_GYM_obj_4",
+    "VIRIDIAN_GYM_obj_5",
+    "VIRIDIAN_GYM_obj_6",
+    "VIRIDIAN_GYM_obj_7",
+    "VIRIDIAN_GYM_obj_8",
+    "VIRIDIAN_GYM_obj_9",
+    "VIRIDIAN_GYM_obj_10",
+    "VIRIDIAN_GYM_obj_11"
+  ]
+}

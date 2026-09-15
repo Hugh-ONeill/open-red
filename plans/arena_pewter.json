@@ -1,0 +1,53 @@
+{
+  "party": [
+    {
+      "species": "CHARMANDER",
+      "level": 12,
+      "moves": [
+        "SCRATCH",
+        "GROWL",
+        "EMBER"
+      ],
+      "nickname": "CHARMANDER"
+    },
+    {
+      "species": "NIDORAN_M",
+      "level": 11,
+      "moves": [
+        "LEER",
+        "TACKLE",
+        "HORN_ATTACK"
+      ],
+      "nickname": "NIDORAN_M"
+    },
+    {
+      "species": "PIDGEY",
+      "level": 10,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK"
+      ],
+      "nickname": "PIDGEY"
+    }
+  ],
+  "bag": {
+    "POTION": 5,
+    "ANTIDOTE": 1
+  },
+  "money": 1500,
+  "start": {
+    "map": "PEWTER_GYM",
+    "x": 4,
+    "y": 13,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_BROCK",
+    "EVENT_BEAT_PEWTER_GYM_TRAINER_0"
+  ],
+  "clear_trainers": [
+    "PEWTER_GYM_obj_1",
+    "PEWTER_GYM_obj_2",
+    "PEWTER_GYM_obj_3"
+  ]
+}

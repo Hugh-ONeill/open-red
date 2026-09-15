@@ -1,0 +1,82 @@
+{
+  "party": [
+    {
+      "species": "CHARIZARD",
+      "level": 41,
+      "moves": [
+        "EMBER",
+        "LEER",
+        "RAGE",
+        "SLASH"
+      ],
+      "nickname": "CHARIZARD"
+    },
+    {
+      "species": "NIDOKING",
+      "level": 38,
+      "moves": [
+        "TACKLE",
+        "HORN_ATTACK",
+        "POISON_STING",
+        "THRASH"
+      ],
+      "nickname": "NIDOKING"
+    },
+    {
+      "species": "FARFETCHD",
+      "level": 32,
+      "moves": [
+        "LEER",
+        "FURY_ATTACK",
+        "SWORDS_DANCE",
+        "CUT"
+      ],
+      "nickname": "FARFETCHD"
+    },
+    {
+      "species": "EEVEE",
+      "level": 30,
+      "moves": [
+        "TACKLE",
+        "SAND_ATTACK",
+        "QUICK_ATTACK"
+      ],
+      "nickname": "EEVEE"
+    }
+  ],
+  "bag": {
+    "SUPER_POTION": 4,
+    "HYPER_POTION": 3,
+    "FULL_HEAL": 2,
+    "REVIVE": 2
+  },
+  "money": 11000,
+  "start": {
+    "map": "SAFFRON_GYM",
+    "x": 9,
+    "y": 9,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_SABRINA"
+  ],
+  "set_flags": [
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_0",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_1",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_2",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_3",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_4",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_5",
+    "EVENT_BEAT_SAFFRON_GYM_TRAINER_6"
+  ],
+  "set_trainers": [
+    "SAFFRON_GYM_obj_2",
+    "SAFFRON_GYM_obj_3",
+    "SAFFRON_GYM_obj_4",
+    "SAFFRON_GYM_obj_5",
+    "SAFFRON_GYM_obj_6",
+    "SAFFRON_GYM_obj_7",
+    "SAFFRON_GYM_obj_8",
+    "SAFFRON_GYM_obj_9"
+  ]
+}

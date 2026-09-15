@@ -1,0 +1,59 @@
+{
+  "party": [
+    {
+      "species": "CHARMELEON",
+      "level": 18,
+      "moves": [
+        "SCRATCH",
+        "GROWL",
+        "EMBER",
+        "LEER"
+      ],
+      "nickname": "CHARMELEON"
+    },
+    {
+      "species": "NIDORINO",
+      "level": 17,
+      "moves": [
+        "LEER",
+        "TACKLE",
+        "HORN_ATTACK",
+        "POISON_STING"
+      ],
+      "nickname": "NIDORINO"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 16,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK"
+      ],
+      "nickname": "PIDGEOTTO"
+    }
+  ],
+  "bag": {
+    "POTION": 8,
+    "ANTIDOTE": 2,
+    "PARLYZ_HEAL": 1
+  },
+  "money": 2800,
+  "start": {
+    "map": "CERULEAN_GYM",
+    "x": 4,
+    "y": 13,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_MISTY",
+    "EVENT_BEAT_CERULEAN_GYM_TRAINER_0",
+    "EVENT_BEAT_CERULEAN_GYM_TRAINER_1"
+  ],
+  "clear_trainers": [
+    "CERULEAN_GYM_obj_1",
+    "CERULEAN_GYM_obj_2",
+    "CERULEAN_GYM_obj_3",
+    "CERULEAN_GYM_obj_4"
+  ]
+}

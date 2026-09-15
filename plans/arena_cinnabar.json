@@ -1,0 +1,75 @@
+{
+  "party": [
+    {
+      "species": "CHARIZARD",
+      "level": 44,
+      "moves": [
+        "EMBER",
+        "LEER",
+        "RAGE",
+        "SLASH"
+      ],
+      "nickname": "CHARIZARD"
+    },
+    {
+      "species": "NIDOKING",
+      "level": 42,
+      "moves": [
+        "TACKLE",
+        "HORN_ATTACK",
+        "POISON_STING",
+        "THRASH"
+      ],
+      "nickname": "NIDOKING"
+    },
+    {
+      "species": "EEVEE",
+      "level": 34,
+      "moves": [
+        "TACKLE",
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "TAIL_WHIP"
+      ],
+      "nickname": "EEVEE"
+    },
+    {
+      "species": "FARFETCHD",
+      "level": 34,
+      "moves": [
+        "LEER",
+        "FURY_ATTACK",
+        "SWORDS_DANCE",
+        "CUT"
+      ],
+      "nickname": "FARFETCHD"
+    }
+  ],
+  "bag": {
+    "SUPER_POTION": 3,
+    "HYPER_POTION": 4,
+    "FULL_HEAL": 2,
+    "REVIVE": 2
+  },
+  "money": 13000,
+  "start": {
+    "map": "CINNABAR_GYM",
+    "x": 3,
+    "y": 4,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_BLAINE"
+  ],
+  "set_flags": [],
+  "set_trainers": [
+    "CINNABAR_GYM_obj_2",
+    "CINNABAR_GYM_obj_3",
+    "CINNABAR_GYM_obj_4",
+    "CINNABAR_GYM_obj_5",
+    "CINNABAR_GYM_obj_6",
+    "CINNABAR_GYM_obj_7",
+    "CINNABAR_GYM_obj_8",
+    "CINNABAR_GYM_obj_9"
+  ]
+}

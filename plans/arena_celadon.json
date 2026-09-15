@@ -1,0 +1,80 @@
+{
+  "party": [
+    {
+      "species": "CHARMELEON",
+      "level": 28,
+      "moves": [
+        "GROWL",
+        "EMBER",
+        "LEER",
+        "RAGE"
+      ],
+      "nickname": "CHARMELEON"
+    },
+    {
+      "species": "NIDORINO",
+      "level": 27,
+      "moves": [
+        "TACKLE",
+        "HORN_ATTACK",
+        "POISON_STING",
+        "FOCUS_ENERGY"
+      ],
+      "nickname": "NIDORINO"
+    },
+    {
+      "species": "FARFETCHD",
+      "level": 24,
+      "moves": [
+        "SAND_ATTACK",
+        "LEER",
+        "FURY_ATTACK",
+        "CUT"
+      ],
+      "nickname": "FARFETCHD"
+    },
+    {
+      "species": "EEVEE",
+      "level": 22,
+      "moves": [
+        "TACKLE",
+        "SAND_ATTACK"
+      ],
+      "nickname": "EEVEE"
+    }
+  ],
+  "bag": {
+    "POTION": 4,
+    "SUPER_POTION": 4,
+    "ANTIDOTE": 2,
+    "PARLYZ_HEAL": 2,
+    "REVIVE": 1
+  },
+  "money": 6000,
+  "start": {
+    "map": "CELADON_GYM",
+    "x": 4,
+    "y": 17,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_ERIKA",
+    "EVENT_BEAT_CELADON_GYM_TRAINER_0",
+    "EVENT_BEAT_CELADON_GYM_TRAINER_1",
+    "EVENT_BEAT_CELADON_GYM_TRAINER_2",
+    "EVENT_BEAT_CELADON_GYM_TRAINER_3",
+    "EVENT_BEAT_CELADON_GYM_TRAINER_4",
+    "EVENT_BEAT_CELADON_GYM_TRAINER_5",
+    "EVENT_BEAT_CELADON_GYM_TRAINER_6"
+  ],
+  "clear_trainers": [
+    "CELADON_GYM_obj_1",
+    "CELADON_GYM_obj_2",
+    "CELADON_GYM_obj_3",
+    "CELADON_GYM_obj_4",
+    "CELADON_GYM_obj_5",
+    "CELADON_GYM_obj_6",
+    "CELADON_GYM_obj_7",
+    "CELADON_GYM_obj_8"
+  ]
+}
