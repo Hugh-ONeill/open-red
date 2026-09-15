@@ -3408,7 +3408,16 @@ local function observe(G, seq, result)
   elseif top and (top.enemy or top.kind) then
     o.mode = "battle"
     o.battle = scalars(top, 0)
-    local function side(s)
+    -- YOU CANNOT SEE THE ENEMY'S PP IN GEN 1, and what was reported was
+    -- not even its PP. The enemy side has no curMoves, so this fell back
+    -- to `mon.moves` -- the species table -- and printed every foe move
+    -- at its BASE PP, unchanging. AGATHA's GENGAR read CONFUSE_RAY 10,
+    -- NIGHT_SHADE 15, TOXIC 10, DREAM_EATER 15 with NIGHT_SHADE as its
+    -- last move and nineteen thousand turns behind it (2026-09-15). A
+    -- number that never moves and never was right is worse than no
+    -- number: drop it, and the foe's moves carry what a player can
+    -- actually watch happen -- which move, of what type and power.
+    local function side(s, mine)
       if not s then return nil end
       local d = scalars(s, 0)
       local mon = s.mon or {}
@@ -3426,7 +3435,8 @@ local function observe(G, seq, result)
         -- are physical; the rest are special.
         local PHYS = { NORMAL=1, FIGHTING=1, FLYING=1, GROUND=1, ROCK=1,
                        BUG=1, GHOST=1, POISON=1 }
-        d.moves[i] = { index = i, id = mv.id, pp = mv.pp,
+        d.moves[i] = { index = i, id = mv.id,
+                       pp = mine and mv.pp or nil,
                        type = def.type, power = def.power,
                        accuracy = def.accuracy, effect = def.effect,
                        category = def.type and (PHYS[def.type] and "physical"
@@ -3436,8 +3446,8 @@ local function observe(G, seq, result)
       d.boosts = s.stages             -- stat stage modifiers
       return d
     end
-    o.battle.me = side(top.player)
-    o.battle.foe = side(top.enemy)
+    o.battle.me = side(top.player, true)
+    o.battle.foe = side(top.enemy, false)
     -- THE GHOST IS A GHOST. Without the SILPH SCOPE the Pokemon Tower's
     -- foe is drawn and named "GHOST" on screen (BattleState:makeGhost); the
     -- battle table still holds the real species, and side() read it -- so
