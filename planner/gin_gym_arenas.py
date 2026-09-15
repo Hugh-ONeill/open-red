@@ -198,8 +198,16 @@ GYMS = [
          note="Fire into water, and STARMIE outspeeds all three. Single "
               "tier on purpose: POTION is the only heal a Cerulean-era "
               "shelf sells."),
+    # NOT A PUZZLE ROOM AFTER ALL. Surge's trash-can locks are two
+    # FLAGS (EVENT_1ST_LOCK_OPENED / EVENT_2ND_LOCK_OPENED, and the
+    # second is what swaps the door block), so setting them opens the
+    # gym and the whole room is crossable from its door. That is worth
+    # more than parking past it: the two gym trainers are ELECTRIC, so
+    # fighting them is how the room tells the lead rule what it is made
+    # of before Surge. A one-fight arena can never say that.
     dict(name="vermilion", map="VERMILION_GYM", leader="LT_SURGE", ace=24,
-         badges=2, door=(5, 2), puzzle=True, money=4200,
+         badges=2, door=(4, 17), puzzle=False, money=4200,
+         open_flags=["EVENT_1ST_LOCK_OPENED", "EVENT_2ND_LOCK_OPENED"],
          party=[("CHARMELEON", 23), ("NIDORINO", 21), ("PIDGEOTTO", 20),
                 ("DIGLETT", 20)],
          bag={"POTION": 5, "SUPER_POTION": 3, "PARLYZ_HEAL": 3,
@@ -303,6 +311,9 @@ def build(g: dict) -> dict:
         spec["clear_flags"] = [lead_flag] + others + extra
         spec["clear_trainers"] = [f"{g['map']}_obj_{i}"
                                   for i, _n, _x, _y in objs]
+    if g.get("open_flags"):
+        spec["set_flags"] = sorted(set(spec.get("set_flags") or [])
+                                   | set(g["open_flags"]))
     return spec
 
 

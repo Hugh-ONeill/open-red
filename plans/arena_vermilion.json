@@ -52,22 +52,25 @@
   "money": 4200,
   "start": {
     "map": "VERMILION_GYM",
-    "x": 5,
-    "y": 2,
-    "facing": "down"
+    "x": 4,
+    "y": 17,
+    "facing": "up"
   },
   "clear_flags": [
-    "EVENT_BEAT_LT_SURGE"
-  ],
-  "set_flags": [
+    "EVENT_BEAT_LT_SURGE",
     "EVENT_BEAT_VERMILION_GYM_TRAINER_0",
     "EVENT_BEAT_VERMILION_GYM_TRAINER_1",
     "EVENT_BEAT_VERMILION_GYM_TRAINER_2"
   ],
-  "set_trainers": [
+  "clear_trainers": [
+    "VERMILION_GYM_obj_1",
     "VERMILION_GYM_obj_2",
     "VERMILION_GYM_obj_3",
     "VERMILION_GYM_obj_4",
     "VERMILION_GYM_obj_5"
+  ],
+  "set_flags": [
+    "EVENT_1ST_LOCK_OPENED",
+    "EVENT_2ND_LOCK_OPENED"
   ]
 }
