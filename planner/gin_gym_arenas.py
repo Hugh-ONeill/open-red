@@ -239,7 +239,7 @@ GYMS = [
               "SUPER_POTION appears. RAICHU paralyses, so the cure class "
               "has something to do."),
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
-         badges=3, door=(4, 17), puzzle=False, money=8000,
+         badges=3, needs_cut=True, door=(4, 17), puzzle=False, money=8000,
          party=[("CHARMELEON", 26), ("NIDORINO", 25),
                 ("BEEDRILL", 24)],
          bag={"POTION": 4, "SUPER_POTION": 10, "ANTIDOTE": 2,
@@ -297,13 +297,25 @@ def build(g: dict) -> dict:
                        or n.endswith(g["leader"])), None)
     lead_flag = "EVENT_BEAT_" + g["leader"]
     others = trainer_flags(g["map"])
+    # A ROOM WITH A BUSH IN IT NEEDS SOMEBODY WHO CAN CUT. Celadon pens
+    # Erika and her last three trainers inside a bed with two CUT_TREEs,
+    # and the Cut carrier was FARFETCH'D — who was cut from the party
+    # when it went from five to three. The room then capped at exactly
+    # four of eight, every trial, with no blackouts and no difference
+    # between full medicine and none: not a party losing, a party that
+    # could not reach the other half (2026-09-15). Whoever is here, one
+    # of them carries it.
     party = []
     for sp, lv in g["party"]:
-        mv = natural_moves(sp, lv)
-        if sp == "FARFETCHD" and can_learn(sp, "CUT"):
-            mv = (mv[:3] + ["CUT"]) if "CUT" not in mv else mv
-        party.append({"species": sp, "level": lv, "moves": mv,
-                      "nickname": sp})
+        party.append({"species": sp, "level": lv,
+                      "moves": natural_moves(sp, lv), "nickname": sp})
+    if g.get("needs_cut") and not any("CUT" in m["moves"] for m in party):
+        for m in party:
+            if can_learn(m["species"], "CUT"):
+                m["moves"] = m["moves"][:3] + ["CUT"]
+                break
+        else:
+            sys.exit(f"{g['name']}: nobody in this party can learn CUT")
     # FACING MATTERS BECAUSE BOOTSTRAP MASHES A. A save resumes exactly
     # where it was written and bootstrap opens with six A presses to clear
     # the title ceremony; parked in front of a leader FACING HIM, those
