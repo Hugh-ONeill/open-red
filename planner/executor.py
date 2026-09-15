@@ -11693,6 +11693,24 @@ class Executor:
             return [], held
         return dead, held
 
+    @staticmethod
+    def _policy_field_unmet(obs):
+        """(item, below) the policy's FIELD heal names and the bag lacks,
+        or ("", 0). The same dead-rule reading as _policy_unmet, for the
+        OTHER half of the spec."""
+        fh = (ACTIVE_SPEC or {}).get("field_heal") or {}
+        item = str(fh.get("item") or "") if isinstance(fh, dict) else ""
+        if not item:
+            return "", 0
+        bag = (obs or {}).get("bag") or {}
+        if bag.get(item):
+            return "", 0
+        try:
+            below = float(fh.get("hp_below") or 0)
+        except (TypeError, ValueError):
+            below = 0
+        return item, below
+
     def _policy_heal_line(self, obs) -> str:
         """A healing rule that names an item you do not carry never fires.
 
@@ -11711,16 +11729,48 @@ class Executor:
         to do."""
         try:
             dead, held = Executor._policy_unmet(obs)
-            if not dead:
+            # ...AND THE OTHER HALF OF THE SPEC, WHICH NOBODY WAS TOLD
+            # ABOUT. This read `battle_items` alone, so a `field_heal`
+            # rule that names the same missing item was dead in silence:
+            # v1 heals below 30% in a fight and below 60% out of one, both
+            # with POTION, and the bag held three SUPER_POTIONs. The page
+            # said the fight rule could not fire and said nothing about
+            # the other, so CHARIZARD walked from the gym's trainers into
+            # Erika at 17 of 116 and the run blacked out (2026-09-15,
+            # user: "it didnt use the three super potions it had to heal
+            # char and instead died to erika"). Same reading, said once
+            # for each rule.
+            fitem, fbelow = Executor._policy_field_unmet(obs)
+            if not dead and not fitem:
                 return ""          # at least one rule can still fire
-            return ("\nYOUR BATTLE POLICY CANNOT HEAL YOU RIGHT NOW: it "
-                    "reaches for " + ", ".join(dead)
-                    + " in a fight and you are carrying none. "
-                    + ("What you ARE carrying: " + ", ".join(held)
-                       + ". " if held else "You carry no healing items "
-                                           "at all. ")
-                    + "The rule is in your own battle policy; nothing here "
-                      "changes it for you.")
+            _held = ("What you ARE carrying: " + ", ".join(held) + ". "
+                     if held else "You carry no healing items at all. ")
+            out = ""
+            if dead:
+                out += ("\nYOUR BATTLE POLICY CANNOT HEAL YOU RIGHT NOW: it "
+                        "reaches for " + ", ".join(dead)
+                        + " in a fight and you are carrying none. " + _held
+                        + "The rule is in your own battle policy; nothing "
+                          "here changes it for you.")
+            if fitem:
+                out += ("\n" + ("...AND NOT BETWEEN FIGHTS EITHER: its "
+                                "field rule" if dead else
+                                "YOUR BATTLE POLICY CANNOT MEND ANYONE "
+                                "BETWEEN FIGHTS: its field rule")
+                        + " reaches for " + fitem
+                        + (f" when a party member drops below "
+                           f"{int(round(fbelow * 100))}% of its HP"
+                           if fbelow else " when a party member is hurt")
+                        + " and you are carrying none"
+                        + ("." if dead else ". " + _held)
+                        + " So nobody is mended on the walk between one "
+                          "fight and the next.")
+            if out:
+                out += ("\nA rule fires only on the item it NAMES. What a "
+                        "Center's counter restores, and what an item in "
+                        "your own bag restores when you reach for it by "
+                        "hand, are not governed by it at all.")
+            return out
         except Exception:
             return ""
 
