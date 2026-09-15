@@ -548,6 +548,27 @@ class Gym:
         return {f for f in ((obs or {}).get("flags") or [])
                 if str(f).startswith("EVENT_BEAT_")}
 
+    def _arrange_before(self, obs) -> None:
+        """Put the spec's chosen lead in slot 1 before a press.
+
+        THE ARENA PRESSES TRAINERS ITSELF and never goes through the
+        executor's op path, so the `lead` hook that fires in a real run
+        fired in no trial at all: a spec carrying a lead rule scored
+        exactly as one without it, and the authoring loop would have been
+        blind to the whole rule while scoring it. Same chooser, same op —
+        called where this driver actually presses."""
+        try:
+            spec = ex_mod.ACTIVE_SPEC or {}
+            if not spec.get("lead"):
+                return
+            want = battle_policy.choose_lead(obs, spec, "trainer")
+            party = (obs or {}).get("party") or []
+            if not want or want == 1 or want > len(party):
+                return
+            self.b.send("party_swap", a=1, b=want)
+        except Exception:
+            pass                    # a lead is never worth the trial
+
     def _cross_room(self, here: str, want: set | None = None,
                     tries: int = 0):
         """Press everyone in this room, fighting whatever starts.
@@ -589,6 +610,7 @@ class Gym:
             for who in roster:
                 if who in pressed:
                     continue
+                self._arrange_before(obs)
                 r = self.b.send("interact", name=who, answer="no")
                 if self._ok(r):
                     pressed.add(who)
