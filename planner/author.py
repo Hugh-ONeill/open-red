@@ -6380,12 +6380,81 @@ def check_blocker(goal: str, ahead: list, start: str, journal: str,
     was badly wrong, and it earns a second question in different words —
     see confirm_blocker. Distance raises the burden; it never forbids.
     """
-    body = (f"THE STUCK LEG: {goal}" + _wording_lineage(goal)
+    # ...AND WHO IS STANDING IN WHICH DOORWAY. The run's own record keeps
+    # the doors it found held by a person ("27,11 (CERULEANCITY_GUARD2 is
+    # standing there)"), and the question never showed them — so run 27,
+    # walled out of Cerulean's south half by the guard on the trashed
+    # house's only door, was asked what blocks it with nothing on the page
+    # about the guard, and answered the CUT bush (2026-09-16). What moves a
+    # person out of a doorway is the model's to know; that one stands there
+    # is the run's own sighting.
+    _heldtxt = _held_doors_text(observed)
+    base = (f"THE STUCK LEG: {goal}" + _wording_lineage(goal)
             + f"\n\nWHERE THE RUN STANDS: {start}\n"
-            f"{journal}" + attempt_yield_text(goal)[0]
-            + "\n\nTHE LEGS STILL AHEAD:\n"
-            + "\n".join(_leg_line(n, t) for n, t in ahead
-                        if _norm_obj(t) not in refused))
+            f"{journal}" + attempt_yield_text(goal)[0] + _heldtxt)
+    # A REFUSED ANSWER IS ASKED AGAIN, NOT DROPPED. Every check below turned
+    # the model's pick down and returned nothing, so one wrong pick ended
+    # the question: "Reach Vermilion City" named the HM01 on the S.S. Anne,
+    # was refused as circular, and the rung never got to "Retrieve the S.S.
+    # Ticket from Bill" two legs above it — the deed that moves Cerulean's
+    # guard (user, 2026-09-16: "the point of doing an authored run now is
+    # to work out the push-up/down and rewrites"). The refused leg leaves
+    # the list, the refusal is said, and the model may name another or
+    # none. Twice at most.
+    excluded: set = set()
+    said: list = []
+    for _ask in range(3):
+        body = (base + "\n\nTHE LEGS STILL AHEAD:\n"
+                + "\n".join(_leg_line(n, t) for n, t in ahead
+                            if _norm_obj(t) not in refused
+                            and n not in excluded))
+        if said:
+            body += ("\n\nANSWERS ALREADY TURNED DOWN FOR THIS LEG (they are "
+                     "off the list above; name a different leg, or null):\n"
+                     + "\n".join(f"  - {x}" for x in said))
+        n, why_not = _blocker_once(goal, body, ahead, start, journal, model,
+                                   leg, observed, refused, held, plan)
+        if n is not None and why_not is None:
+            return n
+        if n is None:
+            return None
+        excluded.add(n)
+        said.append(f"leg {n}: {why_not}")
+    print("[blocker] no pick survived after two re-asks", file=sys.stderr)
+    return None
+
+
+def _held_doors_text(observed) -> str:
+    """Doorways the run has found a person standing in, from its own
+    record (explored.json shut_doors), one line each."""
+    if not observed:
+        return ""
+    try:
+        d = json.loads(Path(observed).read_text() or "{}")
+    except (OSError, ValueError):
+        return ""
+    rows, seen = [], set()
+    for region, doors in (d.get("shut_doors") or {}).items():
+        for dd in doors or []:
+            # "(CERULEANCITY_GUARD2 is standing there)", not "(... nobody
+            # is standing there)", which says the opposite
+            if not re.search(r"\([A-Z0-9_]+ is standing there\)", str(dd)):
+                continue
+            key = (region.split("|")[0], str(dd))
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(f"  {region.split('|')[0]} door {dd}")
+    if not rows:
+        return ""
+    return ("\nDOORWAYS YOU HAVE FOUND SOMEONE STANDING IN (the last time you "
+            "stood by them):\n" + "\n".join(rows[:10]) + "\n")
+
+
+def _blocker_once(goal, body, ahead, start, journal, model, leg, observed,
+                  refused, held, plan):
+    """One question. (n, None) is a pick that stands; (n, reason) a pick
+    turned down; (None, None) no pick at all."""
     reply = brock_probe.chat(
         [{"role": "system", "content": BLOCKER_SYS},
          {"role": "user", "content": body}], model)
@@ -6397,49 +6466,46 @@ def check_blocker(goal: str, ahead: list, start: str, journal: str,
     m = re.search(r"\{.*\}", reply, re.S)
     if not m:
         print("[blocker] no parseable answer", file=sys.stderr)
-        return None
+        return None, None
     try:
         _ans = json.loads(m.group(0))
         n = _ans.get("pull_forward")
     except (ValueError, AttributeError):
         print("[blocker] no parseable answer", file=sys.stderr)
-        return None
+        return None, None
     if not isinstance(n, (int, float)):
         print(f"[blocker] none: {str(_ans.get('why') or '')[:200]}",
               file=sys.stderr)
-        return None
+        return None, None
     n = int(n)
+
+    def no(reason):
+        print(f"[blocker] refused: {reason}", file=sys.stderr)
+        return n, reason
     hit = [(a, t) for a, t in ahead if a == n]
     if not hit:
-        print(f"[blocker] refused: {n} is not a leg still ahead",
-              file=sys.stderr)
-        return None
+        return no(f"{n} is not a leg still ahead")
     text = hit[0][1]
     _ph = _phantom_item(text)
     if _ph:
-        print(f"[blocker] refused: leg {n} names a thing this game does not "
-              f"have — {_ph}", file=sys.stderr)
-        return None
+        return no(f"leg {n} names a thing this game does not have — {_ph}")
     # A leg already pulled forward once and failed there is not pulled
     # again — otherwise a wrong pull is re-made every time the ladder
     # comes round, and the reorder budget is spent churning one mistake.
     if _norm_obj(text) in refused:
-        print(f"[blocker] refused: leg {n} was pulled forward before and "
-              f"did not unstick this", file=sys.stderr)
-        return None
+        return no(f"leg {n} was pulled forward before and did not unstick "
+                  f"this")
     # Moving a finished objective forward accomplishes nothing but four
     # more attempts at it; the sweep would cross it off at the next leg
     # boundary anyway, so settle it here rather than pay for it first.
     if check_already_done(text, start, model, observed=observed):
-        print(f"[blocker] refused: leg {n} is already done", file=sys.stderr)
-        return None
+        return no(f"leg {n} is already done")
     gap = n - leg if leg else 0
     if gap > PULL_MAX:
-        print(f"[blocker] refused a {gap}-leg pull: further than {PULL_MAX} "
-              f"— the list is not rearranged that far on one answer; if "
-              f"leg {n} truly comes first, the legs between are where the "
-              f"stuck one belongs", file=sys.stderr)
-        return None
+        return no(f"a {gap}-leg pull: further than {PULL_MAX} — the list is "
+                  f"not rearranged that far on one answer; if leg {n} truly "
+                  f"comes first, the legs between are where the stuck one "
+                  f"belongs")
     # EVERY PULL IS CONFIRMED, NEAR OR FAR. This ran only for pulls further
     # than PULL_NEAR, on the reasoning that a long reach is the suspicious
     # one — true, and it left the CIRCULAR pull entirely unguarded, because
@@ -6456,24 +6522,21 @@ def check_blocker(goal: str, ahead: list, start: str, journal: str,
     # ids instead of things; see pull_into_unreached.
     _where = pull_into_unreached(text, plan, observed) if plan else None
     if _where:
-        print(f"[blocker] refused: leg {n} happens in {_where}, the very "
-              f"place this leg's own plan could not reach — a leg that "
-              f"needs the same ground is not what unblocks it",
-              file=sys.stderr)
-        return None
+        return no(f"leg {n} happens in {_where}, the very place this leg's "
+                  f"own plan could not reach — a leg that needs the same "
+                  f"ground is not what unblocks it")
     # ...AND A LEG BEHIND A DOOR SOMEBODY IS STANDING ON. See pull_into_held.
     _held = pull_into_held(text, observed) if observed else None
     if _held:
-        print(f"[blocker] refused: leg {n} happens in a building you have "
-              f"never stood in, and the last time you stood by its door "
-              f"somebody was standing on it — {_held}. A leg behind a held "
-              f"door is not what moves them: name what does, or another "
-              f"blocker", file=sys.stderr)
-        return None
+        return no(f"leg {n} happens in a building you have never stood in, "
+                  f"and the last time you stood by its door somebody was "
+                  f"standing on it — {_held}. A leg behind a held door is not "
+                  f"what moves them: name what does, or another blocker")
     if not confirm_blocker(goal, n, text, gap, start, journal, model,
                            held=held):
-        return None
-    return n
+        return n, ("asked again what it hands the stuck leg, the answer "
+                   "named nothing it provides")
+    return n, None
 
 
 CHECKDONE_SYS = """You are judging whether a Pokemon Red objective is

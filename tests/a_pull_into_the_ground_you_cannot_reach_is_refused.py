@@ -83,7 +83,7 @@ ck("check_blocker asks before the confirm step",
    and src.index("pull_into_unreached(text, plan, observed)")
    < src.index("if not confirm_blocker(goal, n, text, gap, start, journal, model,"))
 ck("...and the refusal says which place, and why that is circular",
-   "the very \"\n              f\"place this leg's own plan could not reach" in src)
+   "the very place this leg's \"\n                  f\"own plan could not reach" in src)
 ck("the chain hands over the stuck leg's plan",
    '--plan "$plan"' in (ROOT / "fresh_discovery.sh").read_text())
 
