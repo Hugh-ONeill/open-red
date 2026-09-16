@@ -12881,6 +12881,87 @@ class Executor:
         via = [w for w in doors if w.get("dest") in self.SHOP_COUNTER_FLOOR]
         return (via or doors)[0]
 
+    HEAL_STREET_SYS = (
+        "You are playing Pokemon Red. Some of your Pokemon have fainted, and "
+        "a Pokemon Center stands in this town. The nurse there heals the "
+        "whole party, and it costs nothing. Decide whether to heal now, "
+        "given what you are trying to do. Reply with a JSON object and "
+        "nothing else: {\"why\":\"<one short sentence>\",\"heal\":true} "
+        "or {\"why\":\"...\",\"heal\":false}.")
+
+    def _ask_heal_street(self, obs, sg):
+        """Fainted members, a Center in this town: ask, and heal on a yes.
+
+        Run 27 walked out of Vermilion toward Route 12 with PIDGEOTTO,
+        GRAVELER and KADABRA at 0 HP and only IVYSAUR standing, past a
+        Center it had walked into, with 13,932 money, while three street
+        questions about buying went unanswered by any sale (user,
+        2026-09-16: "its also not healing its several fainting mons despite
+        being in a city with a center"). The page listed the party's HP and
+        the Center's door; nothing brought the two together. The buy
+        question's shape: the facts (who has fainted, the door on this
+        street), one answer, no round. Whether to heal is the model's —
+        a leg can have reasons to press on — and the walk and the nurse are
+        the heal op's, as they always were. Once per street visit."""
+        if (obs or {}).get("mode") != "overworld":
+            return obs
+        m = (obs or {}).get("map") or {}
+        if not m.get("outdoor"):
+            self._heal_street_at = None
+            return obs
+        party = (obs or {}).get("party") or []
+        down = [p for p in party if (p.get("hp") or 0) <= 0]
+        if not down or len(down) == len(party):
+            return obs
+        doors = [w for w in (m.get("warps") or [])
+                 if isinstance(w, dict) and "POKECENTER" in str(w.get("dest") or "")
+                 and w.get("seen") and w.get("reachable")]
+        if not doors:
+            return obs
+        here = str(m.get("id") or "")
+        if getattr(self, "_heal_street_at", None) == here:
+            return obs
+        self._heal_street_at = here
+        d0 = doors[0]
+        roster = "; ".join(f"{p.get('nickname') or p.get('species')} "
+                           f"L{p.get('level')} {p.get('hp')}/{p.get('max_hp')} hp"
+                           for p in party)
+        user = (f"FAINTED: {', '.join(str(p.get('nickname') or p.get('species')) for p in down)}"
+                f" ({len(down)} of {len(party)})\n"
+                f"YOUR PARTY: {roster}\n"
+                f"THE CENTER: the door into {d0.get('dest')} at "
+                f"{d0.get('x')},{d0.get('y')} on this street, a short walk.\n"
+                f"WHAT YOU ARE TRYING TO DO RIGHT NOW: "
+                f"{(sg or {}).get('goal_text') or (sg or {}).get('id') or 'make progress'}\n"
+                "Heal now?")
+        yes, why = False, ""
+        try:
+            reply = brock_probe.chat(
+                [{"role": "system", "content": self.HEAL_STREET_SYS},
+                 {"role": "user", "content": user}], self.model)
+            mm = _re.search(r"\{.*\}", reply or "", _re.S)
+            dd = json.loads(mm.group(0)) if mm else {}
+            yes = dd.get("heal") is True or str(dd.get("heal")).lower() == "true"
+            why = str(dd.get("why") or "")[:200]
+        except Exception as e:
+            self.log("heal_chat_error", subgoal=(sg or {}).get("id"),
+                     err=str(e)[:120])
+            return obs
+        self.log("heal_street_asked", subgoal=(sg or {}).get("id"), map=here,
+                 fainted=len(down), heal=yes, why=why)
+        if not yes:
+            print(f"   (heal here? no — {why or 'no usable answer'})")
+            return obs
+        r = (self._send_safe("heal") or {}).get("result") or {}
+        obs = self.settle() or obs
+        self.log("heal_done", subgoal=(sg or {}).get("id"),
+                 ok=bool(r.get("ok")) and pred_holds({"party_healthy": True}, obs),
+                 why=why, detail=str(r.get("detail") or "")[:120],
+                 where="street")
+        print(f"   (heal here? yes — {why}: "
+              f"{'healed' if r.get('ok') else str(r.get('detail') or 'failed')[:160]})")
+        return obs
+
     def _ask_buy(self, obs, sg):
         """Standing beside a shop counter: ask, then buy what the answer
         says, for no round.
@@ -13063,6 +13144,36 @@ class Executor:
             m2 = _re.search(r"it costs (\d+)", det)
             if "cannot afford" in det and m2:
                 self._cant_afford[item] = int(m2.group(1))
+            # ...AND SO IS THE SHELF IT NAMES. A shelf was only kept when a
+            # counter's menu was read, so Vermilion's refusal — "POTION is
+            # not on VERMILIONMART_CLERK's shelf, which holds: POKE_BALL,
+            # SUPER_POTION, ..." — was thrown away three times, each street
+            # question went out with no shelf, the model asked for POTION
+            # and REVIVE again, and the walk ended inside the mart with
+            # nothing bought (run 27, 2026-09-16, user: "it also keeps
+            # revolving its way into the shop but doesnt buy anything
+            # despite a lack of potions and plenty of cash"). The counter's
+            # words are the screen's list; keep them, and ask once more now
+            # that the question can say what is on it.
+            m3 = _re.search(r"shelf, which holds: ([A-Z0-9_, ]+)", det)
+            if m3 and mid:
+                rows = [x.strip() for x in m3.group(1).split(",") if x.strip()]
+                if rows and self._shelves.get(mid) != rows:
+                    self._shelves[mid] = rows
+                    self.log("shelf_from_refusal", map=mid, sells=rows)
+                    self._save_memory()
+                    if not bought and not getattr(self, "_buy_reasked", False):
+                        refused.append(f"{item}: {det[:160]}")
+                        for r0 in refused:
+                            self.log("buy_refused",
+                                     subgoal=(sg or {}).get("id"), what=r0)
+                        self._buy_reasked = True
+                        try:
+                            self._buy_asked_at = None
+                            self._buy_street_at = None
+                            return self._ask_buy(self.settle() or obs, sg) or obs
+                        finally:
+                            self._buy_reasked = False
             refused.append(f"{item}: {det[:160]}")
             break
         for r0 in refused:
@@ -19350,6 +19461,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # judgment (money has competing uses, a new kind takes a
             # slot), so it is asked, not done, and no round is spent on
             # the answer either way. See _ask_buy.
+            start = self._ask_heal_street(start, sg) or start
             start = self._ask_buy(start, sg) or start
             # ...AND THE MACHINE NOBODY HAS BEEN ASKED ABOUT YET. Same
             # standing: a question, not a page section, and no round spent
