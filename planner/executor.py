@@ -11142,6 +11142,30 @@ class Executor:
         "or {\"why\":\"...\",\"answer\":\"no\"}."
     )
 
+    # AN OFFER, NOT A MENTION. The goals block rode on any box that named a
+    # Pokemon, so the Cinnabar quiz ("CATERPIE evolves into BUTTERFREE?"),
+    # the Fan Club chairman's RAPIDASH and the rival's CUBONE would all
+    # have carried it (user, 2026-09-16: "narrow it to offers"). An offer
+    # is a question, asking whether you WANT one, will TRADE for one, or
+    # will let someone LET YOU HAVE one: the starter table and the Dojo
+    # ("You want the ... X?"), the Game Corner counter ("So, you want X?"),
+    # the MAGIKARP salesman ("I'll let you have a swell MAGIKARP ... What
+    # do you say?") and the nine trades, whose three dialogue families all
+    # say "trade". The nickname prompt says "want" too and offers nothing.
+    # Read off the words on screen; no NPC is named here.
+    _OFFER = _re.compile(r"\b(you want|want to trade|wanna trade|"
+                         r"trade (?:it|one|your)|let you have)\b", _re.I)
+
+    def _is_offer(self, words) -> bool:
+        txt = str(words or "").strip()
+        if not txt.endswith("?") or "nickname" in txt.lower():
+            return False
+        if not self._OFFER.search(txt):
+            return False
+        _keys = {outline_ahead._key(s) for s in self._species_names()}
+        return any(outline_ahead._key(w) in _keys
+                   for w in _re.findall(r"[A-Za-z][A-Za-z'.]*", txt))
+
     def _road_ahead_text(self, obs, words) -> str:
         """The outline's catch-shaped legs still ahead, when the words on
         screen name a Pokemon; "" otherwise. Shared by the yes/no asker and
@@ -11149,10 +11173,7 @@ class Executor:
         answered on the second: the model pressed the ball inside an
         escalation round and answered with menu(index=1) from a page that
         said only what the box said (2026-09-16)."""
-        _keys = {outline_ahead._key(s) for s in self._species_names()}
-        if not any(outline_ahead._key(w) in _keys
-                   for w in _re.findall(r"[A-Za-z][A-Za-z'.]*",
-                                        str(words or ""))):
+        if not self._is_offer(words):
             return ""
         goals = outline_ahead.catch_goals_ahead(
             PLANS, RUN, self._species_names(), (obs or {}).get("party"))

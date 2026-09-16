@@ -162,6 +162,45 @@ ck("the yes/no asker's page names them too",
    "never pressed: ITEM_OAKS_LAB_7_3, ITEM_OAKS_LAB_8_3."
    in ex._question_text(OBS, SG, STARTER))
 
+# ---- offers only (user, 2026-09-16: "narrow it to offers") -----------------
+# Every question in the game's text table that names a Pokemon, as it reads
+# on screen (escapes and {RAM:...} names filled in).
+OFFERS = [
+    "So! You want the plant POKéMON, BULBASAUR?",
+    "So! You want the water POKéMON, SQUIRTLE?",
+    "You want the hard kicking HITMONLEE?",
+    "You want the piston punching HITMONCHAN?",
+    "MAN: Hello, there! Have I got a deal just for you! I'll let you have a "
+    "swell MAGIKARP for just ¥500! What do you say?",
+    "So, you want PORYGON?",
+    "I'm looking for ABRA! Wanna trade one for MR.MIME?",
+    "Hello there! Do you want to trade your POLIWHIRL for JYNX?",
+    "Hi! Do you have SPEAROW? Want to trade it for FARFETCH'D?",
+]
+MENTIONS = [
+    "CATERPIE evolves into BUTTERFREE?",
+    "POLIWAG evolves 3 times?",
+    "Good! Then listen up! My favorite RAPIDASH... It...cute... lovely..."
+    "smart... plus...amazing... you think so?",
+    "How's your POKéDEX coming, pal? I just caught a CUBONE! I can't find "
+    "the grown-up MAROWAK yet! I doubt there are any left! Well, I better "
+    "get going! I've got a lot to accomplish, pal! Smell ya later!",
+    "My GROWLITHE... Why did you die?",
+    "You came from MT. MOON? May I have a CLEFAIRY?",
+    "RATTATA may be small, but its bite is wicked! Did you get one?",
+    "My EEVEE evolved into FLAREON! But, a friend's EEVEE turned into a "
+    "VAPOREON! I wonder why?",
+    "Do you want to give a nickname to CHARMANDER?",
+    "What? That's not ABRA! If you get one, come back here!",
+    "You want the HELIX FOSSIL?",
+]
+for w in OFFERS:
+    ck(f"an offer carries the road ahead: {w[-40:]}",
+       HEAD in L.render([], ex, dict(box, recent_text=w)))
+for w in MENTIONS:
+    ck(f"a mention does not: {w[:40]}",
+       HEAD not in L.render([], ex, dict(box, recent_text=w)))
+
 E.PLANS = live_plans
 E.bind_run(live_run)
 failed = [n for n, ok in checks if not ok]
