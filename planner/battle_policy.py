@@ -52,10 +52,16 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
                                        was last made whole (a Center, a
                                        blackout, an arena trial); no cap
                                        unless written
-                    reserve: int } ]   never fire if it would leave fewer
+                    reserve: int       never fire if it would leave fewer
                                        than this many of the item (of the
                                        whole class, for a class) in the
                                        bag (default 0)
+                    max_share: float } ] in ONE battle, spend at most this
+                                       share of what the bag held of it
+                                       when the battle began (rounded
+                                       down, never below one); a cap that
+                                       fits five FULL_RESTOREs and ten
+                                       POTIONs at once
   field_heal: { item: str, hp_below: float, prefer: str,
                 reserve: int } | null
                              after a battle ends, if own hp frac < this and
@@ -407,6 +413,11 @@ def validate_spec(spec) -> list:
                 if "reserve" in r and not (isinstance(r["reserve"], int)
                                            and 0 <= r["reserve"] <= 30):
                     probs.append(f"battle_items[{i}].reserve int in [0,30]")
+                if "max_share" in r and not (
+                        isinstance(r["max_share"], (int, float))
+                        and not isinstance(r["max_share"], bool)
+                        and 0.0 < r["max_share"] <= 1.0):
+                    probs.append(f"battle_items[{i}].max_share in (0,1]")
     if "field_heal" in spec and spec["field_heal"] is not None:
         fh = spec["field_heal"]
         if not isinstance(fh, dict) or not fh.get("item"):
@@ -576,6 +587,37 @@ def _hp_frac(mon: dict) -> float:
     return hp / mx if mx else 1.0
 
 
+def punch(mon_or_types, foe_types) -> float:
+    """What this member could actually DO to the foe: its best damaging
+    move's power, with STAB and the chart, on a scale where a 100-power
+    neutral hit without STAB is 1.0.
+
+    THE MULTIPLIER ALONE PICKED THE WRONG LEAD. `outgoing` ranks the best
+    chart multiplier a member can land, so KABUTOPS read "double" into
+    LORELEI's DEWGONG on the strength of a 20-power ABSORB, tied LAPRAS,
+    and kept the lead by standing first in line — then Hydro-Pumped a
+    Water type for forty turns while Dewgong Rested (2026-09-15, every
+    trial of the real-path league). Power and STAB are on the same summary
+    screen the move's type is on. Falls back to `outgoing` for a bare
+    type list or a bench whose moves carry no power."""
+    if not isinstance(mon_or_types, dict):
+        return outgoing(mon_or_types, foe_types)
+    mon = mon_or_types
+    mine = [str(t).upper() for t in (mon.get("types") or [])]
+    best, seen = 0.0, False
+    for mv in (mon.get("moves") or []):
+        if not isinstance(mv, dict):
+            continue
+        power, mtype = mv.get("power") or 0, mv.get("type")
+        if not power or not mtype:
+            continue
+        seen = True
+        eff = effectiveness(str(mtype).upper(), foe_types)
+        stab = 1.5 if str(mtype).upper() in mine else 1.0
+        best = max(best, power / 100.0 * eff * stab)
+    return best if seen else outgoing(mon, foe_types)
+
+
 def score_move(mv: dict, me: dict, foe: dict, spec: dict,
                journal: dict | None = None) -> dict:
     mtype = mv.get("type")
@@ -719,7 +761,7 @@ def choose_replacement(obs: dict, spec: dict | None = None) -> int | None:
             # foe cannot touch at all exactly like one it can hurt a
             # little. The floor exists to keep the ratio finite, nothing
             # more; gen 1's ladder is 0, 0.25, 0.5, 1, 2, 4.
-            return (outgoing(m, foe_types)
+            return (punch(m, foe_types)
                     / max(0.125, incoming(foe_types, types)), f)
         return (f, 0.0)
 
@@ -786,7 +828,7 @@ def choose_lead(obs: dict, spec: dict | None = None,
                 _hp_frac(n_m[1])))[0]
         else:
             return max(pool, key=lambda n_m: (
-                outgoing(n_m[1], ft)
+                punch(n_m[1], ft)
                 / max(0.125, incoming(ft, [str(t).upper()
                                            for t in (n_m[1].get("types")
                                                      or [])])),
@@ -930,6 +972,11 @@ def choose(obs: dict, spec: dict | None = None,
     # fainting (the model's rule decides the threshold and budget)
     bag = obs.get("bag") or {}
     items_used = ctx.setdefault("items_used", {})
+    # WHAT THE BAG HELD WHEN THIS BATTLE BEGAN, for max_share: a count
+    # per fight cannot be right for five FULL_RESTOREs and ten POTIONs
+    # at once (two a fight rationed the league and starved a lone
+    # IVYSAUR at Misty, 2026-09-15); a share of the bag can.
+    bag0 = ctx.setdefault("bag_at_start", dict(bag))
     for _i, rule in enumerate(spec.get("battle_items") or []):
         # A CLASS RULE SPENDS ITS BUDGET ON ITSELF, not on each rung it
         # reaches for in turn: `heal` with max_uses 3 is three heals, not
@@ -985,6 +1032,12 @@ def choose(obs: dict, spec: dict | None = None,
             # deficit is what the ladder is measured against.
             missing = max(0, (me.get("max_hp") or me.get("maxhp") or 0)
                           - (me.get("hp") or 0))
+        _share = rule.get("max_share")
+        if _share:
+            _held0 = bag_holds(rule.get("item"), bag0, _status)
+            _allowed = max(1, int(float(_share) * _held0)) if _held0 else 0
+            if items_used.get(budget_key, 0) >= _allowed:
+                continue
         item = resolve_item(rule.get("item"), bag,
                             rule.get("prefer") or DEFAULT_PREFER,
                             status=_status, missing=missing)
