@@ -11135,6 +11135,28 @@ class Executor:
         "or {\"why\":\"...\",\"answer\":\"no\"}."
     )
 
+    def _road_ahead_text(self, obs, words) -> str:
+        """The outline's catch-shaped legs still ahead, when the words on
+        screen name a Pokemon; "" otherwise. Shared by the yes/no asker and
+        the escalation page's box-up line, because run 19's starter was
+        answered on the second: the model pressed the ball inside an
+        escalation round and answered with menu(index=1) from a page that
+        said only what the box said (2026-09-16)."""
+        _keys = {outline_ahead._key(s) for s in self._species_names()}
+        if not any(outline_ahead._key(w) in _keys
+                   for w in _re.findall(r"[A-Za-z][A-Za-z'.]*",
+                                        str(words or ""))):
+            return ""
+        goals = outline_ahead.catch_goals_ahead(
+            PLANS, RUN, self._species_names(), (obs or {}).get("party"))
+        if not goals:
+            return ""
+        return ("\nYOUR OWN OUTLINE, STILL AHEAD, ASKS THE PARTY TO BECOME:\n"
+                + "\n".join(f"  {g['pos']}. {g['leg']}" for g in goals)
+                + "\nWhich of those the Pokemon this question names would "
+                  "answer is yours to judge; the party in hand answers none "
+                  "of them yet.\n")
+
     def _question_text(self, obs, sg, words) -> str:
         """The page a yes/no question is put to the model on."""
         cur = obs or {}
@@ -11157,20 +11179,7 @@ class Executor:
         # HITMONLEE, the salesman's MAGIKARP and a revived fossil. The
         # question and the objectives are both the model's to read; which
         # of them this Pokemon answers is its call, and so is no.
-        ahead = ""
-        _keys = {outline_ahead._key(s) for s in self._species_names()}
-        if any(outline_ahead._key(w) in _keys
-               for w in _re.findall(r"[A-Za-z][A-Za-z'.]*", words)):
-            goals = outline_ahead.catch_goals_ahead(
-                PLANS, RUN, self._species_names(), cur.get("party"))
-            if goals:
-                ahead = ("\nYOUR OWN OUTLINE, STILL AHEAD, ASKS THE PARTY "
-                         "TO BECOME:\n"
-                         + "\n".join(f"  {g['pos']}. {g['leg']}"
-                                     for g in goals)
-                         + "\nWhich of those the Pokemon this question "
-                           "names would answer is yours to judge; the "
-                           "party in hand answers none of them yet.\n")
+        ahead = self._road_ahead_text(cur, words)
         return (
             f"THE QUESTION ON SCREEN:\n\"{words}\"\n\n"
             f"WHERE YOU ARE: {where}\n"

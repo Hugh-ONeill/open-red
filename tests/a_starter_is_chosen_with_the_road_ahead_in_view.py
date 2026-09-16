@@ -121,6 +121,21 @@ ck("legs behind the run's mark are not ahead",
 ck("an outline with nothing ahead adds nothing",
    HEAD not in ex._question_text(OBS, SG, STARTER))
 
+# ---- the escalation page's box-up line carries it too -----------------------
+# Run 19's starter was answered INSIDE an escalation round, with
+# menu(index=1), from ledger.render's "a box is up, saying" line; the
+# yes/no asker above never ran (2026-09-16).
+import ledger as L                                            # noqa: E402
+(run / "outline_leg").write_text("0\n")
+box = {"mode": "ui", "map": {}, "party": [],
+       "recent_text": STARTER}
+lpage = L.render([], ex, box)
+ck("the escalation page's box line carries the road ahead",
+   f'a box is up, saying: "{STARTER}"' in lpage and HEAD in lpage
+   and "  5. the party holds a WATER or GRASS type" in lpage)
+ck("...and a box naming no Pokemon does not",
+   HEAD not in L.render([], ex, dict(box, recent_text="Kid, do you want to play?")))
+
 E.PLANS = live_plans
 E.bind_run(live_run)
 failed = [n for n, ok in checks if not ok]

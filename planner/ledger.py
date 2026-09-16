@@ -2456,12 +2456,20 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                       "{\"op\":\"tap\",\"btn\":\"b\"} closes it without "
                       "picking. Where you stand and what is untried cannot "
                       "be read until it closes; which row, if any, is yours.")
+        # ...AND WHAT THE OUTLINE STILL ASKS, WHEN THE BOX NAMES A POKEMON
+        # (see Executor._road_ahead_text): the starter was answered here.
+        _ahead = ""
+        try:
+            _ahead = ex._road_ahead_text(obs, _said) if _said else ""
+        except Exception:
+            _ahead = ""
         return ("THE SCREEN IS NOT THE OVERWORLD RIGHT NOW"
                 + (f' — a box is up, saying: "{_said[-160:]}"' if _said else
                    " — a box, menu or transition is up")
                 + ". Where you stand and what is untried cannot be read "
                   "until it closes: answer it if it is asking, or "
-                  "{\"op\":\"tap\",\"btn\":\"b\"} to close it.")
+                  "{\"op\":\"tap\",\"btn\":\"b\"} to close it."
+                + _ahead)
     sides = sorted((m.get("connections") or {}).keys())
     been = (getattr(ex, "visits", {}) or {}).get(here, 0)
     head = f"WHERE YOU STAND: {here}"
