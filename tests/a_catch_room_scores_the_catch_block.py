@@ -186,10 +186,24 @@ _low = {**PIKA, "battle": {**PIKA["battle"],
                            "foe": dict(PIKA["battle"]["foe"], hp=20)}}
 ck("no probe on a foe already under half its HP",
    bp.choose(_low, _pr, dict(_x0, foe_hp0=50)).get("op") == "throw_ball")
+_gate = {"catch": dict(_pc["catch"], probe_hit={"min_level_ratio": 0.75})}
+ck("with a level ratio, no probe on a foe far below the attacker "
+   "(L22 against L40)",
+   "probe_hit" not in bp.choose(PIKA, _gate, dict(_x0)).get("_why", ""))
+_near_foe = {**PIKA, "battle": {**PIKA["battle"],
+                                "foe": dict(PIKA["battle"]["foe"], level=33)}}
+ck("...and a probe on one near enough (L33 against L40)",
+   "probe_hit" in bp.choose(_near_foe, _gate, dict(_x0)).get("_why", ""))
+ck("the ratio form validates, and a bad one does not",
+   not bp.validate_spec(_gate)
+   and bp.validate_spec({"catch": dict(_pc["catch"],
+                                       probe_hit={"min_level_ratio": "x"})})
+   and bp.validate_spec({"catch": dict(_pc["catch"],
+                                       probe_hit={"ratio": 0.5})}))
 ck("probe_hit validates as a bool",
    not bp.validate_spec(_pr)
    and any("probe_hit" in p for p in bp.validate_spec(
-       {"catch": dict(_pc["catch"], probe_hit=1)})))
+       {"catch": dict(_pc["catch"], probe_hit="yes")})))
 ck("the doc the model authors from names probe_hit and its risk",
    '"probe_hit"' in PA.DSL_DOC and "knock it out" in PA.DSL_DOC
    and "probe_hit" in bp.__doc__)

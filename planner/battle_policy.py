@@ -106,9 +106,12 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
            prefer: str          first) thrown at WILD mons during a CATCH
            first_ball: bool     (true: one ball on the first turn, before
                                 any status move or weakening)
-           probe_hit: bool      (true: with no attack whose damage has been
-                                seen, use the weakest one ONCE while the foe
-                                is at half HP or more, to see what it does)
+           probe_hit: bool|{min_level_ratio: float}
+                                (with no attack whose damage has been seen,
+                                use the weakest one ONCE while the foe is at
+                                half HP or more, to see what it does; with
+                                min_level_ratio, only when the foe's level is
+                                at least that share of the attacker's)
            throw_at_hp_frac:  subgoal. A wild that is not the named want is
              float (def 0.7)  run from; a sleep/paralysis move goes first on
            max_balls: int }   an unstatused foe; it weakens only with a move
@@ -498,8 +501,14 @@ def validate_spec(spec) -> list:
                 probs.append("catch.max_balls int in [1,10]")
             if "first_ball" in ca and not isinstance(ca["first_ball"], bool):
                 probs.append("catch.first_ball true or false")
-            if "probe_hit" in ca and not isinstance(ca["probe_hit"], bool):
-                probs.append("catch.probe_hit true or false")
+            _phv = ca.get("probe_hit")
+            if "probe_hit" in ca and not (
+                    isinstance(_phv, bool)
+                    or (isinstance(_phv, dict) and set(_phv) <= {"min_level_ratio"}
+                        and isinstance(_phv.get("min_level_ratio", 0), (int, float))
+                        and 0 <= _phv.get("min_level_ratio", 0) <= 2)):
+                probs.append("catch.probe_hit true, false, or "
+                             "{\"min_level_ratio\": 0.0-2.0}")
     if "lead" in spec and spec["lead"] is not None:
         ld = spec["lead"]
         if not isinstance(ld, dict) or ld.get("order") not in LEAD_ORDERS:
@@ -1197,8 +1206,22 @@ def choose(obs: dict, spec: dict | None = None,
             # take it (user: "probe hits are how a human would tackle it").
             # The damage lands in the journal, and the next turn's weakening
             # reads it. Whether that risk is worth a turn is the spec's.
+            # ...AND ONLY AGAINST A FOE NEAR ENOUGH IN LEVEL TO TAKE IT. The
+            # first rerun's VILEPLUME L40 probed L20-L24 PIKACHU, MAGNEMITE
+            # and VOLTORB with its weakest attack and knocked out every one:
+            # 11 targets lost in the fight, 8 of 20 caught against 16 without
+            # the probe (2026-09-16). A player reads both levels off the
+            # battle screen and does not test-hit something half its level.
+            # {"min_level_ratio": r} holds the probe back unless the foe's
+            # level is at least r times the attacker's; true alone has no
+            # such gate. The ratio is the spec's.
+            _ph = ca.get("probe_hit")
+            _ratio = (float(_ph.get("min_level_ratio") or 0)
+                      if isinstance(_ph, dict) else 0.0)
+            _near = ((foe.get("level") or 0)
+                     >= _ratio * (me.get("level") or 0))
             if (not safe and frac > throw_at and frac >= 0.5
-                    and ca.get("probe_hit") and not ctx.get("probe_done")):
+                    and _ph and _near and not ctx.get("probe_done")):
                 _probe = sorted((sc for sc in damaging
                                  if (sc.get("score") or 0) > 0),
                                 key=lambda sc: sc["score"])
