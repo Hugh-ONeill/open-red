@@ -1913,12 +1913,29 @@ class Executor:
         # repeat offender's escalation budget.
         self._prior_subgoal_fails: dict = {}
         self._retalked: set = set()     # people re-talked this attempt
+        # ...UNDER THIS PLAN. A rewritten plan keeps its steps' ids, so every
+        # failure of "the Mt. Moon entrance is on Route 2" was charged to
+        # the rewrite that finally went east, and it got the three-round
+        # floor on its first try (run 27, 2026-09-16, user: "the rounds seem
+        # suspiciously short"). A repeat of the same plan file still earns
+        # the shorter leash; a new plan starts clean. Journal rows from
+        # before plan_start named its plan count for nobody.
+        _mine = Path(str(plan_path)).name if plan_path else None
         try:
+            _cur_plan = None
             for line in (RUN / "executor_log.jsonl").read_text() \
                     .splitlines():
+                if '"plan_start"' in line:
+                    try:
+                        _cur_plan = json.loads(line).get("plan")
+                    except ValueError:
+                        _cur_plan = None
+                    continue
                 if ('"subgoal_failed"' in line
                         or '"subgoal_failed_continuing"' in line
                         or '"plan_failed_at"' in line):
+                    if _mine is None or _cur_plan != _mine:
+                        continue
                     try:
                         d = json.loads(line)
                     except ValueError:
@@ -22144,7 +22161,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         # can only split a run cleanly if each attempt says which it was
         # (user, 2026-09-07: "clean splits for the fixed runs").
         self.log("plan_start", goal=plan.get("goal"), escalate=self.can_escalate,
-                 rev=harness_rev())
+                 rev=harness_rev(),
+                 plan=(Path(str(self.plan_path)).name if self.plan_path
+                       else None))
         fails = 0
         backtracks = 0
         subgoals = plan["subgoals"]
