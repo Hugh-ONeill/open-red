@@ -61,14 +61,41 @@ ck("a reserve of 2 still fires with five in the bag",
    fires(dict(HEAL, reserve=2), {"FULL_RESTORE": 5}))
 ck("...and with three (leaving two)",
    fires(dict(HEAL, reserve=2), {"FULL_RESTORE": 3}))
-ck("...but not with two: using one would leave fewer than the reserve",
-   not fires(dict(HEAL, reserve=2), {"FULL_RESTORE": 2}))
+def spend_all(rule, bag, turns=12):
+    """Keep a mon under the line for a whole fight; how many go, how many
+    stay. One ledger from the start, as a run between Centers has."""
+    bp.reset_run_budget()
+    bag = dict(bag)
+    c = {"turn": 1, "intent": "traversal"}
+    used = 0
+    for turn in range(1, turns + 1):
+        c["turn"] = turn
+        r = bp.choose(obs(bag), spec(dict(rule, max_uses=99)), c)
+        if r.get("op") == "battle_item":
+            used += 1
+            bag[r["item"]] -= 1
+    return used, bag
+
+
+# A RESERVE HOLDS BACK AT MOST HALF OF WHAT THE BAG HELD AT THE LAST CENTER
+# (2026-09-16): run 26's BULBASAUR lost to GEODUDE twice with its only
+# POTION unspendable under v13's reserve 2.
+ck("the only POTION is used under a reserve of 2",
+   fires(dict(HEAL, reserve=2), {"POTION": 1}))
+ck("with two and a reserve of 2, one is spent and one is kept",
+   spend_all(dict(HEAL, reserve=2), {"FULL_RESTORE": 2})
+   == (1, {"FULL_RESTORE": 1}))
+ck("with five and a reserve of 2, three are spent and two are kept",
+   spend_all(dict(HEAL, reserve=2), {"FULL_RESTORE": 5})
+   == (3, {"FULL_RESTORE": 2}))
 ck("a reserve on a class counts every rung together",
-   fires(dict(HEAL, reserve=1), {"POTION": 1, "SUPER_POTION": 1})
-   and not fires(dict(HEAL, reserve=2), {"POTION": 1, "SUPER_POTION": 1}))
-ck("a reserve on a named item counts that item",
-   fires({"item": "FULL_RESTORE", "hp_below": 0.4, "reserve": 4}, {"FULL_RESTORE": 5})
-   and not fires({"item": "FULL_RESTORE", "hp_below": 0.4, "reserve": 4}, {"FULL_RESTORE": 4}))
+   spend_all(dict(HEAL, reserve=2), {"POTION": 2, "SUPER_POTION": 2})[0] == 2)
+ck("a reserve on a named item counts that item, capped at half",
+   spend_all({"item": "FULL_RESTORE", "hp_below": 0.4, "reserve": 4},
+             {"FULL_RESTORE": 4}) == (2, {"FULL_RESTORE": 2}))
+ck("the count at the last Center is the measure, not the count now",
+   spend_all(dict(HEAL, reserve=3), {"FULL_RESTORE": 8})
+   == (5, {"FULL_RESTORE": 3}))
 ck("a reserve of 0 is no reserve", fires(dict(HEAL, reserve=0), {"FULL_RESTORE": 1}))
 
 # ---- the Dewgong fight, replayed with a reserve ---------------------------
@@ -82,8 +109,9 @@ for turn in range(1, 8):
     if r.get("op") == "battle_item":
         spent += 1
         bag["FULL_RESTORE"] -= 1
-ck("thirty turns under 40% against Dewgong spend two of five, and three are kept",
-   spent == 2 and bag["FULL_RESTORE"] == 3)
+ck("under 40% against Dewgong with a reserve of 3, five Full Restores keep "
+   "two (half of five, rounded down), not three",
+   spent == 3 and bag["FULL_RESTORE"] == 2)
 
 # ---- max_uses_run: a cap across battles until the party is made whole ----
 RUN = dict(HEAL, max_uses_run=2)

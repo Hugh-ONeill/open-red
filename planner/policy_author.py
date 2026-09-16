@@ -161,8 +161,10 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      across every battle until the party is next made whole (a Center, a
      blackout); reserve makes a rule refuse to fire when it would leave
      fewer than that many of the item — of the whole class, for a class —
-     in the bag. The bag count is on your screen; how many to hold back
-     for the rooms ahead is your call.
+     in the bag, but it never holds back more than half of what the bag
+     held when the party was last made whole, so a reserve of 2 still lets
+     the only POTION be used. The bag count is on your screen; how many to
+     hold back for the rooms ahead is your call.
      A COUNT PER FIGHT CANNOT FIT EVERY BAG: "two a fight" rations five
      FULL_RESTOREs across a league and starves one long fight with ten
      POTIONs. max_share caps a rule in ONE battle at that share of what

@@ -55,7 +55,9 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
                     reserve: int       never fire if it would leave fewer
                                        than this many of the item (of the
                                        whole class, for a class) in the
-                                       bag (default 0)
+                                       bag (default 0) — but never more
+                                       than half of what the bag held when
+                                       the party was last made whole
                     max_share: float } ] in ONE battle, spend at most this
                                        share of what the bag held of it
                                        when the battle began (rounded
@@ -243,11 +245,32 @@ DEFAULT_PREFER = "weakest_sufficient"
 # it to every battle and clears it when the party is made whole (a
 # Center heal, a blackout), the arena runner clears it at every trial.
 RUN_BUDGET: dict = {}
+# WHAT THE BAG HELD OF EACH RULE'S ITEM when the party was last made whole
+# (the first time the rule was checked after that, or more if the bag grew
+# since). A reserve is measured against it; see reserve_now.
+RUN_BAG: dict = {}
 
 
 def reset_run_budget() -> None:
     """The party has been made whole: the run's item ledger starts over."""
     RUN_BUDGET.clear()
+    RUN_BAG.clear()
+
+
+def reserve_now(rule_item, held: int, reserve) -> int:
+    """How many of this item a rule may hold back RIGHT NOW.
+
+    A RESERVE NEVER HOLDS BACK MORE THAN HALF OF WHAT THE RUN STARTED WITH.
+    v13's heal rule carries reserve 2, which is right for a league bag of
+    five FULL_RESTOREs and wrong for the bag a run actually has at Brock:
+    one POTION, which "reserve 2" made unspendable. Run 26's BULBASAUR went
+    down to GEODUDE twice with it in the bag (user, 2026-09-16: "do the
+    potion reserve thing"). Measured against the count at the last Center
+    rather than the count now, because halving the count now shrinks the
+    reserve with every use and it would never hold anything back at all."""
+    key = str(rule_item)
+    RUN_BAG[key] = max(int(RUN_BAG.get(key, 0)), int(held))
+    return min(int(reserve or 0), RUN_BAG[key] // 2)
 
 
 def bag_holds(name, bag, status=None) -> int:
@@ -682,7 +705,9 @@ def should_field_heal(obs: dict,
         return None
     item = resolve_item(fh.get("item"), bag, fh.get("prefer")
                         or DEFAULT_PREFER, missing=missing)
-    if item and bag_holds(fh.get("item"), bag) - 1 < int(fh.get("reserve") or 0):
+    _held = bag_holds(fh.get("item"), bag)
+    if item and _held - 1 < reserve_now(fh.get("item"), _held,
+                                        fh.get("reserve")):
         return None
     return (item, slot) if item else None
 
@@ -1058,7 +1083,9 @@ def choose(obs: dict, spec: dict | None = None,
         # A RESERVE IS WHAT YOU DO NOT SPEND HERE. The bag count is on
         # the screen; how many to hold back for the rooms ahead is the
         # rule's own number.
-        if bag_holds(rule.get("item"), bag, _status) - 1 < int(rule.get("reserve") or 0):
+        _held = bag_holds(rule.get("item"), bag, _status)
+        if _held - 1 < reserve_now(rule.get("item"), _held,
+                                   rule.get("reserve")):
             continue
         items_used[budget_key] = items_used.get(budget_key, 0) + 1
         run_used[budget_key] = run_used.get(budget_key, 0) + 1
