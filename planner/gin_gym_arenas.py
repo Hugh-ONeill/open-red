@@ -366,15 +366,16 @@ GYMS = [
          badges=2, door=(4, 17), puzzle=False,
          open_flags=["EVENT_1ST_LOCK_OPENED", "EVENT_2ND_LOCK_OPENED"],
          paths=dict(
-             real=dict(party=[("GYARADOS", 24, ["BUBBLEBEAM"]),
-                              ("PIDGEOTTO", 29),
-                              ("CHARIZARD", 37, ["BODY_SLAM"]),
-                              ("GLOOM", 25)],
+             real=dict(party=[("CHARIZARD", 37, ["BODY_SLAM"]),
+                              ("PIDGEOTTO", 29), ("GLOOM", 25)],
                        bag={"POTION": 3, "SUPER_POTION": 5}, money=8000,
-                       note="The Sep 6 run's four, exactly: a L24 "
-                            "GYARADOS led, the starter thirteen over the "
-                            "ace. The bag is run 17's at this door, on "
-                            "record."),
+                       note="The Sep 6 run's room less its GYARADOS: that "
+                            "run had one at 24 here, but a run gets its "
+                            "water from an Old Rod MAGIKARP when it is "
+                            "forced to find a SURF member for Cinnabar, "
+                            "not before (user, 2026-09-15). The starter "
+                            "thirteen over the ace. The bag is run 17's "
+                            "at this door, on record."),
              ideal=dict(party=[("DIGLETT", 19),
                                ("CHARMELEON", 20, ["BODY_SLAM"]),
                                ("PIDGEOTTO", 19)],
@@ -388,8 +389,7 @@ GYMS = [
          badges=3, needs_cut=True, door=(4, 17), puzzle=False,
          paths=dict(
              real=dict(party=[("GLOOM", 36), ("CHARIZARD", 40, ["BODY_SLAM"]),
-                              ("PIDGEOT", 41), ("DUGTRIO", 34),
-                              ("GYARADOS", 36, ["BUBBLEBEAM", "THUNDERBOLT"])],
+                              ("PIDGEOT", 41), ("DUGTRIO", 34)],
                        bag={"SUPER_POTION": 3}, money=13800,
                        note="GLOOM led (Aug 28), a PIDGEOTTO on Sep 6, so "
                             "the GLOOM stands first and carries CUT in "
@@ -414,7 +414,6 @@ GYMS = [
                               ("VILEPLUME", 44, ["MEGA_DRAIN"]),
                               ("DUGTRIO", 46, ["EARTHQUAKE"]),
                               ("CHARIZARD", 46, ["BODY_SLAM"]),
-                              ("GYARADOS", 42, ["BUBBLEBEAM", "THUNDERBOLT"]),
                               ("HITMONLEE", 40)],
                        bag={"SUPER_POTION": 5}, money=12800,
                        note="PIDGEOT led (Aug 28), DUGTRIO on Sep 6. Both "
@@ -441,7 +440,6 @@ GYMS = [
                               ("VILEPLUME", 43, ["MEGA_DRAIN"]),
                               ("DUGTRIO", 44, ["EARTHQUAKE"]),
                               ("CHARIZARD", 46, ["BODY_SLAM"]),
-                              ("GYARADOS", 38, ["BUBBLEBEAM", "THUNDERBOLT"]),
                               ("HITMONLEE", 35)],
                        bag={"HYPER_POTION": 5}, money=34500,
                        note="PIDGEOT led (Aug 28), DUGTRIO on Sep 6; the "
@@ -468,12 +466,14 @@ GYMS = [
          paths=dict(
              real=dict(party=[("DUGTRIO", 47), ("VILEPLUME", 48, ["MEGA_DRAIN"]),
                               ("PIDGEOT", 50, ["FLY"]),
-                              ("GYARADOS", 44, ["THUNDERBOLT"]),
+                              ("GYARADOS", 30, ["THUNDERBOLT"]),
                               ("HITMONLEE", 46),
                               ("CHARIZARD", 47, ["BODY_SLAM"])],
                        bag={"HYPER_POTION": 5}, money=57000,
-                       note="DUGTRIO led (Aug 28), GLOOM on Sep 6; the "
-                            "Sep 6 roster, GYARADOS carrying SURF."),
+                       note="DUGTRIO led (Aug 28), GLOOM on Sep 6. The "
+                            "GYARADOS is the Old Rod MAGIKARP raised to "
+                            "evolve and carry SURF for the crossing, so "
+                            "it arrives low (user, 2026-09-15)."),
              ideal=dict(party=[("STARMIE", 42, ["BUBBLEBEAM", "THUNDERBOLT", "ICE_BEAM"]),
                                ("CHARIZARD", 42, ["BODY_SLAM"]),
                                ("DUGTRIO", 42),
@@ -493,13 +493,14 @@ GYMS = [
          paths=dict(
              real=dict(party=[("DUGTRIO", 52), ("VILEPLUME", 46, ["MEGA_DRAIN"]),
                               ("PIDGEOT", 50, ["FLY"]),
-                              ("GYARADOS", 44, ["THUNDERBOLT"]),
+                              ("GYARADOS", 36, ["THUNDERBOLT"]),
                               ("HITMONLEE", 48),
                               ("CHARIZARD", 47, ["BODY_SLAM"])],
                        bag={"HYPER_POTION": 5}, money=69000,
                        note="DUGTRIO led (Aug 28), HITMONLEE on Sep 6; the "
-                            "Sep 6 roster at Giovanni. RHYDON L50 against "
-                            "a L44 GYARADOS's SURF is the fight."),
+                            "Sep 6 roster at Giovanni with the late "
+                            "GYARADOS six levels on. RHYDON L50 against "
+                            "a L36 GYARADOS's SURF is the fight."),
              ideal=dict(party=[("STARMIE", 45, ["BUBBLEBEAM", "THUNDERBOLT", "ICE_BEAM"]),
                                ("CHARIZARD", 45, ["BODY_SLAM"]),
                                ("LAPRAS", 45), ("KADABRA", 45),
