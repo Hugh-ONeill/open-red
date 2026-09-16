@@ -15487,10 +15487,14 @@ class Executor:
         # inevitably beat a lvl5 char with his squirtle with an elemental
         # move and second mon"). Species and level are on screen for the
         # whole fight; there was simply nowhere for them to go.
+        # ...ON THE MAP YOU WERE STANDING ON. A battle observation carries
+        # no map, so this read "" for every fight and the page said "GEODUDE
+        # L12 on somewhere" about BROCK's gym, eight times (2026-09-16).
         self._recent_foes = (getattr(self, "_recent_foes", [])
                              + [(f"{foe.get('species')} L{foe.get('level')}",
                                  str(((obs or {}).get("map") or {}).get("id")
-                                     or ""))])[-6:]
+                                     or getattr(self, "_last_overworld_map",
+                                                None) or ""))])[-6:]
         # WHAT THIS ROOM IS MADE OF, LEARNED BY FIGHTING IT. A gym's
         # trainers all use its type, and a player knows the type before
         # the leader — the guide says it out loud, and the seven fights on
@@ -15618,9 +15622,20 @@ class Executor:
                          detail=(r.get("result") or {}).get("detail"))
                 obs = self.settle() or obs
         self.status(doing=f"BATTLE ({name} policy)", obs=obs)
+        try:
+            self.logf.flush()
+            _jpos = self.logf.tell()
+        except Exception:
+            _jpos = None
+        _b_start = obs
         obs = BATTLE_POLICIES[name](self.b, obs, self.log,
                                     self.max_battle_turns, _want0,
                                     ball_cap=(_ahead or {}).get("cap"))
+        if b0.get("kind") == "trainer" and _jpos is not None:
+            try:
+                self._note_fight(_b_start, obs, _jpos)
+            except Exception as e:           # a recap is never worth a fight
+                self.log("fight_recap_error", err=str(e)[:160])
         # A CATCH ENDS ON THE NAMING SCREEN: the policy leaves when the
         # mode is no longer battle, and what is up is the game's question
         # — answer it here, before any op's back-out can press B at it.
@@ -15642,6 +15657,105 @@ class Executor:
             obs = self._send_safe("use_item", item=pick[0],
                                   slot=pick[1]) or obs
         return obs
+
+    # ON-SCREEN WORDS FOR A MULTIPLIER: what the battle text says after the
+    # move lands. The number is the type chart's, which the pamphlet prints.
+    _EFF_WORDS = {0.0: "no effect", 0.25: "not very effective",
+                  0.5: "not very effective", 1.0: "",
+                  2.0: "super effective", 4.0: "super effective"}
+
+    def _note_fight(self, before, after, jpos) -> None:
+        """WHAT A TRAINER FIGHT LOOKED LIKE FROM THE PLAYER'S SIDE, kept for
+        the page.
+
+        The policy plays every turn, so the model is told a fight ended and
+        what came out, and nothing a player watching it would have seen:
+        run 26's BULBASAUR used TACKLE into GEODUDE eleven times, "not very
+        effective" under every one, GEODUDE's HP barely moving, and eight
+        rounds running the plan said "Bulbasaur has a strong type advantage
+        over Brock's rock-types" (user, 2026-09-16). This keeps the moves
+        pressed and what the screen said about each, what the first foe's HP
+        did, and who fainted. Nothing about what to do differently."""
+        rows = []
+        with open(self.logf.name) as f:
+            f.seek(jpos)
+            for line in f:
+                try:
+                    rows.append(json.loads(line))
+                except ValueError:
+                    pass
+        moves, foe_hp = {}, []
+        for r in rows:
+            if r.get("kind") != "battle_turn":
+                continue
+            if r.get("op") == "battle_move":
+                why = str(r.get("why") or "")
+                mv = why.split(" ", 1)[0] if why else "?"
+                m = _re.search(r"eff=([0-9.]+)", why)
+                eff = float(m.group(1)) if m else 1.0
+                rec = moves.setdefault(mv, {"n": 0, "eff": set()})
+                rec["n"] += 1
+                rec["eff"].add(self._EFF_WORDS.get(eff, ""))
+            if r.get("foe_hp") is not None:
+                foe_hp.append(int(r["foe_hp"]))
+        bb = (before or {}).get("battle") or {}
+        foe = bb.get("foe") or {}
+        party = (after or {}).get("party") or []
+        fainted = [str(m.get("species")) for m in party
+                   if (m.get("hp") or 0) <= 0]
+        lost = bool(party) and len(fainted) == len(party)
+        # the first foe's HP, as long as it only went down (a jump up is
+        # the next Pokemon coming out)
+        first = []
+        for h in foe_hp:
+            if first and h > first[-1]:
+                break
+            first.append(h)
+        parts = []
+        for mv, rec in moves.items():
+            words = sorted(w for w in rec["eff"] if w)
+            parts.append(f"{mv} x{rec['n']}"
+                         + (f" ({' / '.join(words)})" if words else ""))
+        self._last_fight = {
+            "who": bb.get("trainer") or "a trainer",
+            "where": getattr(self, "_last_overworld_map", None) or "",
+            "lost": lost,
+            "text": (("you used " + ", ".join(parts)) if parts
+                     else "you used no move")
+                    + (f". {foe.get('species')} L{foe.get('level')} came out "
+                       f"first at {first[0]} hp and was at {first[-1]} hp "
+                       f"when it stopped taking hits"
+                       + (" — it was not knocked out" if len(first) == len(foe_hp)
+                          and first[-1] > 0 else "")
+                       if first else "")
+                    + (f". Fainted: {', '.join(fainted)}" if fainted else ""),
+        }
+        self.log("fight_recap", **{k: v for k, v in self._last_fight.items()})
+
+    def _party_since_text(self, obs, sg) -> str:
+        """Each party member's level and experience now, against when this
+        step began: whose battles have been paying, as the summary screens
+        would show it."""
+        party = (obs or {}).get("party") or []
+        if getattr(self, "_party0_for", None) != sg.get("id"):
+            self._party0_for = sg.get("id")
+            self._party0 = {i: (m.get("species"), m.get("level"), m.get("exp"))
+                            for i, m in enumerate(party)}
+            return ""
+        bits = []
+        for i, m in enumerate(party):
+            sp0, lv0, xp0 = (getattr(self, "_party0", {}) or {}).get(
+                i, (None, None, None))
+            if sp0 != m.get("species") or xp0 is None or m.get("exp") is None:
+                continue
+            gain = int(m.get("exp") or 0) - int(xp0 or 0)
+            bits.append(f"{m.get('species')} "
+                        + (f"L{lv0}->L{m.get('level')}" if lv0 != m.get("level")
+                           else f"L{m.get('level')}")
+                        + f" (+{gain} exp)")
+        return ("EXPERIENCE SINCE THIS STEP BEGAN: " + "; ".join(bits)
+                + ". Experience goes to the Pokemon that fought and were "
+                  "still standing when the foe fainted.") if bits else ""
 
     GAME_DEAD_EXIT = 67          # campaign.sh: boot the game again, same attempt
 
@@ -19248,6 +19362,34 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                        "you are carrying.\n"
                        if self._bo_here > 1 else
                        "What beat you is still there.\n"))
+                # THE FIGHT ITSELF, as the screen showed it (_note_fight)
+                _lf = getattr(self, "_last_fight", None) or {}
+                if _lf.get("lost"):
+                    memory += (f"THE LAST FIGHT YOU LOST (vs {_lf['who']}"
+                               + (f", {_lf['where']}" if _lf.get("where") else "")
+                               + f"): {_lf['text']}.\n")
+                _since = self._party_since_text(start, sg)
+                if _since:
+                    memory += _since + "\n"
+                # ...AND WHERE WILD BATTLES HAPPEN, once a trainer has beaten
+                # the party more than once. That page listed trainers and
+                # the money they paid and never a patch of grass, so after
+                # eight blackouts to BROCK the run went door to door looking
+                # for "remaining trainers to gain experience" (user,
+                # 2026-09-16: "its also not gone into the wilds to train").
+                # The rows a level leg already gets: the run's own battles.
+                if (self._bo_here > 1
+                        and not self._is_party_goal(self._target_key(sg))):
+                    _hm = ((start or {}).get("map") or {}).get("id") \
+                        or getattr(self, "_last_overworld_map", None) or ""
+                    _wild = (self._wild_elsewhere_fought_note(_hm, start)
+                             + self._wild_never_fought_note(_hm, start)
+                             ).lstrip(". ")
+                    if _wild.strip():
+                        memory += (_wild.rstrip() + " On this step a wild "
+                                   "met while walking is fled; {\"op\":"
+                                   "\"grind\",\"intent\":\"train\"} "
+                                   "fights them.\n")
             # the switches as they stood on this page, for the next page's
             # "it was open the last time you stood here" (see _note_switches)
             self._note_switches(start)
