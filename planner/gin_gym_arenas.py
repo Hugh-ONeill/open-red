@@ -620,6 +620,58 @@ def build(g: dict, path: str) -> dict:
     return spec
 
 
+# ---------------------------------------------------------- the catch rooms
+# A PATCH OF GRASS AND A WANT, NOT A GYM (user, 2026-09-16: "build the
+# catch room"). The spec's `catch` block — which ball, when to throw, how
+# many — was authored in every policy since v1 and never scored: every
+# arena is a trainer fight and the catch branch runs only on a wild one,
+# so v8 through v14 carried the same three numbers unexamined. A catch
+# room parks the party ON a grass cell (grind paces grass without needing
+# ground on screen, so a restored save can start at once), marks every
+# trainer on the map beaten so nobody walks over, and names what the
+# trial is hunting — by TYPE, the way the outline's own upkeep legs ask.
+# The score is the wanted Pokemon caught of those met, and the balls it
+# took.
+#
+# The grass cells come from the engine's own map and tileset tables
+# (Map:isGrassCell): Route 24's west column is grass at x 4-5, y 18-31,
+# with a trainer standing on (5,20); Viridian Forest's west strip at x 1-2,
+# y 6-23, with a trainer at (2,18).
+CATCHES = [
+    dict(name="catch_forest", map="VIRIDIAN_FOREST", badges=1,
+         start=(1, 10), want_types=["ELECTRIC"], encounters=40, targets=3,
+         party=[("CHARMANDER", 10)], bag={"POKE_BALL": 10, "POTION": 2},
+         money=500,
+         note="PIKACHU is 5% of the Forest at L3-5, against a CHARMANDER "
+              "whose SCRATCH takes most of one: the throw has to come "
+              "before the weakening does, and a ball spent on a full-HP "
+              "PIKACHU lands about a quarter of the time (catch rate 190)."),
+    dict(name="catch_route24", map="ROUTE_24", badges=2,
+         start=(4, 26), want_types=["GRASS"], encounters=30, targets=3,
+         party=[("CHARMELEON", 20), ("PIDGEOTTO", 18)],
+         bag={"POKE_BALL": 10, "POTION": 2}, money=1500,
+         note="ODDISH is a quarter of Route 24 at L12-14, and EMBER is "
+              "double into it: a CHARMELEON that weakens with its best "
+              "move kills what it came for. The run's own leg read "
+              "\"the party holds a GRASS or ELECTRIC type\" here."),
+]
+
+
+def build_catch(c: dict) -> dict:
+    party = [{"species": sp, "level": lv, "moves": natural_moves(sp, lv),
+              "nickname": sp} for sp, lv in c["party"]]
+    objs = room_objects(c["map"])
+    return {"party": party, "bag": dict(c["bag"]), "money": c["money"],
+            "start": {"map": c["map"], "x": c["start"][0],
+                      "y": c["start"][1], "facing": "down"},
+            "set_flags": trainer_flags(c["map"]),
+            "set_trainers": [f"{c['map']}_obj_{i}" for i, _n, _x, _y in objs],
+            # read by the arena runner, ignored by gin_save
+            "catch": {"want_types": list(c["want_types"]),
+                      "encounters": int(c["encounters"]),
+                      "targets": int(c["targets"])}}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true",
@@ -630,6 +682,37 @@ def main():
                     default="both", help="which path's rooms to build")
     a = ap.parse_args()
     rc = 0
+    for c in CATCHES:
+        if a.only and c["name"] != a.only:
+            continue
+        base = pick_base(c["badges"])
+        spec = build_catch(c)
+        print(f"\n=== {c['name']}  {c['map']} at {c['start']}  hunting "
+              f"{'/'.join(c['want_types'])}")
+        print(f"    base {base.parent.name if base else 'MISSING'}")
+        for m in spec["party"]:
+            print(f"    {m['species']:11s} L{m['level']:<3d} "
+                  + "/".join(m["moves"]))
+        print("    bag " + ", ".join(f"{k} x{v}" for k, v in spec["bag"].items()))
+        print(f"    {c['note']}")
+        if a.list:
+            continue
+        if not base or not Path(base).exists():
+            print(f"    SKIPPED: no base save for {c['name']}")
+            rc = 1
+            continue
+        sp = REPO / f"plans/arena_{c['name']}.json"
+        sp.write_text(json.dumps(spec, indent=2))
+        out = REPO / f"run/arena_{c['name']}.lua"
+        r = subprocess.run([sys.executable, str(REPO / "planner/gin_save.py"),
+                            "--base", str(base), "--spec", str(sp),
+                            "--out", str(out)],
+                           capture_output=True, text=True)
+        print("    " + (r.stdout.strip().replace("\n", "\n    ")
+                        or r.stderr.strip()[:300]))
+        rc = rc or r.returncode
+    if a.only.startswith("catch_"):
+        return rc
     for g in GYMS:
         if a.only and g["name"] != a.only:
             continue

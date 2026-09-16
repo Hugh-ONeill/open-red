@@ -1,0 +1,61 @@
+{
+  "party": [
+    {
+      "species": "CHARMELEON",
+      "level": 20,
+      "moves": [
+        "SCRATCH",
+        "GROWL",
+        "EMBER",
+        "LEER"
+      ],
+      "nickname": "CHARMELEON"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 18,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK"
+      ],
+      "nickname": "PIDGEOTTO"
+    }
+  ],
+  "bag": {
+    "POKE_BALL": 10,
+    "POTION": 2
+  },
+  "money": 1500,
+  "start": {
+    "map": "ROUTE_24",
+    "x": 4,
+    "y": 26,
+    "facing": "down"
+  },
+  "set_flags": [
+    "EVENT_BEAT_ROUTE_24_TRAINER_0",
+    "EVENT_BEAT_ROUTE_24_TRAINER_1",
+    "EVENT_BEAT_ROUTE_24_TRAINER_2",
+    "EVENT_BEAT_ROUTE_24_TRAINER_3",
+    "EVENT_BEAT_ROUTE_24_TRAINER_4",
+    "EVENT_BEAT_ROUTE_24_TRAINER_5"
+  ],
+  "set_trainers": [
+    "ROUTE_24_obj_1",
+    "ROUTE_24_obj_2",
+    "ROUTE_24_obj_3",
+    "ROUTE_24_obj_4",
+    "ROUTE_24_obj_5",
+    "ROUTE_24_obj_6",
+    "ROUTE_24_obj_7",
+    "ROUTE_24_obj_8"
+  ],
+  "catch": {
+    "want_types": [
+      "GRASS"
+    ],
+    "encounters": 30,
+    "targets": 3
+  }
+}

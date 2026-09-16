@@ -1,0 +1,47 @@
+{
+  "party": [
+    {
+      "species": "CHARMANDER",
+      "level": 10,
+      "moves": [
+        "SCRATCH",
+        "GROWL",
+        "EMBER"
+      ],
+      "nickname": "CHARMANDER"
+    }
+  ],
+  "bag": {
+    "POKE_BALL": 10,
+    "POTION": 2
+  },
+  "money": 500,
+  "start": {
+    "map": "VIRIDIAN_FOREST",
+    "x": 1,
+    "y": 10,
+    "facing": "down"
+  },
+  "set_flags": [
+    "EVENT_BEAT_VIRIDIAN_FOREST_TRAINER_0",
+    "EVENT_BEAT_VIRIDIAN_FOREST_TRAINER_1",
+    "EVENT_BEAT_VIRIDIAN_FOREST_TRAINER_2"
+  ],
+  "set_trainers": [
+    "VIRIDIAN_FOREST_obj_1",
+    "VIRIDIAN_FOREST_obj_2",
+    "VIRIDIAN_FOREST_obj_3",
+    "VIRIDIAN_FOREST_obj_4",
+    "VIRIDIAN_FOREST_obj_5",
+    "VIRIDIAN_FOREST_obj_6",
+    "VIRIDIAN_FOREST_obj_7",
+    "VIRIDIAN_FOREST_obj_8"
+  ],
+  "catch": {
+    "want_types": [
+      "ELECTRIC"
+    ],
+    "encounters": 40,
+    "targets": 3
+  }
+}

@@ -57,6 +57,12 @@ def _bind_books(run_dir: Path) -> None:
     left alone."""
     global LOG
     ex_mod.bind_run(run_dir)
+    # ...AND ITS OUTLINE. A wild met in a trial is read against the plans
+    # the executor points at (catch toward a later leg, 2026-09-16), and
+    # the live run's outline would widen a catch room's want to every type
+    # leg the run still has ahead. A room has no outline: point the reader
+    # at the room itself, where there is none.
+    ex_mod.PLANS = run_dir
     LOG = run_dir / "executor_log.jsonl"
     run_dir.mkdir(parents=True, exist_ok=True)
     for f in ("executor_log.jsonl", "explored.json", "explored.json.prev",
@@ -176,9 +182,25 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      rules cover the WHOLE party, neediest mon first.)
   catch: {"ball": "ball", "throw_at_hp_frac": 0.0-1.0,
           "max_balls": 1-10}
-    (during a CATCH task: weaken the wild mon with the gentlest non-KO
-     move until it is below that fraction of the hp it appeared with,
-     then throw — gen1 catch odds scale with missing hp)
+    (during a CATCH task, against a WILD Pokemon only. In order:
+     - a wild that is not the type or species the task names is run
+       from, not fought;
+     - if the lead knows a sleep or paralysis move (SLEEP_POWDER,
+       STUN_SPORE, THUNDER_WAVE, HYPNOSIS, SING, SPORE, LOVELY_KISS,
+       GLARE) and the foe has no status, that move is used once first;
+     - it weakens only with a move whose damage this run has already
+       SEEN and which does under 45% of the foe's CURRENT hp, weakest of
+       those first, so it cannot knock out what it came for; with no
+       such move it does not weaken at all;
+     - it throws once the foe is at or under throw_at_hp_frac of the hp
+       it appeared with (never above 0.4 when the task names what it
+       wants), or at once when nothing safe is left to weaken with;
+     - after max_balls throws in one battle, when the task names what it
+       wants, it runs and leaves the wild alive. "ball" is a class: the weakest ball the bag holds goes
+       first, POKE_BALL before GREAT_BALL before ULTRA_BALL, unless
+       "prefer" says otherwise. A throw toward a LATER objective than the
+       one in hand may be capped lower, to keep balls in reserve.
+     Gen 1 catch odds rise with missing hp and with sleep or paralysis.)
   lead: null or {"order": "healthiest"|"first_alive"|"highest_level"|
                           "most_hp"|"resists"|"best_matchup",
                  "vs": "trainer"|"wild"|"any", "min_hp_frac": 0.0-1.0}
@@ -602,6 +624,17 @@ class Gym:
                 self.arena_fight_count = int(_sp.get("fights") or 0)
             except (OSError, ValueError) as e:
                 print(f"[gym] arena spec unreadable ({e})")
+        self.catch_cfg = {}
+        if self.arena_spec:
+            try:
+                self.catch_cfg = json.loads(Path(self.arena_spec).read_text()
+                                            ).get("catch") or {}
+            except (OSError, ValueError):
+                self.catch_cfg = {}
+        if self.arena == "catch":
+            print(f"[gym] hunting {'/'.join(self.catch_cfg.get('want_types') or [])}"
+                  f": {self.catch_cfg.get('targets')} met or "
+                  f"{self.catch_cfg.get('encounters')} wild battles a trial")
         if self.arena == "gym":
             print(f"[gym] {len(self.arena_flags)} to beat, "
                   f"{len(self.arena_fights)} to press: "
@@ -1042,6 +1075,148 @@ class Gym:
               flush=True)
         return obs
 
+    def eval_spec_catch(self, spec: dict, k: int = 3) -> dict:
+        """A patch of grass and a want: how many of the wanted Pokemon met
+        were caught, and for how many balls.
+
+        THE CATCH BLOCK WAS NEVER SCORED (2026-09-16). Every other arena is
+        a trainer fight and the catch branch runs only on a wild one, so
+        the three numbers in `catch` rode unexamined from v8 to v14. Here
+        the trial grinds the grass it is parked in and plays every battle
+        through the executor exactly as a catch leg would — a subgoal whose
+        own words say catch and whose condition names the type — so the
+        want, the flee from anything else, the status move, the weakening
+        and the throw are all the real code. The trial ends when enough of
+        the wanted kind have been met, when the battles run out, or when
+        the bag has no ball left.
+
+        Caught is read off the party: it grows by one Pokemon of a wanted
+        type. A ball thrown is a throw_ball row in this trial's journal."""
+        ex_mod.set_active_spec(spec)
+        cfg = getattr(self, "catch_cfg", {}) or {}
+        want = [str(t).upper() for t in (cfg.get("want_types") or [])]
+        n_enc = int(cfg.get("encounters") or 30)
+        n_tgt = int(cfg.get("targets") or 3)
+        sg = {"id": "catch_room",
+              "goal_text": "Catch a " + " or ".join(want) + " type Pokemon",
+              "done_when": ({"any_of": [{"party_type": t} for t in want]}
+                            if len(want) > 1 else {"party_type": want[0]})}
+        res = {"arena": "catch",
+               "rival_wins": 0, "rival_trials": 0, "pewter": 0, "badge": 0,
+               "gauntlet_trials": 0, "blackouts": 0, "agree": 0,
+               "scored": 0, "dmg_gap": 0.0, "rival_detail": [],
+               "gauntlet_detail": [], "bodies": 0.0,
+               "met": 0, "caught": 0, "balls": 0, "killed": 0,
+               "battles": 0}
+
+        def typed(mon) -> bool:
+            return bool({str(t).upper() for t in (mon.get("types") or [])}
+                        & set(want))
+
+        for _ in range(k):
+            r = self.b.send("checkpoint_restore", token="eval_e4",
+                            reseed=True, force=True)
+            battle_policy.reset_run_budget()
+            if not ((r or {}).get("result") or {}).get("ok"):
+                raise RuntimeError("arena restore failed: "
+                                   f"{((r or {}).get('result') or {}).get('detail')}")
+            res["gauntlet_trials"] += 1
+            start = LOG.stat().st_size if LOG.exists() else 0
+            obs = self.ex.settle()
+            met = caught = killed = battles = dry = 0
+            why_end = "the loop's own ceiling"
+            for _ in range(n_enc * 3):
+                if battles >= n_enc:
+                    why_end = f"{n_enc} wild battles"
+                    break
+                if met >= n_tgt:
+                    why_end = f"{n_tgt} met"
+                    break
+                if not ex_mod._balls_in(obs):
+                    why_end = "no balls left"
+                    break
+                # A BLACKOUT ENDS THE TRIAL. The party wakes in a Center
+                # with no grass, and the smoke run's Forest trial ground
+                # nothing there for eighty tries and reported "stopped at
+                # 40 wild battles" after sixteen (2026-09-16).
+                _mid = ((obs or {}).get("map") or {}).get("id")
+                if ((obs or {}).get("mode") != "battle" and _mid
+                        and _mid != self.arena_map):
+                    why_end = f"a blackout (woke in {_mid})"
+                    break
+                if (obs or {}).get("mode") != "battle":
+                    self.b.send("grind", steps=60)
+                    obs = self.ex.settle()
+                    if (obs or {}).get("mode") != "battle":
+                        dry += 1
+                        if dry >= 8:
+                            why_end = "eight grinds that met nothing"
+                            break
+                        continue
+                dry = 0
+                b = (obs or {}).get("battle") or {}
+                if b.get("kind") != "wild":
+                    obs = self._ride(obs)
+                    continue
+                battles += 1
+                foe = b.get("foe") or {}
+                is_target = typed(foe)
+                n_before = len(obs.get("party") or [])
+                b_start = LOG.stat().st_size if LOG.exists() else 0
+                seen, frozen = object(), 0
+                for _t in range(400):
+                    if (obs or {}).get("mode") != "battle":
+                        break
+                    mark = self._battle_mark(obs)
+                    frozen = frozen + 1 if mark == seen else 0
+                    seen = mark
+                    if frozen >= 50:
+                        break
+                    obs = self.ex.handle_battle(sg, obs)
+                    obs = self.ex.settle()
+                party = (obs or {}).get("party") or []
+                if not is_target:
+                    continue
+                met += 1
+                if len(party) > n_before and typed(party[-1]):
+                    caught += 1
+                elif not any(d.get("kind") == "battle_turn"
+                             and d.get("op") == "battle_run"
+                             for d in self._log_delta(b_start)):
+                    # met, not caught, and never run from: it went down
+                    # (or, for a teleporting ABRA, went away) in the fight
+                    killed += 1
+            end = ((obs or {}).get("map") or {}).get("id")
+            balls = 0
+            for d in self._log_delta(start):
+                kd = d.get("kind")
+                if kd == "battle_turn" and d.get("op") == "throw_ball":
+                    balls += 1
+                elif kd == "blackout":
+                    res["blackouts"] += 1
+                elif kd == "oracle_score":
+                    res["scored"] += 1
+                    res["agree"] += 1 if d.get("agree") else 0
+                    res["dmg_gap"] += d.get("dmg_gap") or 0.0
+            if end and end != self.arena_map:
+                res["blackouts"] += 1
+            alive = [p for p in ((obs or {}).get("party") or [])
+                     if (p.get("hp") or 0) > 0]
+            res["bodies"] += (0.0 if (end and end != self.arena_map) else
+                              len(alive) / max(1, len((obs or {}).get("party")
+                                                      or [])))
+            res["met"] += met
+            res["caught"] += caught
+            res["killed"] += killed
+            res["balls"] += balls
+            res["battles"] += battles
+            res["gauntlet_detail"].append(
+                f"caught {caught} of {met} {'/'.join(want)} met in "
+                f"{battles} wild battle(s), {balls} ball(s) thrown"
+                + (f", {killed} lost in the fight" if killed else "")
+                + f"; stopped at {why_end}")
+        return res
+
     def eval_spec_e4(self, spec: dict, k: int = 3) -> dict:
         """How far up the Elite Four does this policy get, from healed?"""
         ex_mod.set_active_spec(spec)
@@ -1253,6 +1428,8 @@ class Gym:
             return self.eval_spec_gym(spec, k=self.trials)
         if self.arena == "e4":
             return self.eval_spec_e4(spec, k=self.trials)
+        if self.arena == "catch":
+            return self.eval_spec_catch(spec, k=self.trials)
         return self.eval_spec(spec)
 
     def eval_spec(self, spec: dict, k_rival: int = 6,
@@ -1333,6 +1510,16 @@ def _stripped_text(r: dict) -> str:
 
 def feedback_text(name: str, r: dict) -> str:
     ag = f"{r['agree']}/{r['scored']}" if r["scored"] else "n/a"
+    if r.get("arena") == "catch":
+        n = max(1, r.get("gauntlet_trials", 1))
+        out = (f"{name}: caught {r.get('caught', 0)} of the "
+               f"{r.get('met', 0)} wanted Pokemon met across {n} trial(s), "
+               f"{r.get('balls', 0)} ball(s) thrown, "
+               f"{r.get('battles', 0)} wild battle(s), blackouts "
+               f"{r['blackouts']}")
+        for i, g in enumerate(r.get("gauntlet_detail") or []):
+            out += f"\n  trial {i+1}: {g}"
+        return out
     if r.get("arena") == "gym" or r.get("standing"):
         n = max(1, r.get("gauntlet_trials", 1))
         out = (f"{name}: "
@@ -1372,7 +1559,9 @@ def feedback_text(name: str, r: dict) -> str:
 def rank_key(r: dict):
     # ROOMS is the E4 arena's own measure and is absent from a brock run,
     # so it simply sorts first when it is there.
-    return (r.get("rooms", 0), r.get("beaten", 0), r["badge"], r["pewter"],
+    return (r.get("rooms", 0), r.get("beaten", 0),
+            r.get("caught", 0), -r.get("balls", 0),
+            r["badge"], r["pewter"],
             r["rival_wins"] / max(1, r["rival_trials"]),
             -r["blackouts"], -r["dmg_gap"])
 
@@ -1413,6 +1602,10 @@ def arena_fraction(r: dict) -> float:
         return r.get("beaten", 0) / (t * max(1, r.get("standing") or 1))
     if a == "e4":
         return r.get("rooms", 0) / (t * 5)
+    if a == "catch":
+        # of the wanted Pokemon the grass OFFERED, how many came home; a
+        # trial that met none is not counted against the spec
+        return r.get("caught", 0) / max(1, r.get("met", 0))
     # the Brock arena runs two trials of different kinds and they weigh
     # the same: the badge at the end of the walk, and the rival
     badge = r.get("badge", 0) / t
@@ -1425,6 +1618,10 @@ def arena_quality(r: dict) -> float:
     damage not left on the table, averaged over the trials."""
     t = max(1, r.get("gauntlet_trials") or 0)
     bodies = min(1.0, (r.get("bodies") or 0.0) / t)
+    if r.get("arena") == "catch":
+        # the same catches for fewer balls: a ball a catch is perfect
+        thrift = (r.get("caught", 0) / r["balls"]) if r.get("balls") else 0.0
+        return max(0.0, min(0.999, 0.6 * min(1.0, thrift) + 0.4 * bodies))
     scored = max(1, r.get("scored") or 0)
     # agreement with the move oracle, which is the only per-turn measure
     # of play quality the arena has
@@ -1447,7 +1644,9 @@ def arena_points(r: dict) -> float:
     they had left and how close to the oracle they played."""
     base = arena_fraction(r)
     of = (max(1, r.get("gauntlet_trials") or 1)
-          * (r.get("standing") or (5 if (r.get("arena") == "e4") else 1)))
+          * (r.get("met") if r.get("arena") == "catch" and r.get("met")
+             else r.get("standing")
+             or (5 if (r.get("arena") == "e4") else 1)))
     return base + arena_quality(r) / max(1, of)
 
 
@@ -1544,6 +1743,12 @@ for _room in GYM_ROOMS:
 for _path in PATHS:
     ARENAS[f"e4_{_path}"] = ("e4", REPO / f"run/arena_e4_{_path}.lua",
                              REPO / f"plans/arena_e4_{_path}.json")
+# THE CATCH ROOMS (2026-09-16): a patch of grass and a want, built by
+# gin_gym_arenas.py (CATCHES). They score the spec's `catch` block, which
+# no gym or league room ever reaches.
+for _c in ("catch_forest", "catch_route24"):
+    ARENAS[_c] = ("catch", REPO / f"run/arena_{_c}.lua",
+                  REPO / f"plans/arena_{_c}.json")
 # The three found rather than built (09-12 and 09-15): the same gyms with
 # whatever a run happened to be carrying, kept on disk and out of every
 # sweep as the control if a built arena ever reads as easier than the
@@ -1624,7 +1829,7 @@ def main():
                          "the arena, instead of replaying --plan. Make one "
                          "with planner/make_savepoint.py")
     ap.add_argument("--arena", default="brock",
-                    choices=("brock", "e4", "gym"),
+                    choices=("brock", "e4", "gym", "catch"),
                     help="brock: the L5 rival and the Boulder Badge run. "
                          "e4: how far up the Elite Four a candidate gets "
                          "from the savepoint. gym: one room, everyone in "
@@ -1651,7 +1856,7 @@ def main():
     names = [n.strip() for n in (args.arenas or args.arena).split(",")
              if n.strip()]
     for n in names:
-        if n not in ARENAS and n not in ("brock", "e4", "gym"):
+        if n not in ARENAS and n not in ("brock", "e4", "gym", "catch"):
             sys.exit(f"unknown arena {n}; known: {', '.join(ARENAS)}")
 
     def build(name: str) -> Gym:
@@ -1666,7 +1871,7 @@ def main():
             try:
                 print(f"[gym] booting the {name} arena (attempt {attempt})...")
                 g.boot()
-                if kind in ("e4", "gym"):
+                if kind in ("e4", "gym", "catch"):
                     g.prepare_arena()
                 else:
                     g.prepare()

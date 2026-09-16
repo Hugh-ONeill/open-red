@@ -98,11 +98,19 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
   A class rule's max_uses counts USES OF THE RULE, not of each item it
   reaches for in turn.
 
-  catch: { ball: str          throw this ball at wild mons during a CATCH
-           throw_at_hp_frac:  subgoal; weaken with the gentlest non-KO
-             float (def 0.7)  move until the foe is below this fraction of
-           max_balls: int }   the hp it appeared with, then throw (gen1
-                              catch odds scale with missing hp)
+  catch: { ball: str          a ball or the class "ball" (weakest held
+           prefer: str          first) thrown at WILD mons during a CATCH
+           throw_at_hp_frac:  subgoal. A wild that is not the named want is
+             float (def 0.7)  run from; a sleep/paralysis move goes first on
+           max_balls: int }   an unstatused foe; it weakens only with a move
+                              whose damage has been SEEN and is under 45% of
+                              the foe's current hp; it throws at or under
+                              throw_at_hp_frac of the hp the foe appeared
+                              with (capped at 0.4 with a named want) or when
+                              nothing safe remains; after max_balls throws
+                              with a named want it runs and leaves it alive.
+                              ctx["ball_cap"] may lower max_balls (a throw
+                              toward a later objective keeps a reserve).
   lead: { order: "healthiest"|"first_alive"|"highest_level"|"most_hp"|
                  "resists"|"best_matchup",
           vs: "trainer"|"wild"|"any" (default "trainer"),
@@ -1056,9 +1064,10 @@ def choose(obs: dict, spec: dict | None = None,
                          else f"heal with {item}")}
     scored = [score_move(m, me, foe, spec, ctx.get("journal")) for m in moves]
     damaging = [s for s in scored if (s["power"] or 0) > 0]
-    # CATCH intent on a wild foe: weaken with the gentlest non-KO move to
-    # the throw threshold (gen1 catch odds scale with missing hp), then
-    # throw. The foe's first-seen hp stands in for its max.
+    # CATCH intent on a wild foe: run from what is not wanted, sleep or
+    # paralyse first, weaken only with a seen move under 45% of current hp,
+    # then throw (gen1 catch odds scale with missing hp and with status).
+    # The foe's first-seen hp stands in for its max.
     ca = spec.get("catch")
     if ctx.get("intent") == "catch" and kind == "wild" and ca:
         # IS THIS EVEN THE THING WE CAME FOR? The catch branch checked only
