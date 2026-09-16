@@ -18684,6 +18684,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # handler, which puts the words to the model and presses what
             # comes back — the only path by which either fossil is takeable.
             if ASKING in str(r.get("detail") or ""):
+                _table = (self._survey_offer_table(sg, op, step, obs)
+                          if op == "interact" else None)
+                if _table:
+                    trace.append(_table)
+                    break
                 trace.append(
                     "— stopped here: a question is on screen and must be "
                     "answered before anything else can run.")
@@ -18691,6 +18696,73 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if not ignore_done and pred_holds(done, self.settle()):
                 return True, trace, clean
         return pred_holds(done, self.settle()), trace, clean
+
+    def _survey_offer_table(self, sg, op, step, obs) -> str | None:
+        """EVERY BALL ON THE TABLE, ASKED BEFORE ANY IS TAKEN.
+
+        The starter was never a choice between three. The balls are listed
+        left to right, the model pressed the first one listed in every run,
+        and the first one at (6,3) holds CHARMANDER: runs 20, 21 and 22 each
+        answered its question yes, reasoning from the one offer they had
+        seen, with the other two on screen and unpressed (user, 2026-09-16:
+        "forcing it to press through with no and reveal each pokemon before
+        presenting it with its ultimate choice, no matter what we dont want
+        to force it into picking a specific pokemon but right now it feels
+        like the harness is doing that with char").
+
+        So when a Poke Ball standing on a map offers a Pokemon and other
+        balls stand beside it, every one of them is pressed and answered
+        NO — which takes nothing and leaves each where it is — and the
+        round hands back what each asked, side by side, with the outline's
+        goals. Which to take is the model's; the harness only made sure it
+        had read all of them. Once per map: the Fighting Dojo's two balls
+        are the only other table like it. Returns the trace line, or None
+        when this press is not one of those."""
+        name = str(step.get("name") or "")
+        if not name.startswith("ITEM_"):
+            return None
+        said = str((obs or {}).get("recent_text")
+                   or (obs or {}).get("last_text") or "").split(" / ")[-1]
+        if not self._is_offer(said):
+            return None
+        mid = getattr(self, "_last_overworld_map", None)
+        others = [n for n in (getattr(self, "_last_overworld_items", None)
+                              or []) if n != name]
+        done = getattr(self, "_offer_tables", None)
+        if done is None:
+            done = self._offer_tables = set()
+        if not mid or not others or mid in done:
+            return None
+        done.add(mid)
+        asked = [(name, said)]
+        self._send_safe("tap", btn="b")
+        cur = self.settle() or obs
+        for other in others:
+            r2 = self._send_safe("interact", name=other) or {}
+            det = str((r2.get("result") or {}).get("detail") or "")
+            words = str(r2.get("recent_text") or "").strip()
+            if ASKING in det and words:
+                asked.append((other, words))
+                self._send_safe("tap", btn="b")
+            cur = self.settle() or r2 or cur
+        self.log("offer_table_surveyed", subgoal=sg.get("id"), map=mid,
+                 asked=[f"{n}: {w}" for n, w in asked])
+        if len(asked) < 2:
+            return None
+        return ("— every Poke Ball standing on this table was pressed and "
+                "answered NO, so nothing has been taken and each still "
+                "stands where it was. What each one asked: "
+                + "; ".join(f'{n}: "{w}"' for n, w in asked)
+                + ". To take one, press it with {\"op\":\"interact\","
+                  "\"name\":\"<that ball>\",\"answer\":\"yes\"} — its "
+                  "question has been read, so the answer is used. Which, if "
+                  "any, is yours."
+                + self._road_ahead_text(cur, said).replace(
+                    "Which of those the Pokemon this question names would "
+                    "answer is yours to judge",
+                    "Which of those each of these Pokemon would answer is "
+                    "yours to judge").split("Also standing on this map:")[0]
+                  .rstrip())
 
     @staticmethod
     def _pos(obs):

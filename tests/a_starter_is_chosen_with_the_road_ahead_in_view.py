@@ -210,6 +210,91 @@ for w in MENTIONS:
     ck(f"a mention does not: {w[:40]}",
        HEAD not in L.render([], ex, dict(box, recent_text=w)))
 
+# ---- every ball on the table is asked before any is taken -------------------
+# Runs 20-22 each pressed the leftmost ball first, read CHARMANDER's
+# question and said yes, with the other two unread (user, 2026-09-16:
+# "forcing it to press through with no and reveal each pokemon before
+# presenting it with its ultimate choice").
+QUESTIONS = {"ITEM_OAKS_LAB_6_3": "So! You want the fire POKéMON, CHARMANDER?",
+             "ITEM_OAKS_LAB_7_3": "So! You want the water POKéMON, SQUIRTLE?",
+             "ITEM_OAKS_LAB_8_3": "So! You want the plant POKéMON, BULBASAUR?"}
+sent = []
+
+
+def fake_send(op, **kw):
+    sent.append((op, kw))
+    if op == "interact":
+        w = QUESTIONS[kw["name"]]
+        return {"mode": "ui", "recent_text": w,
+                "result": {"ok": True, "detail": f"{kw['name']} {E.ASKING} — \"{w}\""}}
+    return {"mode": "overworld"}
+
+
+class T(E.Executor):
+    pass
+
+
+tx = object.__new__(T)
+tx._send_safe = fake_send
+tx.settle = lambda: {"mode": "overworld", "party": []}
+tx.logged = []
+tx.log = lambda k, **kw: tx.logged.append((k, kw))
+tx._last_overworld_map = "OAKS_LAB"
+tx._last_overworld_items = list(QUESTIONS)
+(run / "outline_leg").write_text("0\n")
+opened = {"mode": "ui", "recent_text": QUESTIONS["ITEM_OAKS_LAB_6_3"], "party": []}
+line = tx._survey_offer_table({"id": "pick_starter"}, "interact",
+                              {"name": "ITEM_OAKS_LAB_6_3", "answer": "yes"},
+                              opened)
+ck("the first question is answered no before anything else",
+   sent and sent[0] == ("tap", {"btn": "b"}))
+ck("each other ball is pressed and answered no",
+   [s for s in sent if s[0] == "interact"]
+   == [("interact", {"name": "ITEM_OAKS_LAB_7_3"}),
+       ("interact", {"name": "ITEM_OAKS_LAB_8_3"})]
+   and sum(1 for s in sent if s == ("tap", {"btn": "b"})) == 3)
+ck("nothing is ever answered yes by the survey",
+   not any(s[0] == "tap" and s[1].get("btn") == "a" for s in sent)
+   and not any(s[1].get("answer") for s in sent))
+ck("the round hands back all three offers",
+   line and all(f'"{w}"' in line for w in QUESTIONS.values()))
+ck("...says nothing has been taken and each still stands",
+   line and "nothing has been taken and each still stands" in line)
+ck("...says how to take one, and leaves which to the model",
+   line and '"answer":"yes"' in line and "Which, if any, is yours." in line)
+ck("...with the outline's goals",
+   line and HEAD in line and "  5. the party holds a WATER or GRASS type" in line)
+ck("...and no 'also standing' line, since all of them are named",
+   line and "Also standing on this map" not in line)
+ck("the survey is logged with what each asked",
+   tx.logged and tx.logged[-1][0] == "offer_table_surveyed"
+   and len(tx.logged[-1][1]["asked"]) == 3)
+sent.clear()
+ck("a table is surveyed once",
+   tx._survey_offer_table({"id": "pick_starter"}, "interact",
+                          {"name": "ITEM_OAKS_LAB_7_3", "answer": "yes"},
+                          dict(opened, recent_text=QUESTIONS["ITEM_OAKS_LAB_7_3"]))
+   is None and not sent)
+tx2 = object.__new__(T)
+tx2._send_safe = fake_send
+tx2._last_overworld_map = "MT_MOON_B2F"
+tx2._last_overworld_items = ["ITEM_MT_MOON_B2F_5_6", "ITEM_MT_MOON_B2F_6_6"]
+ck("a fossil's question is not an offer table",
+   tx2._survey_offer_table({"id": "x"}, "interact",
+                           {"name": "ITEM_MT_MOON_B2F_5_6"},
+                           {"recent_text": "You want the DOME FOSSIL?"}) is None)
+tx3 = object.__new__(T)
+tx3._send_safe = fake_send
+tx3._last_overworld_map = "OAKS_LAB"
+tx3._last_overworld_items = ["ITEM_OAKS_LAB_8_3"]
+ck("a ball with nothing beside it is not a table",
+   tx3._survey_offer_table({"id": "x"}, "interact",
+                           {"name": "ITEM_OAKS_LAB_8_3"},
+                           {"recent_text": QUESTIONS["ITEM_OAKS_LAB_8_3"]}) is None)
+ck("the survey runs where the macro stops for a question",
+   "self._survey_offer_table(sg, op, step, obs)" in
+   (ROOT / "planner/executor.py").read_text())
+
 E.PLANS = live_plans
 E.bind_run(live_run)
 failed = [n for n, ok in checks if not ok]
