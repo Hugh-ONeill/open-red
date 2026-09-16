@@ -1,6 +1,17 @@
 {
   "party": [
     {
+      "species": "BUTTERFREE",
+      "level": 20,
+      "moves": [
+        "CONFUSION",
+        "POISONPOWDER",
+        "STUN_SPORE",
+        "SLEEP_POWDER"
+      ],
+      "nickname": "BUTTERFREE"
+    },
+    {
       "species": "CHARMELEON",
       "level": 20,
       "moves": [
@@ -10,16 +21,6 @@
         "LEER"
       ],
       "nickname": "CHARMELEON"
-    },
-    {
-      "species": "PIDGEOTTO",
-      "level": 18,
-      "moves": [
-        "GUST",
-        "SAND_ATTACK",
-        "QUICK_ATTACK"
-      ],
-      "nickname": "PIDGEOTTO"
     }
   ],
   "bag": {
@@ -52,8 +53,9 @@
     "ROUTE_24_obj_8"
   ],
   "catch": {
-    "want_types": [
-      "PSYCHIC_TYPE"
+    "want_types": [],
+    "want_species": [
+      "ABRA"
     ],
     "encounters": 40,
     "targets": 3

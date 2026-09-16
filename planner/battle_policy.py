@@ -100,6 +100,8 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
 
   catch: { ball: str          a ball or the class "ball" (weakest held
            prefer: str          first) thrown at WILD mons during a CATCH
+           first_ball: bool     (true: one ball on the first turn, before
+                                any status move or weakening)
            throw_at_hp_frac:  subgoal. A wild that is not the named want is
              float (def 0.7)  run from; a sleep/paralysis move goes first on
            max_balls: int }   an unstatused foe; it weakens only with a move
@@ -466,6 +468,8 @@ def validate_spec(spec) -> list:
             if "max_balls" in ca and not (isinstance(ca["max_balls"], int)
                                           and 1 <= ca["max_balls"] <= 10):
                 probs.append("catch.max_balls int in [1,10]")
+            if "first_ball" in ca and not isinstance(ca["first_ball"], bool):
+                probs.append("catch.first_ball true or false")
     if "lead" in spec and spec["lead"] is not None:
         ld = spec["lead"]
         if not isinstance(ld, dict) or ld.get("order") not in LEAD_ORDERS:
@@ -1116,6 +1120,18 @@ def choose(obs: dict, spec: dict | None = None,
             # status (poison and burn are left alone: they chip toward a
             # faint). Nothing safe, or low enough already: throw.
             cur_hp = foe.get("hp") or 0
+            # ONE BALL BEFORE ANYTHING ELSE, WHEN THE SPEC SAYS SO. A wild
+            # ABRA knows only TELEPORT and leaves on its first move; a ball
+            # goes before any move, so the throw on turn one is the only
+            # throw there is, and a sleep move spent first catches nothing
+            # (user, 2026-09-16: "the ideal catch is to initially throw a
+            # single ball for runners then weaken/status before throwing
+            # more balls"). Whether a runner is worth that ball is the
+            # spec's call, so it is a rule the model writes, not a default.
+            if ca.get("first_ball") and balls == 0:
+                ctx["balls"] = 1
+                return {"op": "throw_ball", "ball": have_ball,
+                        "_why": "first_ball: one ball before anything else"}
             if not foe.get("status") and not ctx.get("status_tried"):
                 st = [mv for mv in moves
                       if str(mv.get("id") or "").upper() in CATCH_STATUS_MOVES]

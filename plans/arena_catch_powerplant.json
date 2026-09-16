@@ -1,0 +1,62 @@
+{
+  "party": [
+    {
+      "species": "VILEPLUME",
+      "level": 40,
+      "moves": [
+        "SLEEP_POWDER",
+        "STUN_SPORE",
+        "ACID",
+        "MEGA_DRAIN"
+      ],
+      "nickname": "VILEPLUME"
+    }
+  ],
+  "bag": {
+    "POKE_BALL": 10,
+    "GREAT_BALL": 5,
+    "SUPER_POTION": 3
+  },
+  "money": 5000,
+  "start": {
+    "map": "POWER_PLANT",
+    "x": 4,
+    "y": 21,
+    "facing": "down"
+  },
+  "set_flags": [
+    "EVENT_BEAT_POWER_PLANT_VOLTORB_0",
+    "EVENT_BEAT_POWER_PLANT_VOLTORB_1",
+    "EVENT_BEAT_POWER_PLANT_VOLTORB_2",
+    "EVENT_BEAT_POWER_PLANT_VOLTORB_3",
+    "EVENT_BEAT_POWER_PLANT_VOLTORB_4",
+    "EVENT_BEAT_POWER_PLANT_VOLTORB_5",
+    "EVENT_BEAT_POWER_PLANT_VOLTORB_6",
+    "EVENT_BEAT_POWER_PLANT_VOLTORB_7",
+    "EVENT_BEAT_ZAPDOS"
+  ],
+  "set_trainers": [
+    "POWER_PLANT_obj_1",
+    "POWER_PLANT_obj_2",
+    "POWER_PLANT_obj_3",
+    "POWER_PLANT_obj_4",
+    "POWER_PLANT_obj_5",
+    "POWER_PLANT_obj_6",
+    "POWER_PLANT_obj_7",
+    "POWER_PLANT_obj_8",
+    "POWER_PLANT_obj_9",
+    "POWER_PLANT_obj_10",
+    "POWER_PLANT_obj_11",
+    "POWER_PLANT_obj_12",
+    "POWER_PLANT_obj_13",
+    "POWER_PLANT_obj_14"
+  ],
+  "catch": {
+    "want_types": [
+      "ELECTRIC"
+    ],
+    "want_species": [],
+    "encounters": 20,
+    "targets": 4
+  }
+}

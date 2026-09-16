@@ -638,36 +638,65 @@ def build(g: dict, path: str) -> dict:
 # with a trainer standing on (5,20); Viridian Forest's west strip at x 1-2,
 # y 6-23, with a trainer at (2,18).
 CATCHES = [
-    dict(name="catch_forest", map="VIRIDIAN_FOREST", badges=1,
-         start=(1, 10), want_types=["ELECTRIC"], encounters=40, targets=3,
+    # THREE KINDS OF CATCH (user, 2026-09-16: "instead of viridian forest
+    # pika how about we go with weedle for the easy catch, keep abra for the
+    # 'throw ball first' action because the ideal catch is to initially
+    # throw a single ball for runners then weaken/status before throwing
+    # more balls, and make a new arena with a harder catch target, electric
+    # in the power plant with a status-causing vileplume in party").
+    #
+    # EASY. WEEDLE is nearly half of the Forest (45% of its slots) at L3-5
+    # with catch rate 255; a L10 CHARMANDER has nothing to put it to sleep
+    # and a SCRATCH that takes most of one.
+    dict(name="catch_weedle", map="VIRIDIAN_FOREST", badges=1,
+         start=(1, 10), want_species=["WEEDLE"], encounters=30, targets=3,
          party=[("CHARMANDER", 10)], bag={"POKE_BALL": 10, "POTION": 2},
          money=500,
-         note="PIKACHU is 5% of the Forest at L3-5, against a CHARMANDER "
-              "whose SCRATCH takes most of one: the throw has to come "
-              "before the weakening does, and a ball spent on a full-HP "
-              "PIKACHU lands about a quarter of the time (catch rate 190)."),
-    # ABRA, NOT ODDISH (user, 2026-09-16: "maybe the rt24 one can be for
-    # abra though, i think itd end up breaking things because it teleports
-    # away and you need to just throw balls at it as soon as you see it").
-    # A wild ABRA knows only TELEPORT and leaves on its first move, and a
-    # ball goes before any move, so the throw on turn one is the only
-    # throw there is: a spec that weakens first, or waits for a threshold,
-    # catches nothing here. ODDISH walks the same grass as the thing to
-    # run from.
-    dict(name="catch_route24", map="ROUTE_24", badges=2,
-         start=(4, 26), want_types=["PSYCHIC_TYPE"], encounters=40, targets=3,
-         party=[("CHARMELEON", 20), ("PIDGEOTTO", 18)],
+         note="WEEDLE is 45% of the Forest at L3-5 (catch rate 255): the "
+              "easy catch, and a fight that can still knock out what it "
+              "came for."),
+    # THROW FIRST. A wild ABRA knows only TELEPORT and leaves on its first
+    # move; a ball goes before any move. The lead is a BUTTERFREE whose
+    # STUN_SPORE and SLEEP_POWDER are exactly what a careful catch reaches
+    # for first — and here that turn is the one the ABRA leaves on.
+    dict(name="catch_abra", map="ROUTE_24", badges=2,
+         start=(4, 26), want_species=["ABRA"], encounters=40, targets=3,
+         party=[("BUTTERFREE", 20), ("CHARMELEON", 20)],
          bag={"POKE_BALL": 10, "POTION": 2}, money=1500,
-         note="ABRA is 15% of Route 24 at L8-12 and knows only TELEPORT: "
-              "it leaves on its first move, and a ball is thrown before "
-              "any move, so each ABRA met allows one throw at full HP "
-              "(catch rate 200)."),
+         note="ABRA is 15% of Route 24 at L8-12 and leaves on its first "
+              "move; a BUTTERFREE leads with STUN_SPORE and SLEEP_POWDER, "
+              "so a spec that statuses first never throws."),
+    # HARD. Every wild in the Power Plant is ELECTRIC — VOLTORB and
+    # MAGNEMITE at L21-23 (catch rate 190), PIKACHU, and the rare MAGNETON
+    # (60) and ELECTABUZZ (45) at L32-36 — and VOLTORB can SELFDESTRUCT. A
+    # VILEPLUME resists electricity and carries both a sleep and a
+    # paralysis move, so status, weakening and the throw threshold all have
+    # something to do. The floor spawns on every tile (a FACILITY map).
+    dict(name="catch_powerplant", map="POWER_PLANT", badges=6,
+         start=(4, 21), want_types=["ELECTRIC"], encounters=20, targets=4,
+         party=[("VILEPLUME", 40, ["SLEEP_POWDER", "STUN_SPORE", "ACID",
+                                   "MEGA_DRAIN"])],
+         bag={"POKE_BALL": 10, "GREAT_BALL": 5, "SUPER_POTION": 3},
+         money=5000,
+         note="Every wild here is ELECTRIC, VOLTORB can SELFDESTRUCT, and "
+              "MAGNETON and ELECTABUZZ catch at 60 and 45: a VILEPLUME with "
+              "SLEEP_POWDER, STUN_SPORE and MEGA_DRAIN is the tool, and "
+              "GREAT_BALLs beside POKE_BALLs let the ball rule choose."),
 ]
 
 
 def build_catch(c: dict) -> dict:
-    party = [{"species": sp, "level": lv, "moves": natural_moves(sp, lv),
-              "nickname": sp} for sp, lv in c["party"]]
+    party = []
+    for entry in c["party"]:
+        sp, lv = entry[0], entry[1]
+        moves = list(entry[2]) if len(entry) > 2 else natural_moves(sp, lv)
+        for mv in moves:
+            if len(entry) > 2 and mv not in natural_moves(sp, lv) \
+                    and not can_learn(sp, mv) \
+                    and mv not in natural_moves("GLOOM", lv):
+                sys.exit(f"{c['name']}: {sp} cannot have {mv}")
+        party.append({"species": sp, "level": lv, "moves": moves,
+                      "nickname": sp})
     objs = room_objects(c["map"])
     return {"party": party, "bag": dict(c["bag"]), "money": c["money"],
             "start": {"map": c["map"], "x": c["start"][0],
@@ -675,7 +704,8 @@ def build_catch(c: dict) -> dict:
             "set_flags": trainer_flags(c["map"]),
             "set_trainers": [f"{c['map']}_obj_{i}" for i, _n, _x, _y in objs],
             # read by the arena runner, ignored by gin_save
-            "catch": {"want_types": list(c["want_types"]),
+            "catch": {"want_types": list(c.get("want_types") or []),
+                      "want_species": list(c.get("want_species") or []),
                       "encounters": int(c["encounters"]),
                       "targets": int(c["targets"])}}
 
@@ -696,7 +726,7 @@ def main():
         base = pick_base(c["badges"])
         spec = build_catch(c)
         print(f"\n=== {c['name']}  {c['map']} at {c['start']}  hunting "
-              f"{'/'.join(c['want_types'])}")
+              f"{'/'.join((c.get('want_types') or []) + (c.get('want_species') or []))}")
         print(f"    base {base.parent.name if base else 'MISSING'}")
         for m in spec["party"]:
             print(f"    {m['species']:11s} L{m['level']:<3d} "

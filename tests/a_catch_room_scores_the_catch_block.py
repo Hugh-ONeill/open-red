@@ -43,7 +43,7 @@ def ck(name, cond):
 
 
 # ---- the table ------------------------------------------------------------
-for name in ("catch_forest", "catch_route24"):
+for name in ("catch_weedle", "catch_abra", "catch_powerplant"):
     kind, save, spec = PA.ARENAS.get(name, (None, None, None))
     ck(f"{name} is a catch arena", kind == "catch")
     ck(f"{name} names its save and spec",
@@ -56,48 +56,101 @@ ck("the catch rooms are not gyms and join no gym sweep",
 GRASS = {"VIRIDIAN_FOREST": 32, "ROUTE_24": 82}
 
 
-def grass_cell(map_id, x, y) -> bool:
-    """The engine's rule (Map:isGrassCell), read from its own tables."""
+def spawns_here(map_id, x, y) -> bool:
+    """The engine's rule (OverworldController, mirrored in the shim's
+    grind): grass anywhere, and on an indoor map past firstIndoorMap whose
+    tileset is not FOREST, every walkable tile."""
     import subprocess
+    import tempfile
     lua = (f'local G="{Path.home()}/Developer/gen1recomp/data/generated/";'
            'local m=dofile(G.."maps.lua")[arg[1]];'
            'local t=dofile(G.."tilesets.lua")[m.tileset];'
+           'local ind=dofile(G.."field.lua").indoorEncounters;'
            'local cx,cy=tonumber(arg[2]),tonumber(arg[3]);'
            'local tx,ty=cx*2,cy*2+1;'
            'local bx,by=math.floor(tx/4),math.floor(ty/4);'
            'local b=t.blocks[m.blocks[by*m.width+bx+1]+1];'
-           'print(b[(ty%4)*4+(tx%4)+1]==t.grassTile)')
-    try:
-        out = subprocess.run(["lua", "-e", lua, "--", map_id, str(x), str(y)],
-                             capture_output=True, text=True, timeout=20)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if out.returncode != 0:
-        # `lua -e` does not see `--` args; fall back to a script file
-        import tempfile
-        with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as f:
-            f.write(lua)
-        out = subprocess.run(["lua", f.name, map_id, str(x), str(y)],
-                             capture_output=True, text=True, timeout=20)
+           'local c=b[(ty%4)*4+(tx%4)+1];'
+           'local walk=false;'
+           'for k,v in pairs(t.walkable or {}) do if v==c or (k==c and v==true) then walk=true end end;'
+           'local indoor=m.index and m.index>=ind.firstIndoorMap and m.tileset~=ind.excludedTileset;'
+           'print((c==t.grassTile) or (indoor and walk))')
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as f:
+        f.write(lua)
+    out = subprocess.run(["lua", f.name, map_id, str(x), str(y)],
+                         capture_output=True, text=True, timeout=30)
     return out.stdout.strip() == "true"
 
 
 for c in GG.CATCHES:
     spec = GG.build_catch(c)
     ck(f"{c['name']} names what it hunts, a battle budget and a target count",
-       spec["catch"]["want_types"] and spec["catch"]["encounters"] > 0
-       and spec["catch"]["targets"] > 0)
+       (spec["catch"]["want_types"] or spec["catch"]["want_species"])
+       and spec["catch"]["encounters"] > 0 and spec["catch"]["targets"] > 0)
     _engine = {l.strip() for l in (ROOT / "planner/engine_types.txt")
                .read_text().splitlines() if l.strip()}
-    ck(f"{c['name']} wants a type the engine spells that way",
-       spec["catch"]["want_types"]
-       and set(spec["catch"]["want_types"]) <= _engine)
-    ck(f"{c['name']} starts the party on grass",
-       grass_cell(c["map"], *c["start"]) is True)
+    ck(f"{c['name']} wants a type the engine spells that way, or a species",
+       set(spec["catch"]["want_types"]) <= _engine
+       and set(spec["catch"]["want_species"])
+       <= __import__("executor").Executor._species_names())
+    ck(f"{c['name']} starts the party where wild Pokemon appear",
+       spawns_here(c["map"], *c["start"]) is True)
     ck(f"{c['name']} marks every trainer on the map beaten",
        set(spec["set_flags"]) == set(GG.trainer_flags(c["map"]))
        and len(spec["set_trainers"]) == len(GG.room_objects(c["map"])))
     ck(f"{c['name']} carries balls", spec["bag"].get("POKE_BALL", 0) > 0)
+
+# ---- the three kinds of catch (user, 2026-09-16) -----------------------------
+_by = {c["name"]: c for c in GG.CATCHES}
+ck("an easy catch: WEEDLE in the Forest",
+   _by["catch_weedle"]["want_species"] == ["WEEDLE"]
+   and _by["catch_weedle"]["map"] == "VIRIDIAN_FOREST")
+ck("a runner: ABRA, with a lead whose status moves cost the only turn",
+   _by["catch_abra"]["want_species"] == ["ABRA"]
+   and {"STUN_SPORE", "SLEEP_POWDER"}
+   <= set(GG.build_catch(_by["catch_abra"])["party"][0]["moves"]))
+_pp = GG.build_catch(_by["catch_powerplant"])
+ck("a hard catch: ELECTRIC in the Power Plant, with a VILEPLUME that sleeps "
+   "and paralyses",
+   _by["catch_powerplant"]["want_types"] == ["ELECTRIC"]
+   and _pp["party"][0]["species"] == "VILEPLUME"
+   and {"SLEEP_POWDER", "STUN_SPORE"} <= set(_pp["party"][0]["moves"])
+   and _pp["bag"].get("GREAT_BALL", 0) > 0)
+
+# ---- first_ball ---------------------------------------------------------------
+ABRA = {"mode": "battle",
+        "battle": {"kind": "wild",
+                   "foe": {"species": "ABRA", "level": 10, "hp": 25,
+                           "maxhp": 25, "types": ["PSYCHIC_TYPE"]},
+                   "me": {"species": "BUTTERFREE", "level": 20, "hp": 55,
+                          "maxhp": 55, "types": ["BUG", "FLYING"],
+                          "moves": [{"index": 1, "id": "SLEEP_POWDER", "pp": 15,
+                                     "type": "GRASS", "power": 0},
+                                    {"index": 2, "id": "CONFUSION", "pp": 25,
+                                     "type": "PSYCHIC_TYPE", "power": 50}]}},
+        "party": [{"species": "BUTTERFREE", "level": 20, "hp": 55,
+                   "max_hp": 55}],
+        "bag": {"POKE_BALL": 10}}
+WANT = {"species": {"ABRA"}, "types": set()}
+_c0 = {"turn": 1, "intent": "catch", "want": WANT, "journal": {}}
+_plain = {"catch": {"ball": "ball", "throw_at_hp_frac": 0.2, "max_balls": 5}}
+ck("without first_ball, a sleep move comes first",
+   bp.choose(ABRA, _plain, dict(_c0)).get("op") == "battle_move")
+_fb = {"catch": dict(_plain["catch"], first_ball=True)}
+_ctx = dict(_c0)
+_o1 = bp.choose(ABRA, _fb, _ctx)
+_o2 = bp.choose(ABRA, _fb, _ctx)
+ck("with first_ball, one ball goes on the first turn",
+   _o1.get("op") == "throw_ball" and "first_ball" in _o1.get("_why", ""))
+ck("...and only one: the status move follows",
+   _o2.get("op") == "battle_move" and _o2.get("index") == 1)
+ck("first_ball validates as a bool",
+   not bp.validate_spec(_fb)
+   and any("first_ball" in p for p in bp.validate_spec(
+       {"catch": dict(_plain["catch"], first_ball="yes")})))
+ck("the doc the model authors from names first_ball and why",
+   '"first_ball"' in PA.DSL_DOC and "TELEPORT" in PA.DSL_DOC
+   and "first_ball" in bp.__doc__)
 
 # ---- scoring ----------------------------------------------------------------
 r = {"arena": "catch", "gauntlet_trials": 2, "met": 4, "caught": 3,

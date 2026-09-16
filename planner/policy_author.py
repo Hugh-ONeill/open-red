@@ -181,10 +181,15 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      poison keeps draining HP every few steps until cured. Field item
      rules cover the WHOLE party, neediest mon first.)
   catch: {"ball": "ball", "throw_at_hp_frac": 0.0-1.0,
-          "max_balls": 1-10}
+          "max_balls": 1-10, "first_ball": true|false}
     (during a CATCH task, against a WILD Pokemon only. In order:
      - a wild that is not the type or species the task names is run
        from, not fought;
+     - with "first_ball": true, one ball is thrown on the first turn
+       before anything below. A ball goes before any move, and some wild
+       Pokemon leave on their first move (a wild ABRA knows only
+       TELEPORT); without it, a status move or a weakening move comes
+       first;
      - if the lead knows a sleep or paralysis move (SLEEP_POWDER,
        STUN_SPORE, THUNDER_WAVE, HYPNOSIS, SING, SPORE, LOVELY_KISS,
        GLARE) and the foe has no status, that move is used once first;
@@ -632,7 +637,8 @@ class Gym:
             except (OSError, ValueError):
                 self.catch_cfg = {}
         if self.arena == "catch":
-            print(f"[gym] hunting {'/'.join(self.catch_cfg.get('want_types') or [])}"
+            print(f"[gym] hunting "
+                  f"{'/'.join((self.catch_cfg.get('want_types') or []) + (self.catch_cfg.get('want_species') or []))}"
                   f": {self.catch_cfg.get('targets')} met or "
                   f"{self.catch_cfg.get('encounters')} wild battles a trial")
         if self.arena == "gym":
@@ -1095,12 +1101,16 @@ class Gym:
         ex_mod.set_active_spec(spec)
         cfg = getattr(self, "catch_cfg", {}) or {}
         want = [str(t).upper() for t in (cfg.get("want_types") or [])]
+        want_sp = [str(t).upper() for t in (cfg.get("want_species") or [])]
         n_enc = int(cfg.get("encounters") or 30)
         n_tgt = int(cfg.get("targets") or 3)
-        sg = {"id": "catch_room",
-              "goal_text": "Catch a " + " or ".join(want) + " type Pokemon",
-              "done_when": ({"any_of": [{"party_type": t} for t in want]}
-                            if len(want) > 1 else {"party_type": want[0]})}
+        # a room hunts a TYPE or a SPECIES, as a leg would name either
+        _alts = ([{"party_type": t} for t in want]
+                 + [{"has_species": sp} for sp in want_sp])
+        _named = " or ".join([f"{t} type" for t in want] + want_sp)
+        sg = {"id": "catch_room", "goal_text": f"Catch a {_named} Pokemon",
+              "done_when": (_alts[0] if len(_alts) == 1
+                            else {"any_of": _alts})}
         res = {"arena": "catch",
                "rival_wins": 0, "rival_trials": 0, "pewter": 0, "badge": 0,
                "gauntlet_trials": 0, "blackouts": 0, "agree": 0,
@@ -1110,8 +1120,9 @@ class Gym:
                "battles": 0}
 
         def typed(mon) -> bool:
-            return bool({str(t).upper() for t in (mon.get("types") or [])}
-                        & set(want))
+            return (bool({str(t).upper() for t in (mon.get("types") or [])}
+                         & set(want))
+                    or str(mon.get("species") or "").upper() in want_sp)
 
         for _ in range(k):
             r = self.b.send("checkpoint_restore", token="eval_e4",
@@ -1211,7 +1222,7 @@ class Gym:
             res["balls"] += balls
             res["battles"] += battles
             res["gauntlet_detail"].append(
-                f"caught {caught} of {met} {'/'.join(want)} met in "
+                f"caught {caught} of {met} {'/'.join(want + want_sp)} met in "
                 f"{battles} wild battle(s), {balls} ball(s) thrown"
                 + (f", {killed} lost in the fight" if killed else "")
                 + f"; stopped at {why_end}")
@@ -1746,7 +1757,7 @@ for _path in PATHS:
 # THE CATCH ROOMS (2026-09-16): a patch of grass and a want, built by
 # gin_gym_arenas.py (CATCHES). They score the spec's `catch` block, which
 # no gym or league room ever reaches.
-for _c in ("catch_forest", "catch_route24"):
+for _c in ("catch_weedle", "catch_abra", "catch_powerplant"):
     ARENAS[_c] = ("catch", REPO / f"run/arena_{_c}.lua",
                   REPO / f"plans/arena_{_c}.json")
 # The three found rather than built (09-12 and 09-15): the same gyms with

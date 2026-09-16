@@ -38,10 +38,11 @@
     "VIRIDIAN_FOREST_obj_8"
   ],
   "catch": {
-    "want_types": [
-      "ELECTRIC"
+    "want_types": [],
+    "want_species": [
+      "WEEDLE"
     ],
-    "encounters": 40,
+    "encounters": 30,
     "targets": 3
   }
 }
