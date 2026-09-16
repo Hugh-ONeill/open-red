@@ -33,6 +33,7 @@ from pathlib import Path
 
 import battle_policy
 import brock_probe
+from calibrate_arenas import strip_medicine
 import executor as ex_mod
 from bridge import Bridge, RUN
 
@@ -138,7 +139,7 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
   battle_items: list of in-battle heal rules, each:
       {"item": "heal", "prefer": "weakest_sufficient",
        "hp_below": 0.0-1.0, "max_uses": 1-6,
-       "max_uses_run": 1-30, "reserve": 0-30}
+       "max_uses_run": 1-30, "reserve": 0-30, "max_share": 0.0-1.0}
     (use the item — costing the turn — when own hp fraction is below
      hp_below; at most max_uses per battle, counted per RULE; only if the
      bag has something the rule can reach.
@@ -155,7 +156,13 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      blackout); reserve makes a rule refuse to fire when it would leave
      fewer than that many of the item — of the whole class, for a class —
      in the bag. The bag count is on your screen; how many to hold back
-     for the rooms ahead is your call.)
+     for the rooms ahead is your call.
+     A COUNT PER FIGHT CANNOT FIT EVERY BAG: "two a fight" rations five
+     FULL_RESTOREs across a league and starves one long fight with ten
+     POTIONs. max_share caps a rule in ONE battle at that share of what
+     the bag held of the item when the battle began, rounded down and
+     never below one — 0.34 is two of five and three of ten. max_uses
+     and max_share both apply; the stricter wins.)
   field_heal: null or {"item": "heal", "hp_below": 0.0-1.0,
                        "prefer": ..., "reserve": 0-30}
     (one rule only here — so a class, not a name you may run out of)
@@ -201,7 +208,13 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      carry no type falls back to its own typing. "min_hp_frac" stops a type rule sending in something nearly
      dead — if nobody clears the floor it is ignored, never obeyed into
      sending nobody. Outside a fight there is no foe to read and the type
-     orders fall back to healthiest.)"""
+     orders fall back to healthiest.)
+  best_matchup, wherever it appears (lead, switch, replacement), weighs
+    what a member can actually DO: its strongest damaging move's power
+    with STAB and the type chart, over what the foe's types do to it. A
+    20-power ABSORB at double no longer outranks a 120-power STAB move
+    at neutral (it did, and KABUTOPS led LORELEI for forty turns).
+"""
 
 # ------------------------------------------------------- context, from evidence
 # WHAT USED TO BE HERE. A hand-written CONTEXT block that told the model
@@ -805,6 +818,35 @@ class Gym:
                 break            # nobody in reach and nowhere to look
         return self._ride(self.ex.settle())
 
+    _MEDICINE = (battle_policy.HEAL_LADDER + battle_policy.REVIVE_LADDER
+                 + tuple(i for lad in battle_policy.CURE_LADDERS.values()
+                         for i in lad))
+
+    def _spent(self, obs: dict) -> str:
+        """WHAT THE TRIAL SPENT AND WHAT IT LEFT. v13 went down to the
+        Champion twice with a FULL_RESTORE still in the bag, and the model
+        that wrote it was told rooms and blackouts and nothing about the
+        bag (2026-09-15). The arena's starting bag is in its spec; the
+        end is on the screen. Medicine only, and only what was carried."""
+        if not self.arena_spec:
+            return ""
+        bag0 = getattr(self, "_bag0", None)
+        if bag0 is None:
+            try:
+                bag0 = json.loads(Path(self.arena_spec).read_text()).get("bag") or {}
+            except (OSError, ValueError):
+                bag0 = {}
+            self._bag0 = bag0
+        end = (obs or {}).get("bag") or {}
+        parts = []
+        for item in self._MEDICINE:
+            n0 = int(bag0.get(item, 0) or 0)
+            if not n0:
+                continue
+            left = int(end.get(item, 0) or 0)
+            parts.append(f"{item} spent {max(0, n0 - left)}, unspent {left}")
+        return ("; " + ", ".join(parts)) if parts else ""
+
     def eval_spec_gym(self, spec: dict, k: int = 3) -> dict:
         """One room, everyone in it. Press each trainer in turn and fight;
         the score is how many of the room's beat-flags come up.
@@ -934,7 +976,8 @@ class Gym:
                 f"beat {_gain}/{res['standing']} in {self.arena_map} "
                 f"with {len(alive)}/{len(obs.get('party') or [])} standing"
                 + ("" if end in (None, self.arena_map)
-                   else f" (ended in {end})"))
+                   else f" (ended in {end})")
+                + self._spent(obs))
             for d in self._log_delta(start):
                 if d.get("kind") == "blackout":
                     res["blackouts"] += 1
@@ -1126,7 +1169,8 @@ class Gym:
                               / max(1, len(obs.get("party") or [])))
             res["gauntlet_detail"].append(
                 f"beat {cleared}/5 ({'CHAMPION' if champion else 'stopped in ' + str(_end)}) "
-                f"with {len(alive)}/{len(obs.get('party') or [])} standing")
+                f"with {len(alive)}/{len(obs.get('party') or [])} standing"
+                + self._spent(obs))
             for d in self._log_delta(start):
                 if d.get("kind") == "blackout":
                     res["blackouts"] += 1
@@ -1267,6 +1311,22 @@ class Gym:
         return res
 
 
+def _stripped_text(r: dict) -> str:
+    """What the medicine was worth, when the stripped twin was scored."""
+    st = r.get("stripped")
+    if not st:
+        return ""
+    m = r.get("medicine_margin", 0.0)
+    out = (f"\n  WITHOUT its item rules: {st['fraction']:.0%} of the arena, "
+           f"blackouts {st['blackouts']} — the medicine was worth "
+           f"{m:+.0%} of the arena")
+    if m <= 0:
+        out += " (the item rules did nothing here that the party did not)"
+    for i, g in enumerate(st.get("detail") or []):
+        out += f"\n    without, trial {i+1}: {g}"
+    return out
+
+
 def feedback_text(name: str, r: dict) -> str:
     ag = f"{r['agree']}/{r['scored']}" if r["scored"] else "n/a"
     if r.get("arena") == "gym" or r.get("standing"):
@@ -1279,7 +1339,7 @@ def feedback_text(name: str, r: dict) -> str:
                f"agreement {ag}, damage left on the table {r['dmg_gap']:.0f}")
         for i, g in enumerate(r.get("gauntlet_detail") or []):
             out += f"\n  trial {i+1}: {g}"
-        return out
+        return out + _stripped_text(r)
     rv = (f"{r['rival_wins']}/{r['rival_trials']}" if r["rival_trials"]
           else "not evaluable")
     if r.get("rooms") or r.get("gauntlet_detail") and not r.get("pewter") \
@@ -1292,7 +1352,7 @@ def feedback_text(name: str, r: dict) -> str:
                f"damage left on the table {r['dmg_gap']:.0f}")
         for i, g in enumerate(r.get("gauntlet_detail") or []):
             out += f"\n  trial {i+1}: {g}"
-        return out
+        return out + _stripped_text(r)
     out = (f"{name}: rival wins {rv}; gauntlet: reached Pewter "
            f"{r['pewter']}/{r['gauntlet_trials']}, Boulder Badge "
            f"{r['badge']}/{r['gauntlet_trials']}, blackouts "
@@ -1570,6 +1630,10 @@ def main():
                          "separated (" + "/".join(ARENAS) + "), and pick "
                          "the one that fits them all best. The first is "
                          "where the authoring rounds iterate.")
+    ap.add_argument("--stripped", action="store_true",
+                    help="also score each candidate with its item rules "
+                         "cut out, tell the model what the medicine was "
+                         "worth, and break ties on it")
     ap.add_argument("--trials", type=int, default=3,
                     help="restore trials per candidate per savepoint arena")
     args = ap.parse_args()
@@ -1657,6 +1721,18 @@ def main():
         print(f"[round {rnd}] evaluating {spec['name']} -> {_cand.name}\n"
               f"  {json.dumps(spec, separators=(',', ':'))}")
         r = gym.score(spec)
+        if args.stripped:
+            # THE SAME SPEC WITH ITS MEDICINE CUT OUT, so the round can
+            # say what the item rules were worth rather than what the
+            # party was worth. v13 was picked on medicine-arm scores and
+            # the calibration's stripped arm then showed it losing rooms
+            # v12 held (2026-09-15).
+            rs = gym.score(strip_medicine(spec))
+            r["stripped"] = {"fraction": round(arena_fraction(rs), 4),
+                             "blackouts": rs.get("blackouts", 0),
+                             "detail": list(rs.get("gauntlet_detail") or [])}
+            r["medicine_margin"] = round(arena_fraction(r)
+                                         - arena_fraction(rs), 4)
         candidates.append((spec, r))
         fb = feedback_text(f"candidate #{rnd} ({spec['name']})", r)
         print(f"[round {rnd}] {fb}")
@@ -1698,8 +1774,14 @@ def main():
         print("\n[across] one spec, the whole game:")
         for i, (sp, _) in enumerate(candidates):
             print(cross_text(f"candidate #{i+1} ({sp['name']})", across[i]))
+        # ...AND WHEN TWO CANDIDATES WON THE SAME, THE ONE WHOSE MEDICINE
+        # DID MORE. The margin only exists when --stripped scored the
+        # twin; without it this is the old key exactly.
         best_i = max(range(len(candidates)),
-                     key=lambda i: cross_key(across[i]))
+                     key=lambda i: (cross_key(across[i])[0],
+                                    across[i][0][1].get("medicine_margin",
+                                                        0.0))
+                     + cross_key(across[i])[1:])
         best_spec = candidates[best_i][0]
         best_r = across[best_i][0][1]
     else:
