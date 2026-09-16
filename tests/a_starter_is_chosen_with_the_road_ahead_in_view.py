@@ -400,6 +400,58 @@ ck("a ball with nothing beside it is not a table",
    tx3._survey_offer_table({"id": "x"}, "interact",
                            {"name": "ITEM_OAKS_LAB_8_3"},
                            {"recent_text": QUESTIONS["ITEM_OAKS_LAB_8_3"]}) is None)
+# THE FOSSILS AS THE PAGE NAMES THEM (run 27, 2026-09-16): not ITEM_x_y
+# balls but MTMOONB2F_DOME_FOSSIL / MTMOONB2F_HELIX_FOSSIL, found by cell
+NAMED = {"MTMOONB2F_DOME_FOSSIL": "You want the DOME FOSSIL?",
+         "MTMOONB2F_HELIX_FOSSIL": "You want the HELIX FOSSIL?"}
+nsent = []
+
+
+def named_send(op, **kw):
+    nsent.append((op, kw))
+    if op == "interact":
+        w = NAMED.get(kw["name"])
+        if w:
+            return {"mode": "ui", "recent_text": w,
+                    "result": {"ok": True, "detail": f"{kw['name']} {E.ASKING}"}}
+        return {"mode": "ui", "recent_text": "Hey!", "result": {"ok": True,
+                                                                "detail": "ok"}}
+    return {"mode": "overworld"}
+
+
+E.brock_probe.chat = lambda m, mo: '{"why": "x", "take": "none"}'
+tn = object.__new__(T)
+tn.model = "test"
+tn._send_safe = named_send
+tn.settle = lambda: {"mode": "overworld", "party": []}
+tn.log = lambda k, **kw: None
+tn._last_overworld_map = "MT_MOON_B2F"
+tn._last_overworld_items = ["ITEM_MT_MOON_B2F_25_21", "ITEM_MT_MOON_B2F_29_5"]
+tn._last_overworld_objs = [("MTMOONB2F_DOME_FOSSIL", 12, 6),
+                           ("MTMOONB2F_HELIX_FOSSIL", 13, 6),
+                           ("MTMOONB2F_SUPER_NERD", 12, 8),
+                           ("ITEM_MT_MOON_B2F_25_21", 25, 21)]
+nl = tn._survey_offer_table({"id": "x"}, "interact",
+                            {"name": "MTMOONB2F_DOME_FOSSIL"},
+                            {"recent_text": "You want the DOME FOSSIL?"})
+ck("fossils named for what they are are surveyed by where they stand",
+   nl and '"You want the HELIX FOSSIL?"' in nl
+   and [s[1]["name"] for s in nsent if s[0] == "interact"]
+   == ["MTMOONB2F_HELIX_FOSSIL"])
+tg = object.__new__(T)
+tg.model = "test"
+tg._send_safe = named_send
+tg._last_overworld_map = "GAME_CORNER_PRIZE_ROOM"
+tg._last_overworld_objs = [("GAMECORNERPRIZEROOM_CLERK1", 4, 2),
+                           ("GAMECORNERPRIZEROOM_CLERK2", 5, 2)]
+ck("the prize counter's offer is not a table to survey",
+   tg._survey_offer_table({"id": "x"}, "interact",
+                          {"name": "GAMECORNERPRIZEROOM_CLERK1"},
+                          {"recent_text": "So, you want PORYGON?"}) is None)
+_src = (ROOT / "planner/executor.py").read_text()
+ck("the room sweep runs the survey when a press is left asking",
+   '_tbl = self._survey_offer_table(\n                                sg, "interact", {"name": name}, o2)'
+   in _src)
 ck("the survey runs where the macro stops for a question",
    "self._survey_offer_table(sg, op, step, obs)" in
    (ROOT / "planner/executor.py").read_text())

@@ -4648,6 +4648,14 @@ class Executor:
                 if isinstance(o, dict) and o.get("kind") == "item"
                 and o.get("name")]
             self._last_overworld_pos = self._pos(obs)
+            # ...and where every non-trainer thing on it stands, for a
+            # question that opens over this map (_survey_offer_table)
+            self._last_overworld_objs = [
+                (str(o.get("name")), int(o.get("x")), int(o.get("y")))
+                for o in ((obs.get("map") or {}).get("objects") or [])
+                if isinstance(o, dict) and o.get("name")
+                and o.get("x") is not None and o.get("y") is not None
+                and o.get("kind") in ("item", "npc", "fixture")]
             self._note_intra(obs)
         self.note_frontier(obs)
         self.note_region_anchors(obs)
@@ -18931,21 +18939,41 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         are the only other table like it. Returns the trace line, or None
         when this press is not one of those."""
         name = str(step.get("name") or "")
-        if not name.startswith("ITEM_"):
+        if not name:
             return None
         said = str((obs or {}).get("recent_text")
                    or (obs or {}).get("last_text") or "").split(" / ")[-1]
         # ...AND THE FOSSILS (user, 2026-09-16: "might want it to trigger on
         # the fossils too"). "You want the DOME FOSSIL?" names no Pokemon,
         # but it is the same table: two balls side by side, one to take.
-        if not (self._is_offer(said)
-                or _re.match(r"^(So! )?You want the .+\?$", said.strip())):
+        # ONLY THE TABLE'S OWN WORDING. "You want the ...?" is what the
+        # starters, the Dojo's pair and the fossils say; the Game Corner's
+        # "So, you want PORYGON?" is an offer too, but its counter stands
+        # beside another counter whose press opens a prize LIST, not a
+        # question, and a survey is not the place to walk into one.
+        if not _re.match(r"^(So! )?You want the .+\?$", said.strip()):
             return None
         mid = getattr(self, "_last_overworld_map", None)
 
+        # WHERE EACH THING STANDS, BY NAME. The first version read the cell
+        # out of an ITEM_<MAP>_x_y name and would not start for anything
+        # else — and Mt Moon's fossils are not named that way: they reach
+        # the page as MTMOONB2F_DOME_FOSSIL and MTMOONB2F_HELIX_FOSSIL, so
+        # run 27 was asked "You want the DOME FOSSIL?" and took it without
+        # the HELIX ever being put beside it (user, 2026-09-16: "yeah hook
+        # the survey into sweep too"). The map's object list gives every
+        # thing's cell; the ITEM_ name is the fallback for a view that
+        # carried only those.
+        _where = {n: (x, y) for n, x, y in
+                  (getattr(self, "_last_overworld_objs", None) or [])}
+
         def _cell(n):
+            if n in _where:
+                return _where[n]
             m = _re.search(r"_(\d+)_(\d+)$", n)
             return (int(m.group(1)), int(m.group(2))) if m else None
+        if not _cell(name):
+            return None
         # ONLY THE BALLS BESIDE IT. Pressing an ordinary item ball picks it
         # up, and Mt Moon B2F keeps an HP_UP and a TM on the same floor as
         # its fossils: a survey of "every ball on the map" would take them
@@ -18953,8 +18981,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         # in one touching row; a ball two cells from its neighbour is not
         # part of the table.
         table, grew = {name}, True
-        items = [n for n in (getattr(self, "_last_overworld_items", None)
-                             or []) if _cell(n)]
+        items = [n for n in dict.fromkeys(
+                     list(_where) + list(getattr(self, "_last_overworld_items",
+                                                 None) or []))
+                 if _cell(n)]
         while grew:
             grew = False
             for n in items:
@@ -18981,6 +19011,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             words = str(r2.get("recent_text") or "").strip()
             if ASKING in det and words:
                 asked.append((other, words))
+                self._send_safe("tap", btn="b")
+            elif r2.get("mode") == "ui":
+                # whatever else it opened is closed, not left for the page
                 self._send_safe("tap", btn="b")
             cur = self.settle() or r2 or cur
         # BACK TO WHERE THE MODEL STOOD. The survey presses left to right
@@ -21445,6 +21478,19 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         # as spent, and the model is told it is still open.
                         _det = str(((o2 or {}).get("result") or {})
                                    .get("detail") or "")
+                        # A TABLE FOUND BY THE SWEEP IS SURVEYED TOO. The
+                        # sweep presses with no answer and moved on, so a
+                        # starter table or the fossils met this way were
+                        # never put side by side; the same survey the
+                        # model's own press gets runs here, and ends the
+                        # sweep with its page.
+                        if ASKING in _det:
+                            _tbl = self._survey_offer_table(
+                                sg, "interact", {"name": name}, o2)
+                            if _tbl:
+                                trace.append(_tbl)
+                                cur = self.settle() or cur
+                                break
                         if not self._record_touch(here_s, name, o2):
                             if ASKING in _det:
                                 asked_back.append(name)
