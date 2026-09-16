@@ -28,6 +28,13 @@ from pathlib import Path
 TYPE_NAMES = {"NORMAL", "FIGHTING", "FLYING", "POISON", "GROUND", "ROCK",
               "BUG", "GHOST", "FIRE", "WATER", "GRASS", "ELECTRIC",
               "PSYCHIC", "ICE", "DRAGON"}
+# THE ENGINE'S SPELLING. The game calls the type PSYCHIC_TYPE, so the move
+# and the type cannot be confused, and every party member and every foe
+# carries it that way; a leg written "a FIRE or PSYCHIC type" never matched
+# an ABRA, and the Route 24 catch room ran every one of 32 ABRA away as
+# "not what this subgoal is for" (2026-09-16). A goal's types carry both
+# spellings, so either one on the screen answers it.
+ENGINE_SPELLING = {"PSYCHIC": "PSYCHIC_TYPE"}
 
 # a leg about what a party member KNOWS or what LEVEL it is: a ball
 # satisfies neither, whatever types its sentence happens to mention
@@ -77,6 +84,7 @@ def goal_of(leg: str, species_names: set | None = None) -> dict | None:
     # "a FIRE type" is a type; "the Fire Stone" would be too without this
     if types and not re.search(r"\btypes?\b", leg, re.I):
         types = set()
+    types |= {ENGINE_SPELLING[t] for t in types if t in ENGINE_SPELLING}
     keyed = {_key(s): s for s in (species_names or ())}
     species = {keyed[_key(w)] for w in words if _key(w) in keyed}
     if not (types or species):

@@ -53,7 +53,7 @@
   ],
   "catch": {
     "want_types": [
-      "PSYCHIC"
+      "PSYCHIC_TYPE"
     ],
     "encounters": 40,
     "targets": 3

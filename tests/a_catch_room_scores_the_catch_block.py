@@ -87,9 +87,11 @@ for c in GG.CATCHES:
     ck(f"{c['name']} names what it hunts, a battle budget and a target count",
        spec["catch"]["want_types"] and spec["catch"]["encounters"] > 0
        and spec["catch"]["targets"] > 0)
-    ck(f"{c['name']} wants a real type",
-       set(spec["catch"]["want_types"]) <= bp_types
-       if (bp_types := set(__import__("executor").TYPE_NAMES)) else False)
+    _engine = {l.strip() for l in (ROOT / "planner/engine_types.txt")
+               .read_text().splitlines() if l.strip()}
+    ck(f"{c['name']} wants a type the engine spells that way",
+       spec["catch"]["want_types"]
+       and set(spec["catch"]["want_types"]) <= _engine)
     ck(f"{c['name']} starts the party on grass",
        grass_cell(c["map"], *c["start"]) is True)
     ck(f"{c['name']} marks every trainer on the map beaten",

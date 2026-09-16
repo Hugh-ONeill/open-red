@@ -655,7 +655,7 @@ CATCHES = [
     # catches nothing here. ODDISH walks the same grass as the thing to
     # run from.
     dict(name="catch_route24", map="ROUTE_24", badges=2,
-         start=(4, 26), want_types=["PSYCHIC"], encounters=40, targets=3,
+         start=(4, 26), want_types=["PSYCHIC_TYPE"], encounters=40, targets=3,
          party=[("CHARMELEON", 20), ("PIDGEOTTO", 18)],
          bag={"POKE_BALL": 10, "POTION": 2}, money=1500,
          note="ABRA is 15% of Route 24 at L8-12 and knows only TELEPORT: "

@@ -1557,7 +1557,7 @@ def _subgoal_words(subgoal: dict) -> set:
 # SPECIES on an op's want= (planner/engine_types.txt is the same list)
 TYPE_NAMES = {"NORMAL", "FIGHTING", "FLYING", "POISON", "GROUND", "ROCK",
               "BUG", "GHOST", "FIRE", "WATER", "GRASS", "ELECTRIC",
-              "PSYCHIC", "ICE", "DRAGON"}
+              "PSYCHIC", "PSYCHIC_TYPE", "ICE", "DRAGON"}
 
 
 def choose_battle_policy(subgoal: dict) -> tuple:
@@ -17397,6 +17397,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _wl = [str(x).upper() for x in _wl if str(x).strip()]
                 _types = {x for x in _wl if x in TYPE_NAMES}
                 _species = {x for x in _wl if x not in TYPE_NAMES}
+                # the engine's PSYCHIC_TYPE, whichever way the op spelled it
+                if _types & {"PSYCHIC", "PSYCHIC_TYPE"}:
+                    _types |= {"PSYCHIC", "PSYCHIC_TYPE"}
                 self._op_intent = {
                     "intent": _int,
                     "want": ({"species": _species, "types": _types}

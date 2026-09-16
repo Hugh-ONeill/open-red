@@ -213,6 +213,22 @@ ck("a PIDGEY with a FLYING type already in hand is nothing",
            party=[{"species": "SPEAROW", "types": ["NORMAL", "FLYING"]}]),
        SG, "traversal", None) is None)
 
+# ---- the engine spells it PSYCHIC_TYPE -------------------------------------
+# A leg reads "a FIRE or PSYCHIC type"; every ABRA on the screen carries
+# PSYCHIC_TYPE, and the Route 24 catch room ran 32 of them away (2026-09-16).
+ck("a PSYCHIC leg carries the engine's spelling too",
+   "PSYCHIC_TYPE" in OA.goal_of("the party holds a FIRE or PSYCHIC type",
+                                SPECIES)["types"])
+_pg = OA.catch_goals_ahead(plans, run, SPECIES, [])
+ck("...by its on-screen type, with nothing in hand",
+   "the party holds a FIRE or PSYCHIC type" in
+   [g["leg"] for g in OA.goals_met_by(_pg, "ABRA", ["PSYCHIC_TYPE"])])
+ck("a KADABRA in hand meets the PSYCHIC leg",
+   "the party holds a FIRE or PSYCHIC type" not in
+   [g["leg"] for g in OA.catch_goals_ahead(
+       plans, run, SPECIES, [{"species": "KADABRA",
+                              "types": ["PSYCHIC_TYPE"]}])])
+
 # ---- the policy honours the cap -----------------------------------------
 ck("every battle policy accepts the cap",
    all("ball_cap" in inspect.signature(f).parameters
