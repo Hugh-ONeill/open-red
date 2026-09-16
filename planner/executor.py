@@ -15690,7 +15690,11 @@ class Executor:
                 continue
             if r.get("op") == "battle_move":
                 why = str(r.get("why") or "")
-                mv = why.split(" ", 1)[0] if why else "?"
+                # the move is the first move-shaped word: "TACKLE score=",
+                # "KO with GUST", "weaken with TACKLE"
+                _mm = [w for w in _re.findall(r"\b[A-Z][A-Z0-9_]{2,}\b", why)
+                       if w != "KO"]
+                mv = _mm[0] if _mm else "another move"
                 m = _re.search(r"eff=([0-9.]+)", why)
                 eff = float(m.group(1)) if m else 1.0
                 rec = moves.setdefault(mv, {"n": 0, "eff": set()})
@@ -15703,7 +15707,19 @@ class Executor:
         party = (after or {}).get("party") or []
         fainted = [str(m.get("species")) for m in party
                    if (m.get("hp") or 0) <= 0]
-        lost = bool(party) and len(fainted) == len(party)
+        # A BLACKOUT HEALS THE PARTY BEFORE THIS READS IT, so "everyone at
+        # 0 hp" was never true of a lost fight: all three of run 27's BROCK
+        # fights were kept as won and none reached the page (2026-09-16).
+        # The screen says it — "blacked out!" — and the party wakes in a
+        # Center or at home.
+        _said = " ".join(str((after or {}).get(k) or "")
+                         for k in ("recent_text", "last_text")).lower()
+        _woke = str(((after or {}).get("map") or {}).get("id") or "")
+        lost = ((bool(party) and len(fainted) == len(party))
+                or "blacked out" in _said or "out of useable" in _said
+                or (("POKECENTER" in _woke or _woke == "REDS_HOUSE_2F")
+                    and _woke != (getattr(self, "_last_overworld_map", None)
+                                  or "")))
         # the first foe's HP, as long as it only went down (a jump up is
         # the next Pokemon coming out)
         first = []

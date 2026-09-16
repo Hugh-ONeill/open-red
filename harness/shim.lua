@@ -7295,13 +7295,35 @@ end
 -- seen gate for this step: it crosses one lobby of a labelled store whose
 -- directory says which floor sells what, inside a room the party is
 -- already standing in.
+-- STANDING IN THE SHOP, NOT JUST THROUGH ITS DOOR. use_warp returns before
+-- the new floor has finished loading, so the clerk was picked from the
+-- shop's object list and pressed against the STREET's tiles: "couldn't reach
+-- PEWTERMART_CLERK — no tile beside (0,5) is ground anyone can stand on — it
+-- is fenced in", (0,5) being the counter inside and the fence the town's
+-- edge. It cost run 27 the POTIONs it asked for on the way to BROCK, who
+-- then beat it with ONIX at 3 hp (2026-09-16); the same walk worked after
+-- the blackout, when the load happened to win the race.
+local function settle_off(G, from)
+  for _ = 1, 150 do
+    local o = G.overworld
+    local m = o and o.map and o.map.id
+    if G.stack:top() == o and m and m ~= from
+       and not (o.player and o.player.moving) then
+      U.wait(4)
+      return true
+    end
+    U.wait(2)
+  end
+  return false
+end
+
 local function climb_to_counter(G, mid)
   local via = SHOP_VIA[mid or ""]
   local md = via and G.data and G.data.maps and G.data.maps[mid]
   for _, w in ipairs((md and md.warps) or {}) do
     if w.x and w.y and w.destMap == via.floor then
       local ok = OPS.use_warp(G, { x = w.x, y = w.y })
-      return ok and true or false
+      return (ok and settle_off(G, mid)) and true or false
     end
   end
   return false
@@ -7338,6 +7360,7 @@ local function enter_shop(G)
     if seen[w.x .. "," .. w.y] then
       local ok = OPS.use_warp(G, { x = w.x, y = w.y })
       if not ok then return false end
+      settle_off(G, mid)
       if SHOP_VIA[w.destMap] then return climb_to_counter(G, w.destMap) end
       return true
     end

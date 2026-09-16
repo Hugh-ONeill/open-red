@@ -82,6 +82,27 @@ ex._note_fight(before, won, 0)
 ck("a fight with someone still standing is not kept as lost",
    ex._last_fight.get("lost") is False)
 
+# a blackout heals the party before the recap reads it (run 27, 2026-09-16)
+healed = {"mode": "overworld", "map": {"id": "PEWTER_POKECENTER"},
+          "last_text": "SAGE is out of useable POKéMON! SAGE blacked out!",
+          "party": [{"species": "BULBASAUR", "level": 12, "hp": 36},
+                    {"species": "PIDGEY", "level": 15, "hp": 38}]}
+ex._note_fight(before, healed, 0)
+ck("a blackout is a lost fight, though the party wakes healed",
+   ex._last_fight.get("lost") is True)
+ex._note_fight(before, dict(healed, last_text=""), 0)
+ck("...and waking in a Center with nothing on screen says the same",
+   ex._last_fight.get("lost") is True)
+log.write_text("\n".join(json.dumps(t) for t in [
+    {"kind": "battle_turn", "op": "battle_move", "why": "KO with GUST", "foe_hp": 5},
+    {"kind": "battle_turn", "op": "battle_move", "why": None, "foe_hp": 3},
+    {"kind": "battle_turn", "op": "battle_move",
+     "why": "weaken with TACKLE (foe at 100%)", "foe_hp": 30}]) + "\n")
+ex._note_fight(before, healed, 0)
+ck("a move is named from 'KO with' and 'weaken with' rows",
+   "GUST x1" in ex._last_fight["text"] and "TACKLE x1" in ex._last_fight["text"]
+   and "KO x" not in ex._last_fight["text"] and "? x" not in ex._last_fight["text"])
+
 # ---- experience since the step began ---------------------------------------
 sg = {"id": "defeat_brock"}
 p0 = {"party": [{"species": "BULBASAUR", "level": 12, "exp": 1314},

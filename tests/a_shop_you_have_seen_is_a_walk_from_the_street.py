@@ -154,6 +154,20 @@ ck("the door hint names only a door that has been on screen",
 ck("each published door says whether it has been on screen",
    "seen = ((SEEN[map.id] or {})[w.x .. \",\" .. w.y])" in SH)
 
+# THE SHOP MUST BE UNDER THE PARTY BEFORE ITS CLERK IS PRESSED (run 27,
+# 2026-09-16: "couldn't reach PEWTERMART_CLERK — no tile beside (0,5)... it
+# is fenced in", the clerk's shop cell read against the street's tiles)
+_es = SH[SH.index("local function enter_shop(G)"):]
+_es = _es[:_es.index("\nlocal UNSEEN_SHOP")]
+_cc = SH[SH.index("local function climb_to_counter(G, mid)"):]
+_cc = _cc[:_cc.index("\nend\n")]
+ck("walking into a shop waits for the shop floor before anything is pressed",
+   "local function settle_off(G, from)" in SH
+   and _es.index("OPS.use_warp") < _es.index("settle_off(G, mid)")
+   < _es.index("climb_to_counter(G, w.destMap)"))
+ck("...and so does the climb to a counter upstairs",
+   "settle_off(G, mid)" in _cc)
+
 failed = [n for n, ok in checks if not ok]
 for n, ok in checks:
     print(("ok   " if ok else "FAIL ") + n)
