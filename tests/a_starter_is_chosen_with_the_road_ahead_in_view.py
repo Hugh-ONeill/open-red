@@ -234,7 +234,18 @@ class T(E.Executor):
     pass
 
 
+asked_pages = []
+
+
+def fake_chat(msgs, model):
+    asked_pages.append(msgs)
+    return '{"why": "It covers the grass legs.", "take": "ITEM_OAKS_LAB_7_3"}'
+
+
+E.brock_probe.chat = fake_chat
 tx = object.__new__(T)
+tx.model = "test"
+tx._last_overworld_pos = (5, 5)
 tx._send_safe = fake_send
 tx.settle = lambda: {"mode": "overworld", "party": []}
 tx.logged = []
@@ -248,27 +259,95 @@ line = tx._survey_offer_table({"id": "pick_starter"}, "interact",
                               opened)
 ck("the first question is answered no before anything else",
    sent and sent[0] == ("tap", {"btn": "b"}))
+presses = [s for s in sent if s[0] == "interact"]
 ck("each other ball is pressed and answered no",
-   [s for s in sent if s[0] == "interact"]
-   == [("interact", {"name": "ITEM_OAKS_LAB_7_3"}),
-       ("interact", {"name": "ITEM_OAKS_LAB_8_3"})]
+   presses[:2] == [("interact", {"name": "ITEM_OAKS_LAB_7_3"}),
+                   ("interact", {"name": "ITEM_OAKS_LAB_8_3"})]
    and sum(1 for s in sent if s == ("tap", {"btn": "b"})) == 3)
-ck("nothing is ever answered yes by the survey",
+ck("the survey itself answers nothing yes",
    not any(s[0] == "tap" and s[1].get("btn") == "a" for s in sent)
-   and not any(s[1].get("answer") for s in sent))
-ck("the round hands back all three offers",
-   line and all(f'"{w}"' in line for w in QUESTIONS.values()))
-ck("...says nothing has been taken and each still stands",
-   line and "nothing has been taken and each still stands" in line)
-ck("...says how to take one, and leaves which to the model",
-   line and '"answer":"yes"' in line and "Which, if any, is yours." in line)
-ck("...with the outline's goals",
-   line and HEAD in line and "  5. the party holds a WATER or GRASS type" in line)
+   and not any(s[1].get("answer") for s in presses[:2]))
+ck("the party walks back to where the model stood before choosing",
+   ("walk_to", {"x": 5, "y": 5}) in sent
+   and sent.index(("walk_to", {"x": 5, "y": 5}))
+   < sent.index(presses[-1]))
+page = asked_pages[-1][1]["content"] if asked_pages else ""
+ck("the choice is asked as its own question, with every offer",
+   asked_pages and all(f'"{w}"' in page for w in QUESTIONS.values())
+   and "take" in asked_pages[-1][0]["content"])
+ck("...and the outline's goals", HEAD in page
+   and "  5. the party holds a WATER or GRASS type" in page)
 ck("...and no 'also standing' line, since all of them are named",
-   line and "Also standing on this map" not in line)
-ck("the survey is logged with what each asked",
-   tx.logged and tx.logged[-1][0] == "offer_table_surveyed"
-   and len(tx.logged[-1][1]["asked"]) == 3)
+   "Also standing on this map" not in page)
+ck("the model's pick is pressed with yes, and only its pick",
+   presses[-1] == ("interact", {"name": "ITEM_OAKS_LAB_7_3", "answer": "yes"})
+   and len(presses) == 3)
+ck("the round says what was chosen and why",
+   line and 'you chose ITEM_OAKS_LAB_7_3: "It covers the grass legs."' in line)
+_surv = [kw for k, kw in tx.logged if k == "offer_table_surveyed"]
+ck("the survey is logged with what each asked and the order shown",
+   _surv and len(_surv[-1]["asked"]) == 3
+   and sorted(_surv[-1]["order"]) == sorted(QUESTIONS))
+_ch = [kw for k, kw in tx.logged if k == "offer_choice"]
+ck("the choice is logged with its reason and the order it saw",
+   _ch and _ch[-1]["take"] == "ITEM_OAKS_LAB_7_3"
+   and _ch[-1]["why"] == "It covers the grass legs."
+   and page.index(_ch[-1]["order"][0]) < page.index(_ch[-1]["order"][-1]))
+# the order is shuffled: over many surveys, every ball is shown first
+import random as _rnd
+firsts = set()
+for _i in range(40):
+    _t = object.__new__(T)
+    _t.model = "test"
+    _t._send_safe = fake_send
+    _t.settle = lambda: {"mode": "overworld", "party": []}
+    _t.logged = []
+    _t.log = lambda k, _l=_t.logged, **kw: _l.append((k, kw))
+    _t._last_overworld_map = "OAKS_LAB"
+    _t._last_overworld_items = list(QUESTIONS)
+    _t._survey_offer_table({"id": "p"}, "interact",
+                           {"name": "ITEM_OAKS_LAB_6_3"}, opened)
+    firsts.add([kw for k, kw in _t.logged
+                if k == "offer_table_surveyed"][-1]["order"][0])
+ck("the offers are not always listed in the same order", len(firsts) == 3)
+
+
+def none_chat(msgs, model):
+    return '{"why": "Not yet.", "take": "none"}'
+
+
+E.brock_probe.chat = none_chat
+sent.clear()
+_t = object.__new__(T)
+_t.model = "test"
+_t._send_safe = fake_send
+_t.settle = lambda: {"mode": "overworld", "party": []}
+_t.log = lambda k, **kw: None
+_t._last_overworld_map = "OAKS_LAB"
+_t._last_overworld_items = list(QUESTIONS)
+_nl = _t._survey_offer_table({"id": "p"}, "interact",
+                             {"name": "ITEM_OAKS_LAB_6_3"}, opened)
+ck("'none' takes nothing", _nl and "you said none" in _nl
+   and not any(s[1].get("answer") for s in sent))
+
+
+def junk_chat(msgs, model):
+    return "I'd like the fire one please"
+
+
+E.brock_probe.chat = junk_chat
+_t2 = object.__new__(T)
+_t2.model = "test"
+_t2._send_safe = fake_send
+_t2.settle = lambda: {"mode": "overworld", "party": []}
+_t2.log = lambda k, **kw: None
+_t2._last_overworld_map = "OAKS_LAB"
+_t2._last_overworld_items = list(QUESTIONS)
+_jl = _t2._survey_offer_table({"id": "p"}, "interact",
+                              {"name": "ITEM_OAKS_LAB_6_3"}, opened)
+ck("an unreadable answer hands the offers to the round instead",
+   _jl and '"answer":"yes"' in _jl and "Which, if any, is yours." in _jl
+   and HEAD in _jl)
 sent.clear()
 ck("a table is surveyed once",
    tx._survey_offer_table({"id": "pick_starter"}, "interact",
@@ -293,7 +372,9 @@ def fossil_send(op, **kw):
     return {"mode": "overworld"}
 
 
+E.brock_probe.chat = lambda m, mo: '{"why": "x", "take": "none"}'
 tx2 = object.__new__(T)
+tx2.model = "test"
 tx2._send_safe = fossil_send
 tx2.settle = lambda: {"mode": "overworld", "party": []}
 tx2.log = lambda k, **kw: None

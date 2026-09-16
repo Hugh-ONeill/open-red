@@ -1863,7 +1863,13 @@ def main():
         kind, save, aspec = ARENAS.get(name, (name, args.from_save, None))
         if name == names[0] and args.from_save:
             save = args.from_save          # an explicit save still wins
-        g = Gym(args.plan, args.run_id, model=args.model,
+        # A SAVEPOINT ROOM NEVER ASKS THE MODEL ANYTHING. Only the brock
+        # arena replays a plan and may escalate; handing the model to the
+        # rest meant every catch in a catch room put its nickname to it, and
+        # beside a live chain each of those waited out an ollama timeout
+        # (2026-09-16). The authoring rounds call the model themselves.
+        g = Gym(args.plan, args.run_id,
+                model=(args.model if kind == "brock" else ""),
                 from_save=save, arena=kind, trials=args.trials,
                 arena_spec=aspec, arena_name=name,
                 approach=APPROACH.get(room_of(name)))

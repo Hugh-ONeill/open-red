@@ -4612,6 +4612,7 @@ class Executor:
                                              .get("objects") or [])
                 if isinstance(o, dict) and o.get("kind") == "item"
                 and o.get("name")]
+            self._last_overworld_pos = self._pos(obs)
             self._note_intra(obs)
         self.note_frontier(obs)
         self.note_region_anchors(obs)
@@ -18774,24 +18775,99 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 asked.append((other, words))
                 self._send_safe("tap", btn="b")
             cur = self.settle() or r2 or cur
+        # BACK TO WHERE THE MODEL STOOD. The survey presses left to right
+        # and so ends in front of the LAST ball, and run 23 took that one,
+        # BULBASAUR, "to satisfy the party requirement" — the ball it was
+        # standing at, as runs 20-22 had each taken the one they pressed
+        # first (user, 2026-09-16: "im not sure its not just because its
+        # the last listed and what its in front of right now").
+        pos0 = getattr(self, "_last_overworld_pos", None)
+        if pos0 and pos0[0] is not None:
+            self._send_safe("walk_to", x=pos0[0], y=pos0[1])
+            cur = self.settle() or cur
+        # ...AND IN NO FIXED ORDER. The offers are listed shuffled, and the
+        # order is logged, so a pick that follows the list shows up as one.
+        import random as _random
+        order = list(asked)
+        _random.shuffle(order)
         self.log("offer_table_surveyed", subgoal=sg.get("id"), map=mid,
-                 asked=[f"{n}: {w}" for n, w in asked])
+                 asked=[f"{n}: {w}" for n, w in asked],
+                 order=[n for n, _w in order])
         if len(asked) < 2:
             return None
-        return ("— every Poke Ball standing on this table was pressed and "
+        offers = "; ".join(f'{n}: "{w}"' for n, w in order)
+        goals = (self._road_ahead_text(cur, said).replace(
+            "Which of those the Pokemon this question names would "
+            "answer is yours to judge",
+            "Which of those each of these Pokemon would answer is "
+            "yours to judge").split("Also standing on this map:")[0]
+            .rstrip())
+        head = ("— every Poke Ball standing on this table was pressed and "
                 "answered NO, so nothing has been taken and each still "
-                "stands where it was. What each one asked: "
-                + "; ".join(f'{n}: "{w}"' for n, w in asked)
-                + ". To take one, press it with {\"op\":\"interact\","
-                  "\"name\":\"<that ball>\",\"answer\":\"yes\"} — its "
-                  "question has been read, so the answer is used. Which, if "
-                  "any, is yours."
-                + self._road_ahead_text(cur, said).replace(
-                    "Which of those the Pokemon this question names would "
-                    "answer is yours to judge",
-                    "Which of those each of these Pokemon would answer is "
-                    "yours to judge").split("Also standing on this map:")[0]
-                  .rstrip())
+                "stands where it was. What each one asked: " + offers)
+        # ...AND THE CHOICE IS ITS OWN QUESTION. Put inside a round, the
+        # pick was a line in a plan about leg 1 and its reason was leg 1's
+        # ("to satisfy the party requirement"). Asked on its own, with the
+        # offers and the goals and nothing else to do, the reason is the
+        # reason for THIS choice, and it is kept.
+        pick = self._ask_offer_choice(sg, cur, order, goals)
+        if pick is None:
+            return (head + ". To take one, press it with {\"op\":"
+                    "\"interact\",\"name\":\"<that ball>\",\"answer\":"
+                    "\"yes\"} — its question has been read, so the answer "
+                    "is used. Which, if any, is yours." + goals)
+        take, why = pick
+        if take == "none":
+            return (head + f'. Asked which to take, you said none: "{why}". '
+                    "Each still stands where it was.")
+        r3 = self._send_safe("interact", name=take, answer="yes") or {}
+        det = str((r3.get("result") or {}).get("detail") or "")
+        return (head + f'. Asked which to take, you chose {take}: "{why}" — '
+                f"pressed it and answered yes: {det[:200]}")
+
+    OFFER_CHOICE_SYS = (
+        "You are playing Pokemon Red. Several Poke Balls stand side by side "
+        "and each has told you what it holds; you may take one of them, or "
+        "none. Nothing else is happening: this is only the choice. Reply "
+        "with a JSON object and nothing else: "
+        "{\"why\":\"<one or two sentences>\",\"take\":\"<the ball's "
+        "name, exactly as listed, or none>\"}.")
+
+    def _ask_offer_choice(self, sg, obs, order, goals):
+        """(ball, why) — or None when it could not be asked or understood,
+        and the round gets the offers to answer in its own way."""
+        cur = obs or {}
+        party = ", ".join(f"{m.get('species')} L{m.get('level')}"
+                          for m in (cur.get("party") or [])) or "no Pokemon"
+        user = ("THE BALLS, AND WHAT EACH ASKED WHEN PRESSED:\n"
+                + "\n".join(f'  {n}: "{w}"' for n, w in order)
+                + f"\n\nYOUR PARTY: {party}\n" + goals
+                + "\nTaking one is for good: the others are not yours after "
+                  "it. Answer with the ball's name, or none.")
+        try:
+            reply = brock_probe.chat(
+                [{"role": "system", "content": self.OFFER_CHOICE_SYS},
+                 {"role": "user", "content": user}], self.model)
+        except Exception as e:
+            self.log("offer_choice_error", subgoal=sg.get("id"), err=str(e))
+            return None
+        m = _re.search(r"\{.*\}", reply or "", _re.S)
+        try:
+            d = json.loads(m.group(0)) if m else {}
+        except json.JSONDecodeError:
+            d = {}
+        take = str(d.get("take") or "").strip()
+        names = {n for n, _w in order}
+        if take.lower() == "none":
+            take = "none"
+        elif take not in names:
+            self.log("offer_choice_unparsed", subgoal=sg.get("id"),
+                     reply=str(reply)[:300])
+            return None
+        why = str(d.get("why") or "")[:300]
+        self.log("offer_choice", subgoal=sg.get("id"), take=take, why=why,
+                 order=[n for n, _w in order])
+        return take, why
 
     @staticmethod
     def _pos(obs):
