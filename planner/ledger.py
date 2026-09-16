@@ -491,6 +491,27 @@ def _left_parts(ex, region: str) -> list:
     parts = []
     if left:
         parts.append(f"{len(left)} exit(s) never taken")
+    # A BUSH IS NOT A THING NEVER PRESSED. ROUTE_9|0,8's way east is a bush,
+    # and the row for the walk onto it read "still has 1 thing(s) never
+    # pressed (CUT_TREE)" while the run, holding CUT, hunted a way to
+    # Celadon past thirsty guards (run 27, 2026-09-16). Pressing a bush does
+    # nothing; what the row owes is that the party can cut it and what the
+    # record says lies past it.
+    _bw = {}
+    if hasattr(ex, "_bush_way_parts"):
+        try:
+            _bw = ex._bush_way_parts() or {}
+        except Exception:
+            _bw = {}
+    if region in _bw:
+        things = [t for t in things if not str(t).startswith("CUT_TREE")]
+        for xy in _bw[region]:
+            parts.append(
+                f"a bush at ({xy}) with walkable ground past it that no walk "
+                f"there reaches, and a party Pokemon knows CUT"
+                if xy != "?" else
+                "a bush you could walk to there, and a party Pokemon knows "
+                "CUT (what lies past it was not recorded)")
     if things:
         parts.append(f"{len(things)} thing(s) never pressed "
                      f"({', '.join(things[:3])})")

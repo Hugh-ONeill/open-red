@@ -70,6 +70,25 @@ ck("the ways-never-taken list walks the bush parts too",
    and "with ground past it no walk there reaches" in src)
 ck("the record is saved", '"bush_ways": getattr(self, "_bush_ways", {})' in src)
 
+# the row for a way onto that part says the bush, not "never pressed"
+import ledger as L  # noqa: E402
+ex = fake()
+ex._knows_cut = True
+ex._bush_ways = {"ROUTE_9|0,8": ["5,8"]}
+ex.sightings = {"ROUTE_9|0,8": ["CUT_TREE"]}
+ex._frontier_left = lambda r: []
+ex._touched_on_map = lambda r: set()
+ex._gone, ex.region_seen, ex.unreached_at = {}, {}, {}
+ex._taken_here = lambda r: {}
+row = L._left_parts(ex, "ROUTE_9|0,8")
+ck("the row for the way onto it names the bush and CUT",
+   any("bush at (5,8)" in p and "knows CUT" in p for p in row))
+ck("...and does not call the bush a thing never pressed",
+   not any("never pressed" in p for p in row))
+ex._knows_cut = False
+ck("without CUT the row is as it was",
+   any("never pressed (CUT_TREE)" in p for p in L._left_parts(ex, "ROUTE_9|0,8")))
+
 # backfill from a ledger written before the record existed
 with tempfile.TemporaryDirectory() as d:
     mem = Path(d) / "explored.json"
