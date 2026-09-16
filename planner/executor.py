@@ -51,6 +51,7 @@ from pathlib import Path
 from bridge import Bridge, RUN
 import battle_policy
 import ledger
+import outline_ahead
 
 # Which gym holds which badge — the pamphlet's leader page.
 # THE LEDGER SWITCH. RED_LEDGER=0 renders the exploration prompt the old
@@ -689,6 +690,9 @@ SAVE_PATH = Path(os.environ.get(
     "RED_SAVE",
     str(Path.home() / ".local/share/love/pokemon-love2d/saves/red/slot1.lua")))
 CHECKPOINTS = RUN / "saves"
+# the outline and its sidecars (plans/outline.txt, .upkeep, .done): read
+# fresh by whatever asks what the run still has ahead of it
+PLANS = Path("plans")
 
 
 def bind_run(path) -> Path:
@@ -1289,7 +1293,7 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str):
 
 
 def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
-                want=None):
+                want=None, ball_cap=None):
     """Drive a battle turn-by-turn with a battle_policy spec (rules as data).
     The spec also owns the wild-flee decision (should_flee); trainers can
     never be fled, and if fleeing fails 3 times we fight it out. With
@@ -1301,6 +1305,9 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
     op_fails = 0
     ctx = {"turn": 0, "used": {}, "intent": intent,
            "journal": DAMAGE_JOURNAL, "want": want,
+           # how many balls this battle may spend, when the throw is toward
+           # a LATER objective (Executor._catch_ahead); None = the spec's
+           "ball_cap": ball_cap,
            # the run's item ledger, shared across battles until the party
            # is made whole (battle_policy.RUN_BUDGET; see log())
            "items_used_run": battle_policy.RUN_BUDGET}
@@ -1443,15 +1450,17 @@ def battle_slot1(bridge, obs, log, max_turns):
 # spent on bugs. The model gets no turn inside a wild battle, so it cannot
 # work around this itself; the target has to travel with the policy.
 BATTLE_POLICIES = {
-    "default": lambda b, o, lg, mt, want=None: _run_policy(
+    "default": lambda b, o, lg, mt, want=None, ball_cap=None: _run_policy(
         ACTIVE_SPEC, b, o, lg, mt, intent="fight"),
-    "typed_v0": lambda b, o, lg, mt, want=None: _run_policy(
+    "typed_v0": lambda b, o, lg, mt, want=None, ball_cap=None: _run_policy(
         battle_policy.SPECS["typed_v0"], b, o, lg, mt, intent="fight"),
-    "slot1": lambda b, o, lg, mt, want=None: battle_slot1(b, o, lg, mt),
-    "traversal": lambda b, o, lg, mt, want=None: _run_policy(
+    "slot1": lambda b, o, lg, mt, want=None, ball_cap=None: battle_slot1(
+        b, o, lg, mt),
+    "traversal": lambda b, o, lg, mt, want=None, ball_cap=None: _run_policy(
         ACTIVE_SPEC, b, o, lg, mt, intent="traversal"),
-    "catch": lambda b, o, lg, mt, want=None: _run_policy(
-        ACTIVE_SPEC, b, o, lg, mt, intent="catch", want=want),
+    "catch": lambda b, o, lg, mt, want=None, ball_cap=None: _run_policy(
+        ACTIVE_SPEC, b, o, lg, mt, intent="catch", want=want,
+        ball_cap=ball_cap),
 }
 
 
@@ -15182,6 +15191,87 @@ class Executor:
         if kind == "blackout" or (kind == "heal_done" and kw.get("ok")):
             battle_policy.reset_run_budget()
 
+    # THE BALLS KEPT FOR THE GOAL IN HAND. A throw toward a later objective
+    # never spends the bag down to nothing: the leg being played may need
+    # a ball itself, and a bag emptied on a PIKACHU in the Forest is the
+    # old failure ("balls that were meant for an Oddish were spent on
+    # bugs") wearing a better reason. Two by default; the environment sets it.
+    CATCH_AHEAD_RESERVE = int(os.environ.get("RED_CATCH_AHEAD_RESERVE", "2")
+                              or 2)
+
+    def _catch_ahead(self, obs, subgoal, policy, want_now) -> dict | None:
+        """A wild that answers a LATER objective on the outline: the want
+        to throw with and how many balls may go, or None.
+
+        The outline carries the party's future as states in the model's
+        own words — "the party holds a GRASS or ELECTRIC type" before
+        Misty, "a GROUND type" before Surge — and each began only when its
+        turn came. By then the local grass need not hold the type: no
+        ELECTRIC lives between Pewter and Misty, the Forest's PIKACHU is
+        behind you, and run 18's leg 5 ground three routes for a WATER or
+        GRASS type none of them has (user, 2026-09-16: "opportunistic
+        catching where encounters trigger a catch if it can fill a future
+        catch goal"). A wild met on ANY leg that a later objective would
+        be answered by is thrown at, while the bag holds balls above the
+        reserve and the party has room; the objective is crossed off when
+        its turn comes (the already-done sweep). The legs are the model's
+        sentences and the wild's species and type are on the screen; what
+        this adds is only that the list is read now rather than later.
+
+        Never a net cast for anything new: a leg that wants MORE Pokemon
+        ("the party has at least 3") is answered by anything and is not a
+        goal this throws toward. A full party sends a catch to the box,
+        where it answers nothing about the party; said once and skipped.
+        """
+        b = (obs or {}).get("battle") or {}
+        if b.get("kind") != "wild" or b.get("ghost"):
+            return None
+        foe = b.get("foe") or {}
+        sp = str(foe.get("species") or "")
+        ty = [str(t).upper() for t in (foe.get("types") or [])]
+        if not sp:
+            return None
+        if policy == "catch":
+            # already throwing at everything, or at this very thing
+            if not want_now:
+                return None
+            if (sp.upper() in (want_now.get("species") or set())
+                    or set(ty) & (want_now.get("types") or set())):
+                return None
+        party = (obs or {}).get("party") or []
+        goals = outline_ahead.catch_goals_ahead(
+            PLANS, RUN, self._species_names(), party)
+        hit = outline_ahead.goals_met_by(goals, sp, ty)
+        if not hit:
+            return None
+        said = getattr(self, "_catch_ahead_said", None)
+        if said is None:
+            said = self._catch_ahead_said = set()
+        legs = [f"{g['pos']}. {g['leg']}" for g in hit]
+
+        def once(why, **kw):
+            if (why, sp) not in said:
+                said.add((why, sp))
+                self.log("catch_ahead_skipped", subgoal=subgoal.get("id"),
+                         foe=sp, why=why, legs=legs, **kw)
+        if len(party) >= 6:
+            once("party_full")
+            return None
+        balls = _ball_count(obs)
+        cap = balls - self.CATCH_AHEAD_RESERVE
+        if cap < 1:
+            once("reserve", balls=balls, reserve=self.CATCH_AHEAD_RESERVE)
+            return None
+        want = {"species": (set((want_now or {}).get("species") or ())
+                            | {str(x).upper() for g in hit
+                               for x in g["species"]}),
+                "types": (set((want_now or {}).get("types") or ())
+                          | {t for g in hit for t in g["types"]})}
+        self.log("catch_ahead", subgoal=subgoal.get("id"),
+                 foe=f"{sp} L{foe.get('level')}", legs=legs, balls=balls,
+                 cap=cap, policy_was=policy)
+        return {"want": want, "cap": cap, "legs": [g["leg"] for g in hit]}
+
     def handle_battle(self, subgoal: dict, obs: dict) -> dict:
         # traversal (spec-rule wild fleeing) is the DEFAULT: journey
         # subgoals that fought every Route 1 wild kept wiping and halving
@@ -15215,6 +15305,16 @@ class Executor:
             why = "the op said so"
         if name not in BATTLE_POLICIES:          # never crash on a bad key
             name = "traversal"
+        # A WILD THAT ANSWERS A LATER OBJECTIVE IS THROWN AT NOW. See
+        # _catch_ahead: the outline's own "the party holds a GRASS or
+        # ELECTRIC type" is a standing rule, not a leg that begins when
+        # its turn comes and the Forest's PIKACHU is two towns behind.
+        _want0 = (_oi.get("want") if _oi and _oi.get("want")
+                  else self._catch_target(subgoal))
+        _ahead = self._catch_ahead(obs, subgoal, name, _want0)
+        if _ahead:
+            name, why = "catch", "a later objective on the outline"
+            _want0 = _ahead["want"]
         # ...AND A CATCH POLICY WITH NO BALLS IS A FIGHT, said so. The
         # policy stays (it already falls through to ordinary moves without
         # a ball); the round's grind note carries the fact.
@@ -15374,9 +15474,8 @@ class Executor:
                 obs = self.settle() or obs
         self.status(doing=f"BATTLE ({name} policy)", obs=obs)
         obs = BATTLE_POLICIES[name](self.b, obs, self.log,
-                                    self.max_battle_turns,
-                                    (_oi.get("want") if _oi and _oi.get("want")
-                                     else self._catch_target(subgoal)))
+                                    self.max_battle_turns, _want0,
+                                    ball_cap=(_ahead or {}).get("cap"))
         # A CATCH ENDS ON THE NAMING SCREEN: the policy leaves when the
         # mode is no longer battle, and what is up is the game's question
         # — answer it here, before any op's back-out can press B at it.
@@ -21989,6 +22088,16 @@ def _balls_in(obs) -> bool:
                    for k, v in ((obs or {}).get("bag") or {}).items())
     except (TypeError, ValueError, AttributeError):
         return False
+
+
+def _ball_count(obs) -> int:
+    """How many balls, of every kind, the bag holds."""
+    try:
+        return sum(int(v or 0)
+                   for k, v in ((obs or {}).get("bag") or {}).items()
+                   if "BALL" in str(k).upper())
+    except (TypeError, ValueError, AttributeError):
+        return 0
 
 
 NAMING_MODEL = None       # set by main() before bootstrap; None = defaults

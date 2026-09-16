@@ -1086,7 +1086,13 @@ def choose(obs: dict, spec: dict | None = None,
         bag = obs.get("bag") or {}
         have_ball = resolve_item(ca.get("ball"), bag,
                                  ca.get("prefer") or DEFAULT_PREFER)
-        if have_ball and balls < ca.get("max_balls", 3):
+        # ...AND NEVER PAST THE RESERVE. A throw toward a LATER objective
+        # (executor: _catch_ahead) may spend only the balls above what the
+        # run keeps for the goal in hand; that number rides in ctx.
+        _cap = ca.get("max_balls", 3)
+        if ctx.get("ball_cap") is not None:
+            _cap = min(_cap, int(ctx["ball_cap"]))
+        if have_ball and balls < _cap:
             # A BALL LANDS ON A WEAKENED, SLEEPING OR PARALYSED POKEMON FAR
             # MORE OFTEN THAN ON A FRESH ONE. With a target named, this used
             # to clear every weakening move ("a wasted ball is recoverable
