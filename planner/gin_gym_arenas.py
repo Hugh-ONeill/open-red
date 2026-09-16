@@ -124,6 +124,22 @@ def natural_moves(species: str, level: int) -> list:
     return got[-4:]
 
 
+_MOVE_POWER: dict = {}
+
+
+def move_power(move: str) -> int:
+    """The move's power off the engine's table; 0 for anything that does
+    no damage. Read once per move."""
+    if move not in _MOVE_POWER:
+        b = _block((GEN / "moves.lua").read_text(errors="ignore"), move)
+        m = re.search(r"\bpower = (\d+)", b) if b else None
+        _MOVE_POWER[move] = int(m.group(1)) if m else 0
+    return _MOVE_POWER[move]
+
+
+HMS = ("CUT", "FLY", "SURF", "STRENGTH", "FLASH")
+
+
 def can_learn(species: str, move: str) -> bool:
     b = _block((GEN / "pokemon.lua").read_text(errors="ignore"), species)
     tm = re.search(r"tmhm = \{(.*?)\}", b, re.S)
@@ -207,19 +223,35 @@ def pick_base(want_badges: int) -> Path | None:
 # than the other"). The room is shared — map, door, leader, flags, route —
 # and each path brings its own party, bag and money.
 #
-# THE REAL PATH IS THE RECORD, NOT A GUESS. Its parties are read out of
+# THE REAL PATH IS THE RECORD, WORKSHOPPED. Its parties are read out of
 # the journals of the two Hall of Fame runs that played on outlines the
 # model wrote itself (executor_log.065231, Aug 28, and .061446, Sep 6):
 # which species led each leader fight and what every species had last
-# been seen at when the fight started. The two runs converged on the
-# same core without consulting each other — Charmander's line, an ODDISH
-# kept as GLOOM to the very end, a PIDGEOT, a DUGTRIO, one water the
-# outline asked for, one wildcard — and led with the starter only until
-# Surge. The levels sit AT the ace, not over it; the runs on the
-# hand-written outline are a different shape (one L56 CHARIZARD carrying
-# five L41 bodies) and are not what the model builds unassisted, which is
-# what the next run, on an outline it writes again, will do. Slot order
-# is the order the run led in. Extra HM moves are the room's.
+# been seen at when the fight started. The two runs converged on the same
+# core without consulting each other — Charmander's line, an ODDISH kept
+# as GLOOM, a PIDGEOT, a DUGTRIO, one water, one wildcard — and led with
+# the starter only until Surge. The levels sit AT the ace, not over it.
+# Then the user's calls (2026-09-15): the Aug 28 run's JIGGLYPUFF is out
+# ("i dont even remember a jigglypuff ever being caught its not in any
+# of the plans"), the wildcard is the Dojo's HITMONLEE rather than the
+# Aug 28 KABUTO, the water is a GYARADOS because "lapras is a rare get we
+# skip it more often then not", and the GLOOM evolves once a Leaf Stone
+# is on a shelf, which is Celadon, because the harness now presents
+# stones properly. That is the Sep 6 run's roster with the stone, and
+# from Vermilion on the rooms are what that run walked in with. The two
+# early rooms hold a starter and a bird, then starter, ODDISH and bird
+# ("i know i said too many earlier but now theres too little"). Slot
+# order is the order the run led in.
+#
+# TMs ARE FAIR GAME, IF THE RUN HAD THEM BY THEN. The badge TM from every
+# leader already beaten, plus the free ones on the route the runs are on
+# record picking up (plans/outline.done: WATER_GUN and MEGA_PUNCH in Mt
+# Moon, THUNDER_WAVE on Route 24, DIG in Cerulean, BODY_SLAM on the S.S.
+# Anne, EARTHQUAKE in Silph Co). Shop TMs (ICE_BEAM off Celadon's shelf)
+# on the ideal path only, from Celadon on. One or two a member, replacing
+# a move that does no damage first, then the weakest attack that is not
+# the room's HM. FIRE_BLAST stays off the real CHARIZARD: under the rule
+# it would sit beside FLAMETHROWER, and the user was wary of it.
 #
 # THE REAL BAG IS THE HANDFUL A RUN HAS BEEN SEEN TO BUY. Every save on
 # file walked into Koga, Sabrina, Blaine and Giovanni with NO medicine at
@@ -234,24 +266,19 @@ def pick_base(want_badges: int) -> Path | None:
 # work: three SUPER_POTIONs in the bag, a CHARIZARD blacking out to Erika
 # (07:18, 2026-09-15, the rule naming an item the bag did not hold).
 #
-# THE IDEAL PATH IS THE FEWEST BODIES THAT CAN TAKE THE ROOM, at a
-# reasonable level — five under the ace — so that nothing but the
-# medicine and the play decides it (user, 2026-09-15: "ideal should use
-# the least amount of pokemon viable while still being at reasonable
-# levels, medicine usage and good play is the descriminator"). One
-# starter per team, Charmander's line by preference, SQUIRTLE at Brock
-# and IVYSAUR at Misty because those are the rooms a Charmander cannot
-# answer, and where the starter IS the answer it stands alone (user:
-# "make sure were including one starter per team, pref for char but for
-# brock maybe squirt and misty ivy"; "if squirt for brock we dont need
-# mankey"). Elsewhere the starter and the one answer the room calls for:
-# DIGLETT for Surge, a FEAROW with FLY for Erika, KADABRA for Koga,
-# SNORLAX for Sabrina, STARMIE for Blaine and for Giovanni. A spare body
-# is slack the medicine would otherwise have to cover, so there is none.
-# The league's ideal party (plans/arena_e4_ideal.json, a hand file the
-# user set to six at L50) is not rebuilt here and is still six. The bag
-# is the shelf's: eight of the local potion, the cure for what the room
-# inflicts, revives from Celadon on.
+# THE IDEAL PATH HAS AS MANY BODIES AS THE LEADER, at a reasonable level
+# — five under the ace — so that nothing but the medicine and the play
+# decides it (user, 2026-09-15: "ideal should use the least amount of
+# pokemon viable while still being at reasonable levels, medicine usage
+# and good play is the descriminator"; then "for ideal i think it makes
+# sense to have as many mons as the gym leader has, in the case of the
+# elite four well stay with the six"). One starter per team, Charmander's
+# line by preference, SQUIRTLE at Brock and IVYSAUR at Misty because
+# those are the rooms a Charmander cannot answer; the starter and the
+# one answer the room calls for, and bodies to the leader's count that
+# are bodies, not second answers. The league's ideal party
+# (plans/arena_e4_ideal.json, a hand file the user set to six at L50) is
+# not rebuilt here.
 #
 # Older history, still true of the rooms: NONE OF THE FILLER MAY RESIST
 # THE ROOM (a GRAVELER took Koga's poison at a quarter, a CHARIZARD
@@ -277,12 +304,12 @@ GYMS = [
     dict(name="pewter", map="PEWTER_GYM", leader="BROCK", ace=14,
          badges=0, door=(4, 13), puzzle=False,
          paths=dict(
-             real=dict(party=[("CHARMANDER", 14)],
+             real=dict(party=[("CHARMANDER", 14), ("PIDGEY", 10)],
                        bag={"POTION": 5}, money=1600,
                        note="Both model-authored runs walked in with the "
                             "starter alone, L13-14, and blacked out four "
                             "times (Aug 28) and once (Sep 6) before the "
-                            "badge."),
+                            "badge; the bird is the user's call."),
              # THREE UNDER, MEASURED FROM BOTH SIDES. At 10 the room was
              # calibrated under v12 and lost under v13 with the bag full:
              # a 20-power BUBBLE against ONIX is a long fight, and a solo
@@ -293,7 +320,7 @@ GYMS = [
              # above it, because BUBBLE and ONIX's chip are both slow. So
              # ten, the one level that separated v12 from v13 on their
              # per-fight caps (user, 2026-09-15: "put squirt back to 10").
-             ideal=dict(party=[("SQUIRTLE", 10)],
+             ideal=dict(party=[("SQUIRTLE", 10), ("NIDORAN_M", 10)],
                         bag={"POTION": 8}, money=2000,
                         note="SQUIRTLE's BUBBLE is the answer, four under "
                              "the ace, and alone: the starter IS the "
@@ -304,7 +331,7 @@ GYMS = [
          badges=1, door=(4, 13), puzzle=False,
          paths=dict(
              real=dict(party=[("ODDISH", 19), ("CHARMELEON", 26),
-                              ("RATICATE", 21), ("JIGGLYPUFF", 17)],
+                              ("PIDGEOTTO", 18)],
                        bag={"POTION": 5, "ANTIDOTE": 1}, money=2400,
                        note="The ODDISH led in both runs, caught for the "
                             "'WATER or GRASS' leg and sent out at 16-19 "
@@ -321,7 +348,7 @@ GYMS = [
              # the calibration exactly; v13 lost every trial on its two-a-
              # fight cap, which is v13's to answer for. At 19 both specs
              # swept both arms. Eighteen, three under.
-             ideal=dict(party=[("IVYSAUR", 18)],
+             ideal=dict(party=[("IVYSAUR", 18), ("PIDGEOTTO", 18)],
                         bag={"POTION": 10}, money=3000,
                         note="IVYSAUR resists water and VINE_WHIP hits it "
                              "double; alone, like the SQUIRTLE at Brock: "
@@ -339,15 +366,18 @@ GYMS = [
          badges=2, door=(4, 17), puzzle=False,
          open_flags=["EVENT_1ST_LOCK_OPENED", "EVENT_2ND_LOCK_OPENED"],
          paths=dict(
-             real=dict(party=[("JIGGLYPUFF", 25), ("CHARMELEON", 35),
-                              ("RATICATE", 25), ("PIDGEOTTO", 24),
-                              ("GLOOM", 23)],
+             real=dict(party=[("GYARADOS", 24, ["BUBBLEBEAM"]),
+                              ("PIDGEOTTO", 29),
+                              ("CHARIZARD", 37, ["BODY_SLAM"]),
+                              ("GLOOM", 25)],
                        bag={"POTION": 3, "SUPER_POTION": 5}, money=8000,
-                       note="JIGGLYPUFF led (Aug 28; a L24 GYARADOS on "
-                            "Sep 6), the starter ten over the ace and "
-                            "everyone else at it. The bag is run 17's at "
-                            "this door, on record."),
-             ideal=dict(party=[("DIGLETT", 19), ("CHARMELEON", 20)],
+                       note="The Sep 6 run's four, exactly: a L24 "
+                            "GYARADOS led, the starter thirteen over the "
+                            "ace. The bag is run 17's at this door, on "
+                            "record."),
+             ideal=dict(party=[("DIGLETT", 19),
+                               ("CHARMELEON", 20, ["BODY_SLAM"]),
+                               ("PIDGEOTTO", 19)],
                         bag={"POTION": 5, "SUPER_POTION": 6,
                              "PARLYZ_HEAL": 3}, money=5000,
                         note="DIGLETT with DIG, which electricity cannot "
@@ -357,14 +387,19 @@ GYMS = [
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
          badges=3, needs_cut=True, door=(4, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("CHARIZARD", 40), ("GLOOM", 36),
+             real=dict(party=[("GLOOM", 36), ("CHARIZARD", 40, ["BODY_SLAM"]),
                               ("PIDGEOT", 41), ("DUGTRIO", 34),
-                              ("RATICATE", 35), ("JIGGLYPUFF", 35)],
+                              ("GYARADOS", 36, ["BUBBLEBEAM", "THUNDERBOLT"])],
                        bag={"SUPER_POTION": 3}, money=13800,
-                       note="GLOOM led (Aug 28), a PIDGEOTTO on Sep 6; the "
-                            "starter carries CUT. Three SUPER_POTIONs is "
-                            "the bag run 17 blacked out with here."),
-             ideal=dict(party=[("FEAROW", 24), ("CHARMELEON", 25)],
+                       note="GLOOM led (Aug 28), a PIDGEOTTO on Sep 6, so "
+                            "the GLOOM stands first and carries CUT in "
+                            "place of ACID (DUGTRIO cannot learn it, and "
+                            "on the CHARIZARD it cost SLASH). Three "
+                            "SUPER_POTIONs is the bag run 17 blacked out "
+                            "with here."),
+             ideal=dict(party=[("FEAROW", 24),
+                               ("CHARMELEON", 25, ["BODY_SLAM"]),
+                               ("KADABRA", 25)],
                         hms=["FLY"],
                         bag={"SUPER_POTION": 8, "FULL_HEAL": 3,
                              "REVIVE": 2}, money=12000,
@@ -375,14 +410,20 @@ GYMS = [
     dict(name="fuchsia", map="FUCHSIA_GYM", leader="KOGA", ace=43,
          badges=4, door=(4, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("PIDGEOT", 47), ("GLOOM", 44),
-                              ("DUGTRIO", 46), ("CHARIZARD", 46),
-                              ("RATICATE", 40), ("JIGGLYPUFF", 35)],
+             real=dict(party=[("PIDGEOT", 47, ["FLY"]),
+                              ("VILEPLUME", 44, ["MEGA_DRAIN"]),
+                              ("DUGTRIO", 46, ["EARTHQUAKE"]),
+                              ("CHARIZARD", 46, ["BODY_SLAM"]),
+                              ("GYARADOS", 42, ["BUBBLEBEAM", "THUNDERBOLT"]),
+                              ("HITMONLEE", 40)],
                        bag={"SUPER_POTION": 5}, money=12800,
                        note="PIDGEOT led (Aug 28), DUGTRIO on Sep 6. Both "
                             "outlines did Sabrina before Koga, so this "
-                            "party is the Saffron one a few levels on."),
-             ideal=dict(party=[("KADABRA", 38), ("CHARIZARD", 38)],
+                            "party is the Saffron one a few levels on, "
+                            "and Silph's EARTHQUAKE is already had."),
+             ideal=dict(party=[("KADABRA", 38),
+                               ("CHARIZARD", 38, ["BODY_SLAM"]),
+                               ("DUGTRIO", 38), ("FEAROW", 37, ["FLY"])],
                         bag={"SUPER_POTION": 10, "ANTIDOTE": 4,
                              "FULL_HEAL": 2, "REVIVE": 3}, money=20000,
                         note="Psychic into poison, five under the ace, "
@@ -396,13 +437,21 @@ GYMS = [
          badges=5, door=(8, 17), puzzle=False,
          score_only=["EVENT_BEAT_SABRINA"], fights=5,
          paths=dict(
-             real=dict(party=[("PIDGEOT", 45), ("GLOOM", 43),
-                              ("DUGTRIO", 44), ("CHARIZARD", 46),
-                              ("RATICATE", 36), ("JIGGLYPUFF", 35)],
+             real=dict(party=[("PIDGEOT", 45, ["FLY"]),
+                              ("VILEPLUME", 43, ["MEGA_DRAIN"]),
+                              ("DUGTRIO", 44, ["EARTHQUAKE"]),
+                              ("CHARIZARD", 46, ["BODY_SLAM"]),
+                              ("GYARADOS", 38, ["BUBBLEBEAM", "THUNDERBOLT"]),
+                              ("HITMONLEE", 35)],
                        bag={"HYPER_POTION": 5}, money=34500,
-                       note="PIDGEOT led (Aug 28), DUGTRIO on Sep 6, the "
-                            "GLOOM at the ace and two bodies well under."),
-             ideal=dict(party=[("SNORLAX", 38), ("CHARIZARD", 38)],
+                       note="PIDGEOT led (Aug 28), DUGTRIO on Sep 6; the "
+                            "HITMONLEE is fresh from the Dojo at 35, "
+                            "since both outlines did this gym before "
+                            "Koga."),
+             ideal=dict(party=[("SNORLAX", 38, ["EARTHQUAKE"]),
+                               ("CHARIZARD", 38, ["BODY_SLAM"]),
+                               ("DUGTRIO", 38, ["EARTHQUAKE"]),
+                               ("KADABRA", 38)],
                         bag={"HYPER_POTION": 8, "FULL_HEAL": 3,
                              "REVIVE": 3}, money=30000,
                         note="Nothing is super effective on a gen 1 "
@@ -417,16 +466,18 @@ GYMS = [
     dict(name="cinnabar", map="CINNABAR_GYM", hms=["SURF"], leader="BLAINE",
          ace=47, badges=6, door=(16, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("DUGTRIO", 47), ("GLOOM", 48),
-                              ("PIDGEOT", 50), ("KABUTO", 30),
-                              ("LAPRAS", 48), ("RATICATE", 45)],
+             real=dict(party=[("DUGTRIO", 47), ("VILEPLUME", 48, ["MEGA_DRAIN"]),
+                              ("PIDGEOT", 50, ["FLY"]),
+                              ("GYARADOS", 44, ["THUNDERBOLT"]),
+                              ("HITMONLEE", 46),
+                              ("CHARIZARD", 47, ["BODY_SLAM"])],
                        bag={"HYPER_POTION": 5}, money=57000,
-                       note="DUGTRIO led (Aug 28), GLOOM on Sep 6. The "
-                            "CHARIZARD was boxed at this point of the "
-                            "Aug 28 run, and a L30 KABUTO was not: the "
-                            "record, resistances and dead weight "
-                            "included. KABUTO carries SURF."),
-             ideal=dict(party=[("STARMIE", 42), ("CHARIZARD", 42)],
+                       note="DUGTRIO led (Aug 28), GLOOM on Sep 6; the "
+                            "Sep 6 roster, GYARADOS carrying SURF."),
+             ideal=dict(party=[("STARMIE", 42, ["BUBBLEBEAM", "THUNDERBOLT", "ICE_BEAM"]),
+                               ("CHARIZARD", 42, ["BODY_SLAM"]),
+                               ("DUGTRIO", 42),
+                               ("SNORLAX", 42, ["EARTHQUAKE"])],
                         bag={"HYPER_POTION": 8, "BURN_HEAL": 3,
                              "REVIVE": 3}, money=40000,
                         note="STARMIE off the Super Rod with SURF, and "
@@ -440,14 +491,19 @@ GYMS = [
     dict(name="viridian", map="VIRIDIAN_GYM", hms=["SURF"], leader="GIOVANNI",
          ace=50, badges=7, door=(16, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("DUGTRIO", 50), ("GLOOM", 48),
-                              ("PIDGEOT", 50), ("KABUTO", 30),
-                              ("LAPRAS", 48), ("RATICATE", 45)],
+             real=dict(party=[("DUGTRIO", 52), ("VILEPLUME", 46, ["MEGA_DRAIN"]),
+                              ("PIDGEOT", 50, ["FLY"]),
+                              ("GYARADOS", 44, ["THUNDERBOLT"]),
+                              ("HITMONLEE", 48),
+                              ("CHARIZARD", 47, ["BODY_SLAM"])],
                        bag={"HYPER_POTION": 5}, money=69000,
-                       note="DUGTRIO led (Aug 28), HITMONLEE on Sep 6; "
-                            "the Cinnabar party three levels on. RHYDON "
-                            "L50 against a L48 LAPRAS is the fight."),
-             ideal=dict(party=[("STARMIE", 45), ("CHARIZARD", 45)],
+                       note="DUGTRIO led (Aug 28), HITMONLEE on Sep 6; the "
+                            "Sep 6 roster at Giovanni. RHYDON L50 against "
+                            "a L44 GYARADOS's SURF is the fight."),
+             ideal=dict(party=[("STARMIE", 45, ["BUBBLEBEAM", "THUNDERBOLT", "ICE_BEAM"]),
+                               ("CHARIZARD", 45, ["BODY_SLAM"]),
+                               ("LAPRAS", 45), ("KADABRA", 45),
+                               ("SNORLAX", 45, ["EARTHQUAKE"])],
                         bag={"HYPER_POTION": 8, "FULL_HEAL": 3,
                              "REVIVE": 3}, money=50000,
                         note="SURF into ground, quadruple on RHYDON, five "
@@ -460,25 +516,30 @@ GYMS = [
     # built here; e4_ideal is the user's hand file.
     dict(name="e4", map="LORELEIS_ROOM", leader="LORELEI", ace=62,
          league=True, base=REPO / "run/arena_e4.lua", door=(4, 11),
-         puzzle=False,
+         puzzle=False, hms=["SURF"],
          paths=dict(
-             real=dict(party=[("KABUTOPS", 55), ("LAPRAS", 55),
-                              ("PIDGEOT", 55), ("GLOOM", 54),
-                              ("DUGTRIO", 54), ("CHARIZARD", 54)],
+             real=dict(party=[("VILEPLUME", 54, ["MEGA_DRAIN"]),
+                              ("HITMONLEE", 57),
+                              ("PIDGEOT", 54, ["FLY"]),
+                              ("CHARIZARD", 55, ["BODY_SLAM"]),
+                              ("GYARADOS", 54, ["THUNDERBOLT"]),
+                              ("DUGTRIO", 54)],
                        bag={"FULL_RESTORE": 5}, money=48500,
-                       note="The Aug 28 run's first league attempt: "
-                            "KABUTOPS led, six at 54-55 against a Lance "
-                            "at 58-62. It took three attempts at "
-                            "LORELEI."))),
+                       note="The Sep 6 run's first league attempt, with "
+                            "the stone: GLOOM led, six at 54-57 against "
+                            "a Lance at 58-62, and it fell to the "
+                            "Champion. Four attempts in all."))),
 ]
 
 
 def build(g: dict, path: str) -> dict:
     p = g["paths"][path]
     party = []
-    for sp, lv in p["party"]:
+    for entry in p["party"]:
+        sp, lv = entry[0], entry[1]
         party.append({"species": sp, "level": lv,
-                      "moves": natural_moves(sp, lv), "nickname": sp})
+                      "moves": natural_moves(sp, lv), "nickname": sp,
+                      "_tms": list(entry[2]) if len(entry) > 2 else []})
     # A ROOM WITH A BUSH IN IT NEEDS SOMEBODY WHO CAN CUT (Celadon pens
     # Erika and her last three trainers inside a bed with two CUT_TREEs;
     # without a carrier the room capped at four of eight every trial with
@@ -497,6 +558,27 @@ def build(g: dict, path: str) -> dict:
                 break
         else:
             sys.exit(f"{g['name']}_{path}: nobody in this party can learn {hm}")
+    # THEN THE TMs THE RUN HAD BY THEN (see the rule above): a move that
+    # does no damage goes first, then the weakest attack that is not the
+    # room's HM; a member still short of four moves just gains it.
+    for m in party:
+        for tm in m.pop("_tms"):
+            if tm in m["moves"]:
+                continue
+            if not can_learn(m["species"], tm):
+                sys.exit(f"{g['name']}_{path}: {m['species']} cannot learn {tm}")
+            if len(m["moves"]) < 4:
+                m["moves"].append(tm)
+                continue
+            idx = next((i for i, mv in enumerate(m["moves"])
+                        if move_power(mv) == 0 and mv not in HMS), None)
+            if idx is None:
+                cands = [(move_power(mv), i) for i, mv in enumerate(m["moves"])
+                         if mv not in HMS]
+                if not cands:
+                    sys.exit(f"{g['name']}_{path}: no slot for {tm} on {m['species']}")
+                idx = min(cands)[1]
+            m["moves"][idx] = tm
     # FACING MATTERS BECAUSE BOOTSTRAP MASHES A: parked facing a leader,
     # the title-clearing presses talk to him and the fight starts during
     # setup. Leaders fight only when interacted with, so facing away is
