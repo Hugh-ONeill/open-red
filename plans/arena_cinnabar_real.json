@@ -12,58 +12,59 @@
       "nickname": "DUGTRIO"
     },
     {
-      "species": "GLOOM",
+      "species": "VILEPLUME",
       "level": 48,
       "moves": [
-        "STUN_SPORE",
-        "SLEEP_POWDER",
+        "MEGA_DRAIN",
         "ACID",
-        "PETAL_DANCE"
+        "PETAL_DANCE",
+        "POISONPOWDER"
       ],
-      "nickname": "GLOOM"
+      "nickname": "VILEPLUME"
     },
     {
       "species": "PIDGEOT",
       "level": 50,
       "moves": [
         "QUICK_ATTACK",
-        "WHIRLWIND",
+        "FLY",
         "WING_ATTACK",
         "AGILITY"
       ],
       "nickname": "PIDGEOT"
     },
     {
-      "species": "KABUTO",
+      "species": "GYARADOS",
       "level": 30,
       "moves": [
-        "SCRATCH",
-        "HARDEN",
+        "BITE",
+        "DRAGON_RAGE",
+        "THUNDERBOLT",
         "SURF"
       ],
-      "nickname": "KABUTO"
+      "nickname": "GYARADOS"
     },
     {
-      "species": "LAPRAS",
-      "level": 48,
+      "species": "HITMONLEE",
+      "level": 46,
+      "moves": [
+        "MEDITATE",
+        "ROLLING_KICK",
+        "JUMP_KICK",
+        "FOCUS_ENERGY"
+      ],
+      "nickname": "HITMONLEE"
+    },
+    {
+      "species": "CHARIZARD",
+      "level": 47,
       "moves": [
         "BODY_SLAM",
-        "CONFUSE_RAY",
-        "ICE_BEAM",
-        "HYDRO_PUMP"
+        "RAGE",
+        "SLASH",
+        "FLAMETHROWER"
       ],
-      "nickname": "LAPRAS"
-    },
-    {
-      "species": "RATICATE",
-      "level": 45,
-      "moves": [
-        "QUICK_ATTACK",
-        "HYPER_FANG",
-        "FOCUS_ENERGY",
-        "SUPER_FANG"
-      ],
-      "nickname": "RATICATE"
+      "nickname": "CHARIZARD"
     }
   ],
   "bag": {

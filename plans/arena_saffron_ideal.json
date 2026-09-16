@@ -5,7 +5,7 @@
       "level": 38,
       "moves": [
         "HEADBUTT",
-        "AMNESIA",
+        "EARTHQUAKE",
         "REST",
         "BODY_SLAM"
       ],
@@ -16,11 +16,33 @@
       "level": 38,
       "moves": [
         "EMBER",
-        "LEER",
+        "BODY_SLAM",
         "RAGE",
         "SLASH"
       ],
       "nickname": "CHARIZARD"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 38,
+      "moves": [
+        "EARTHQUAKE",
+        "DIG",
+        "SAND_ATTACK",
+        "SLASH"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "KADABRA",
+      "level": 38,
+      "moves": [
+        "DISABLE",
+        "PSYBEAM",
+        "RECOVER",
+        "PSYCHIC_M"
+      ],
+      "nickname": "KADABRA"
     }
   ],
   "bag": {

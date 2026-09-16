@@ -4,9 +4,9 @@
       "species": "STARMIE",
       "level": 42,
       "moves": [
-        "TACKLE",
-        "WATER_GUN",
-        "HARDEN",
+        "THUNDERBOLT",
+        "ICE_BEAM",
+        "BUBBLEBEAM",
         "SURF"
       ],
       "nickname": "STARMIE"
@@ -16,11 +16,33 @@
       "level": 42,
       "moves": [
         "EMBER",
-        "LEER",
+        "BODY_SLAM",
         "RAGE",
         "SLASH"
       ],
       "nickname": "CHARIZARD"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 42,
+      "moves": [
+        "GROWL",
+        "DIG",
+        "SAND_ATTACK",
+        "SLASH"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "SNORLAX",
+      "level": 42,
+      "moves": [
+        "EARTHQUAKE",
+        "REST",
+        "BODY_SLAM",
+        "HARDEN"
+      ],
+      "nickname": "SNORLAX"
     }
   ],
   "bag": {

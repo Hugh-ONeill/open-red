@@ -16,11 +16,33 @@
       "level": 38,
       "moves": [
         "EMBER",
-        "LEER",
+        "BODY_SLAM",
         "RAGE",
         "SLASH"
       ],
       "nickname": "CHARIZARD"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 38,
+      "moves": [
+        "GROWL",
+        "DIG",
+        "SAND_ATTACK",
+        "SLASH"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "FEAROW",
+      "level": 37,
+      "moves": [
+        "FLY",
+        "FURY_ATTACK",
+        "MIRROR_MOVE",
+        "DRILL_PECK"
+      ],
+      "nickname": "FEAROW"
     }
   ],
   "bag": {

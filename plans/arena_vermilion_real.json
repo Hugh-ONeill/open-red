@@ -1,41 +1,19 @@
 {
   "party": [
     {
-      "species": "JIGGLYPUFF",
-      "level": 25,
-      "moves": [
-        "POUND",
-        "DISABLE",
-        "DEFENSE_CURL",
-        "DOUBLESLAP"
-      ],
-      "nickname": "JIGGLYPUFF"
-    },
-    {
-      "species": "CHARMELEON",
-      "level": 35,
+      "species": "CHARIZARD",
+      "level": 37,
       "moves": [
         "EMBER",
-        "LEER",
+        "BODY_SLAM",
         "RAGE",
         "SLASH"
       ],
-      "nickname": "CHARMELEON"
-    },
-    {
-      "species": "RATICATE",
-      "level": 25,
-      "moves": [
-        "TACKLE",
-        "TAIL_WHIP",
-        "QUICK_ATTACK",
-        "HYPER_FANG"
-      ],
-      "nickname": "RATICATE"
+      "nickname": "CHARIZARD"
     },
     {
       "species": "PIDGEOTTO",
-      "level": 24,
+      "level": 29,
       "moves": [
         "GUST",
         "SAND_ATTACK",
@@ -46,7 +24,7 @@
     },
     {
       "species": "GLOOM",
-      "level": 23,
+      "level": 25,
       "moves": [
         "ABSORB",
         "POISONPOWDER",

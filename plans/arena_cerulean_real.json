@@ -23,25 +23,14 @@
       "nickname": "CHARMELEON"
     },
     {
-      "species": "RATICATE",
-      "level": 21,
+      "species": "PIDGEOTTO",
+      "level": 18,
       "moves": [
-        "TACKLE",
-        "TAIL_WHIP",
-        "QUICK_ATTACK",
-        "HYPER_FANG"
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK"
       ],
-      "nickname": "RATICATE"
-    },
-    {
-      "species": "JIGGLYPUFF",
-      "level": 17,
-      "moves": [
-        "SING",
-        "POUND",
-        "DISABLE"
-      ],
-      "nickname": "JIGGLYPUFF"
+      "nickname": "PIDGEOTTO"
     }
   ],
   "bag": {

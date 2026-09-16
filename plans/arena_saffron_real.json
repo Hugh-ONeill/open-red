@@ -5,28 +5,28 @@
       "level": 45,
       "moves": [
         "QUICK_ATTACK",
-        "WHIRLWIND",
+        "FLY",
         "WING_ATTACK",
         "AGILITY"
       ],
       "nickname": "PIDGEOT"
     },
     {
-      "species": "GLOOM",
+      "species": "VILEPLUME",
       "level": 43,
       "moves": [
-        "STUN_SPORE",
-        "SLEEP_POWDER",
+        "MEGA_DRAIN",
         "ACID",
-        "PETAL_DANCE"
+        "PETAL_DANCE",
+        "POISONPOWDER"
       ],
-      "nickname": "GLOOM"
+      "nickname": "VILEPLUME"
     },
     {
       "species": "DUGTRIO",
       "level": 44,
       "moves": [
-        "GROWL",
+        "EARTHQUAKE",
         "DIG",
         "SAND_ATTACK",
         "SLASH"
@@ -37,7 +37,7 @@
       "species": "CHARIZARD",
       "level": 46,
       "moves": [
-        "LEER",
+        "BODY_SLAM",
         "RAGE",
         "SLASH",
         "FLAMETHROWER"
@@ -45,26 +45,14 @@
       "nickname": "CHARIZARD"
     },
     {
-      "species": "RATICATE",
-      "level": 36,
-      "moves": [
-        "TAIL_WHIP",
-        "QUICK_ATTACK",
-        "HYPER_FANG",
-        "FOCUS_ENERGY"
-      ],
-      "nickname": "RATICATE"
-    },
-    {
-      "species": "JIGGLYPUFF",
+      "species": "HITMONLEE",
       "level": 35,
       "moves": [
-        "DEFENSE_CURL",
-        "DOUBLESLAP",
-        "REST",
-        "BODY_SLAM"
+        "DOUBLE_KICK",
+        "MEDITATE",
+        "ROLLING_KICK"
       ],
-      "nickname": "JIGGLYPUFF"
+      "nickname": "HITMONLEE"
     }
   ],
   "bag": {

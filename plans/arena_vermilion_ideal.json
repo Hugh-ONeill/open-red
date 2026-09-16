@@ -15,11 +15,21 @@
       "level": 20,
       "moves": [
         "SCRATCH",
-        "GROWL",
+        "BODY_SLAM",
         "EMBER",
         "LEER"
       ],
       "nickname": "CHARMELEON"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 19,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK"
+      ],
+      "nickname": "PIDGEOTTO"
     }
   ],
   "bag": {

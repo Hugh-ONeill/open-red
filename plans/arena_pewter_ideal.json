@@ -9,6 +9,16 @@
         "BUBBLE"
       ],
       "nickname": "SQUIRTLE"
+    },
+    {
+      "species": "NIDORAN_M",
+      "level": 10,
+      "moves": [
+        "LEER",
+        "TACKLE",
+        "HORN_ATTACK"
+      ],
+      "nickname": "NIDORAN_M"
     }
   ],
   "bag": {

@@ -1,32 +1,32 @@
 {
   "party": [
     {
-      "species": "KABUTOPS",
-      "level": 55,
+      "species": "VILEPLUME",
+      "level": 54,
       "moves": [
-        "ABSORB",
-        "SLASH",
-        "LEER",
-        "HYDRO_PUMP"
+        "MEGA_DRAIN",
+        "ACID",
+        "PETAL_DANCE",
+        "POISONPOWDER"
       ],
-      "nickname": "KABUTOPS"
+      "nickname": "VILEPLUME"
     },
     {
-      "species": "LAPRAS",
-      "level": 55,
+      "species": "HITMONLEE",
+      "level": 57,
       "moves": [
-        "BODY_SLAM",
-        "CONFUSE_RAY",
-        "ICE_BEAM",
-        "HYDRO_PUMP"
+        "JUMP_KICK",
+        "FOCUS_ENERGY",
+        "HI_JUMP_KICK",
+        "MEGA_KICK"
       ],
-      "nickname": "LAPRAS"
+      "nickname": "HITMONLEE"
     },
     {
       "species": "PIDGEOT",
-      "level": 55,
+      "level": 54,
       "moves": [
-        "WHIRLWIND",
+        "FLY",
         "WING_ATTACK",
         "AGILITY",
         "MIRROR_MOVE"
@@ -34,15 +34,26 @@
       "nickname": "PIDGEOT"
     },
     {
-      "species": "GLOOM",
+      "species": "CHARIZARD",
+      "level": 55,
+      "moves": [
+        "RAGE",
+        "SLASH",
+        "FLAMETHROWER",
+        "BODY_SLAM"
+      ],
+      "nickname": "CHARIZARD"
+    },
+    {
+      "species": "GYARADOS",
       "level": 54,
       "moves": [
-        "SLEEP_POWDER",
-        "ACID",
-        "PETAL_DANCE",
-        "SOLARBEAM"
+        "DRAGON_RAGE",
+        "THUNDERBOLT",
+        "HYDRO_PUMP",
+        "SURF"
       ],
-      "nickname": "GLOOM"
+      "nickname": "GYARADOS"
     },
     {
       "species": "DUGTRIO",
@@ -54,17 +65,6 @@
         "EARTHQUAKE"
       ],
       "nickname": "DUGTRIO"
-    },
-    {
-      "species": "CHARIZARD",
-      "level": 54,
-      "moves": [
-        "LEER",
-        "RAGE",
-        "SLASH",
-        "FLAMETHROWER"
-      ],
-      "nickname": "CHARIZARD"
     }
   ],
   "bag": {

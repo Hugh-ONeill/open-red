@@ -10,6 +10,16 @@
         "VINE_WHIP"
       ],
       "nickname": "IVYSAUR"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 18,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK"
+      ],
+      "nickname": "PIDGEOTTO"
     }
   ],
   "bag": {

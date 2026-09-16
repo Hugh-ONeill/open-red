@@ -15,12 +15,22 @@
       "species": "CHARMELEON",
       "level": 25,
       "moves": [
-        "GROWL",
+        "BODY_SLAM",
         "EMBER",
         "LEER",
         "CUT"
       ],
       "nickname": "CHARMELEON"
+    },
+    {
+      "species": "KADABRA",
+      "level": 25,
+      "moves": [
+        "TELEPORT",
+        "CONFUSION",
+        "DISABLE"
+      ],
+      "nickname": "KADABRA"
     }
   ],
   "bag": {

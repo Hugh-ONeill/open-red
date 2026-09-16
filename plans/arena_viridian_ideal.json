@@ -4,9 +4,9 @@
       "species": "STARMIE",
       "level": 45,
       "moves": [
-        "TACKLE",
-        "WATER_GUN",
-        "HARDEN",
+        "THUNDERBOLT",
+        "ICE_BEAM",
+        "BUBBLEBEAM",
         "SURF"
       ],
       "nickname": "STARMIE"
@@ -16,11 +16,44 @@
       "level": 45,
       "moves": [
         "EMBER",
-        "LEER",
+        "BODY_SLAM",
         "RAGE",
         "SLASH"
       ],
       "nickname": "CHARIZARD"
+    },
+    {
+      "species": "LAPRAS",
+      "level": 45,
+      "moves": [
+        "MIST",
+        "BODY_SLAM",
+        "CONFUSE_RAY",
+        "ICE_BEAM"
+      ],
+      "nickname": "LAPRAS"
+    },
+    {
+      "species": "KADABRA",
+      "level": 45,
+      "moves": [
+        "PSYBEAM",
+        "RECOVER",
+        "PSYCHIC_M",
+        "REFLECT"
+      ],
+      "nickname": "KADABRA"
+    },
+    {
+      "species": "SNORLAX",
+      "level": 45,
+      "moves": [
+        "EARTHQUAKE",
+        "REST",
+        "BODY_SLAM",
+        "HARDEN"
+      ],
+      "nickname": "SNORLAX"
     }
   ],
   "bag": {

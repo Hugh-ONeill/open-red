@@ -9,6 +9,15 @@
         "EMBER"
       ],
       "nickname": "CHARMANDER"
+    },
+    {
+      "species": "PIDGEY",
+      "level": 10,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK"
+      ],
+      "nickname": "PIDGEY"
     }
   ],
   "bag": {

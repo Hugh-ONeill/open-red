@@ -1,26 +1,26 @@
 {
   "party": [
     {
-      "species": "CHARIZARD",
-      "level": 40,
-      "moves": [
-        "EMBER",
-        "LEER",
-        "RAGE",
-        "CUT"
-      ],
-      "nickname": "CHARIZARD"
-    },
-    {
       "species": "GLOOM",
       "level": 36,
       "moves": [
         "POISONPOWDER",
         "STUN_SPORE",
         "SLEEP_POWDER",
-        "ACID"
+        "CUT"
       ],
       "nickname": "GLOOM"
+    },
+    {
+      "species": "CHARIZARD",
+      "level": 40,
+      "moves": [
+        "EMBER",
+        "BODY_SLAM",
+        "RAGE",
+        "SLASH"
+      ],
+      "nickname": "CHARIZARD"
     },
     {
       "species": "PIDGEOT",
@@ -43,28 +43,6 @@
         "SAND_ATTACK"
       ],
       "nickname": "DUGTRIO"
-    },
-    {
-      "species": "RATICATE",
-      "level": 35,
-      "moves": [
-        "TAIL_WHIP",
-        "QUICK_ATTACK",
-        "HYPER_FANG",
-        "FOCUS_ENERGY"
-      ],
-      "nickname": "RATICATE"
-    },
-    {
-      "species": "JIGGLYPUFF",
-      "level": 35,
-      "moves": [
-        "DEFENSE_CURL",
-        "DOUBLESLAP",
-        "REST",
-        "BODY_SLAM"
-      ],
-      "nickname": "JIGGLYPUFF"
     }
   ],
   "bag": {
