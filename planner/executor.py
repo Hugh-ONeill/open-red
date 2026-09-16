@@ -1847,6 +1847,8 @@ class Executor:
         self._offered: dict = {}     # map -> {species: wild encounters}
         self._dead_why: dict = {}    # op signature -> last failure detail
         self._cut_bushes: dict = {}  # map -> ["x,y", ...] bushes cut before
+        self._bush_ways: dict = {}   # part -> ["x,y", ...] bushes with ground past
+        self._knows_cut = False
         self._shelves: dict = {}     # mart map -> [items it sells], as seen
         # ...AND HOW MANY TIMES THAT SHELF HAS BEEN READ, and whether it has
         # ever come back different. "SHOPS ... AND WHAT THEY WERE SELLING"
@@ -4958,6 +4960,17 @@ class Executor:
             self._grind_exp = data.get("grind_exp") or {}
             self.boulder_start = data.get("boulder_start") or {}
             self._cut_bushes = data.get("cut_bushes") or {}
+            # A LEDGER FROM BEFORE THE RECORD: a worked part that saw a bush
+            # it could walk to, on a map where nothing was ever cut. Where
+            # the bush stood and what lies past it were not kept, so it is
+            # marked "?" and the page says so.
+            if data.get("bush_ways") is None:
+                self._bush_ways = {
+                    r: ["?"] for r in ((data.get("searched") or {}).get("*") or {})
+                    if "CUT_TREE" in (self.sightings.get(r) or [])
+                    and r.split("|")[0] not in self._cut_bushes}
+            else:
+                self._bush_ways = data.get("bush_ways") or {}
             self._shelves = data.get("shelves") or {}
             self._shelf_reads = data.get("shelf_reads") or {}
             self._shelf_machine = set(data.get("shelf_machine") or [])
@@ -5447,6 +5460,7 @@ class Executor:
                  "grind_exp": getattr(self, "_grind_exp", {}),
                  "boulder_start": getattr(self, "boulder_start", {}),
                  "cut_bushes": getattr(self, "_cut_bushes", {}),
+                 "bush_ways": getattr(self, "_bush_ways", {}),
                  "shelves": getattr(self, "_shelves", {}),
                  "shelf_reads": getattr(self, "_shelf_reads", {}),
                  "shelf_machine": sorted(getattr(self, "_shelf_machine",
@@ -5665,6 +5679,7 @@ class Executor:
         # meant to prevent.
         names = sorted({o.get("name") for o in (m.get("objects") or [])
                         if o.get("name") and o.get("reachable")})
+        self._note_bush_ways(obs, here)
         if not names:
             return
         was = set(self.sightings.get(here) or [])
@@ -5729,6 +5744,44 @@ class Executor:
             if _now_far != _was_far:
                 self.seen_far[here] = sorted(_now_far)
                 self._save_memory()
+
+    def _note_bush_ways(self, obs, here: str):
+        """Bushes this part can walk to with ground past them that no walk
+        from here reaches, and whether the party knows CUT.
+
+        A PART IS NOT FINISHED BY A BUSH NOBODY COULD CUT. ROUTE_9|0,8 was
+        walked before HM01, every exit taken, and went into "Already fully
+        worked" — its way east is the bush at (5,8), and "fully worked" is
+        judged by exits, which a bush is not. CUT was learned on the S.S.
+        Anne and the page kept telling a run hunting a way to Celadon that
+        Route 9 had nothing left, from Cerulean itself (user, 2026-09-16:
+        "the only really unexplored frontier should now be rt 9 but it
+        hasnt taken it since learning cut"). Both halves are on screen: the
+        bush and the ground past it where the part was walked, the move on
+        the party's status pages."""
+        m = (obs or {}).get("map") or {}
+        if m.get("objects") is not None and here and "None" not in here:
+            ways = sorted(f"{o.get('x')},{o.get('y')}"
+                          for o in m["objects"]
+                          if o.get("kind") == "cut_tree" and o.get("reachable")
+                          and o.get("opens") and o.get("x") is not None)
+            if ways != (self._bush_ways.get(here) or []):
+                if ways:
+                    self._bush_ways[here] = ways
+                else:
+                    self._bush_ways.pop(here, None)
+                self._save_memory()
+        if (obs or {}).get("party"):
+            self._knows_cut = any(
+                "CUT" in [str(mv.get("id") if isinstance(mv, dict) else mv)
+                          for mv in (mon.get("moves") or [])]
+                for mon in obs["party"])
+
+    def _bush_way_parts(self) -> dict:
+        """Parts with a bush in the way on, while the party knows CUT."""
+        if not getattr(self, "_knows_cut", False):
+            return {}
+        return {r: v for r, v in (self._bush_ways or {}).items() if v}
 
     def note_frontier(self, obs):
         self._last_obs_dormant = ((obs or {}).get("map") or {}).get("dormant")
@@ -6114,6 +6167,9 @@ class Executor:
             if (set(self.map_doors.get(mid, ())) - walked
                     or (getattr(self, "map_seen", None) or {}).get(mid)):
                 del rooms[r]
+        # ...NOR A PART WHOSE WAY ON IS A BUSH THE PARTY CAN NOW CUT.
+        for r in self._bush_way_parts():
+            rooms.pop(r, None)
         return rooms
 
     def _map_has_unopened_doors(self, mid: str) -> bool:
@@ -14452,12 +14508,19 @@ class Executor:
                     if who and who != "None"]
                 for r, v in (self.shut_doors or {}).items() if r != here}
         held = {r: v for r, v in held.items() if v}
+        bushes = self._bush_way_parts()
         for region, exits in list(self.frontier.items()) + \
-                [(r, []) for r in held if r not in self.frontier]:
+                [(r, []) for r in dict.fromkeys(list(held) + list(bushes))
+                 if r not in self.frontier]:
             if region == here:
                 continue
             left = self._frontier_left(region)
             left += held.get(region, [])
+            left += [(f"bush ({xy}) with ground past it no walk there reaches"
+                      if xy != "?" else
+                      "a bush you could walk to (what lies past it was not "
+                      "recorded)") + " — a party Pokemon knows CUT"
+                     for xy in bushes.get(region, [])]
             if not left:
                 continue
             # Naming a destination without its first leg loses to local
