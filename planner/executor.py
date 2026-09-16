@@ -482,6 +482,39 @@ def speech_excerpt(said: str, cap: int) -> str:
         return s[:cap]
     tail_n = max(int(cap * 0.6), 24)
     head_n = max(cap - tail_n - 5, 8)
+    # WHOLE BOXES, WHEN THERE ARE BOXES. The shim joins one text box to the
+    # next with " / " (a new box is usually a new speaker), and a cut in
+    # the middle of one dropped a speaker's name with half their line:
+    # Oak's escort reached the page as "You need ... have one! Choose!"
+    # (2026-09-16). Keep the first box and as many whole boxes from the end
+    # as fit, the tail getting the larger share as before; a box too long
+    # to keep whole is cut the old way.
+    boxes = s.split(" / ")
+    if len(boxes) > 1:
+        tail, used = [], 0
+        for b in reversed(boxes[1:]):
+            room = tail_n - used - 3
+            if len(b) > room:
+                # the end of a box that will not fit whole, when there is
+                # room for a sentence of it; the end is where it lands
+                if room >= 40:
+                    # ...keeping the speaker's name the game printed on it,
+                    # and starting on a whole word
+                    _lab = _re.match(r"([A-Z][A-Z0-9.' ]{0,11}: )", b)
+                    _lab = _lab.group(1) if _lab else ""
+                    _piece = b[-(room - 4 - len(_lab)):]
+                    if " " in _piece:
+                        _piece = _piece.split(" ", 1)[1]
+                    tail.insert(0, _lab + "... " + _piece.lstrip())
+                break
+            tail.insert(0, b)
+            used += len(b) + 3
+        head = boxes[0]
+        if len(head) > head_n:
+            head = head[:head_n].rstrip() + " ..."
+        skipped = len(boxes) - 1 - len(tail)
+        return (head + (" / ... / " if skipped else " / ")
+                + " / ".join(tail))
     return s[:head_n].rstrip() + " ... " + s[-tail_n:].lstrip()
 
 
@@ -18599,7 +18632,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             except Exception:
                 pass
             note += self._goods_delta(pre_obs, obs)
-            if heard:
+            if heard and 'the game said: "' not in note:
                 _hb0 = (pre_obs or {}).get("bag") or {}
                 _hb1 = (obs or {}).get("bag") or {}
                 _grew = isinstance(_hb0, dict) and any(

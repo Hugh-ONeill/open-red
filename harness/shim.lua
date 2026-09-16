@@ -87,6 +87,21 @@ local function hb_write(label)
     f:close()
   end
 end
+-- ONE PAGE, AS IT READS. A page is an array of screen lines, and joining
+-- them with a space printed "It's encyclopedia- like" for a word the game
+-- had only broken across a line. A line that ends in a hyphen runs straight
+-- on into the next.
+local function page_words(pg)
+  if type(pg) ~= "table" then return tostring(pg or "") end
+  local out = ""
+  for i, ln in ipairs(pg) do
+    ln = tostring(ln)
+    if i == 1 then out = ln
+    elseif out:sub(-1) == "-" then out = out .. ln
+    else out = out .. " " .. ln end
+  end
+  return out
+end
 -- assigned further down, once the text buffers it writes into exist
 local note_text
 local seen_paint               -- the footprint painter; assigned with SEEN
@@ -110,7 +125,7 @@ coroutine.yield = function(...)
         and (top ~= wd.pagetop or top.pageIndex ~= wd.pageidx) then
       wd.pagetop, wd.pageidx = top, top.pageIndex
       local pg = top.pages[top.pageIndex]
-      if type(pg) == "table" then note_text(table.concat(pg, " ")) end
+      if type(pg) == "table" then note_text(page_words(pg), top) end
     end
     if hb.yields % 2048 == 0 then hb_write(tostring(wd.label)) end
   end
@@ -1694,10 +1709,27 @@ local text_run = nil
 -- moves whenever a line is PRINTED settles it without looking at the
 -- words at all.
 local text_seq = 0
-function note_text(txt)        -- forward-declared above the yield hook
+-- WHICH BOX THE LAST PAGE CAME FROM. Pages of one box are one speaker; a
+-- new box is a new line, and in a scripted scene usually a new speaker.
+-- Oak's escort is eight boxes — OAK, OAK, JERK, OAK, JERK, OAK — and they
+-- ran together into one sentence, so a box the game prints with no name
+-- on it ("WHAT? Unbelievable! I picked the wrong POKéMON!") read as the
+-- end of whoever spoke before (user, 2026-09-16: "are we seperating the
+-- dialog properly"). Boxes are joined with " / "; pages within one box,
+-- as before, with a space. Nobody is named who was not named on screen.
+local text_box = nil
+function note_text(txt, box)   -- forward-declared above the yield hook
   if not txt or #txt == 0 then return end
   text_seq = text_seq + 1
   recent_text = txt
+  local _newbox = box ~= nil and text_box ~= nil and box ~= text_box
+  if box ~= nil then text_box = box end
+  if _newbox and text_run and text_run:sub(-#txt) ~= txt
+     and text_run:sub(1, #txt) ~= txt then
+    text_run = text_run .. " / " .. txt
+    last_text = text_run
+    return
+  end
   if text_run and text_run:sub(1, #txt) == txt then
     -- the speech is starting over: a fresh telling, not more of the last
     -- one. Without this a guard who refuses you five times accumulates
@@ -1775,6 +1807,7 @@ local function observe(G, seq, result)
     recent_text = nil          -- free roam: stale prompt no longer applies
     o.recent_text = nil
     text_run = nil             -- that speech is over; the next starts clean
+    text_box = nil
     o.mode = "overworld"
     seen_paint(G)
     local p = G.overworld.player or {}
@@ -6406,11 +6439,27 @@ function OPS.cross(G, c)
   -- its own (Pallet north -> the Oak escort into the lab). If that fires,
   -- ride it: press A through its text and wait for the map to change, rather
   -- than reporting "stuck". Returns true when the escort delivers us.
+  -- ...AND WHAT WAS SAID ON THE WAY. The escort pressed A through Oak's
+  -- whole scene and this op returned "crossed (cutscene)": run 22's next
+  -- plan began "Professor Oak has finally arrived", inferred from the room,
+  -- with "Hey! Wait! Don't go out!", "Choose!" and the rival's "What about
+  -- me?" read by nobody (user, 2026-09-16: "build both, it happens later
+  -- when getting the dex too"). Each page is recorded before it is
+  -- pressed past, and the crossing quotes the scene.
+  local _seq_cross = text_seq
+  local function scene_said(msg)
+    if text_seq ~= _seq_cross and last_text and last_text ~= "" then
+      return msg .. " — on the way the game said: \"" .. last_text .. "\""
+    end
+    return msg
+  end
   local function ride_cutscene()
     for _ = 1, 40 do
       if (ow.map and ow.map.id) ~= startMap then return true end
       local top = G.stack:top()
       if top and top.pages and top.pageIndex then
+        local _pg = top.pages[top.pageIndex]
+        if type(_pg) == "table" then note_text(page_words(_pg), top) end
         U.tap(G, "a"); U.wait(3)          -- cutscene dialogue
       elseif G.overworld and top == ow
           and not (ow.runner and ow.runner.isRunning
@@ -6432,11 +6481,11 @@ function OPS.cross(G, c)
     if ex then break end
     U.wait(40)
     if G.stack:top() ~= ow then
-      if ride_cutscene() then return true, "crossed (cutscene)" end
+      if ride_cutscene() then return true, scene_said("crossed (cutscene)") end
     end
   end
   if not ex then
-    if ride_cutscene() then return true, "crossed (cutscene)" end
+    if ride_cutscene() then return true, scene_said("crossed (cutscene)") end
     -- the connection exists (the fail-fast above passed) but BFS can't walk
     -- to the seam: blocked terrain splits the map (ROUTE_2's north half is
     -- only reachable through Viridian Forest)
@@ -6751,12 +6800,12 @@ function OPS.cross(G, c)
                                           or math.max(200, _need * 3) })
       if not _wok and _w then _wwhy = tostring(_w) end
       if (ow.map and ow.map.id) ~= startMap then
-        return true, "crossed (mid-walk)"
+        return true, scene_said("crossed (mid-walk)")
       end
       -- a cutscene may have interrupted the walk (Oak's "Hey! Wait!") — ride
       -- it out before deciding we're stuck.
       if G.stack:top() ~= ow or (ow.player and ow.player.moving) then
-        if ride_cutscene() then return true, "crossed (cutscene)" end
+        if ride_cutscene() then return true, scene_said("crossed (cutscene)") end
       end
       if p.cellX == ex and p.cellY == ey then break end
       U.wait(30)
@@ -6764,7 +6813,7 @@ function OPS.cross(G, c)
       if nx then ex, ey = nx, ny end
     end
     if p.cellX ~= ex or p.cellY ~= ey then
-      if ride_cutscene() then return true, "crossed (cutscene)" end
+      if ride_cutscene() then return true, scene_said("crossed (cutscene)") end
       -- A FIGHT IS NOT A WALL, AND IT MUST NOT BE DESCRIBED AS ONE. The
       -- terrain verdict below is built from where the walk STOPPED, and a
       -- walk stops for two quite different reasons: the way is shut, or
@@ -11341,8 +11390,7 @@ function OPS.interact(G, c)
     if t and t.pages and t.pageIndex then
       local pg = t.pages[t.pageIndex]
       if type(pg) == "table" then
-        local txt = table.concat(pg, " ")
-        note_text(txt)
+        note_text(page_words(pg), t)
       end
     end
   end
@@ -12886,7 +12934,7 @@ local function advance_to_decision(G, maxn)
       if top and top.pages and top.pageIndex then
         local pg = top.pages[top.pageIndex]
         if type(pg) == "table" then
-          note_text(table.concat(pg, " "))
+          note_text(page_words(pg), top)
         end
         U.tap(G, "a"); U.wait(2)                          -- plain text
       elseif top and (top.enemy or top.kind) then
