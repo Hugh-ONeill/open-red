@@ -1,0 +1,404 @@
+{
+  "name": "Gen1_Elite_Resilient",
+  "stab": 1.5,
+  "accuracy_weight": true,
+  "prefer_ko": true,
+  "ko_margin": 1.2,
+  "avoid_status_moves": false,
+  "setup": [
+    {
+      "move": "CONFUSE_RAY",
+      "max_uses": 1,
+      "first_turns": 2,
+      "min_hp_frac": 0.5,
+      "vs": "trainer"
+    },
+    {
+      "move": "SLEEP_POWDER",
+      "max_uses": 1,
+      "first_turns": 2,
+      "min_hp_frac": 0.5,
+      "vs": "trainer"
+    }
+  ],
+  "switch": [
+    {
+      "to": "best_matchup",
+      "first_turns": 1,
+      "max_uses": 1,
+      "vs": "trainer"
+    },
+    {
+      "to": "best_matchup",
+      "hp_below": 0.4,
+      "vs": "trainer",
+      "out_of_pp": false
+    },
+    {
+      "to": "healthiest",
+      "out_of_pp": true,
+      "vs": "any"
+    }
+  ],
+  "flee_wild": {
+    "when_traversal": true,
+    "hp_below": 0.3
+  },
+  "battle_items": [
+    {
+      "item": "heal",
+      "prefer": "weakest_sufficient",
+      "hp_below": 0.4,
+      "max_uses": 2,
+      "max_uses_run": 12,
+      "reserve": 1,
+      "max_share": 0.6
+    },
+    {
+      "item": "revive",
+      "target": "fainted",
+      "prefer": "weakest_sufficient",
+      "max_uses": 3,
+      "max_uses_run": 5,
+      "reserve": 1
+    }
+  ],
+  "field_heal": {
+    "item": "heal",
+    "hp_below": 0.7,
+    "prefer": "weakest_sufficient",
+    "reserve": 1
+  },
+  "field_cure": [
+    {
+      "status": "PSN",
+      "item": "cure"
+    },
+    {
+      "status": "PAR",
+      "item": "cure"
+    },
+    {
+      "status": "BRN",
+      "item": "cure"
+    },
+    {
+      "status": "SLP",
+      "item": "cure"
+    },
+    {
+      "status": "FRZ",
+      "item": "cure"
+    }
+  ],
+  "catch": {
+    "ball": "ball",
+    "throw_at_hp_frac": 0.2,
+    "max_balls": 5
+  },
+  "lead": {
+    "order": "best_matchup",
+    "vs": "trainer",
+    "min_hp_frac": 0.6
+  },
+  "replacement": {
+    "order": "best_matchup",
+    "min_hp_frac": 0.4
+  },
+  "provenance": {
+    "authored_by": "gemma4:31b-it-q4_K_M",
+    "run": "policyv14",
+    "via": "policy_author",
+    "rounds": 4,
+    "eval": {
+      "arena": "e4_real+pewter_ideal+cerulean_ideal+vermilion_ideal+celadon_ideal+fuchsia_ideal+saffron_ideal+viridian_ideal+e4_ideal",
+      "rival_wins": 0,
+      "rival_trials": 0,
+      "pewter": 0,
+      "badge": 0,
+      "gauntlet_trials": 4,
+      "blackouts": 4,
+      "agree": 189,
+      "scored": 302,
+      "dmg_gap": 11734.0,
+      "rival_detail": [],
+      "gauntlet_detail": [
+        "beat 4/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1",
+        "beat 3/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0",
+        "beat 3/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1",
+        "beat 4/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1"
+      ],
+      "rooms": 14,
+      "bodies": 0.0,
+      "stripped": {
+        "fraction": 0.45,
+        "blackouts": 4,
+        "detail": [
+          "beat 2/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5",
+          "beat 3/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5",
+          "beat 2/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5",
+          "beat 2/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5"
+        ]
+      },
+      "medicine_margin": 0.25,
+      "arena_map": "LORELEIS_ROOM",
+      "arena_party": [
+        "KABUTOPS L55 147/147",
+        "LAPRAS L55 224/224",
+        "PIDGEOT L55 172/172",
+        "GLOOM L54 145/145",
+        "DUGTRIO L54 118/118",
+        "CHARIZARD L54 164/164"
+      ],
+      "arenas": {
+        "e4_real": {
+          "arena": "e4",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 4,
+          "blackouts": 4,
+          "agree": 189,
+          "scored": 302,
+          "dmg_gap": 11734.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 4/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1",
+            "beat 3/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0, FULL_RESTORE spent 5, unspent 0",
+            "beat 3/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1",
+            "beat 4/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1, FULL_RESTORE spent 4, unspent 1"
+          ],
+          "rooms": 14,
+          "bodies": 0.0,
+          "stripped": {
+            "fraction": 0.45,
+            "blackouts": 4,
+            "detail": [
+              "beat 2/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5",
+              "beat 3/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5",
+              "beat 2/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5",
+              "beat 2/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5"
+            ]
+          },
+          "medicine_margin": 0.25
+        },
+        "pewter_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 4,
+          "blackouts": 0,
+          "agree": 54,
+          "scored": 54,
+          "dmg_gap": 0.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 2/2 in PEWTER_GYM with 1/1 standing; POTION spent 2, unspent 6",
+            "beat 2/2 in PEWTER_GYM with 1/1 standing; POTION spent 2, unspent 6",
+            "beat 2/2 in PEWTER_GYM with 1/1 standing; POTION spent 4, unspent 4",
+            "beat 2/2 in PEWTER_GYM with 1/1 standing; POTION spent 2, unspent 6"
+          ],
+          "beaten": 8,
+          "bodies": 4.0,
+          "standing": 2,
+          "leads": 0
+        },
+        "cerulean_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 4,
+          "blackouts": 0,
+          "agree": 49,
+          "scored": 49,
+          "dmg_gap": 0.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 3/3 in CERULEAN_GYM with 1/1 standing; POTION spent 2, unspent 8",
+            "beat 3/3 in CERULEAN_GYM with 1/1 standing; POTION spent 5, unspent 5",
+            "beat 3/3 in CERULEAN_GYM with 1/1 standing; POTION spent 4, unspent 6",
+            "beat 3/3 in CERULEAN_GYM with 1/1 standing; POTION spent 5, unspent 5"
+          ],
+          "beaten": 12,
+          "bodies": 4.0,
+          "standing": 3,
+          "leads": 0
+        },
+        "vermilion_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 4,
+          "blackouts": 1,
+          "agree": 59,
+          "scored": 75,
+          "dmg_gap": 211.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 4/4 in VERMILION_GYM with 1/2 standing; POTION spent 2, unspent 3, SUPER_POTION spent 2, unspent 4, PARLYZ_HEAL spent 0, unspent 3",
+            "beat 3/4 in VERMILION_GYM with 2/2 standing (ended in CERULEAN_POKECENTER); POTION spent 0, unspent 5, SUPER_POTION spent 2, unspent 4, PARLYZ_HEAL spent 1, unspent 2",
+            "beat 4/4 in VERMILION_GYM with 2/2 standing; POTION spent 1, unspent 4, SUPER_POTION spent 0, unspent 6, PARLYZ_HEAL spent 0, unspent 3",
+            "beat 4/4 in VERMILION_GYM with 1/2 standing; POTION spent 0, unspent 5, SUPER_POTION spent 4, unspent 2, PARLYZ_HEAL spent 0, unspent 3"
+          ],
+          "beaten": 15,
+          "bodies": 2.0,
+          "standing": 4,
+          "leads": 2
+        },
+        "celadon_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 4,
+          "blackouts": 0,
+          "agree": 121,
+          "scored": 128,
+          "dmg_gap": 194.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 6/8 in CELADON_GYM with 2/2 standing; SUPER_POTION spent 4, unspent 4, REVIVE spent 0, unspent 2, FULL_HEAL spent 2, unspent 1, FULL_HEAL spent 2, unspent 1, FULL_HEAL spent 2, unspent 1, FULL_HEAL spent 2, unspent 1, FULL_HEAL spent 2, unspent 1",
+            "beat 6/8 in CELADON_GYM with 2/2 standing; SUPER_POTION spent 3, unspent 5, REVIVE spent 0, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2",
+            "beat 6/8 in CELADON_GYM with 2/2 standing; SUPER_POTION spent 0, unspent 8, REVIVE spent 0, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2",
+            "beat 6/8 in CELADON_GYM with 2/2 standing; SUPER_POTION spent 6, unspent 2, REVIVE spent 1, unspent 1, FULL_HEAL spent 3, unspent 0, FULL_HEAL spent 3, unspent 0, FULL_HEAL spent 3, unspent 0, FULL_HEAL spent 3, unspent 0, FULL_HEAL spent 3, unspent 0"
+          ],
+          "beaten": 24,
+          "bodies": 4.0,
+          "standing": 8,
+          "leads": 2
+        },
+        "fuchsia_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 4,
+          "blackouts": 1,
+          "agree": 146,
+          "scored": 171,
+          "dmg_gap": 1360.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 5/7 in FUCHSIA_GYM with 2/2 standing (ended in CELADON_POKECENTER); SUPER_POTION spent 9, unspent 1, REVIVE spent 2, unspent 1, ANTIDOTE spent 1, unspent 3, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1",
+            "beat 6/7 in FUCHSIA_GYM with 1/2 standing; SUPER_POTION spent 8, unspent 2, REVIVE spent 1, unspent 2, ANTIDOTE spent 1, unspent 3, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1",
+            "beat 6/7 in FUCHSIA_GYM with 2/2 standing; SUPER_POTION spent 8, unspent 2, REVIVE spent 0, unspent 3, ANTIDOTE spent 1, unspent 3, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1, FULL_HEAL spent 1, unspent 1",
+            "beat 6/7 in FUCHSIA_GYM with 1/2 standing; SUPER_POTION spent 5, unspent 5, REVIVE spent 0, unspent 3, ANTIDOTE spent 1, unspent 3, FULL_HEAL spent 0, unspent 2, FULL_HEAL spent 0, unspent 2, FULL_HEAL spent 0, unspent 2, FULL_HEAL spent 0, unspent 2, FULL_HEAL spent 0, unspent 2"
+          ],
+          "beaten": 23,
+          "bodies": 2.0,
+          "standing": 7,
+          "leads": 2
+        },
+        "saffron_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 4,
+          "blackouts": 2,
+          "agree": 283,
+          "scored": 302,
+          "dmg_gap": 313.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 5/5 in SAFFRON_GYM with 2/2 standing; HYPER_POTION spent 7, unspent 1, REVIVE spent 1, unspent 2, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3",
+            "beat 5/5 in SAFFRON_GYM with 1/2 standing; HYPER_POTION spent 7, unspent 1, REVIVE spent 2, unspent 1, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2",
+            "beat 4/5 in SAFFRON_GYM with 2/2 standing (ended in FUCHSIA_POKECENTER); HYPER_POTION spent 7, unspent 1, REVIVE spent 2, unspent 1, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2",
+            "beat 1/5 in SAFFRON_GYM with 2/2 standing (ended in FUCHSIA_POKECENTER); HYPER_POTION spent 4, unspent 4, REVIVE spent 2, unspent 1, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3"
+          ],
+          "beaten": 15,
+          "bodies": 1.5,
+          "standing": 5,
+          "leads": 4
+        },
+        "viridian_ideal": {
+          "arena": "gym",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 4,
+          "blackouts": 0,
+          "agree": 126,
+          "scored": 150,
+          "dmg_gap": 755.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 9/9 in VIRIDIAN_GYM with 2/2 standing; HYPER_POTION spent 7, unspent 1, REVIVE spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3, FULL_HEAL spent 0, unspent 3",
+            "beat 9/9 in VIRIDIAN_GYM with 2/2 standing; HYPER_POTION spent 2, unspent 6, REVIVE spent 0, unspent 4, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2",
+            "beat 9/9 in VIRIDIAN_GYM with 2/2 standing; HYPER_POTION spent 4, unspent 4, REVIVE spent 0, unspent 4, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2",
+            "beat 9/9 in VIRIDIAN_GYM with 2/2 standing; HYPER_POTION spent 3, unspent 5, REVIVE spent 0, unspent 3, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2, FULL_HEAL spent 1, unspent 2"
+          ],
+          "beaten": 36,
+          "bodies": 4.0,
+          "standing": 9,
+          "leads": 0
+        },
+        "e4_ideal": {
+          "arena": "e4",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 4,
+          "blackouts": 1,
+          "agree": 226,
+          "scored": 289,
+          "dmg_gap": 3488.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "beat 5/5 (CHAMPION) with 6/6 standing; MAX_POTION spent 6, unspent 0, FULL_RESTORE spent 4, unspent 6, REVIVE spent 3, unspent 7, FULL_HEAL spent 2, unspent 4, FULL_RESTORE spent 4, unspent 6, FULL_HEAL spent 2, unspent 4, FULL_RESTORE spent 4, unspent 6, FULL_HEAL spent 2, unspent 4, FULL_RESTORE spent 4, unspent 6, FULL_HEAL spent 2, unspent 4, FULL_RESTORE spent 4, unspent 6, FULL_HEAL spent 2, unspent 4, FULL_RESTORE spent 4, unspent 6",
+            "beat 5/5 (CHAMPION) with 6/6 standing; MAX_POTION spent 6, unspent 0, FULL_RESTORE spent 3, unspent 7, REVIVE spent 5, unspent 5, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7",
+            "beat 4/5 (stopped in VIRIDIAN_POKECENTER) with 6/6 standing; MAX_POTION spent 6, unspent 0, FULL_RESTORE spent 4, unspent 6, REVIVE spent 5, unspent 5, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 4, unspent 6, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 4, unspent 6, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 4, unspent 6, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 4, unspent 6, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 4, unspent 6",
+            "beat 5/5 (CHAMPION) with 6/6 standing; MAX_POTION spent 6, unspent 0, FULL_RESTORE spent 3, unspent 7, REVIVE spent 4, unspent 6, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7, FULL_HEAL spent 1, unspent 5, FULL_RESTORE spent 3, unspent 7"
+          ],
+          "rooms": 19,
+          "bodies": 3.0
+        }
+      },
+      "arena_stamps": {
+        "e4_real": "b30756db5cec",
+        "pewter_ideal": "96854f12baa8",
+        "cerulean_ideal": "7621e2e592d5",
+        "vermilion_ideal": "30c80b0c74cf",
+        "celadon_ideal": "5993a92dbbae",
+        "fuchsia_ideal": "280f5a380e5b",
+        "saffron_ideal": "535228828bdd",
+        "viridian_ideal": "937844e6741c",
+        "e4_ideal": "5d1d7624d0ac"
+      },
+      "cross_total": 8.3156
+    },
+    "baseline_typed_v0": {
+      "arena": "e4",
+      "rival_wins": 0,
+      "rival_trials": 0,
+      "pewter": 0,
+      "badge": 0,
+      "gauntlet_trials": 4,
+      "blackouts": 4,
+      "agree": 162,
+      "scored": 255,
+      "dmg_gap": 8884.0,
+      "rival_detail": [],
+      "gauntlet_detail": [
+        "beat 2/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5",
+        "beat 3/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5",
+        "beat 3/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5",
+        "beat 2/5 (stopped in PALLET_TOWN) with 6/6 standing; FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5, FULL_RESTORE spent 0, unspent 5"
+      ],
+      "rooms": 10,
+      "bodies": 0.0
+    }
+  }
+}
