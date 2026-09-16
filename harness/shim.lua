@@ -12713,6 +12713,28 @@ function OPS.save_game(G)
     return false, "not in overworld (a box was up and would not close: "
       .. _screen_name(G) .. ")"
   end
+  -- THE WRITE, WITHOUT THE MENU AROUND IT. The Start menu's SAVE ends in
+  -- one call, game:writeSave() (StartMenu.lua, on "Now saving..."'s
+  -- onDone); everything before it is a confirm box and everything after it
+  -- is two self-closing boxes and a sound. Driving all of that for every
+  -- ratchet save was the most fragile thing the run did: run 27 logged 46
+  -- failed subgoal saves in one day — 30 "a box was up and would not
+  -- close: text: SAGE saved the game!", 16 "save file never changed" — and
+  -- the one that mattered, after LT. SURGE's locks were opened, never
+  -- landed (user, 2026-09-16: "we have to fix saving because its already
+  -- like a burst of three saves every time"). These saves are the
+  -- harness's ratchet, not a choice the run makes, so they make the same
+  -- write the menu makes and nothing else. The menu path below stays for
+  -- an engine without writeSave.
+  if G.writeSave then
+    local ok, res = pcall(G.writeSave, G)
+    if ok and res ~= false then
+      seen_save(true)
+      return true, "saved (file written)"
+    end
+    return false, "save failed: " .. tostring(ok and "the engine refused"
+                                                 or res)
+  end
   U.tap(G, "start"); U.wait(8)
   local menu = ui_top(G)
   if not (menu and menu.screenId == "StartMenu") then

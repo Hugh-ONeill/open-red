@@ -5585,6 +5585,9 @@ class Executor:
                 continue
             self.flag_sites[f] = here
             self.log("flag_fired", flag=f, region=here)
+        # something in the world moved: the next round boundary saves it
+        self._flags_unsaved = sorted(set(getattr(self, "_flags_unsaved", [])
+                                         or []) | fresh)
         self._save_memory()
 
     def note_region_anchors(self, obs):
@@ -21927,6 +21930,25 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                      # no per-step position at all
                      at=self._where(cur),
                      progress_ops=len(progress))
+            # A ROUND THAT MOVED THE WORLD IS SAVED WHEN IT ENDS. Saves came
+            # only at step boundaries and at the end of a failed attempt, so
+            # everything a long step earned rode on one final save: LT.
+            # SURGE's locks took an hour of rounds inside fight_lt_surge,
+            # the attempt ended stuck in a menu, that one save could not
+            # land, and the next attempt booted from before the first lock
+            # (user, 2026-09-16: "oh noooooo it reset the locks because it
+            # didnt save being stuck in the menus"). An event flag that fired
+            # this round is the mark of progress a reload would lose; the
+            # write is the engine's own and costs a frame.
+            _fu = getattr(self, "_flags_unsaved", None)
+            if (_fu and self.save_each and not self._faint_at
+                    and (cur or {}).get("mode") == "overworld"):
+                _rs = (self._send_safe("save_game") or {}).get("result") or {}
+                self.log("round_save", subgoal=sg["id"], round=rnd,
+                         flags=list(_fu)[:8], ok=bool(_rs.get("ok")),
+                         detail=str(_rs.get("detail") or "")[:120])
+                if _rs.get("ok"):
+                    self._flags_unsaved = []
         self.log("escalate_end", subgoal=sg["id"], success=False)
         return False, sg.get("macro", [])
 
