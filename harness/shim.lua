@@ -1971,8 +1971,21 @@ local function observe(G, seq, result)
     -- the question that matters for a doorway standing on dry land, and
     -- it asks the engine rather than the grid (a wall between the water
     -- and the ladder neighbours it just as closely as an open shore).
-    local function swim_step_to(x, y)
-      local sc = swim_cells()
+    -- ...AND THE SAME FLOOD ASKED WHETHER OR NOT ANYONE CAN RIDE IT. The
+    -- water is on screen either way; whether a doorway's doorstep lies
+    -- across it is geometry, not a move the party knows. Without it the
+    -- Cerulean Cave mat at (4,11) read "how to get there is not known: it
+    -- may be further walking on this floor", and the run went on hunting
+    -- a corner of Cerulean to walk it from (run 27, 2026-09-16).
+    local _wet_memo
+    local function wet_cells()
+      if _wet_memo == nil then
+        _wet_memo = warp_reach(G, nil, true) or false
+      end
+      return _wet_memo or {}
+    end
+    local function swim_step_to(x, y, cells)
+      local sc = cells or swim_cells()
       if sc[x .. "," .. y] then return true end          -- a mat in the water
       local okc, Collision = pcall(require, "src.world.Collision")
       local ow = G.overworld
@@ -2938,7 +2951,14 @@ local function observe(G, seq, result)
                               -- sentence promises.
                               by_water = (not reach[w.x .. "," .. w.y])
                                          and swim_step_to(w.x, w.y)
-                                         and true or nil }
+                                         and true or nil,
+                              -- the same answer for a party that cannot
+                              -- SURF: the doorstep is across water
+                              over_water = (not reach[w.x .. "," .. w.y])
+                                           and not party_knows_surf()
+                                           and swim_step_to(w.x, w.y,
+                                                            wet_cells())
+                                           and true or nil }
         end
       end
     end

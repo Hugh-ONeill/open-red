@@ -150,6 +150,7 @@ class Candidate:
     offer: bool = True           # False only for the two hard cases
     rank: tuple = field(default_factory=tuple)
     look: str = "door"           # door | stairs | pad | hole
+    over_water: bool = False     # a doorstep across water, nobody knows SURF
     by_water: bool = False       # doors/things the swum reach touches and
                                  # the walk does not — water is not a wall
                                  # while the party carries SURF
@@ -487,7 +488,8 @@ def _left_parts(ex, region: str) -> list:
     unseen = int((getattr(ex, "region_seen", None) or {}).get(region, 0) or 0)
     _unr = [k for k in ((getattr(ex, "unreached_at", None) or {}).get(region)
                         or [])
-            if k not in set(ex._taken_here(region) or {})]
+            if k not in set(ex._taken_here(region) or {})
+            and k not in _over_water_of(ex, str(region).split("|")[0])]
     parts = []
     if left:
         parts.append(f"{len(left)} exit(s) never taken")
@@ -733,6 +735,17 @@ def switches(cands: list) -> list:
             and c.status not in ("unreachable",)]
 
 
+def _over_water_of(ex, mid) -> set:
+    """The executor's doorsteps-across-water record for a map, or nothing."""
+    f = getattr(ex, "_over_water_doors", None)
+    if not callable(f):
+        return set()
+    try:
+        return set(f(mid) or ())
+    except Exception:
+        return set()
+
+
 def unreached_ways(cands: list) -> list:
     """Ways out NEVER TAKEN that no walk from here reaches right now.
 
@@ -744,9 +757,11 @@ def unreached_ways(cands: list) -> list:
     the untaken hole"). An exit you cannot reach is not an exit you have
     used; the ground is unfinished, and how to get to it stays the
     model's."""
+    # ...AND A DOORSTEP ACROSS WATER IS NOT A WAY WHOSE START IS UNKNOWN:
+    # the start is the water, and the row says so (over_water).
     return [c for c in cands
             if c.kind in ("door", "seam") and c.status == "unreachable"
-            and not c.dest]
+            and not c.dest and not getattr(c, "over_water", False)]
 
 
 def fully_worked(cands: list) -> bool:
@@ -860,8 +875,11 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                        if hasattr(ex, "_door_groups") else {})
             _reach = {f"{w0.get('x')},{w0.get('y')}"
                       for w0 in (m.get("warps") or []) if w0.get("reachable")}
+            _ow0 = _over_water_of(ex, m.get("id"))
             _unreach = [w0 for w0 in (m.get("warps") or [])
                         if not w0.get("reachable")
+                        and not w0.get("over_water")
+                        and f"{w0.get('x')},{w0.get('y')}" not in _ow0
                         and not any(t in _reach for t in _groups.get(
                             f"{w0.get('x')},{w0.get('y')}",
                             (f"{w0.get('x')},{w0.get('y')}",)))]
@@ -991,6 +1009,7 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
         # "door", so eleven floors of Silph pads read like eleven doors.
         c.look = str(w.get("look") or "door")
         c.by_water = bool(w.get("by_water"))
+        c.over_water = bool(w.get("over_water")) or key in _over_water_of(ex, mid)
         oc = outcomes.get(key) or {}
         c.n = int(oc.get("n") or rec.get("n") or 0)
         if oc.get("last"):
@@ -1178,6 +1197,11 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                                    + (": a bush you cut on this floor has grown "
                                       "back, CUT_TREE at " + ", ".join(_regrown[:2])
                                       if _regrown else ""))
+                elif w.get("over_water") or key in _over_water_of(ex, mid):
+                    c.note = _join(c.note,
+                                   "the ground beside it is reached only "
+                                   "across water — a walk does not cross "
+                                   "water, and nobody in the party knows SURF")
                 else:
                     c.note = _join(c.note,
                                    f"nor does any of the {_sp} other part(s) of "

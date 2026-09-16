@@ -1849,6 +1849,8 @@ class Executor:
         self._cut_bushes: dict = {}  # map -> ["x,y", ...] bushes cut before
         self._bush_ways: dict = {}   # part -> ["x,y", ...] bushes with ground past
         self._knows_cut = False
+        self._door_over_water: dict = {}  # map -> ["x,y", ...] doorsteps across water
+        self._knows_surf = False
         self._shelves: dict = {}     # mart map -> [items it sells], as seen
         # ...AND HOW MANY TIMES THAT SHELF HAS BEEN READ, and whether it has
         # ever come back different. "SHOPS ... AND WHAT THEY WERE SELLING"
@@ -4971,6 +4973,7 @@ class Executor:
                     and r.split("|")[0] not in self._cut_bushes}
             else:
                 self._bush_ways = data.get("bush_ways") or {}
+            self._door_over_water = data.get("door_over_water") or {}
             self._shelves = data.get("shelves") or {}
             self._shelf_reads = data.get("shelf_reads") or {}
             self._shelf_machine = set(data.get("shelf_machine") or [])
@@ -5461,6 +5464,7 @@ class Executor:
                  "boulder_start": getattr(self, "boulder_start", {}),
                  "cut_bushes": getattr(self, "_cut_bushes", {}),
                  "bush_ways": getattr(self, "_bush_ways", {}),
+                 "door_over_water": getattr(self, "_door_over_water", {}),
                  "shelves": getattr(self, "_shelves", {}),
                  "shelf_reads": getattr(self, "_shelf_reads", {}),
                  "shelf_machine": sorted(getattr(self, "_shelf_machine",
@@ -5783,6 +5787,14 @@ class Executor:
             return {}
         return {r: v for r, v in (self._bush_ways or {}).items() if v}
 
+    def _over_water_doors(self, mid: str) -> set:
+        """Doorways on this map whose doorstep lies across water, while
+        nobody in the party knows SURF (once SURF is known the shim's
+        by_water answer takes over and they are ways on again)."""
+        if getattr(self, "_knows_surf", False) or not mid:
+            return set()
+        return set((getattr(self, "_door_over_water", {}) or {}).get(mid) or ())
+
     def note_frontier(self, obs):
         self._last_obs_dormant = ((obs or {}).get("map") or {}).get("dormant")
         # what is in the bag that the game will not let you throw away —
@@ -6022,10 +6034,34 @@ class Executor:
         # there"). Unfinished business of the strongest kind: the ledger's
         # own unreached_ways line already says so about the floor you are
         # standing on; this remembers it per region.
+        # A DOORSTEP ACROSS WATER IS NOT A WAY WHOSE START IS UNKNOWN. The
+        # shim says so where the water reaches a cell you could step onto
+        # the doorway from; kept per MAP, because the walled part of a city
+        # whose own ground touches no water sees the same doorway and cannot
+        # tell (Cerulean Cave's mat at (4,11), run 27, 2026-09-16: every part
+        # of Cerulean said "WHERE THAT WAY STARTS IS NOT RECORDED" and the
+        # run hunted a corner of the city to walk it from).
+        if (obs or {}).get("party"):
+            self._knows_surf = any(
+                "SURF" in [str(mv.get("id") if isinstance(mv, dict) else mv)
+                           for mv in (mon.get("moves") or [])]
+                for mon in obs["party"])
+        _mid_ow = m.get("id")
+        _ow_now = {f"{w.get('x')},{w.get('y')}" for w in (m.get("warps") or [])
+                   if w.get("over_water") and w.get("x") is not None}
+        if not isinstance(getattr(self, "_door_over_water", None), dict):
+            self._door_over_water = {}
+        if _mid_ow and _ow_now - set(self._door_over_water.get(_mid_ow) or ()):
+            self._door_over_water[_mid_ow] = sorted(
+                set(self._door_over_water.get(_mid_ow) or ()) | _ow_now)
+            self._save_memory()
+        _ow = self._over_water_doors(_mid_ow)
         _unr = sorted({f"{w.get('x')},{w.get('y')}"
                        for w in (m.get("warps") or [])
                        if w.get("x") is not None and not w.get("reachable")
-                       and not w.get("by_water")} | set(_drop_no))
+                       and not w.get("by_water")
+                       and f"{w.get('x')},{w.get('y')}" not in _ow}
+                      | set(_drop_no))
         if not hasattr(self, "unreached_at"):
             self.unreached_at = {}
         _taken_now = set(self._taken_here(here) or {})
@@ -6057,7 +6093,9 @@ class Executor:
         # counted as a posted guard and refused every Erika plan for
         # fifteen rounds (2026-09-04). Say what the record knows: blocked,
         # and by nobody.
-        shut = sorted((f"{k} ({who} is standing there)" if who
+        shut = sorted((f"{k} (its doorstep is across water; nobody in the "
+                       f"party knows SURF)" if k in _ow
+                       else f"{k} ({who} is standing there)" if who
                        else f"{k} (the way onto it is blocked; nobody is "
                             f"standing there)")
                       for k, _dest, who in self._unopened_doors(obs))
@@ -13724,6 +13762,16 @@ class Executor:
         unseen = {_grp.get(k, (k,))[0] for k in unseen}
         _n_doors = len({_grp.get(k, (k,)) for k in allw})
         floor_note = ""
+        _wet = {k for k in unseen
+                if any(t in self._over_water_doors(mid)
+                       for t in _grp.get(k, (k,)))}
+        unseen -= _wet
+        if _wet:
+            floor_note += (
+                f"\nDOORWAYS ACROSS WATER: {', '.join(sorted(_wet))} — the "
+                f"ground beside {'it' if len(_wet) == 1 else 'them'} is "
+                f"reached only across water. A walk does not cross water, "
+                f"and nobody in the party knows SURF.")
         if open_here:
             floor_note += (
                 f"\nDOORS ON THIS FLOOR YOU HAVE STOOD BESIDE AND NEVER "
@@ -14405,6 +14453,9 @@ class Executor:
         # model's options — and the one place it needed to go stopped being
         # mentioned at all. Say it, and say why it might be shut.
         shut = self._unopened_doors(obs)
+        _ow_here = self._over_water_doors(
+            ((obs or {}).get("map") or {}).get("id"))
+        shut = [t for t in shut if t[0] not in _ow_here]
         shut_line = ""
         if shut:
             # ...AND ONLY A FLOOR SEARCHED TO ITS EDGE HAS "SOMETHING IN THE
@@ -14507,6 +14558,12 @@ class Executor:
                      for x in v]
                     if who and who != "None"]
                 for r, v in (self.shut_doors or {}).items() if r != here}
+        # a doorstep across water is not held by anybody, and while nobody
+        # knows SURF it is not a way to go back and take either
+        held = {r: [d for d in v
+                    if d.split("(")[0] not in self._over_water_doors(r.split("|")[0])
+                    and "across water" not in d]
+                for r, v in held.items()}
         held = {r: v for r, v in held.items() if v}
         bushes = self._bush_way_parts()
         for region, exits in list(self.frontier.items()) + \
