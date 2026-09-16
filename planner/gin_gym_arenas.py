@@ -646,14 +646,22 @@ CATCHES = [
               "whose SCRATCH takes most of one: the throw has to come "
               "before the weakening does, and a ball spent on a full-HP "
               "PIKACHU lands about a quarter of the time (catch rate 190)."),
+    # ABRA, NOT ODDISH (user, 2026-09-16: "maybe the rt24 one can be for
+    # abra though, i think itd end up breaking things because it teleports
+    # away and you need to just throw balls at it as soon as you see it").
+    # A wild ABRA knows only TELEPORT and leaves on its first move, and a
+    # ball goes before any move, so the throw on turn one is the only
+    # throw there is: a spec that weakens first, or waits for a threshold,
+    # catches nothing here. ODDISH walks the same grass as the thing to
+    # run from.
     dict(name="catch_route24", map="ROUTE_24", badges=2,
-         start=(4, 26), want_types=["GRASS"], encounters=30, targets=3,
+         start=(4, 26), want_types=["PSYCHIC"], encounters=40, targets=3,
          party=[("CHARMELEON", 20), ("PIDGEOTTO", 18)],
          bag={"POKE_BALL": 10, "POTION": 2}, money=1500,
-         note="ODDISH is a quarter of Route 24 at L12-14, and EMBER is "
-              "double into it: a CHARMELEON that weakens with its best "
-              "move kills what it came for. The run's own leg read "
-              "\"the party holds a GRASS or ELECTRIC type\" here."),
+         note="ABRA is 15% of Route 24 at L8-12 and knows only TELEPORT: "
+              "it leaves on its first move, and a ball is thrown before "
+              "any move, so each ABRA met allows one throw at full HP "
+              "(catch rate 200)."),
 ]
 
 

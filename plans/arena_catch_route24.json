@@ -53,9 +53,9 @@
   ],
   "catch": {
     "want_types": [
-      "GRASS"
+      "PSYCHIC"
     ],
-    "encounters": 30,
+    "encounters": 40,
     "targets": 3
   }
 }
