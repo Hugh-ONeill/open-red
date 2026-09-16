@@ -818,9 +818,13 @@ class Gym:
                 break            # nobody in reach and nowhere to look
         return self._ride(self.ex.settle())
 
-    _MEDICINE = (battle_policy.HEAL_LADDER + battle_policy.REVIVE_LADDER
-                 + tuple(i for lad in battle_policy.CURE_LADDERS.values()
-                         for i in lad))
+    # every medicine an arena can start with, each once: FULL_RESTORE sits
+    # on the heal ladder AND on every cure ladder, and the first v14 round
+    # read "FULL_RESTORE spent 4, unspent 1" three times over.
+    _MEDICINE = tuple(dict.fromkeys(
+        battle_policy.HEAL_LADDER + battle_policy.REVIVE_LADDER
+        + tuple(i for lad in battle_policy.CURE_LADDERS.values()
+                for i in lad)))
 
     def _spent(self, obs: dict) -> str:
         """WHAT THE TRIAL SPENT AND WHAT IT LEFT. v13 went down to the
