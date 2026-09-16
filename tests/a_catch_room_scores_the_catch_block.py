@@ -152,6 +152,48 @@ ck("the doc the model authors from names first_ball and why",
    '"first_ball"' in PA.DSL_DOC and "TELEPORT" in PA.DSL_DOC
    and "first_ball" in bp.__doc__)
 
+# ---- probe_hit (user, 2026-09-16: "probe hits are how a human would tackle it")
+PIKA = {"mode": "battle",
+        "battle": {"kind": "wild",
+                   "foe": {"species": "PIKACHU", "level": 22, "hp": 50,
+                           "maxhp": 50, "types": ["ELECTRIC"],
+                           "status": "SLP"},
+                   "me": {"species": "VILEPLUME", "level": 40, "hp": 120,
+                          "maxhp": 120, "types": ["GRASS", "POISON"],
+                          "moves": [{"index": 1, "id": "SLEEP_POWDER", "pp": 15,
+                                     "type": "GRASS", "power": 0},
+                                    {"index": 2, "id": "ACID", "pp": 30,
+                                     "type": "POISON", "power": 40},
+                                    {"index": 3, "id": "MEGA_DRAIN", "pp": 10,
+                                     "type": "GRASS", "power": 40}]}},
+        "party": [{"species": "VILEPLUME", "level": 40, "hp": 120,
+                   "max_hp": 120}],
+        "bag": {"POKE_BALL": 10}}
+EWANT = {"species": set(), "types": {"ELECTRIC"}}
+_pc = {"catch": {"ball": "ball", "throw_at_hp_frac": 0.2, "max_balls": 5}}
+_pr = {"catch": dict(_pc["catch"], probe_hit=True)}
+_x0 = {"turn": 1, "intent": "catch", "want": EWANT, "journal": {},
+       "status_tried": True}
+ck("without probe_hit, nothing seen means a throw at full health",
+   bp.choose(PIKA, _pc, dict(_x0)).get("op") == "throw_ball")
+_xp = dict(_x0)
+_p1 = bp.choose(PIKA, _pr, _xp)
+ck("with probe_hit, the weakest attack is used once",
+   _p1.get("op") == "battle_move" and "probe_hit" in _p1.get("_why", ""))
+ck("...once only: the next turn throws or weakens, it does not probe again",
+   "probe_hit" not in bp.choose(PIKA, _pr, _xp).get("_why", ""))
+_low = {**PIKA, "battle": {**PIKA["battle"],
+                           "foe": dict(PIKA["battle"]["foe"], hp=20)}}
+ck("no probe on a foe already under half its HP",
+   bp.choose(_low, _pr, dict(_x0, foe_hp0=50)).get("op") == "throw_ball")
+ck("probe_hit validates as a bool",
+   not bp.validate_spec(_pr)
+   and any("probe_hit" in p for p in bp.validate_spec(
+       {"catch": dict(_pc["catch"], probe_hit=1)})))
+ck("the doc the model authors from names probe_hit and its risk",
+   '"probe_hit"' in PA.DSL_DOC and "knock it out" in PA.DSL_DOC
+   and "probe_hit" in bp.__doc__)
+
 # ---- scoring ----------------------------------------------------------------
 r = {"arena": "catch", "gauntlet_trials": 2, "met": 4, "caught": 3,
      "balls": 6, "battles": 40, "blackouts": 0, "bodies": 2.0,

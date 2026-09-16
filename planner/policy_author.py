@@ -185,7 +185,8 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      poison keeps draining HP every few steps until cured. Field item
      rules cover the WHOLE party, neediest mon first.)
   catch: {"ball": "ball", "throw_at_hp_frac": 0.0-1.0,
-          "max_balls": 1-10, "first_ball": true|false}
+          "max_balls": 1-10, "first_ball": true|false,
+          "probe_hit": true|false}
     (during a CATCH task, against a WILD Pokemon only. In order:
      - a wild that is not the type or species the task names is run
        from, not fought;
@@ -200,7 +201,10 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      - it weakens only with a move whose damage this run has already
        SEEN and which does under 45% of the foe's CURRENT hp, weakest of
        those first, so it cannot knock out what it came for; with no
-       such move it does not weaken at all;
+       such move it does not weaken at all — unless "probe_hit": true,
+       which uses the weakest attack ONCE while the foe is at half its HP
+       or more, so its damage is seen and the turns after can weaken
+       with it (a probe that hits harder than expected can knock it out);
      - it throws once the foe is at or under throw_at_hp_frac of the hp
        it appeared with (never above 0.4 when the task names what it
        wants), or at once when nothing safe is left to weaken with;

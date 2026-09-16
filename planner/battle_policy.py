@@ -106,6 +106,9 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
            prefer: str          first) thrown at WILD mons during a CATCH
            first_ball: bool     (true: one ball on the first turn, before
                                 any status move or weakening)
+           probe_hit: bool      (true: with no attack whose damage has been
+                                seen, use the weakest one ONCE while the foe
+                                is at half HP or more, to see what it does)
            throw_at_hp_frac:  subgoal. A wild that is not the named want is
              float (def 0.7)  run from; a sleep/paralysis move goes first on
            max_balls: int }   an unstatused foe; it weakens only with a move
@@ -495,6 +498,8 @@ def validate_spec(spec) -> list:
                 probs.append("catch.max_balls int in [1,10]")
             if "first_ball" in ca and not isinstance(ca["first_ball"], bool):
                 probs.append("catch.first_ball true or false")
+            if "probe_hit" in ca and not isinstance(ca["probe_hit"], bool):
+                probs.append("catch.probe_hit true or false")
     if "lead" in spec and spec["lead"] is not None:
         ld = spec["lead"]
         if not isinstance(ld, dict) or ld.get("order") not in LEAD_ORDERS:
@@ -1182,6 +1187,26 @@ def choose(obs: dict, spec: dict | None = None,
             throw_at = ca.get("throw_at_hp_frac", 0.7)
             if ctx.get("want"):
                 throw_at = min(throw_at, ca.get("throw_at_hp_frac_wanted", 0.4))
+            # ONE PROBING HIT, WHEN THE SPEC SAYS SO. Weakening needs a move
+            # whose damage has been SEEN, and a catch never attacks what it
+            # is catching, so the record stays empty and every throw goes
+            # at full health: 76 of them in one Power Plant run, and
+            # throw_at_hp_frac never decided a single throw (2026-09-16).
+            # A player finds out what a move does by using it — once, with
+            # the weakest attack, while the foe is still healthy enough to
+            # take it (user: "probe hits are how a human would tackle it").
+            # The damage lands in the journal, and the next turn's weakening
+            # reads it. Whether that risk is worth a turn is the spec's.
+            if (not safe and frac > throw_at and frac >= 0.5
+                    and ca.get("probe_hit") and not ctx.get("probe_done")):
+                _probe = sorted((sc for sc in damaging
+                                 if (sc.get("score") or 0) > 0),
+                                key=lambda sc: sc["score"])
+                if _probe:
+                    ctx["probe_done"] = True
+                    return {"op": "battle_move", "index": _probe[0]["index"],
+                            "_why": f"probe_hit: {_probe[0]['id']} once, to see "
+                                    f"what it does (foe at {frac:.0%})"}
             if frac <= throw_at or not safe:
                 ctx["balls"] = balls + 1
                 return {"op": "throw_ball", "ball": have_ball,
