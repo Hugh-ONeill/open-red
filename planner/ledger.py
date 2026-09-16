@@ -88,6 +88,48 @@ STATUS_RANK = {
 }
 
 
+def door_side(x, y, w, h, outdoor) -> str:
+    """WHICH SIDE A DOOR IS ON, as the screen shows it.
+
+    Run 27 came out on Route 6's north part, went through the building at
+    (10,7) — the gate on that edge — and heard the guard inside say "Gee,
+    I'm thirsty, though! Oh wait there, the road's closed." at the room's
+    top door. Every plan after that read "the guards are blocking the way
+    south", and it walked back to Cerulean for water with "walk south" top
+    of its page (user, 2026-09-16: "build the door sides thats on-screen
+    info"). The page said "door (3,0), two tiles wide" and "door (10,7), in
+    a large flat-roofed building" and never which side of the room or the
+    route either was on — which a player sees at a glance. Indoors, a door
+    on the room's edge is on that wall; outdoors, a door in the outer
+    quarter of the map is in that part of it. Where it LEADS is not said.
+    """
+    try:
+        x, y, w, h = int(x), int(y), int(w or 0), int(h or 0)
+    except (TypeError, ValueError):
+        return ""
+    if w <= 0 or h <= 0:
+        return ""
+    if outdoor is False:
+        walls = []
+        if y <= 0:
+            walls.append("north")
+        elif y >= h - 1:
+            walls.append("south")
+        if x <= 0:
+            walls.append("west")
+        elif x >= w - 1:
+            walls.append("east")
+        if not walls:
+            return ""
+        return "on the room's " + "-".join(walls) + " wall"
+    if outdoor is not True:
+        return ""
+    ns = "north" if y < h / 4 else "south" if y >= h * 3 / 4 else ""
+    ew = "west" if x < w / 4 else "east" if x >= w * 3 / 4 else ""
+    part = "-".join(p for p in (ns, ew) if p)
+    return f"in the {part} part of this map" if part else ""
+
+
 @dataclass
 class Candidate:
     key: str                     # "3,7" | "north" | object NAME | "explore"
@@ -118,6 +160,8 @@ class Candidate:
                                  # doors: the other tiles of this doorway —
                                  # a doorway spans up to four warp tiles
                                  # and is ONE door (_door_groups)
+    side: str = ""               # doors: which wall of the room, or which
+                                 # part of an outdoor map, the door is on
     toggle: str = ""             # fixtures: this thing is one end of a
                                  # SHARED lever, and this is how that lever
                                  # is set right now ("PRESSED"/"UNPRESSED").
@@ -191,7 +235,8 @@ class Candidate:
             # 2026-09-08). The building comes from the engine's block grid
             # (planner/engine_buildings.py), sized in the page's own units.
             _in = (f", in a {self.bld_look}" if getattr(self, "bld_look", "") else "")
-            return f"door ({_key}){_tw}{_in}"
+            _sd = (f", {self.side}" if getattr(self, "side", "") else "")
+            return f"door ({_key}){_tw}{_in}{_sd}"
         if self.kind == "frontier":
             if getattr(self, "look", "") == "arrow":
                 _ad = getattr(self, "arrow_dir", "") or ""
@@ -899,6 +944,8 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
         walked = ex._walked_dest(mid, key)
         dest_map = w.get("dest")
         c = Candidate(key=key, kind="door", dest=walked)
+        c.side = door_side(w.get("x"), w.get("y"), m.get("width"),
+                           m.get("height"), m.get("outdoor"))
         # the building it is set in, and whether another door of that same
         # building has been taken — recognition, not a peek: an untaken door
         # on a building never entered stays unnamed
