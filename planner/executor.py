@@ -18723,11 +18723,37 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             return None
         said = str((obs or {}).get("recent_text")
                    or (obs or {}).get("last_text") or "").split(" / ")[-1]
-        if not self._is_offer(said):
+        # ...AND THE FOSSILS (user, 2026-09-16: "might want it to trigger on
+        # the fossils too"). "You want the DOME FOSSIL?" names no Pokemon,
+        # but it is the same table: two balls side by side, one to take.
+        if not (self._is_offer(said)
+                or _re.match(r"^(So! )?You want the .+\?$", said.strip())):
             return None
         mid = getattr(self, "_last_overworld_map", None)
-        others = [n for n in (getattr(self, "_last_overworld_items", None)
-                              or []) if n != name]
+
+        def _cell(n):
+            m = _re.search(r"_(\d+)_(\d+)$", n)
+            return (int(m.group(1)), int(m.group(2))) if m else None
+        # ONLY THE BALLS BESIDE IT. Pressing an ordinary item ball picks it
+        # up, and Mt Moon B2F keeps an HP_UP and a TM on the same floor as
+        # its fossils: a survey of "every ball on the map" would take them
+        # unasked. The starters, the Dojo's pair and the fossils each stand
+        # in one touching row; a ball two cells from its neighbour is not
+        # part of the table.
+        table, grew = {name}, True
+        items = [n for n in (getattr(self, "_last_overworld_items", None)
+                             or []) if _cell(n)]
+        while grew:
+            grew = False
+            for n in items:
+                if n in table:
+                    continue
+                c = _cell(n)
+                if any(abs(c[0] - _cell(t)[0]) + abs(c[1] - _cell(t)[1]) == 1
+                       for t in table if _cell(t)):
+                    table.add(n)
+                    grew = True
+        others = [n for n in items if n in table and n != name]
         done = getattr(self, "_offer_tables", None)
         if done is None:
             done = self._offer_tables = set()

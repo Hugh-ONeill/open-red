@@ -275,14 +275,42 @@ ck("a table is surveyed once",
                           {"name": "ITEM_OAKS_LAB_7_3", "answer": "yes"},
                           dict(opened, recent_text=QUESTIONS["ITEM_OAKS_LAB_7_3"]))
    is None and not sent)
+# the fossils too (user, 2026-09-16), and ONLY the balls beside the one
+# that asked: B2F's HP_UP and TM lie on the same floor and a press takes them
+FOSSILS = {"ITEM_MT_MOON_B2F_12_6": "You want the DOME FOSSIL?",
+           "ITEM_MT_MOON_B2F_13_6": "You want the HELIX FOSSIL?"}
+fsent = []
+
+
+def fossil_send(op, **kw):
+    fsent.append((op, kw))
+    if op == "interact":
+        w = FOSSILS.get(kw["name"], "Found HP_UP!")
+        return {"mode": "ui", "recent_text": w,
+                "result": {"ok": True,
+                           "detail": (f"{kw['name']} {E.ASKING} — \"{w}\""
+                                      if kw["name"] in FOSSILS else "ok")}}
+    return {"mode": "overworld"}
+
+
 tx2 = object.__new__(T)
-tx2._send_safe = fake_send
+tx2._send_safe = fossil_send
+tx2.settle = lambda: {"mode": "overworld", "party": []}
+tx2.log = lambda k, **kw: None
 tx2._last_overworld_map = "MT_MOON_B2F"
-tx2._last_overworld_items = ["ITEM_MT_MOON_B2F_5_6", "ITEM_MT_MOON_B2F_6_6"]
-ck("a fossil's question is not an offer table",
-   tx2._survey_offer_table({"id": "x"}, "interact",
-                           {"name": "ITEM_MT_MOON_B2F_5_6"},
-                           {"recent_text": "You want the DOME FOSSIL?"}) is None)
+tx2._last_overworld_items = ["ITEM_MT_MOON_B2F_12_6", "ITEM_MT_MOON_B2F_13_6",
+                             "ITEM_MT_MOON_B2F_25_21", "ITEM_MT_MOON_B2F_29_5"]
+fl = tx2._survey_offer_table({"id": "x"}, "interact",
+                             {"name": "ITEM_MT_MOON_B2F_12_6"},
+                             {"recent_text": "You want the DOME FOSSIL?"})
+ck("the fossils are a table too",
+   fl and '"You want the DOME FOSSIL?"' in fl
+   and '"You want the HELIX FOSSIL?"' in fl)
+ck("...and the HP_UP and the TM on the same floor are never pressed",
+   [s[1]["name"] for s in fsent if s[0] == "interact"]
+   == ["ITEM_MT_MOON_B2F_13_6"])
+ck("...and no goals block rides on a fossil",
+   fl and HEAD not in fl)
 tx3 = object.__new__(T)
 tx3._send_safe = fake_send
 tx3._last_overworld_map = "OAKS_LAB"
