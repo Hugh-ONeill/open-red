@@ -169,8 +169,24 @@ if [ "$done_legs" = 0 ]; then
   # LIST, and the list is kept — tests/fresh_world.py pins them as
   # surviving a reset. stages and upkeep name legs by THIS chain's
   # wordings, which the fresh block has just reverted.
+  # ...UNLESS EVERY LEG IT NAMES IS THE BANKED WORDING. Both sidecars are
+  # written by the authoring pass, against outline.authored, and only go
+  # stale when a chain's rewording rung renames a leg. Archiving them
+  # unread took the upkeep list with them on a plain restart, and an
+  # upkeep leg without it STOPS THE CHAIN when it fails — run 18's twelve
+  # (a WATER or GRASS type before Brock, and the rest) would each have
+  # been fatal in a world where the first is unsatisfiable (2026-09-16).
+  # A sidecar naming a leg the banked outline does not have still goes.
   for _f in plans/outline.stages plans/outline.upkeep; do
-    [ -f "$_f" ] && mv -f "$_f" "plans/archive/${ts}-pre-discovery-$(basename "$_f")"
+    [ -f "$_f" ] || continue
+    if [ -s plans/outline.authored ] \
+        && awk -F'\t' 'NR==FNR { a[$0]=1; next }
+             NF { l = (NF > 1 ? $2 : $1); if (!(l in a)) bad=1 }
+             END { exit bad }' plans/outline.authored "$_f"; then
+      echo "kept $_f: every leg it names is the banked wording"
+      continue
+    fi
+    mv -f "$_f" "plans/archive/${ts}-pre-discovery-$(basename "$_f")"
   done
   echo "archived ${ts}.pre-discovery; ledgers cleared"
 fi
