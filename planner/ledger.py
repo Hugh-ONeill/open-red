@@ -3828,7 +3828,21 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                 + ", the 2nd is " + ("OPEN" if _two else "closed") + ".")
     except Exception:
         pass
+    # ...EXCEPT A FIXTURE, WHICH ANSWERS BY WHEN IT IS PRESSED. The line
+    # said only never-pressed things "can find anything new here", and in
+    # LT. SURGE's gym every can had been pressed: run 27 read that as "I
+    # have interacted with all reachable trash cans ... none of them can be
+    # the switch", while the rows above said each can "can be pressed
+    # again" and that what one says "belongs to the PRESS" (user,
+    # 2026-09-16: "now its believed its already interacted with all the
+    # trash cans so none of them can be the switch"). Said only where
+    # fixtures are listed.
+    _fixt = any(getattr(c, "kind", "") == "fixture" for c in (cands or []))
     lines.append("Every entry above may be taken; the ones marked never "
                  "taken / never pressed are the only ones that can find "
-                 "anything new here. Which matters is your call.")
+                 "anything new here"
+                 + (" — except a fixture, which can answer differently when "
+                    "pressed again after something has changed (its row "
+                    "says when it has)" if _fixt else "")
+                 + ". Which matters is your call.")
     return "\n".join(lines)

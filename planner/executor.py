@@ -16958,7 +16958,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         model happened to include don't poison the macro and break replay."""
         done = sg.get("done_when")
         trace, clean = [], []
-        for step in macro:
+        for _mi, step in enumerate(macro):
             self._stop_if_asked()
             step = dict(step)
             if isinstance(step.get("item"), str):
@@ -18952,6 +18952,33 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     "— stopped here: a question is on screen and must be "
                     "answered before anything else can run.")
                 break
+            # A PRESS THAT MOVED THE WORLD ENDS A RUN OF PRESSES. Round 11
+            # of LT. SURGE's locks was "TRASH_CAN_6 (to reopen the first
+            # lock), then 0, 1, 2, 3 ..." in one macro: the first press
+            # opened the lock and the next undid it, and the model only saw
+            # the lock line after the round (user, 2026-09-16: "build the
+            # closing line fix and the macro cut too"). When a press fires
+            # an event flag and the next op is another press, the macro
+            # stops so the next choice is made from the world as it now is.
+            # Walks and other ops after it still run; only a press after a
+            # press is held.
+            if op == "interact":
+                _f0 = set((pre_obs or {}).get("flags") or [])
+                _f1 = set((obs or {}).get("flags") or [])
+                _nxt = macro[_mi + 1] if _mi + 1 < len(macro) else None
+                if (_f0 and _f1 - _f0 and isinstance(_nxt, dict)
+                        and _nxt.get("op") == "interact"):
+                    self.log("macro_cut_after_event", subgoal=sg.get("id"),
+                             after=step.get("name") or op,
+                             flags=sorted(_f1 - _f0)[:6],
+                             dropped=len(macro) - _mi - 1)
+                    trace.append(
+                        f"— stopped here: that press changed the world "
+                        f"({', '.join(sorted(_f1 - _f0)[:3])}), so the "
+                        f"{len(macro) - _mi - 1} press(es) after it were not "
+                        f"made; choose them again from things as they are "
+                        f"now.")
+                    break
             if not ignore_done and pred_holds(done, self.settle()):
                 return True, trace, clean
         return pred_holds(done, self.settle()), trace, clean

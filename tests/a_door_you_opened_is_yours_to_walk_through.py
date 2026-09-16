@@ -92,8 +92,9 @@ ck("the refusal words no longer claim the wall is never routed into",
 
 # --- the executor sets it only where the MODEL named the place ---------
 ck("the executor has the rule", "def _named(self, op, step):" in EXEC)
-ck("...and both senders use it",
-   EXEC.count("self.b.send(op, **self._named(op, step))") == 2)
+ck("...and every sender uses it (the macro loop, the subgoal replay, and "
+   "since 2026-09-16 the heal/buy retry after a cut)",
+   EXEC.count("self.b.send(op, **self._named(op, step))") == 3)
 ck("...and no sender still sends the bare step",
    "self.b.send(op, **step)" not in EXEC)
 
