@@ -57,7 +57,9 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
                                        whole class, for a class) in the
                                        bag (default 0) — but never more
                                        than half of what the bag held when
-                                       the party was last made whole
+                                       the party was last made whole, and
+                                       not at all against a gym leader or
+                                       the Champion (battle.leader)
                     max_share: float } ] in ONE battle, spend at most this
                                        share of what the bag held of it
                                        when the battle began (rounded
@@ -1084,8 +1086,14 @@ def choose(obs: dict, spec: dict | None = None,
         # the screen; how many to hold back for the rooms ahead is the
         # rule's own number.
         _held = bag_holds(rule.get("item"), bag, _status)
-        if _held - 1 < reserve_now(rule.get("item"), _held,
-                                   rule.get("reserve")):
+        # NO RESERVE AGAINST THE LEADER. A reserve keeps medicine for the
+        # rest of the road, and a gym's badge fight or the Champion is the
+        # end of it: holding a POTION back from BROCK keeps it for nothing
+        # (user, 2026-09-16). The gym's trainers and the four rooms before
+        # the Champion keep theirs.
+        _last_stand = bool(b.get("leader"))
+        if not _last_stand and _held - 1 < reserve_now(
+                rule.get("item"), _held, rule.get("reserve")):
             continue
         items_used[budget_key] = items_used.get(budget_key, 0) + 1
         run_used[budget_key] = run_used.get(budget_key, 0) + 1

@@ -98,6 +98,43 @@ ck("the count at the last Center is the measure, not the count now",
    == (5, {"FULL_RESTORE": 3}))
 ck("a reserve of 0 is no reserve", fires(dict(HEAL, reserve=0), {"FULL_RESTORE": 1}))
 
+# ---- no reserve against the leader (user, 2026-09-16) ---------------------
+# "we dont need the reserve *after* fighting the gym leader, just to
+# preserve health on the way to them in the first place, same thing with the
+# e4 and champion"
+def spend_vs(rule, bag, leader, turns=12):
+    bp.reset_run_budget()
+    bag = dict(bag)
+    c = {"turn": 1, "intent": "traversal"}
+    used = 0
+    for turn in range(1, turns + 1):
+        c["turn"] = turn
+        o = obs(bag)
+        o["battle"]["leader"] = leader
+        r = bp.choose(o, spec(dict(rule, max_uses=99)), c)
+        if r.get("op") == "battle_item":
+            used += 1
+            bag[r["item"]] -= 1
+    return used, bag
+
+
+ck("against a gym leader or the Champion, a reserve holds nothing back",
+   spend_vs(dict(HEAL, reserve=3), {"FULL_RESTORE": 5}, True)
+   == (5, {"FULL_RESTORE": 0}))
+ck("...against their trainers and the four rooms before, it still does",
+   spend_vs(dict(HEAL, reserve=3), {"FULL_RESTORE": 5}, False)
+   == (3, {"FULL_RESTORE": 2}))
+ck("...and a leader fight still keeps its per-fight and per-run caps",
+   spend_vs(dict(HEAL, reserve=3, max_uses_run=2), {"FULL_RESTORE": 5},
+            True)[0] == 2)
+_shim = (ROOT / "harness/shim.lua").read_text()
+ck("the shim marks a leader by the engine's badge-fight flag or the Champion",
+   "o.battle.leader = (top.isGymLeader == true)" in _shim
+   and 'top.trainer.id == "OPP_RIVAL3"' in _shim)
+_bs = (Path.home() / "Developer/gen1recomp/src/battle/BattleState.lua").read_text()
+ck("...and the engine still sets that flag for badge fights",
+   "self.isGymLeader = isBoss" in _bs and '"OPP_RIVAL3"' in _bs)
+
 # ---- the Dewgong fight, replayed with a reserve ---------------------------
 bp.reset_run_budget()
 bag = {"FULL_RESTORE": 5}

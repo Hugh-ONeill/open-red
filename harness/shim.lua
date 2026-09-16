@@ -3485,6 +3485,19 @@ local function observe(G, seq, result)
     end
     o.battle.me = side(top.player, true)
     o.battle.foe = side(top.enemy, false)
+    -- WHO YOU ARE FIGHTING, AS THE SCREEN SAYS IT: "BROCK wants to fight!"
+    -- and the leader's music. `leader` is the fight a stretch of the road
+    -- is FOR — a gym's badge fight (the engine's own isGymLeader, badge
+    -- fights only) or the Champion — the one after which nothing held in
+    -- reserve has anywhere left to go (user, 2026-09-16: "we dont need the
+    -- reserve *after* fighting the gym leader, just to preserve health on
+    -- the way to them in the first place, same thing with the e4 and
+    -- champion").
+    if top.kind == "trainer" and top.trainer then
+      o.battle.trainer = top.trainer.name
+      o.battle.leader = (top.isGymLeader == true)
+        or top.trainer.id == "OPP_RIVAL3"
+    end
     -- THE GHOST IS A GHOST. Without the SILPH SCOPE the Pokemon Tower's
     -- foe is drawn and named "GHOST" on screen (BattleState:makeGhost); the
     -- battle table still holds the real species, and side() read it -- so
