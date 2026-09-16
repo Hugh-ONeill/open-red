@@ -8957,6 +8957,49 @@ class Executor:
             return ""
         return "\nPREMISE UNMET: " + " ".join(lines)
 
+    def _area_ids_note(self, done, obs) -> str:
+        """AN AREA NAME IS NOT A CELL. "ROUTE_24|17,4" names a whole walkable
+        part of Route 24 — the part the cell (17,4) belongs to — and on the
+        page it reads exactly like a coordinate. Run 27, holding
+        {"map":"ROUTE_24","not_area":["ROUTE_24|13,11","ROUTE_24|17,4",
+        "ROUTE_24|4,4"]} while standing at (19,4), decided (19,4) was "one
+        of the forbidden coordinates" and walked one cell west to (18,4) to
+        finish the step (2026-09-16). Said once, beside the condition: what
+        an area name is, and which area the party is in now. Where a new
+        part of the map is, is not said."""
+        try:
+            if not isinstance(done, dict):
+                return ""
+            ids = []
+            for k in ("area", "not_area"):
+                v = done.get(k)
+                ids += [str(x) for x in (v if isinstance(v, (list, tuple))
+                                         else [v] if v else [])]
+            for alt in (done.get("any_of") or []):
+                if isinstance(alt, dict):
+                    for k in ("area", "not_area"):
+                        v = alt.get(k)
+                        ids += [str(x) for x in (v if isinstance(v, (list, tuple))
+                                                 else [v] if v else [])]
+            if not ids:
+                return ""
+            m = (obs or {}).get("map") or {}
+            here = (f"{m.get('id')}|{m.get('region')}"
+                    if m.get("id") and m.get("region") else None)
+            inside = here and (here in ids or any(
+                here in AREA_ALIASES.get(i, ()) for i in ids))
+            return ("\n(AREA NAMES ARE NOT CELLS: \"MAP|x,y\" in area or "
+                    "not_area names a whole walkable PART of that map — "
+                    "the part the cell (x,y) belongs to — not the single "
+                    "cell (x,y). Stepping to a neighboring cell does not "
+                    "leave a part; only a way out of it does."
+                    + (f" You are in {here} now"
+                       + (", which this condition names." if inside
+                          else ".") if here else "")
+                    + ")")
+        except Exception:
+            return ""
+
     def _words_vs_condition(self, goal_text, done, obs=None) -> str:
         """THE CONDITION IS THE STEP. The rewrite wrote the step "Use the
         elevator to leave the Rocket Hideout B4F" over the condition
@@ -19653,6 +19696,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 self.log("escalate_echo", subgoal=sg["id"], round=rnd,
                          echo=plan_echo[:2000])
             user = (f"SUBGOAL: {goal}\nDONE_WHEN: {json.dumps(done)}"
+                    f"{self._area_ids_note(done, obs)}"
                     f"{self._words_vs_condition(goal, done, obs)}"
                     f"{self._carried_premise_note(sg, obs)}"
                     f"{redo_note}\n{memory}\n"
