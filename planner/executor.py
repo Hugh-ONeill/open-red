@@ -4572,6 +4572,13 @@ class Executor:
                 if _rocks:
                     self.boulder_start[_mid_now] = _rocks
             self._last_overworld_map = _mid_now
+            # ...and the item balls standing on it, as the page lists them,
+            # for a box that opens over this map and carries no map itself
+            self._last_overworld_items = [
+                str(o.get("name")) for o in ((obs.get("map") or {})
+                                             .get("objects") or [])
+                if isinstance(o, dict) and o.get("kind") == "item"
+                and o.get("name")]
             self._note_intra(obs)
         self.note_frontier(obs)
         self.note_region_anchors(obs)
@@ -11151,11 +11158,32 @@ class Executor:
             PLANS, RUN, self._species_names(), (obs or {}).get("party"))
         if not goals:
             return ""
+        # THE OTHER BALLS ON THE TABLE. Run 20 was shown its goals and took
+        # CHARMANDER "to satisfy the future goal of having a FIRE type" —
+        # the first ball it pressed, and the only offer it had seen; the
+        # two beside it were on screen and unpressed, and nothing said
+        # that a question about one ball is not a question about the table
+        # (user, 2026-09-16: "add the other balls line"). The balls are on
+        # the screen; which of them to press, if any, is not said.
+        _others = ""
+        _mid = getattr(self, "_last_overworld_map", None)
+        _items = list(getattr(self, "_last_overworld_items", None) or [])
+        _lp = getattr(self, "_last_press", None) or (None, None)
+        if _mid and _items:
+            _pressed = self._touched_on_map(str(_mid))
+            _left = [n for n in _items
+                     if n not in _pressed
+                     and not (_lp[0] == _mid and _lp[1] == n)]
+            if _left:
+                _others = ("Also standing on this map, never pressed: "
+                           + ", ".join(_left) + ". A Poke Ball asks its own "
+                           "question about its own Pokemon when pressed; "
+                           "answering no to this one leaves it where it is.\n")
         return ("\nYOUR OWN OUTLINE, STILL AHEAD, ASKS THE PARTY TO BECOME:\n"
                 + "\n".join(f"  {g['pos']}. {g['leg']}" for g in goals)
                 + "\nWhich of those the Pokemon this question names would "
                   "answer is yours to judge; the party in hand answers none "
-                  "of them yet.\n")
+                  "of them yet.\n" + _others)
 
     def _question_text(self, obs, sg, words) -> str:
         """The page a yes/no question is put to the model on."""
@@ -17240,6 +17268,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if op == "interact":
                 obs = self._lead_before_a_fight(obs, step, sg, trace)
                 here_r = self._where(obs)
+                # WHAT WAS PRESSED LAST, for a question that opens from it:
+                # the box that follows is about THIS thing, so a line naming
+                # the other things on the map must not name it again.
+                self._last_press = (str(here_r).split("|")[0],
+                                    step.get("name"))
                 # a press by coordinates is a press of the thing on that
                 # cell (see _name_at): file it under its name
                 if not step.get("name") and step.get("x") is not None:

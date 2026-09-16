@@ -136,6 +136,32 @@ ck("the escalation page's box line carries the road ahead",
 ck("...and a box naming no Pokemon does not",
    HEAD not in L.render([], ex, dict(box, recent_text="Kid, do you want to play?")))
 
+# ---- the other balls on the table ---------------------------------------------
+# Run 20 took the first ball it pressed "to satisfy the future goal of
+# having a FIRE type", with the two beside it on screen and unpressed
+# (user, 2026-09-16: "add the other balls line").
+ex._last_overworld_map = "OAKS_LAB"
+ex._last_overworld_items = ["ITEM_OAKS_LAB_6_3", "ITEM_OAKS_LAB_7_3",
+                            "ITEM_OAKS_LAB_8_3"]
+ex._tried_objs = {"OAKS_LAB|4,1": {"OAKSLAB_OAK1"}}
+ex._last_press = ("OAKS_LAB", "ITEM_OAKS_LAB_6_3")
+lpage2 = L.render([], ex, box)
+ck("the balls not pressed are named",
+   "never pressed: ITEM_OAKS_LAB_7_3, ITEM_OAKS_LAB_8_3." in lpage2)
+ck("...not the one whose question is on screen",
+   "ITEM_OAKS_LAB_6_3" not in lpage2.split("never pressed:", 1)[1])
+ck("...and saying no is said to leave it where it is",
+   "answering no to this one leaves it where it is" in lpage2)
+ck("which ball to press is not said",
+   "BULBASAUR" not in lpage2 and "SQUIRTLE" not in lpage2)
+ex._tried_objs = {"OAKS_LAB|4,1": {"ITEM_OAKS_LAB_7_3", "ITEM_OAKS_LAB_8_3"}}
+ck("with every other ball already pressed, no line",
+   "never pressed" not in L.render([], ex, box))
+ex._tried_objs = {}
+ck("the yes/no asker's page names them too",
+   "never pressed: ITEM_OAKS_LAB_7_3, ITEM_OAKS_LAB_8_3."
+   in ex._question_text(OBS, SG, STARTER))
+
 E.PLANS = live_plans
 E.bind_run(live_run)
 failed = [n for n, ok in checks if not ok]
