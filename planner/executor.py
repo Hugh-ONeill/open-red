@@ -17640,6 +17640,32 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 except TimeoutError:
                     obs = self.b.obs()
                     break
+                # A BUSH ACROSS THE WAY TO A COUNTER IS CUT, AS GO CUTS IT.
+                # heal and buy walk to a door the way go walks a road, and
+                # a Cut tree that stopped them was left standing: the round
+                # read "could not get through the Center door" and walked
+                # there by hand (user, 2026-09-16: "the 'heal' op doesnt cut
+                # through bushes in the way ... it should work like go does
+                # shouldnt it? same with buy"). The same rule go keeps: only
+                # the bush the walk's own refusal BLAMES, only when a party
+                # Pokemon knows CUT, and the op tried once more.
+                _rrb = (obs or {}).get("result") or {}
+                if (op in ("heal", "buy", "sell") and not _rrb.get("ok")
+                        and not getattr(self, "_op_bush_retried", False)):
+                    _bxy = self._blamed_bush(_rrb.get("detail"), obs)
+                    if _bxy:
+                        self._op_bush_retried = True
+                        try:
+                            _cr = self._send_safe("field_move", move="CUT",
+                                                  x=_bxy[0], y=_bxy[1])
+                            _cok = ((_cr or {}).get("result") or {}).get("ok")
+                            self.log("op_cut_bush", subgoal=sg.get("id"), op=op,
+                                     at=f"{_bxy[0]},{_bxy[1]}", ok=bool(_cok))
+                            if _cok:
+                                self.settle()
+                                obs = self.b.send(op, **self._named(op, step))
+                        finally:
+                            self._op_bush_retried = False
                 # the op's OWN detail, before settle/battles replace it —
                 # note_transition's door-unknown rule reads it
                 _op_det = str(((obs or {}).get("result") or {})

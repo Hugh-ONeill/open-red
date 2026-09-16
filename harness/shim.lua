@@ -7358,8 +7358,13 @@ local function enter_shop(G)
   local seen, unseen = SEEN[mid or ""] or {}, false
   for _, w in ipairs(cands) do
     if seen[w.x .. "," .. w.y] then
-      local ok = OPS.use_warp(G, { x = w.x, y = w.y })
-      if not ok then return false end
+      local ok, why = OPS.use_warp(G, { x = w.x, y = w.y })
+      -- the walk's own reason rides out as a third value (see the buy/sell
+      -- callers): a bush across the way is named there
+      if not ok then
+        return false, "door", ("could not get through the shop door at "
+          .. w.x .. "," .. w.y .. (why and (" — " .. tostring(why)) or ""))
+      end
       settle_off(G, mid)
       if SHOP_VIA[w.destMap] then return climb_to_counter(G, w.destMap) end
       return true
@@ -7495,10 +7500,10 @@ function OPS.buy(G, c)
                  .. table.concat(names, ", "))
             or " — there is no counter on this floor"))
     end
-    local went_in, shop_why = false, nil
+    local went_in, shop_why, shop_door_why = false, nil, nil
     if not clerk then
       -- one try at the door, then look again
-      went_in, shop_why = enter_shop(G)
+      went_in, shop_why, shop_door_why = enter_shop(G)
       if went_in then
         ow = G.overworld
         clerk, all_clerks = pick_clerk(ow, wanted_clerk(ow, c))
@@ -7513,6 +7518,7 @@ function OPS.buy(G, c)
           .. "trade with"
       end
       if shop_why == "unseen" then return false, UNSEEN_SHOP end
+      if shop_why == "door" then return false, shop_door_why end
       return false, "no shop clerk here, and no door to a shop counter "
         .. "on this map." .. shop_door_hint(G)
     end
@@ -7632,10 +7638,10 @@ function OPS.sell(G, c)
                  .. table.concat(names, ", "))
             or " — there is no counter on this floor"))
     end
-    local went_in, shop_why = false, nil
+    local went_in, shop_why, shop_door_why = false, nil, nil
     if not clerk then
       -- one try at the door, then look again
-      went_in, shop_why = enter_shop(G)
+      went_in, shop_why, shop_door_why = enter_shop(G)
       if went_in then
         ow = G.overworld
         clerk, all_clerks = pick_clerk(ow, wanted_clerk(ow, c))
@@ -7650,6 +7656,7 @@ function OPS.sell(G, c)
           .. "trade with"
       end
       if shop_why == "unseen" then return false, UNSEEN_SHOP end
+      if shop_why == "door" then return false, shop_door_why end
       return false, "no shop clerk here, and no door to a shop counter "
         .. "on this map." .. shop_door_hint(G)
     end
@@ -9839,10 +9846,17 @@ function OPS.heal(G, c)
       return false, "no Pokemon Center nurse here, and no Center door on "
         .. "this map" .. escape_ways(G)
     end
-    went_in = OPS.use_warp(G, { x = d.x, y = d.y }) and true or false
+    -- ...AND WHY NOT, IN THE WALK'S OWN WORDS. This dropped use_warp's
+    -- reason, so a Cut tree across the way to Vermilion's Center read only
+    -- "could not get through the Center door at 11,3": nothing to cut, and
+    -- nothing for the round to read (user, 2026-09-16: "the 'heal' op doesnt
+    -- cut through bushes in the way ... it should work like go does").
+    local _okw, _whyw = OPS.use_warp(G, { x = d.x, y = d.y })
+    went_in = _okw and true or false
     if not went_in then
       return false, ("could not get through the Center door at %s,%s")
         :format(tostring(d.x), tostring(d.y))
+        .. (_whyw and (" — " .. tostring(_whyw)) or "")
     end
     nurse = find_nurse()
   end
