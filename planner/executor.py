@@ -11135,6 +11135,56 @@ class Executor:
         "or {\"why\":\"...\",\"answer\":\"no\"}."
     )
 
+    def _question_text(self, obs, sg, words) -> str:
+        """The page a yes/no question is put to the model on."""
+        cur = obs or {}
+        party = ", ".join(
+            f"{m.get('species')} L{m.get('level')}"
+            for m in (cur.get("party") or [])) or "no Pokemon"
+        bag = ", ".join(sorted((cur.get("bag") or {}).keys())) or "an empty bag"
+        dc = cur.get("daycare") or {}
+        where = ((cur.get("map") or {}).get("id")
+                 or (cur.get("map") or {}).get("name") or "somewhere")
+        # THE ROAD AHEAD, WHEN THE QUESTION NAMES A POKEMON. Run 18's
+        # starter was not a choice: the model pressed the ball at 6,3, the
+        # game asked "So! You want the fire POKéMON, CHARMANDER?", and the
+        # page carried nothing of its own outline — which asked for a
+        # WATER or GRASS type before Brock, GRASS or ELECTRIC before Misty,
+        # GROUND before Surge, three of which one BULBASAUR answers and
+        # CHARMANDER none (user, 2026-09-16: "if its taking into account
+        # further type requirments it might actually choose an easier
+        # starter that can fulfil that"). The same page serves the Dojo's
+        # HITMONLEE, the salesman's MAGIKARP and a revived fossil. The
+        # question and the objectives are both the model's to read; which
+        # of them this Pokemon answers is its call, and so is no.
+        ahead = ""
+        _keys = {outline_ahead._key(s) for s in self._species_names()}
+        if any(outline_ahead._key(w) in _keys
+               for w in _re.findall(r"[A-Za-z][A-Za-z'.]*", words)):
+            goals = outline_ahead.catch_goals_ahead(
+                PLANS, RUN, self._species_names(), cur.get("party"))
+            if goals:
+                ahead = ("\nYOUR OWN OUTLINE, STILL AHEAD, ASKS THE PARTY "
+                         "TO BECOME:\n"
+                         + "\n".join(f"  {g['pos']}. {g['leg']}"
+                                     for g in goals)
+                         + "\nWhich of those the Pokemon this question "
+                           "names would answer is yours to judge; the "
+                           "party in hand answers none of them yet.\n")
+        return (
+            f"THE QUESTION ON SCREEN:\n\"{words}\"\n\n"
+            f"WHERE YOU ARE: {where}\n"
+            f"WHAT YOU ARE TRYING TO DO RIGHT NOW: "
+            f"{sg.get('goal_text') or sg.get('id') or 'make progress'}\n"
+            f"YOUR PARTY: {party}\n"
+            f"YOUR BAG: {bag}\n"
+            + (f"AT THE DAY CARE: {dc.get('species')} L{dc.get('level')}, "
+               f"costs {dc.get('cost')} to collect\n" if dc.get("species")
+               else "")
+            + ahead
+            + "\nSaying yes and saying no both DO something and neither can "
+              "be taken back by walking away. Answer it.")
+
     def _ask_question(self, obs, sg, text):
         """Put the open question to the model and return True/False/None.
 
@@ -11145,26 +11195,7 @@ class Executor:
         words = str(text or "").strip()
         if not words:
             return None
-        cur = obs or {}
-        party = ", ".join(
-            f"{m.get('species')} L{m.get('level')}"
-            for m in (cur.get("party") or [])) or "no Pokemon"
-        bag = ", ".join(sorted((cur.get("bag") or {}).keys())) or "an empty bag"
-        dc = cur.get("daycare") or {}
-        where = ((cur.get("map") or {}).get("id")
-                 or (cur.get("map") or {}).get("name") or "somewhere")
-        user = (
-            f"THE QUESTION ON SCREEN:\n\"{words}\"\n\n"
-            f"WHERE YOU ARE: {where}\n"
-            f"WHAT YOU ARE TRYING TO DO RIGHT NOW: "
-            f"{sg.get('goal_text') or sg.get('id') or 'make progress'}\n"
-            f"YOUR PARTY: {party}\n"
-            f"YOUR BAG: {bag}\n"
-            + (f"AT THE DAY CARE: {dc.get('species')} L{dc.get('level')}, "
-               f"costs {dc.get('cost')} to collect\n" if dc.get("species")
-               else "")
-            + "\nSaying yes and saying no both DO something and neither can "
-              "be taken back by walking away. Answer it.")
+        user = self._question_text(obs, sg, words)
         try:
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.QUESTION_SYS},
