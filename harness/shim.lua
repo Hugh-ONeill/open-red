@@ -2848,6 +2848,10 @@ local function observe(G, seq, result)
           _n = _n + 1
           o.map.warps[_n] = { x = w.x, y = w.y, dest = dest,
                               look = _look,
+                              -- whether this door has been on screen: the
+                              -- gate OPS.heal and the shop walk keep
+                              seen = ((SEEN[map.id] or {})[w.x .. "," .. w.y])
+                                     and true or false,
                               -- a LAST_MAP door: it returns to the last
                               -- outdoor ground stood on. Internal, like
                               -- dest — the planner's recorder reads it,
@@ -7179,19 +7183,10 @@ end
 -- Ask the destination whether it has a counter instead of guessing from
 -- its name.
 --
--- ON THE EDGE, AND FLAGGED AS SUCH (user, 2026-08-15). This reads the
--- objects of a map nobody has entered. The defence was "the harness reads,
--- it never tells" -- but the read decides WHERE THE BODY GOES, and the
--- next observation is a mart with a clerk in front of it, so the knowledge
--- reaches the model through the world instead of through a sentence. BFS
--- over the collision map is not the same: BFS routes to a place the MODEL
--- named, while this picks which of several destinations to walk into.
--- Judged acceptable because "sell this" plausibly implies "at a counter",
--- and the cost of guessing wrong is a wasted round rather than a lost
--- Pokemon -- but it is the one place in this harness that reads ahead of
--- what has been walked. Everything else (doorstep placement, the passage
--- note, the seam blocker report) is built from walked evidence only.
--- See ~/TODO.md for the tightenings on the table.
+-- ON THE EDGE, AND FLAGGED AS SUCH (user, 2026-08-15): this used to walk
+-- through a shop door nobody had looked at, the one place in this harness
+-- that read ahead of what was walked. Tightened 2026-09-16 to the rule
+-- OPS.heal keeps: only a door that has been on screen (see enter_shop).
 local function map_has_counter(G, id)
   local m = id and G.data and G.data.maps and G.data.maps[id]
   for _, o in ipairs((m and m.objects) or {}) do
@@ -7201,21 +7196,33 @@ local function map_has_counter(G, id)
   return false
 end
 
-local function enter_shop(G)
-  local ow = G.overworld
-  local md = ow and ow.map and G.data and G.data.maps
-              and G.data.maps[ow.map.id]
+-- A SHOP WHOSE COUNTER IS UPSTAIRS. Celadon's street doors open on
+-- CELADON_MART_1F, whose only staff is a receptionist, so "a mart door
+-- with a counter behind it" found nothing there and a buy in Celadon
+-- failed in the street. The store's directory is on screen inside the
+-- door, and the everyday counter (balls, potions, cures) is the FIRST
+-- clerk on 2F (user, 2026-09-16: "celadon defaults to 2F clerk1"). A buy
+-- or sell that names no clerk goes there; naming one still wins.
+local SHOP_VIA = {
+  CELADON_MART_1F = { floor = "CELADON_MART_2F",
+                      clerk = "CELADONMART2F_CLERK1" },
+}
+local DEFAULT_CLERK = { CELADON_MART_2F = "CELADONMART2F_CLERK1" }
+
+local function wanted_clerk(ow, c)
+  if c and c.clerk and c.clerk ~= "" then return c.clerk end
+  return DEFAULT_CLERK[(ow and ow.map and ow.map.id) or ""]
+end
+
+-- Inside a SHOP_VIA building: take its stairs to the counter's floor. No
+-- seen gate for this step: it crosses one lobby of a labelled store whose
+-- directory says which floor sells what, inside a room the party is
+-- already standing in.
+local function climb_to_counter(G, mid)
+  local via = SHOP_VIA[mid or ""]
+  local md = via and G.data and G.data.maps and G.data.maps[mid]
   for _, w in ipairs((md and md.warps) or {}) do
-    -- BOTH TESTS. A counter alone is not a shop that trades: BIKE_SHOP
-    -- has a BIKESHOP_CLERK, so "has a clerk" walked into the bike shop,
-    -- whose man only says "How do you like your new BICYCLE?" and opens
-    -- no menu. A MART in the id alone is not enough either -- that lets
-    -- in CELADON_MART_1F (receptionist), _ELEVATOR and _ROOF. Require a
-    -- mart AND a counter. Both are readable from the street: the buildings
-    -- carry their own signposts, which is why picking between them is
-    -- following a sign rather than reading the map table.
-    if w.x and w.y and tostring(w.destMap or ""):find("MART")
-       and map_has_counter(G, w.destMap) then
+    if w.x and w.y and w.destMap == via.floor then
       local ok = OPS.use_warp(G, { x = w.x, y = w.y })
       return ok and true or false
     end
@@ -7223,10 +7230,55 @@ local function enter_shop(G)
   return false
 end
 
+-- ONLY A DOOR THAT HAS BEEN ON SCREEN, the rule OPS.heal already keeps
+-- (user, 2026-09-16: "buying in a town just directs you to the mart if
+-- youve seen the mart already"). Returns true when it went in; false and
+-- "unseen" when a shop door exists on this map but has never been in view.
+local function enter_shop(G)
+  local ow = G.overworld
+  local mid = ow and ow.map and ow.map.id
+  if mid and SHOP_VIA[mid] then
+    return climb_to_counter(G, mid)
+  end
+  local md = mid and G.data and G.data.maps and G.data.maps[mid]
+  local via, plain = {}, {}
+  for _, w in ipairs((md and md.warps) or {}) do
+    local d = tostring(w.destMap or "")
+    -- BOTH TESTS. A counter alone is not a shop that trades: BIKE_SHOP has
+    -- a BIKESHOP_CLERK whose man only admires your BICYCLE. A MART in the
+    -- id alone is not enough either: CELADON_MART_1F is a receptionist,
+    -- which is what SHOP_VIA is for.
+    if w.x and w.y and d:find("MART") then
+      if SHOP_VIA[d] then via[#via + 1] = w
+      elseif map_has_counter(G, d) then plain[#plain + 1] = w end
+    end
+  end
+  -- A store with a lobby is entered by its lobby: Celadon's street also
+  -- warps straight to MART_5F, and that is not the everyday counter.
+  local cands = (#via > 0) and via or plain
+  local seen, unseen = SEEN[mid or ""] or {}, false
+  for _, w in ipairs(cands) do
+    if seen[w.x .. "," .. w.y] then
+      local ok = OPS.use_warp(G, { x = w.x, y = w.y })
+      if not ok then return false end
+      if SHOP_VIA[w.destMap] then return climb_to_counter(G, w.destMap) end
+      return true
+    end
+    unseen = true
+  end
+  return false, unseen and "unseen" or nil
+end
+
+local UNSEEN_SHOP = "no shop clerk here, and the door on this map into a "
+  .. "shop has never been on screen from where you have stood — walks are "
+  .. "made over ground you have seen; explore or a sweep brings a doorway "
+  .. "into view"
+
 local function shop_door_hint(G)
   local ow = G.overworld
   local md = ow and ow.map and G.data and G.data.maps
               and G.data.maps[ow.map.id]
+  local _seen = SEEN[(ow and ow.map and ow.map.id) or ""] or {}
   for _, w in ipairs((md and md.warps) or {}) do
     -- LOOSER THAN enter_shop ON PURPOSE. Walking through the wrong door
     -- by itself is a wasted round; NAMING a door and letting the model
@@ -7234,7 +7286,9 @@ local function shop_door_hint(G)
     -- staff is a receptionist and whose counters are upstairs — not worth
     -- auto-entering, very much worth mentioning.
     local d = tostring(w.destMap or "")
-    if w.x and w.y and (map_has_counter(G, w.destMap) or d:find("MART")) then
+    -- ...but never a door that has not been on screen (2026-09-16).
+    if w.x and w.y and _seen[w.x .. "," .. w.y]
+       and (map_has_counter(G, w.destMap) or d:find("MART")) then
       return (" The door into %s is at %d,%d on this map — go in and sell "
               .. "at the counter."):format(d, w.x, w.y)
     end
@@ -7332,7 +7386,7 @@ function OPS.buy(G, c)
   if G.overworld and G.stack:top() == G.overworld then
     local ow = G.overworld
     local missed
-    clerk, all_clerks, missed = pick_clerk(ow, c.clerk)
+    clerk, all_clerks, missed = pick_clerk(ow, wanted_clerk(ow, c))
     if missed then
       local names = other_counters(all_clerks, nil)
       return false, ("no counter here called " .. missed
@@ -7341,13 +7395,13 @@ function OPS.buy(G, c)
                  .. table.concat(names, ", "))
             or " — there is no counter on this floor"))
     end
-    local went_in = false
+    local went_in, shop_why = false, nil
     if not clerk then
       -- one try at the door, then look again
-      went_in = enter_shop(G)
+      went_in, shop_why = enter_shop(G)
       if went_in then
         ow = G.overworld
-        clerk, all_clerks = pick_clerk(ow, c.clerk)
+        clerk, all_clerks = pick_clerk(ow, wanted_clerk(ow, c))
       end
     end
     if not clerk then
@@ -7358,6 +7412,7 @@ function OPS.buy(G, c)
         return false, "went into the shop, but found no clerk inside to "
           .. "trade with"
       end
+      if shop_why == "unseen" then return false, UNSEEN_SHOP end
       return false, "no shop clerk here, and no door to a shop counter "
         .. "on this map." .. shop_door_hint(G)
     end
@@ -7468,7 +7523,7 @@ function OPS.sell(G, c)
   if G.overworld and G.stack:top() == G.overworld then
     local ow = G.overworld
     local missed
-    clerk, all_clerks, missed = pick_clerk(ow, c.clerk)
+    clerk, all_clerks, missed = pick_clerk(ow, wanted_clerk(ow, c))
     if missed then
       local names = other_counters(all_clerks, nil)
       return false, ("no counter here called " .. missed
@@ -7477,13 +7532,13 @@ function OPS.sell(G, c)
                  .. table.concat(names, ", "))
             or " — there is no counter on this floor"))
     end
-    local went_in = false
+    local went_in, shop_why = false, nil
     if not clerk then
       -- one try at the door, then look again
-      went_in = enter_shop(G)
+      went_in, shop_why = enter_shop(G)
       if went_in then
         ow = G.overworld
-        clerk, all_clerks = pick_clerk(ow, c.clerk)
+        clerk, all_clerks = pick_clerk(ow, wanted_clerk(ow, c))
       end
     end
     if not clerk then
@@ -7494,6 +7549,7 @@ function OPS.sell(G, c)
         return false, "went into the shop, but found no clerk inside to "
           .. "trade with"
       end
+      if shop_why == "unseen" then return false, UNSEEN_SHOP end
       return false, "no shop clerk here, and no door to a shop counter "
         .. "on this map." .. shop_door_hint(G)
     end

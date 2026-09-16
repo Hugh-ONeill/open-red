@@ -29,7 +29,8 @@ _shim = open("harness/shim.lua").read()
 ck("the harness refusal is per-counter, not per-floor",
    "'s shelf, which holds: " in _shim
    and "THIS FLOOR HAS OTHER COUNTERS" in _shim)
-ck("buy and sell both accept a named counter (2 sites each: on the floor,\n    and again after walking into a shop)", _shim.count("pick_clerk(ow, c.clerk)") == 4)
+ck("buy and sell both accept a named counter (2 sites each: on the floor,\n    and again after walking into a shop)", _shim.count("pick_clerk(ow, wanted_clerk(ow, c))") == 4
+   and "if c and c.clerk and c.clerk ~= \"\" then return c.clerk end" in _shim)
 bad = [n for n, ok in checks if not ok]
 for n, ok in checks: print(("ok  " if ok else "FAIL"), n)
 sys.exit(1 if bad else 0)

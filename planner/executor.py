@@ -12603,6 +12603,49 @@ class Executor:
 
     BUY_MAX_ENTRIES = 3
 
+    # A STORE WHOSE COUNTER IS UPSTAIRS: the street door's map is a lobby,
+    # and the shop walk (shim enter_shop) climbs to the everyday counter,
+    # CELADONMART2F_CLERK1 (user, 2026-09-16: "celadon defaults to 2F
+    # clerk1"). What that counter was seen to sell is filed under 2F.
+    SHOP_COUNTER_FLOOR = {"CELADON_MART_1F": "CELADON_MART_2F"}
+
+    BUY_STREET_SYS = (
+        "You are playing Pokemon Red. You are in a town, a short walk from "
+        "a shop whose door you have seen, and your bag holds nothing that "
+        "restores HP. Decide whether to go in and buy anything now, and if "
+        "so what and how many; buying walks you to the counter. Buying "
+        "spends money. A kind of item you do not already carry takes one "
+        "of the bag's twenty slots, and a full bag refuses every gift and "
+        "pickup until a slot goes. Saying no is a real answer. Reply with a "
+        "JSON object and nothing else: {\"why\":\"<one short sentence>\","
+        "\"buy\":[{\"item\":\"POTION\",\"count\":2}]} with item spelled "
+        "as the shelf spells it and count the number to buy, at most 3 "
+        "entries; or {\"why\":\"...\",\"buy\":[]} to buy nothing.")
+
+    def _shop_street(self, obs):
+        """The shop door the buy question may point at from the street, or
+        None: a door on this outdoor map into a MART that has been ON
+        SCREEN and a walk can reach, while the bag holds no rung of the
+        heal ladder. The same standing as OPS.heal's walk to a Center: a
+        mart is signposted, so walking to one you have seen is following a
+        sign (~/TODO.md CLAIM_RULES, 2026-08-15), and a door never in view
+        is not offered at all."""
+        if (obs or {}).get("mode") != "overworld":
+            return None
+        m = (obs or {}).get("map") or {}
+        if not m.get("outdoor"):
+            return None
+        bag = (obs or {}).get("bag") or {}
+        if any(int(bag.get(i) or 0) > 0 for i in battle_policy.HEAL_LADDER):
+            return None
+        doors = [w for w in (m.get("warps") or [])
+                 if isinstance(w, dict) and "MART" in str(w.get("dest") or "")
+                 and w.get("seen") and w.get("reachable")]
+        if not doors:
+            return None
+        via = [w for w in doors if w.get("dest") in self.SHOP_COUNTER_FLOOR]
+        return (via or doors)[0]
+
     def _ask_buy(self, obs, sg):
         """Standing beside a shop counter: ask, then buy what the answer
         says, for no round.
@@ -12635,17 +12678,39 @@ class Executor:
         and its "it costs N" feeds _cant_afford as it does in a round.
         """
         clerks = self._clerk_here(obs)
+        # ...AND FROM THE STREET, WHEN THE BAG HAS NOTHING TO HEAL WITH.
+        # The question only ever fired beside a counter, and nothing ever
+        # brought a run to one: a blackout lands you at a Center, never in
+        # a mart, and every save on file walked from Koga to Giovanni with
+        # no medicine and $12k-$85k unspent (2026-09-15). In a town whose
+        # shop door has been on screen, with no rung of the heal ladder in
+        # the bag, the same question is asked; a yes walks in (user,
+        # 2026-09-16: "make buy work the way heal does").
+        street = None
         if not clerks:
             self._buy_asked_at = None
-            return obs
+            street = self._shop_street(obs)
+            if not street:
+                if (obs or {}).get("mode") == "overworld":
+                    self._buy_street_at = None
+                return obs
         money = (obs or {}).get("money")
         if isinstance(money, int) and money <= 0:
             return obs
-        here = self._where(obs)
-        if getattr(self, "_buy_asked_at", None) == here:
-            return obs
-        self._buy_asked_at = here
-        mid = str(((obs or {}).get("map") or {}).get("id") or "")
+        if street:
+            here = str(((obs or {}).get("map") or {}).get("id") or "")
+            if getattr(self, "_buy_street_at", None) == here:
+                return obs
+            self._buy_street_at = here
+            clerks = [""]
+            mid = self.SHOP_COUNTER_FLOOR.get(street.get("dest"),
+                                              str(street.get("dest") or ""))
+        else:
+            here = self._where(obs)
+            if getattr(self, "_buy_asked_at", None) == here:
+                return obs
+            self._buy_asked_at = here
+            mid = str(((obs or {}).get("map") or {}).get("id") or "")
         shelf = list((getattr(self, "_shelves", None) or {}).get(mid) or [])
         reads = ((getattr(self, "_shelf_reads", None) or {}).get(mid) or {})
         n_reads = int(reads.get("n") or 0)
@@ -12657,7 +12722,15 @@ class Executor:
         for m in ((obs or {}).get("party") or []):
             party.append(f"{m.get('nickname') or m.get('species')} "
                          f"L{m.get('level')} {m.get('hp')}/{m.get('max_hp')} hp")
-        user = ("THE COUNTER: " + ", ".join(clerks) + ", a few steps away."
+        _counter = (("THE SHOP: the door into " + str(street.get("dest"))
+                     + f" at {street.get('x')},{street.get('y')} on this "
+                     "street, a short walk; buying walks you to its counter"
+                     + (" (the first counter on the second floor)"
+                        if street.get("dest") in self.SHOP_COUNTER_FLOOR
+                        else "") + ".")
+                    if street else
+                    "THE COUNTER: " + ", ".join(clerks) + ", a few steps away.")
+        user = (_counter
                 + ("\nWHAT IT WAS SEEN TO SELL: " + ", ".join(shelf)
                    + (f" (read {n_reads}x, the same list each time)"
                       if n_reads > 1 and not reads.get("moved")
@@ -12684,7 +12757,8 @@ class Executor:
         want, why, readable = [], "", False
         try:
             reply = brock_probe.chat(
-                [{"role": "system", "content": self.BUY_SYS},
+                [{"role": "system", "content": (self.BUY_STREET_SYS
+                                                 if street else self.BUY_SYS)},
                  {"role": "user", "content": user}], self.model)
             mm = _re.search(r"\{.*\}", reply or "", _re.S)
             d = json.loads(mm.group(0)) if mm else {}
@@ -12707,6 +12781,7 @@ class Executor:
             self.log("buy_chat_error", subgoal=(sg or {}).get("id"),
                      err=str(e)[:120])
         self.log("buy_asked", subgoal=(sg or {}).get("id"), map=mid,
+                 where=("street" if street else "counter"),
                  shelf=",".join(shelf), money=money, bag_slots=len(bag),
                  dead=",".join(dead), readable=readable,
                  buy=json.dumps(want), why=why)
