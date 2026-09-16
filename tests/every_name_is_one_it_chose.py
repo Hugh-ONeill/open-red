@@ -192,9 +192,9 @@ ck("the YES puts the cursor on YES instead of pressing blind",
 # (2026-09-13, the third attempt at this fix). A loop that dismisses boxes
 # is the LAST thing to see one, so it has to check too.
 ck("the drain never presses B on a nickname box",
-   'if NICKNAMES_REQUIRED and "nickname" in _nt:' in SRC)
+   'if (NICKNAMES_REQUIRED and "nickname" in _nt' in SRC)
 ck("...it presses A instead and drives the screen behind it",
-   SRC.split('if NICKNAMES_REQUIRED and "nickname" in _nt:')[1][:400]
+   SRC.split('if (NICKNAMES_REQUIRED and "nickname" in _nt')[1][:500]
       .count("_resolve_naming") == 1)
 ck("...and says where it caught it",
    'where="ui_drain"' in SRC)

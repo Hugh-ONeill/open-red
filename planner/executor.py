@@ -11071,7 +11071,11 @@ class Executor:
         while obs and obs.get("mode") == "ui" and n < tries:
             _nt = str(((obs or {}).get("dialog") or {}).get("text")
                       or (obs or {}).get("last_text") or "").lower()
-            if NICKNAMES_REQUIRED and "nickname" in _nt:
+            # a MENU is never the nickname question, whatever was said last:
+            # the same stale line pressed A into a PartyMenu here too
+            _ui_d = (obs or {}).get("ui") or {}
+            if (NICKNAMES_REQUIRED and "nickname" in _nt
+                    and not _ui_d.get("screenId")):
                 self.b.send("tap", btn="a")
                 obs = self.settle() or obs
                 self.log("nickname_box_kept", subgoal=sg.get("id"),

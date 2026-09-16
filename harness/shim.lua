@@ -7124,7 +7124,17 @@ ui_back_out = function(G)
     -- below it. A first cut read t.pages here and matched nothing, which
     -- is attempt eight (2026-09-13). last_text is the accumulated speech
     -- of the box that is still showing, which is exactly those words.
-    if t and t.index ~= nil and t.pages == nil then
+    -- ...AND ONLY A CHOICE BOX IS THAT QUESTION. The party menu also has a
+    -- cursor and no pages, and last_text outlives the box that printed it:
+    -- after run 27's Abra was named, a party_swap before LT. SURGE backed
+    -- out of the PartyMenu, read the old "nickname" line, and pressed A on
+    -- slot 1 — the summary opened, the next back-out did it again, and the
+    -- leg sat four rounds in SummaryMenu with the badge fight one step away
+    -- (2026-09-16, user: "its stuck in the menus somehow when it tried to
+    -- switch geodude into first"). A ChoiceBox carries onChoose and no
+    -- screenId; the menus carry a screenId.
+    if t and t.index ~= nil and t.pages == nil
+       and t.onChoose ~= nil and t.screenId == nil then
       local _tx = tostring(last_text or ""):lower()
       if _tx:find("nickname", 1, true) then
         ui_cursor_to(G, "index", 1)          -- row 1 is YES

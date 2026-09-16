@@ -84,7 +84,7 @@ ck("throw_ball still says YES for itself",
 # question was answered No inside an op's preamble before any observation
 # was taken. Five planner fixes and one observation fix could none of them
 # have worked (2026-09-13).
-bo = SH.split("ui_back_out = function(G)", 1)[1][:3400]
+bo = SH.split("ui_back_out = function(G)", 1)[1][:4400]  # widened 2026-09-16: the ChoiceBox-only guard
 ck("the naming SCREEN is still never touched",
    "if naming_on_stack(G) then return false end" in bo)
 ck("the QUESTION is answered rather than dismissed",
