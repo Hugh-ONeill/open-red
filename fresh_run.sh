@@ -55,8 +55,19 @@ PB
 )
 # --why goes to stderr and the chosen path to stdout, so the log keeps
 # the whole ranking (including what was rejected and why) beside the pick.
-POLICY="${RED_POLICY:-$(python planner/pick_policy.py \
-        --badges "$_badges" --why || true)}"
+# A SPEC CHOSEN BY HAND OUTRANKS THE PICKER, AND OUTLIVES A RELAUNCH.
+# pick_policy ranks by each spec's own provenance, which is scored in
+# whatever arenas that spec was authored in; the three-way sweep on the
+# workshopped rooms is a different and later verdict (v13: medicine decides
+# 7 of 18 rooms against 4, real league 15/20), and the picker cannot read
+# it. An env var would last one launch, so the choice lives in a file:
+# plans/policy.pin holds one path. RED_POLICY still wins for a one-off;
+# delete the pin to hand the choice back to the picker (user, 2026-09-16:
+# "set v13 as the chain's policy").
+_pin=$(head -1 plans/policy.pin 2>/dev/null | tr -d '[:space:]')
+[ -n "$_pin" ] && [ ! -s "$_pin" ] && echo "[policy] pin $_pin is missing; falling back to the picker" >&2 && _pin=""
+POLICY="${RED_POLICY:-${_pin:-$(python planner/pick_policy.py \
+        --badges "$_badges" --why || true)}}"
 pol=()
 if [ -n "$POLICY" ] && [ -s "$POLICY" ]; then
   pol=(--policy-spec "$POLICY")
