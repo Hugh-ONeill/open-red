@@ -11190,13 +11190,17 @@ class Executor:
         _mid = getattr(self, "_last_overworld_map", None)
         _items = list(getattr(self, "_last_overworld_items", None) or [])
         _lp = getattr(self, "_last_press", None) or (None, None)
+        # STANDING, NOT UNPRESSED. The first version listed balls "never
+        # pressed", and run 21 had pressed all three before Oak walked in,
+        # when each said only "Those are POKé BALLs. They contain
+        # POKéMON!" — so the line had nothing to name at the one moment it
+        # was for. What is still on the table is what the last look at the
+        # map showed; a ball that was taken is not in it.
         if _mid and _items:
-            _pressed = self._touched_on_map(str(_mid))
             _left = [n for n in _items
-                     if n not in _pressed
-                     and not (_lp[0] == _mid and _lp[1] == n)]
+                     if not (_lp[0] == _mid and _lp[1] == n)]
             if _left:
-                _others = ("Also standing on this map, never pressed: "
+                _others = ("Also standing on this map: "
                            + ", ".join(_left) + ". A Poke Ball asks its own "
                            "question about its own Pokemon when pressed; "
                            "answering no to this one leaves it where it is.\n")

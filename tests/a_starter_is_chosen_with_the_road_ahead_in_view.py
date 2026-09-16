@@ -146,20 +146,29 @@ ex._last_overworld_items = ["ITEM_OAKS_LAB_6_3", "ITEM_OAKS_LAB_7_3",
 ex._tried_objs = {"OAKS_LAB|4,1": {"OAKSLAB_OAK1"}}
 ex._last_press = ("OAKS_LAB", "ITEM_OAKS_LAB_6_3")
 lpage2 = L.render([], ex, box)
-ck("the balls not pressed are named",
-   "never pressed: ITEM_OAKS_LAB_7_3, ITEM_OAKS_LAB_8_3." in lpage2)
+ck("the other balls standing on the map are named",
+   "standing on this map: ITEM_OAKS_LAB_7_3, ITEM_OAKS_LAB_8_3." in lpage2)
 ck("...not the one whose question is on screen",
-   "ITEM_OAKS_LAB_6_3" not in lpage2.split("never pressed:", 1)[1])
+   "ITEM_OAKS_LAB_6_3" not in lpage2.split("standing on this map:", 1)[1])
 ck("...and saying no is said to leave it where it is",
    "answering no to this one leaves it where it is" in lpage2)
 ck("which ball to press is not said",
    "BULBASAUR" not in lpage2 and "SQUIRTLE" not in lpage2)
-ex._tried_objs = {"OAKS_LAB|4,1": {"ITEM_OAKS_LAB_7_3", "ITEM_OAKS_LAB_8_3"}}
-ck("with every other ball already pressed, no line",
-   "never pressed" not in L.render([], ex, box))
+# run 21 pressed all three before Oak walked in, when each only said
+# "Those are POKé BALLs"; they still stand, and are still named
+ex._tried_objs = {"OAKS_LAB|4,1": {"ITEM_OAKS_LAB_6_3", "ITEM_OAKS_LAB_7_3",
+                                   "ITEM_OAKS_LAB_8_3"}}
+ck("balls pressed before the offer are still named",
+   "standing on this map: ITEM_OAKS_LAB_7_3, ITEM_OAKS_LAB_8_3."
+   in L.render([], ex, box))
+ex._last_overworld_items = ["ITEM_OAKS_LAB_6_3"]
+ck("with no other ball standing, no line",
+   "standing on this map" not in L.render([], ex, box))
+ex._last_overworld_items = ["ITEM_OAKS_LAB_6_3", "ITEM_OAKS_LAB_7_3",
+                            "ITEM_OAKS_LAB_8_3"]
 ex._tried_objs = {}
 ck("the yes/no asker's page names them too",
-   "never pressed: ITEM_OAKS_LAB_7_3, ITEM_OAKS_LAB_8_3."
+   "standing on this map: ITEM_OAKS_LAB_7_3, ITEM_OAKS_LAB_8_3."
    in ex._question_text(OBS, SG, STARTER))
 
 # ---- offers only (user, 2026-09-16: "narrow it to offers") -----------------
