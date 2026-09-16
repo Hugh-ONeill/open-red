@@ -3808,6 +3808,26 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
             + ". You can see it from here; the way in is not on screen yet, "
               "and walking up to it is what brings a doorway into view. "
               "What is inside one is not said by what is drawn on it.")
+    # THE ELECTRIC LOCKS AS THEY STAND. Lt. Surge's gym draws its two
+    # barriers across the room, up or down, and a player sees at a glance
+    # whether the first has opened; the page listed fifteen cans and what
+    # each had said and never that. Run 27 read "TRASH_CAN_2 is the most
+    # reliable way to open the first lock" into eleven presses, nine of them
+    # "Nope, there's only trash here", each followed by more cans pressed
+    # against a lock that was still shut (user, 2026-09-16: "build the lock
+    # state line"). The barriers' state only: nothing about which can holds
+    # a switch, or how the switches move.
+    try:
+        if str((m or {}).get("id") or "") == "VERMILION_GYM":
+            _fl = set((obs or {}).get("flags") or [])
+            _one = "EVENT_1ST_LOCK_OPENED" in _fl
+            _two = "EVENT_2ND_LOCK_OPENED" in _fl
+            lines.append(
+                "THE ELECTRIC LOCKS RIGHT NOW: the 1st is "
+                + ("OPEN" if _one or _two else "closed")
+                + ", the 2nd is " + ("OPEN" if _two else "closed") + ".")
+    except Exception:
+        pass
     lines.append("Every entry above may be taken; the ones marked never "
                  "taken / never pressed are the only ones that can find "
                  "anything new here. Which matters is your call.")
