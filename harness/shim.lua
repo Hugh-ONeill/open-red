@@ -6731,6 +6731,7 @@ function OPS.cross(G, c)
   end
   if p.cellX ~= ex or p.cellY ~= ey then
     local _wwhy
+    local _seq0 = text_seq
     for round = 1, 3 do
       -- A STEP BUDGET MUST FIT THE MAP. 200 was fine for a town and is
       -- nothing on Cycling Road: Route 17 is 144 cells tall, so a climb
@@ -6827,10 +6828,24 @@ function OPS.cross(G, c)
             .. "want, this road runs one way and the way back is another road"
         end
       end
+      -- SOMEONE SPOKE ON THE WAY, AND THE WALK KEPT QUIET ABOUT IT. The
+      -- Pewter youngster stops a party short of the east exit, says
+      -- "You're a trainer right? BROCK's looking for new challengers!" and
+      -- walks it back toward the gym. Every word is on screen; the walk
+      -- pressed through them and this reported "stuck at (29,18) — 11
+      -- cell(s) of walking still to do", so the run spent round after round
+      -- deciding it had been "not positioned correctly at the gap" (user,
+      -- 2026-09-16: "the kid walks you back to the gym every time"). Quote
+      -- what was said during the walk; what it means is the model's call.
+      local _heard = ""
+      if text_seq ~= _seq0 and last_text and last_text ~= "" then
+        _heard = (" — during this walk someone spoke and the walk ended "
+          .. "short: \"%s\""):format(tostring(last_text))
+      end
       return false, ("couldn't reach %s edge gap (%d,%d), stuck at (%d,%d) "
-        .. "— %d cell(s) of walking still to do%s%s")
+        .. "— %d cell(s) of walking still to do%s%s%s")
         :format(tostring(c.dir), ex, ey, p.cellX, p.cellY,
-                math.abs(ex - p.cellX) + math.abs(ey - p.cellY), why2,
+                math.abs(ex - p.cellX) + math.abs(ey - p.cellY), _heard, why2,
                 _wwhy and (" — the walk itself said: " .. _wwhy) or "")
     end
   end
