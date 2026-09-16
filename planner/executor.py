@@ -1362,7 +1362,25 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
             # send the replacement the spec's rule chooses — party depth
             # exists precisely so a lead faint is not a blackout.
             slot = battle_policy.choose_replacement(obs, spec)
-            if ((obs.get("mode") == "ui" or _forced) and picks < 6 and slot):
+            # A UI AFTER A FIGHT IS NOT A PARTY PICK. Any box at all used to
+            # count, so every successful catch — which ends on "Do you want
+            # to give a nickname to X?" — sent pick_party, and pick_party
+            # presses A up to sixty times looking for a party menu: it
+            # answered that question YES, and would answer whatever else was
+            # up (30 such presses across one catch room's trials, with a
+            # one-Pokemon party and no faint at all, 2026-09-16). A pick is
+            # owed only when the screen IS the party menu, or asks for the
+            # next Pokemon, or a member of this party went down.
+            _ui = obs.get("ui") or {}
+            _txt = str(obs.get("recent_text") or "").lower()
+            _owed = (_forced
+                     or str(_ui.get("screenId") or "") == "PartyMenu"
+                     or "use next" in _txt
+                     or ("fainted" in _txt
+                         and any((m.get("hp") or 0) <= 0
+                                 for m in (obs.get("party") or []))))
+            if ((obs.get("mode") == "ui" and _owed or _forced)
+                    and picks < 6 and slot):
                 picks += 1
                 log("battle_turn", turn=turns, op="pick_party",
                     params={"slot": slot}, why="replacement")
