@@ -481,6 +481,7 @@ end
 -- before a choice box, which would leave the model answering a context-free
 -- yes/no; carry the prompt into the observation so the choice has meaning.
 local warp_reach            -- assigned after DIRS/ledge_landing
+local pocket_of             -- assigned after warp_reach
 local region_reach          -- ditto; identity fill, no one-way hops
 local ui_back_out           -- ditto; needed by need_overworld above it
 
@@ -2954,10 +2955,23 @@ local function observe(G, seq, result)
                                          and true or nil,
                               -- the same answer for a party that cannot
                               -- SURF: the doorstep is across water
+                              -- ...or, when that water is entered from
+                              -- another map, the doorway's own patch of
+                              -- ground: all of it on screen, joined to
+                              -- nothing you reach, not running off the
+                              -- map, no other doorway in it, and water at
+                              -- its edge (Cerulean Cave's mat, whose pond
+                              -- is ridden onto from Route 24).
                               over_water = (not reach[w.x .. "," .. w.y])
                                            and not party_knows_surf()
-                                           and swim_step_to(w.x, w.y,
-                                                            wet_cells())
+                                           and (swim_step_to(w.x, w.y,
+                                                             wet_cells())
+                                                or (function()
+                                                  local pk = pocket_of(G, w.x, w.y, reach, 400)
+                                                  return pk and pk.wet and pk.all_seen
+                                                         and not pk.joins and not pk.edge
+                                                         and not pk.big and #pk.doors == 0
+                                                end)())
                                            and true or nil }
         end
       end
@@ -3335,18 +3349,36 @@ local function observe(G, seq, result)
               -- claimed, and whether to spend the walk stays the
               -- model's.
               local _opens = false
+              -- ...AND WHAT THAT GROUND HOLDS. A patch behind a bush can be
+              -- a few ornamental cells or a road on; the page only owes the
+              -- run the bush when the patch has something: ground never on
+              -- screen, a doorway, the map's edge, or more than it can
+              -- count (user, 2026-09-16, of Vermilion's gym bush showing up
+              -- as a way never taken).
+              local _past = nil
               for _, d in ipairs({ {0, 1}, {0, -1}, {1, 0}, {-1, 0} }) do
                 local nx, ny = cx + d[1], cy + d[2]
                 if nx >= 0 and ny >= 0 and lm.isWalkableCell
                    and lm:isWalkableCell(nx, ny)
                    and not stand_ok(nx .. "," .. ny) then
                   _opens = true
+                  local pk = pocket_of(G, nx, ny, nil, 400)
+                  if pk then
+                    _past = _past or { doors = {} }
+                    _past.unseen = _past.unseen or (not pk.all_seen) or nil
+                    _past.edge = _past.edge or pk.edge or nil
+                    _past.big = _past.big or pk.big or nil
+                    for _, dk in ipairs(pk.doors) do
+                      _past.doors[#_past.doors + 1] = dk
+                    end
+                  end
                 end
               end
               o.map.objects[#o.map.objects + 1] = {
                 x = cx, y = cy, kind = "cut_tree", name = "CUT_TREE",
                 reachable = adjacent_reachable(cx, cy, false),
                 opens = _opens or nil,
+                past = _past,
               }
             end
           end
@@ -4539,6 +4571,60 @@ seen_wall_since_view = function(map, WT, rpx, rpy, nx, ny, nk, VL, VR, VU, VD)
   return map and map.isWalkableCell and map:isWalkableCell(nx, ny)
          and true or false
 end
+-- THE PATCH OF GROUND A CELL BELONGS TO, by terrain alone: a land flood
+-- from (sx, sy) that ignores everybody standing on it and never walks
+-- through a doorway. Answers what a player reads off the screen about a
+-- doorstep or the far side of a bush: does that patch join the ground you
+-- can reach, run off the edge of the map, hold a doorway, border water, and
+-- has all of it been on screen. Gives up past `cap` cells (big = true).
+pocket_of = function(G, sx, sy, reach, cap)
+  local okc, Collision = pcall(require, "src.world.Collision")
+  local ow, p = G.overworld, G.overworld and G.overworld.player
+  if not (okc and ow and p and ow.map) then return nil end
+  local map = ow.map
+  local W, H = map.widthCells or 0, map.heightCells or 0
+  cap = cap or 400
+  local key = function(x, y) return x .. "," .. y end
+  local warps = {}
+  for _, w in ipairs((map.def and map.def.warps) or {}) do
+    warps[key(w.x, w.y)] = true
+  end
+  local mask = SEEN[map.id] or {}
+  local out = { n = 0, doors = {}, all_seen = true }
+  local seen = { [key(sx, sy)] = true }
+  local q, head = { { x = sx, y = sy } }, 1
+  while q[head] do
+    local cur = q[head]; head = head + 1
+    local ck = key(cur.x, cur.y)
+    out.n = out.n + 1
+    if out.n > cap then out.big = true; break end
+    if reach and reach[ck] then out.joins = true end
+    if not mask[ck] then out.all_seen = false end
+    if warps[ck] and not (cur.x == sx and cur.y == sy) then
+      out.doors[#out.doors + 1] = ck
+    elseif not warps[ck] or (cur.x == sx and cur.y == sy) then
+      for dn, d in pairs(DIRS) do
+        local nx, ny = cur.x + d[1], cur.y + d[2]
+        if nx < 0 or ny < 0 or nx >= W or ny >= H then
+          out.edge = true
+        elseif not seen[key(nx, ny)] then
+          if real_water(G, map, nx, ny) then
+            out.wet = true
+          else
+            local probe = setmetatable({ cellX = cur.x, cellY = cur.y },
+                                       { __index = p })
+            if Collision.canMove(map, {}, probe, dn) then
+              seen[key(nx, ny)] = true
+              q[#q + 1] = { x = nx, y = ny }
+            end
+          end
+        end
+      end
+    end
+  end
+  return out
+end
+
 seen_reach = function(G, sx, sy, surf)
   local okc, Collision = pcall(require, "src.world.Collision")
   local ow, p = G.overworld, G.overworld and G.overworld.player

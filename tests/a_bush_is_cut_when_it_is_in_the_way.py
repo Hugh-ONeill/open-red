@@ -88,7 +88,7 @@ ck("the disclaimer this splits on is the shim's own words",
 shim_src = (ROOT / "harness" / "shim.lua").read_text()
 k = shim_src.find("AND WHETHER FELLING IT WOULD OPEN ANYTHING")
 ck("the shim computes whether felling one opens ground", k > 0)
-sblk = shim_src[k:k + 1600]
+sblk = shim_src[k:k + 2600]
 ck("...as walkable ground on the far side that no walk reaches",
    "lm:isWalkableCell(nx, ny)" in sblk and "not stand_ok(" in sblk)
 ck("...published on the object, and absent when it opens nothing",

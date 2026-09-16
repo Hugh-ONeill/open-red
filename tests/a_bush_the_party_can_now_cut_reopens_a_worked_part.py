@@ -64,6 +64,28 @@ ex._note_bush_ways(obs([], ["CUT"]), "ROUTE_9|0,8")
 ck("a felled bush drops off the record",
    ex._bush_ways == {} and "ROUTE_9|0,8" in ex._worked_for("map:X"))
 
+ex = fake()
+ex.explored = {"VERMILION_CITY|18,0": {"12,19": {"to": "VERMILION_GYM|0,1"}}}
+
+
+def vobs(past):
+    o = obs([(15, 18, True, True)], ["CUT"])
+    o["map"]["id"] = "VERMILION_CITY"
+    o["map"]["objects"][0]["past"] = past
+    return o
+
+
+ex._note_bush_ways(vobs({"doors": ["12,19"]}), "VERMILION_CITY|18,0")
+ck("a bush whose far patch holds only a doorway already taken is not a way on",
+   ex._bush_ways == {})
+for why, past in (("ground never on screen", {"unseen": True, "doors": []}),
+                  ("the map's edge", {"edge": True, "doors": []}),
+                  ("a doorway never taken", {"doors": ["20,5"]})):
+    ex._bush_ways = {}
+    ex._note_bush_ways(vobs(past), "VERMILION_CITY|18,0")
+    ck(f"...but one whose far patch holds {why} is",
+       ex._bush_ways == {"VERMILION_CITY|18,0": ["15,18"]})
+
 src = (ROOT / "planner/executor.py").read_text()
 ck("the ways-never-taken list walks the bush parts too",
    "list(held) + list(bushes)" in src

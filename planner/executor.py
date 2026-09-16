@@ -5765,10 +5765,30 @@ class Executor:
         the party's status pages."""
         m = (obs or {}).get("map") or {}
         if m.get("objects") is not None and here and "None" not in here:
+            # ...AND ONLY WHERE THE GROUND PAST IT HOLDS SOMETHING: ground
+            # never on screen, the map's edge, more than the shim counts,
+            # or a doorway nobody has taken from any part of this map. The
+            # patch behind Vermilion's gym bush is a doorstep already walked
+            # through, and listing it as a way never taken was noise (user,
+            # 2026-09-16). A shim with no `past` keeps the old reading.
+            _walked = set()
+            for _r2, _ex2 in (self.explored or {}).items():
+                if _r2.split("|")[0] == m.get("id"):
+                    _walked |= set((_ex2 or {}).keys())
+
+            def _worth(o):
+                past = o.get("past")
+                if not isinstance(past, dict):
+                    return True
+                return bool(past.get("unseen") or past.get("edge")
+                            or past.get("big")
+                            or any(d not in _walked
+                                   for d in (past.get("doors") or [])))
             ways = sorted(f"{o.get('x')},{o.get('y')}"
                           for o in m["objects"]
                           if o.get("kind") == "cut_tree" and o.get("reachable")
-                          and o.get("opens") and o.get("x") is not None)
+                          and o.get("opens") and o.get("x") is not None
+                          and _worth(o))
             if ways != (self._bush_ways.get(here) or []):
                 if ways:
                     self._bush_ways[here] = ways

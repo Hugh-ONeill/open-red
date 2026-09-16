@@ -40,6 +40,17 @@ ck("the shim asks the water question whether or not SURF is known",
    and "swim_step_to(w.x, w.y,\n" in shim and "wet_cells())" in shim
    and "and not party_knows_surf()" in shim)
 
+ck("...or the doorway's own patch: all on screen, joined to nothing, off no "
+   "edge, no other doorway, water at its edge",
+   "pocket_of = function(G, sx, sy, reach, cap)" in shim
+   and "return pk and pk.wet and pk.all_seen" in shim
+   and "and not pk.joins and not pk.edge" in shim
+   and "and not pk.big and #pk.doors == 0" in shim)
+ck("the patch flood ignores who stands on it and stops at doorways",
+   "Collision.canMove(map, {}, probe, dn)" in shim
+   and "if warps[ck] and not (cur.x == sx and cur.y == sy) then" in shim)
+ck("a bush reports what lies past it", "past = _past," in shim)
+
 ex = object.__new__(E.Executor)
 ex._door_over_water = {"CERULEAN_CITY": ["4,11"]}
 ex._knows_surf = False
