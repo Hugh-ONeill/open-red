@@ -407,6 +407,13 @@ local function party(G)
         if mdef then
           m.moves[j].type = mdef.type
           m.moves[j].power = mdef.power
+          -- ...AND ITS MAXIMUM PP, which the summary shows beside the PP
+          -- left ("PP 12/25"), PP UPs counted as the engine counts them
+          -- (Pokemon.lua: base + ups * floor(base / 5))
+          if mdef.pp then
+            local _ups = tonumber(m.moves[j].ppUps) or 0
+            m.moves[j].max_pp = mdef.pp + _ups * math.floor(mdef.pp / 5)
+          end
         end
       end
     end
@@ -3626,11 +3633,19 @@ local function observe(G, seq, result)
         local md = G.data and G.data.moves and G.data.moves[id]
         return { id = tostring(id),
                  type = md and md.type and tostring(md.type) or nil,
-                 power = md and md.power or nil }
+                 power = md and md.power or nil,
+                 max_pp = md and md.pp or nil }
       end
       local known = {}
       for i, m in ipairs((lm.mon and lm.mon.moves) or {}) do
         known[i] = movefacts(type(m) == "table" and m.id or m)
+        if type(m) == "table" and m.pp ~= nil then
+          known[i].pp = m.pp
+          local _b = known[i].max_pp
+          if _b then
+            known[i].max_pp = _b + (tonumber(m.ppUps) or 0) * math.floor(_b / 5)
+          end
+        end
       end
       local slot
       for i, m in ipairs((G.save and G.save.party) or {}) do
@@ -3728,7 +3743,8 @@ local function observe(G, seq, result)
         -- question needs them before (executor _teach_question, 2026-09-14)
         local mdef = G.data and G.data.moves and G.data.moves[mv]
         o.machines[k] = { move = mv, able = able, not_able = notable,
-                          type = mdef and mdef.type, power = mdef and mdef.power }
+                          type = mdef and mdef.type, power = mdef and mdef.power,
+                          max_pp = mdef and mdef.pp }
       end
     end
   end

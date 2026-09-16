@@ -11136,6 +11136,8 @@ class Executor:
                 bits = [str(x.get("type")).upper()] if x.get("type") else []
                 if x.get("power"):
                     bits.append(f"power {x.get('power')}")
+                if _pp_words(x):
+                    bits.append(_pp_words(x))
                 return str(x.get("id")) + (f" ({', '.join(bits)})" if bits else "")
             return str(x)
         if lr.get("moves"):
@@ -12532,12 +12534,16 @@ class Executor:
                 bits = [str(x.get("type")).upper()] if x.get("type") else []
                 if x.get("power"):
                     bits.append(f"power {x.get('power')}")
+                if _pp_words(x):
+                    bits.append(_pp_words(x))
                 return str(x.get("id")) + (f" ({', '.join(bits)})" if bits else "")
             return str(x)
 
         _mt = str(m.get("type") or "").upper()
         _mp = m.get("power")
-        mdesc = move + (f" ({_mt}" + (f", power {_mp}" if _mp else "") + ")"
+        _mpp = m.get("max_pp")
+        mdesc = move + (f" ({_mt}" + (f", power {_mp}" if _mp else "")
+                        + (f", PP {_mpp}" if _mpp else "") + ")"
                         if _mt else "")
         rows = []
         for i, sp, mvs in who:
@@ -22724,6 +22730,21 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         self.log("plan_complete", goal=plan.get("goal"),
                  escalations=self.escalations)
         return True
+
+
+def _pp_words(x) -> str:
+    """A move's PP as its summary screen shows it: "PP 12/25" for a move
+    known, "PP 25" for one offered. SOLARBEAM at power 120 read as a plain
+    upgrade on RAZOR_LEAF at 55 with nothing to weigh against it; the
+    screen says 10 uses against 25, which is the half of the trade a league
+    run lives on (user, 2026-09-16: "its the same trap with char and
+    fireblast replacing flamethrower when pp utility is crucial for the
+    e4"). What the trade is worth stays the model's."""
+    mx = x.get("max_pp") if isinstance(x, dict) else None
+    if not mx:
+        return ""
+    cur = x.get("pp") if isinstance(x, dict) else None
+    return f"PP {cur}/{mx}" if cur is not None else f"PP {mx}"
 
 
 def _balls_in(obs) -> bool:
