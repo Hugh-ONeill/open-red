@@ -7710,13 +7710,31 @@ def new_part_exhausted(dw, mp: str) -> str:
     # per part: a frontier entry is a spot where the ground it has looked
     # at ends. While any part still has one, a further part may be out
     # there and the condition is honest.
+    # ...READ FROM THE RIGHT LEDGER. This read `frontier`, which is not
+    # unseen ground at all: it is each part's list of WAYS OUT ("east",
+    # "south", a door's "13,15"), and every part of a map with an edge has
+    # some, so the rule never fired once. Run 27 wrote "Leave Bill's house
+    # and enter the overworld of Route 24" — the house is on Route 25 — and
+    # it froze into a part of Route 24 other than all three the run had
+    # walked, with nothing on Route 24 left unseen (user, 2026-09-16: "im not
+    # sure that such an area exists"). The unseen-spot count per part is
+    # `region_seen`. A DOOR never taken from a walked part may still lead
+    # back onto another part of the same map (a house through a fence), so
+    # one of those keeps the question open too; an edge cannot.
     try:
-        fr = json.loads(Path("run/explored.json").read_text() or "{}") \
-            .get("frontier") or {}
+        _ex = json.loads(Path("run/explored.json").read_text() or "{}")
     except (OSError, ValueError, json.JSONDecodeError):
         return ""                      # cannot tell: say nothing
-    if any(len(fr.get(r) or ()) > 0 for r in walked):
+    rs = _ex.get("region_seen") or {}
+    if any(int(rs.get(r) or 0) > 0 for r in walked):
         return ""                      # unseen ground remains; it may hold one
+    fr = _ex.get("frontier") or {}
+    taken = _ex.get("explored") or {}
+    for r in walked:
+        for w in (fr.get(r) or ()):
+            if re.fullmatch(r"\d+,\d+", str(w)) and not int(
+                    ((taken.get(r) or {}).get(str(w)) or {}).get("n") or 0):
+                return ""              # an untried door may lead back onto it
     # ...AND THE REPAIR IS NOT A WEAKER WITNESS. The first version of this
     # offered "end on that part by name", which is a condition satisfied by
     # STANDING STILL — the very thing new_part exists to refuse (user,
@@ -7732,7 +7750,9 @@ def new_part_exhausted(dw, mp: str) -> str:
             f"ran. Either this step wants ground nobody has seen — say so "
             f"in its goal_text — or the deed it marks has ALREADY HAPPENED, "
             f"in which case this leg does not need a plan at all and saying "
-            f"that plainly is the answer.")
+            f"that plainly is the answer — or {mp} is not the map this step "
+            f"comes out on: a door opens onto the map its building stands "
+            f"on, and nothing on {mp} is left unseen or untried.")
 
 
 def _reverted_wordings() -> set:

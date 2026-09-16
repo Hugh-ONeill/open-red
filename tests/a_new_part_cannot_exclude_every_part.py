@@ -39,9 +39,10 @@ def ck(name, cond):
 sys.path.insert(0, str(ROOT / "tests"))
 from pinned_world import pinned                                # noqa: E402
 
-# several walked parts AND unseen ground still on the frontier
+# several walked parts AND unseen ground still on one of them
 with pinned(explored={"ROUTE_20|32,8": {}, "ROUTE_20|52,2": {}},
-            frontier={"ROUTE_20|32,8": ["40,9"], "ROUTE_20|52,2": []}):
+            frontier={"ROUTE_20|32,8": ["east"], "ROUTE_20|52,2": []},
+            region_seen={"ROUTE_20|32,8": 6, "ROUTE_20|52,2": 0}):
     walked = ["ROUTE_20|32,8", "ROUTE_20|52,2"]
     ck("a map with unseen ground left is NOT refused — new_part is honest there",
        A.new_part_exhausted({"map": "ROUTE_20", "not_area": walked}, "ROUTE_20") == "")
@@ -67,7 +68,28 @@ with tempfile.TemporaryDirectory() as d:
 ck("...naming how many and which", "you have stood on all " in msg)
 _msg = msg
 ck("...and offering NO weaker witness to replace it", "Do NOT weaken it to a part " in _msg and '{"area"' not in _msg)
-ck("...naming the two honest readings instead", "ground nobody has seen" in _msg and "ALREADY HAPPENED" in _msg)
+ck("...naming the honest readings instead", "ground nobody has seen" in _msg and "ALREADY HAPPENED" in _msg
+   and "is not the map this step comes out on" in _msg)
+
+# RUN 27 (2026-09-16): the ways out of every part are in `frontier`, which is
+# not unseen ground; with nothing unseen and no untried door, it is refused
+R24 = ["ROUTE_24|13,11", "ROUTE_24|17,4", "ROUTE_24|4,4"]
+with pinned(explored={"ROUTE_24|13,11": {"south": {"n": 1}},
+                      "ROUTE_24|17,4": {"east": {"n": 5}, "south": {"n": 11}},
+                      "ROUTE_24|4,4": {"east": {"n": 15}, "south": {"n": 80}}},
+            frontier={r: ["east", "south"] for r in R24},
+            region_seen={r: 0 for r in R24}):
+    ck("edges in the ways-out list do not keep an exhausted map open",
+       A.new_part_exhausted({"map": "ROUTE_24", "not_area": R24},
+                            "ROUTE_24") != "")
+with pinned(explored={"ROUTE_24|13,11": {}, "ROUTE_24|17,4": {},
+                      "ROUTE_24|4,4": {}},
+            frontier={"ROUTE_24|13,11": ["east", "9,9"],
+                      "ROUTE_24|17,4": [], "ROUTE_24|4,4": []},
+            region_seen={r: 0 for r in R24}):
+    ck("...but a door never taken does: it may lead back onto the same map",
+       A.new_part_exhausted({"map": "ROUTE_24", "not_area": R24},
+                            "ROUTE_24") == "")
 
 with pinned(explored={"ROUTE_20|32,8": {}},
             frontier={"ROUTE_20|32,8": ["40,9"]}):

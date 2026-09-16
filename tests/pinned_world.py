@@ -31,7 +31,7 @@ from pathlib import Path
 
 @contextlib.contextmanager
 def pinned(explored=None, visits=None, frontier=None, obs=None,
-           journal=None, leg=None, **extra):
+           journal=None, leg=None, region_seen=None, **extra):
     """Run the block with run/ as a world you wrote, then put it back.
 
     explored/visits/frontier land in run/explored.json in the shape the
@@ -50,6 +50,7 @@ def pinned(explored=None, visits=None, frontier=None, obs=None,
         run.mkdir(parents=True)
         (run / "explored.json").write_text(json.dumps({
             "explored": explored, "visits": visits, "frontier": frontier,
+            "region_seen": dict(region_seen or {}),
             "dead_ends": {}, "region_mark": {}, "sightings": {}}))
         (run / "obs.json").write_text(json.dumps(obs if obs is not None
                                                  else {}))
