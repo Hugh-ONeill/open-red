@@ -41,7 +41,7 @@ ck("party moves carry max PP with PP UPs counted",
    "m.moves[j].max_pp = mdef.pp + _ups * math.floor(mdef.pp / 5)" in SH)
 ck("a move being learned carries max PP, and the known ones their PP too",
    "max_pp = md and md.pp or nil }" in SH and "known[i].pp = m.pp" in SH)
-ck("a machine's move carries max PP", "max_pp = mdef and mdef.pp }" in SH)
+ck("a machine's move carries max PP", "max_pp = mdef and mdef.pp," in SH)
 PK = (Path.home() / "Developer/gen1recomp/src/pokemon/Pokemon.lua").read_text()
 ck("...counted as the engine counts PP UPs",
    "mdef.pp + (mv.ppUps or 0) * math.floor(mdef.pp / 5)" in PK)

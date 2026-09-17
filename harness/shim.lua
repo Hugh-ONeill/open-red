@@ -3779,8 +3779,21 @@ local function observe(G, seq, result)
   -- every member at once. The run used HM_FLY on four Pokemon in turn, a
   -- round each, to learn what that one screen says (run 16, 2026-09-08;
   -- user: "the usage screen shows ABLE and NOT ABLE for the whole party").
+  -- ...AND THE MACHINES IN THE PC, the same facts. The WITHDRAW ITEM
+  -- list is one A-press away and the ITEM screen would mark the party
+  -- ABLE the moment one is picked; stored TMs reached the page as bare
+  -- names while the roster they were stored under had evolved and grown
+  -- a LAPRAS (run 27, 2026-09-17; user: "it has several stored in the
+  -- computer which might be useful for the new/newly evolved roster").
+  local _mach_src = {}
+  for k, _ in pairs(o.bag) do _mach_src[k] = "bag" end
+  for k, v in pairs((G.save and G.save.pcItems) or {}) do
+    if type(k) == "string" and (tonumber(v) or 0) > 0 and not _mach_src[k] then
+      _mach_src[k] = "pc"
+    end
+  end
   o.machines = {}
-  for k, _ in pairs(o.bag) do
+  for k, _src in pairs(_mach_src) do
     if k:find("^TM_") or k:find("^HM_") then
       local idef = G.data and G.data.items and G.data.items[k]
       local mv = idef and idef.machine and idef.machine.move
@@ -3801,7 +3814,8 @@ local function observe(G, seq, result)
         local mdef = G.data and G.data.moves and G.data.moves[mv]
         o.machines[k] = { move = mv, able = able, not_able = notable,
                           type = mdef and mdef.type, power = mdef and mdef.power,
-                          max_pp = mdef and mdef.pp }
+                          max_pp = mdef and mdef.pp,
+                          stored = (_src == "pc") or nil }
       end
     end
   end

@@ -13714,6 +13714,54 @@ class Executor:
                     "intent= and want= for what a bite is for]")
         return ""
 
+    def _stored_machines_line(self, obs) -> str:
+        """TMs in the PC that somebody in the party could learn now.
+
+        The roster changes and the PC does not: TM_THUNDERBOLT and
+        TM_BUBBLEBEAM were stored under a party with no WATER type and sat
+        there after a LAPRAS joined and the rest evolved (run 27,
+        2026-09-17; user: "it has several stored in the computer which
+        might be useful for the new/newly evolved roster"). The shim now
+        reads the machine screen for stored TMs too; this lists the ones
+        somebody is ABLE to learn and nobody knows, with what the run said
+        the last time it was asked about one. Which is worth a slot, and
+        the walk to a Center, stays the model's."""
+        pc = (obs or {}).get("pc_items") or {}
+        machines = (obs or {}).get("machines") or {}
+        party = [m for m in ((obs or {}).get("party") or []) if isinstance(m, dict)]
+        knows = {str(mv.get("id") if isinstance(mv, dict) else mv).upper()
+                 for m in party for mv in (m.get("moves") or [])}
+        rows = []
+        for item in sorted(pc):
+            m = machines.get(item)
+            if not isinstance(m, dict) or not m.get("stored"):
+                continue
+            move = str(m.get("move") or "").upper()
+            able = [str(x) for x in (m.get("able") or [])]
+            if not move or move in knows or not able:
+                continue
+            facts = ", ".join(str(x) for x in (m.get("type"), m.get("power")
+                                                and f"{m.get('power')} power",
+                                                m.get("max_pp") and f"PP {m.get('max_pp')}")
+                              if x)
+            row = f"{item} ({move}" + (f": {facts}" if facts else "") + ")" \
+                  + f" [ABLE: {', '.join(able)}]"
+            asked = [(k, v) for k, v in (getattr(self, "_tm_asked", None) or {}).items()
+                     if k.startswith(item + "|")]
+            if asked:
+                k, v = asked[-1]
+                was = k.split("|", 1)[1]
+                if v.get("teach") is None:
+                    row += (f" — asked once, when the able ones were {was}, "
+                            f"and declined: {str(v.get('why') or '')[:100]}")
+            rows.append(row)
+        if not rows:
+            return ""
+        return ("TMs IN PC STORAGE a party member could learn (the machine's "
+                "own screen marks ABLE; {\"op\":\"retrieve_item\",\"item\":X} "
+                "brings one back at any Pokemon Center, and once it is in the "
+                "bag you are asked who learns it): " + "; ".join(rows) + ".\n")
+
     def _able_note(self, item: str, obs) -> str:
         """Who in the party a machine's own screen marks ABLE. The ITEM
         screen shows it for every member at once the moment a TM or HM is
@@ -15356,6 +15404,7 @@ class Executor:
         if not _boxed and "pc_mons" in (obs or {}):
             _rs_line = ("IN PC STORAGE: no Pokemon — you have deposited none, and a "
                         "Center's PC holds only what you put in it.\n") + _rs_line
+        _rs_line = self._stored_machines_line(obs) + _rs_line
         if _boxed:
             _rs_line = (
                 "IN PC STORAGE (yours, not in the party — a boxed Pokemon "
