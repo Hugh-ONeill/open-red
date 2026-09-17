@@ -16,6 +16,11 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
                              has been SEEN to do (this species, our level)
                              >= foe hp*margin — empirical, no formulas
   avoid_status_moves: bool   never pick 0-power moves by score
+  self_ko: "last"|"free"     a move the run has SEEN faint its own user
+                             (SELFDESTRUCT, EXPLOSION) ranks behind every
+                             other move that can hit, chosen only when
+                             nothing else can (default "last"); "free"
+                             scores it like any other
   setup: [ { move: str       deliberate status-move use, e.g. TAIL_WHIP
              max_uses: int      per battle (default 1)
              first_turns: int   only in the battle's first N turns (def. 2)
@@ -181,6 +186,7 @@ DEFAULT_SPEC = {
     "prefer_ko": True,
     "ko_margin": 1.0,
     "avoid_status_moves": True,
+    "self_ko": "last",
     "setup": [],
     "switch": [],
     "flee_wild": {"when_traversal": True, "hp_below": None},
@@ -388,6 +394,8 @@ def validate_spec(spec) -> list:
     for k in ("accuracy_weight", "prefer_ko", "avoid_status_moves"):
         if k in spec and not isinstance(spec[k], bool):
             probs.append(f"{k} must be true/false")
+    if "self_ko" in spec and spec["self_ko"] not in ("last", "free"):
+        probs.append('self_ko must be "last" or "free"')
     if "switch" in spec:
         if not isinstance(spec["switch"], list):
             probs.append("switch must be a list")
@@ -1305,6 +1313,16 @@ def choose(obs: dict, spec: dict | None = None,
     pool = damaging or scored     # only status moves left -> use them
     if spec.get("avoid_status_moves", True) and damaging:
         pool = damaging
+    # A MOVE THAT HAS FAINTED ITS USER GOES LAST. The run's own record
+    # (executor SELF_KO: "X used SELFDESTRUCT!" then "X fainted!") ranks
+    # it behind every other move that can hit, whatever its power; it is
+    # chosen only when nothing else can. self_ko: "free" leaves the
+    # scoring alone (user, 2026-09-17: "keep the default last").
+    _sk = (ctx or {}).get("self_ko") or {}
+    if _sk and str(spec.get("self_ko", "last")) != "free":
+        _keep = [s for s in pool if str(s.get("id")) not in _sk]
+        if _keep:
+            pool = _keep
     if spec.get("prefer_ko", True):
         kos = [s for s in pool if s["kos"]]
         if kos:

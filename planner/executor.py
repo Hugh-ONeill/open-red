@@ -1311,6 +1311,52 @@ def set_active_spec(spec):
 # path (pamphlet standard).
 DAMAGE_JOURNAL: dict = {}
 
+# A MOVE THAT FAINTED THE MON THAT USED IT, counted per move and kept
+# across attempts (run/self_ko.json). The scorer ranks by power, and
+# SELFDESTRUCT's 130 tops EARTHQUAKE's 100 whenever the effectiveness
+# ties, so GRAVELER blew itself up on Zubats at full health, 28 times this
+# run, 130 across the archive (user, 2026-09-17: "how much does graveler
+# choose selfdestruct?"). The screen says it every time: "X used
+# SELFDESTRUCT!" and then "X fainted!" with no enemy move between. That is
+# the fact recorded; what the policy does with it is its knob (self_ko).
+SELF_KO_PATH = RUN / "self_ko.json"
+SELF_KO: dict = {}
+try:
+    SELF_KO.update({str(k): int(v) for k, v in
+                    json.loads(SELF_KO_PATH.read_text() or "{}").items()})
+except (OSError, ValueError, AttributeError):
+    pass
+
+
+def _journal_self_ko(before_b: dict, after_obs: dict, move_id: str) -> bool:
+    """Did OUR move just faint the mon that used it? Read off the turn's
+    own text: our "used <MOVE>" line, then an un-prefixed "fainted!" with
+    no "Enemy ... used" between them (the foe's lines carry "Enemy")."""
+    me = (before_b or {}).get("me") or {}
+    if not move_id or (me.get("hp") or 0) <= 0:
+        return False
+    txt = str((after_obs or {}).get("recent_text") or "")
+    words = str(move_id).replace("_", " ").upper()
+    up = txt.upper()
+    boxes = [b.strip() for b in up.split(" / ")]
+    at = None
+    for i, b in enumerate(boxes):
+        if ("USED " + words) in b and not b.startswith("ENEMY "):
+            at = i
+    if at is None:
+        return False
+    for b in boxes[at + 1:]:
+        if b.startswith("ENEMY ") and " USED " in b:
+            return False
+        if "FAINTED" in b and not b.startswith("ENEMY "):
+            SELF_KO[str(move_id)] = SELF_KO.get(str(move_id), 0) + 1
+            try:
+                SELF_KO_PATH.write_text(json.dumps(SELF_KO, indent=0))
+            except OSError:
+                pass
+            return True
+    return False
+
 
 def _journal_damage(before_b: dict, after_obs: dict, move_id: str):
     me = before_b.get("me") or {}
@@ -1345,7 +1391,7 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
     picks = 0
     op_fails = 0
     ctx = {"turn": 0, "used": {}, "intent": intent,
-           "journal": DAMAGE_JOURNAL, "want": want,
+           "journal": DAMAGE_JOURNAL, "self_ko": SELF_KO, "want": want,
            # how many balls this battle may spend, when the throw is toward
            # a LATER objective (Executor._catch_ahead); None = the spec's
            "ball_cap": ball_cap,
@@ -1488,6 +1534,9 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
         op_fails = 0
         if move_id:
             _journal_damage(before_b, obs, move_id)
+            if _journal_self_ko(before_b, obs, move_id):
+                log("self_ko", turn=turns, move=move_id,
+                    times=SELF_KO.get(str(move_id)))
     log("battle_done", turns=turns, mode=obs.get("mode") if obs else None)
     return obs
 

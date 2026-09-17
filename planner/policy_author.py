@@ -79,6 +79,10 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
   prefer_ko: true/false — pick a move estimated to KO over raw score
   ko_margin: number >= 1.0 — only trust a KO if est. damage >= foe hp*this
   avoid_status_moves: true/false — never pick 0-power moves by score
+  self_ko: "last"|"free" — a move the run has seen faint its own user
+     (SELFDESTRUCT, EXPLOSION) ranks behind every other move that can
+     hit and is chosen only when nothing else can; "free" scores it by
+     power like any other (default "last")
   setup: list of deliberate status-move rules, each:
       {"move": "TAIL_WHIP", "max_uses": 1-6, "first_turns": 1-8,
        "min_hp_frac": 0.0-1.0, "vs": "trainer"|"wild"|"any",
