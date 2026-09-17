@@ -204,7 +204,15 @@ def map_family(m) -> str:
     # SS_ANNE_B1F_ROOMS and SS_ANNE_2F_ROOMS, and keyed on a TRAILING token
     # each was its own family, so going below decks read as leaving the
     # ship and the backtrack marched the party back to 1F (2026-09-14).
-    mm = _re.match(r"^(.+?)_B?\d+F(?:_[A-Z0-9_]+)?$", str(m or ""))
+    # ...AND A LIFT CAR OR A ROOF IS A FLOOR OF ITS BUILDING TOO. The buy
+    # step failed while the party stood in CELADON_MART_ELEVATOR, whose
+    # name carries no floor token, so the car read as another building and
+    # the backtrack walked the party down to 1F to "enter the store" again
+    # (run 27, 2026-09-17; user: "got pulled down to 1f by the redo of
+    # 'enter the celadon department store' goal"). CELADON_MART_ROOF would
+    # have done the same.
+    mm = _re.match(r"^(.+?)_(?:B?\d+F|ROOF|ELEVATOR)(?:_[A-Z0-9_]+)?$",
+                   str(m or ""))
     return mm.group(1) if mm else str(m or "")
 
 
