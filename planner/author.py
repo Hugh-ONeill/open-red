@@ -1228,6 +1228,154 @@ def freeze_new_parts(plan: dict) -> None:
             _freeze(s.get("done_when"))
 
 
+OUTLINE_INSERTS = Path("run/outline_inserts")
+_AUTHORING_GOAL: str | None = None   # main's --goal, for validate()
+
+
+def _named_map(text: str) -> str | None:
+    """The map an objective names, read the way _never_stood_in reads it:
+    every word of the map's name is in the sentence ("Reach Celadon City"
+    names CELADON_CITY). The longest such name wins."""
+    words = set(re.sub(r"[^A-Z0-9]+", " ", str(text or "").upper()).split())
+    best = None
+    for m in ROUTE_MAPS:
+        parts = m.split("_")
+        if len(parts) < 2 or not all(w in words for w in parts):
+            continue
+        if best is None or len(parts) > len(best.split("_")):
+            best = m
+    return best
+
+
+def leg_condition(text: str) -> dict:
+    """What an objective's own words say it ends on: a map, a badge, an
+    item — the same readings the done rungs refuse a verdict against."""
+    cond = {}
+    m = _named_map(text)
+    if m:
+        cond["map"] = m
+    g = re.sub(r"[^A-Z]+", "", str(text or "").upper())
+    for b in BADGES:
+        if b in g:
+            cond["badge"] = b
+            break
+    if not re.search(GIVE_VERBS, str(text or ""), re.I):
+        for it in sorted(ENGINE_ITEMS, key=len, reverse=True):
+            sq = re.sub(r"[^A-Z]+", "", it.upper())
+            if len(sq) < 6 or sq.startswith(("TM", "HM")):
+                continue
+            if sq in g:
+                cond["item"] = it
+                break
+    return cond
+
+
+def displaced_by(goal: str) -> str | None:
+    """The objective this leg was put in FRONT of by the missing rung, from
+    the chain's own record (run/outline_inserts: LEG=<displaced>|<inserted>),
+    under this wording or any earlier one."""
+    try:
+        rows = OUTLINE_INSERTS.read_text().splitlines()
+    except OSError:
+        return None
+    names = {_norm_obj(goal)} | {_norm_obj(a) for a, _b in _reword_chain(goal)}
+    for line in rows:
+        if not line.startswith("LEG=") or "|" not in line:
+            continue
+        leg, ins = line[4:].split("|", 1)
+        if _norm_obj(ins) in names:
+            return leg.strip()
+    return None
+
+
+def _step_is_the_leg(dw: dict, cond: dict) -> str | None:
+    """Which fact of the displaced objective this step's condition makes
+    true, in words, or None."""
+    if not isinstance(dw, dict):
+        return None
+    m = dw.get("map")
+    town = cond.get("map")
+    if town and isinstance(m, str):
+        if m == town:
+            return f"standing on {town}"
+        stem = (town.rsplit("_", 1)[0]
+                if town.endswith(("_CITY", "_TOWN", "_ISLAND")) else town)
+        if m.startswith(stem + "_"):
+            return f"standing on {m}, which the game names after {town}"
+    b = dw.get("badge")
+    if cond.get("badge") and isinstance(b, str) and b.upper() == cond["badge"]:
+        return f"wearing the {b}"
+    hi = dw.get("has_item")
+    if cond.get("item") and isinstance(hi, dict):
+        want = re.sub(r"[^A-Z]+", "", cond["item"].upper())
+        for k, n in hi.items():
+            if re.sub(r"[^A-Z]+", "", str(k).upper()) == want and (n or 0) > 0:
+                return f"holding {cond['item']}"
+    for br in (dw.get("any_of") or []) if isinstance(dw.get("any_of"), list) else []:
+        hit = _step_is_the_leg(br, cond)
+        if hit:
+            return hit
+    return None
+
+
+def inserted_leg_problems(plan: dict, goal: str | None = None) -> list:
+    """A LEG PUT IN FRONT OF ANOTHER IS NOT THAT OTHER LEG WITH A NEW NAME.
+
+    The missing rung inserted "Obtain the FRESH WATER" in front of "Reach
+    Celadon City", and the author's first step for it was
+    go_to_celadon_city: {"map": "CELADON_CITY"} — the whole of the leg it
+    was inserted ahead of, which had just failed three attempts (run 27,
+    2026-09-16; user: "we shouldnt be just casually letting the author set
+    the first goal in the new leg to be the entire previously failed
+    leg"). The inserted leg exists because that objective could not be
+    done as things stood; a plan that needs it first is circular, and the
+    chain's own record (outline_inserts) says which leg that is. Refused
+    step by step, with the fact named; what the leg should do instead,
+    or whether it can be done at all before the other, is the author's.
+    """
+    goal = goal or plan.get("goal") or _AUTHORING_GOAL
+    if not goal:
+        return []
+    displaced = displaced_by(goal)
+    if not displaced:
+        return []
+    cond = leg_condition(displaced)
+    if not cond:
+        return []
+    out = []
+    for i, s in enumerate(plan.get("subgoals") or []):
+        if not isinstance(s, dict):
+            continue
+        hit = _step_is_the_leg(s.get("done_when") or {}, cond)
+        if not hit:
+            continue
+        out.append(
+            f"subgoal[{i}] ({s.get('id')}) ends on {json.dumps(s.get('done_when'))} "
+            f"— that is {hit}, which is what '{displaced}' ends on: the "
+            f"objective THIS LEG WAS PUT IN FRONT OF because it could not be "
+            f"done as things stood. A step that needs that objective first "
+            f"makes this leg that objective under another name. This leg is "
+            f"for what has to happen BEFORE '{displaced}'; write only that. "
+            f"If nothing can be done for this leg before '{displaced}', there "
+            f"is no plan to write — say so rather than reach it by another "
+            f"route.")
+    return out
+
+
+def inserted_leg_note(goal: str) -> str:
+    """For the author's page: which objective this leg was put in front
+    of, so the rule above is known before a draft is refused by it."""
+    displaced = displaced_by(goal) if goal else None
+    if not displaced:
+        return ""
+    return (f"\n\nTHIS LEG WAS PUT IN FRONT OF '{displaced}' by your own "
+            f"answer that something had to happen before it. It is for that "
+            f"something. A plan that reaches '{displaced}' on the way is that "
+            f"objective under another name and will be refused step by step; "
+            f"if nothing can be done for this leg before it, there is no "
+            f"plan to write.")
+
+
 def validate(plan: dict) -> list:
     """Return a list of problems (empty = ok).
 
@@ -1855,8 +2003,8 @@ def validate(plan: dict) -> list:
                                and "Did you mean" not in p)
                               or "has ALREADY stood in" in p) else p
                  for p in probs]
+    probs += inserted_leg_problems(plan)
     return probs
-
 
 def _series_hint(mem: list, fired=()) -> str:
     """The 'did you mean' clause for a flag guessed as a placeholder in a
@@ -2567,7 +2715,7 @@ def author(goal: str, model: str, rounds: int = 5,
                   if isinstance(_last, dict) else
                   ("\n\n(Your last reply could not be read as a plan.)"
                    if fb else ""))
-        user = build_prompt(goal, start) + _shown + (
+        user = build_prompt(goal, start) + _shown + inserted_leg_note(goal) + (
             f"\n\nFIX THESE PROBLEMS in that attempt — where a "
             f"problem offers a 'did you mean' suggestion, use that exact "
             f"id verbatim; where it tells you a name cannot be looked up, "
@@ -9645,6 +9793,8 @@ def main():
                     help="let the author deliberate on this pass (costs "
                          "~7.5x; for a leg whose earlier plans failed)")
     args = ap.parse_args()
+    global _AUTHORING_GOAL
+    _AUTHORING_GOAL = args.goal
     if not args.goal and not (args.validate or args.outline_repass):
         ap.error("--goal is required")
     if args.outline_repass:
@@ -9664,6 +9814,7 @@ def main():
         except Exception as _e:
             print(f"cannot read {args.validate}: {_e}")
             sys.exit(3)
+        _AUTHORING_GOAL = _pl.get("goal") or args.goal
         _pr = validate(_pl)
         for _p in _pr:
             print(f"- {_p}")
