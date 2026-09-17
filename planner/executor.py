@@ -23162,6 +23162,28 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         break
                     want = (c.get("done_when") or {}).get("map")
                     if want:
+                        # ...AND ONLY WHEN THE PART YOU STAND ON IS FINISHED.
+                        # "You reached the wrong part" is a claim, and a part
+                        # with ground never on screen is one nobody has
+                        # finished looking at. Route 12 after the flute: the
+                        # strip by the Route 11 gate had four unseen-ground
+                        # spots, two of them south toward Route 13, and the
+                        # relocate sent the run to the north part instead,
+                        # back and forth through the gate for three rounds
+                        # (run 27, 2026-09-17; user: "now its pingponging
+                        # instead of exploring south"). The count is the
+                        # shim's own frontier for where the party stands.
+                        _fn = int((((at or {}).get("map") or {}).get("seen")
+                                   or {}).get("frontier_n") or 0)
+                        if _fn > 0:
+                            self.log("backtrack_skipped", failed=sg["id"],
+                                     candidate=c["id"],
+                                     reason=f"the part you stand on still has "
+                                            f"{_fn} spot(s) of ground never on "
+                                            f"screen; it is not the wrong part "
+                                            f"until it has been looked at")
+                            cand = None
+                            break
                         done = self._worked_for(self._target_key(sg))
                         here_now = self._where(at)
                         elw = [r for r in

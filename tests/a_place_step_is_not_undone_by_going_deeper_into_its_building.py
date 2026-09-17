@@ -36,7 +36,7 @@ ck("None is safe", E.map_family(None) == "")
 
 src = (ROOT / "planner" / "executor.py").read_text()
 i = src.index("for back in range(idx - 1, max(-1, idx - 5), -1):")
-loop = src[i:i + 2600]
+loop = src[i:i + 5200]
 ck("the backtrack scan leaves a pure place step alone when the party is in its building",
    "map_family(_want_pl) == map_family(_here_map)" in loop and "continue" in loop.split("map_family(_want_pl)", 1)[1][:400])
 ck("...only for a PURE place step (map, area, not_area), never one with a deed in it",
