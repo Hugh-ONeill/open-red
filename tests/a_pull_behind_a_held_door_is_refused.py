@@ -52,7 +52,8 @@ with tempfile.TemporaryDirectory() as d:
 src = (ROOT / "planner" / "author.py").read_text()
 ck("the blocker rung asks it after the circular-pull guard",
    "_held = pull_into_held(text, observed) if observed else None" in src
-   and "A leg behind a held \"\n              f\"door is not what moves them: name what does, or another \"\n              f\"blocker\"" in src)
+   and "A leg behind a held door is not \"" in src
+   and "what moves them: name what does, or another blocker\")" in src)
 bad = [c for c in checks if not c[1]]
 for n, ok, dd in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok else f"\n      {str(dd)[:300]}"))
