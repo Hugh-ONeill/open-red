@@ -50,6 +50,6 @@ ck("...and nothing for a floor that said nothing", e._shut_asked_for_held("SILPH
 ck("...and nothing with an empty bag", e._shut_asked_for_held("SILPH_CO_3F|20,0", {"bag": {}}) == "")
 ck("a zero count is not holding it", e._shut_asked_for_held("SILPH_CO_3F|20,0", {"bag": {"CARD_KEY": 0}}) == "")
 ck("both remote lines carry it, routed and unrouted",
-   ex.count("+ self._shut_asked_for_held(region, obs)))") == 2)
+   ex.count("+ self._shut_asked_for_held(region, obs)\n") == 2)
 ck("the reason is written where the next reader will look", "A shut way THERE once asked for a thing the bag holds NOW." in ex)
 sys.exit(1 if fails else 0)

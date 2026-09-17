@@ -7591,6 +7591,46 @@ class Executor:
                 + ", which your bag holds NOW: that press is a different "
                   "press than the one the record remembers")
 
+    _LOCK_ASK = _re.compile(r"NEEDS AN? ([A-Z][A-Z ]{2,30}?)!")
+
+    def _lock_asked_unheld(self, region_or_map, obs) -> str:
+        """A shut way on that FLOOR asked for a thing the bag does NOT hold.
+
+        The reverse of _shut_asked_for_held, and the half that was missing:
+        from any other floor, Silph's shuttered floors read as "ground you
+        have stood on that still holds something no walk reached" and
+        "ways you have never taken", with the shutter's own words ("Darn!
+        It needs a CARD KEY!") filed under WHAT YOU WERE TOLD, three lines
+        away and unconnected. The run toured 3F, 4F and 10F for their
+        seen-but-unreachable balls, over and over, with no CARD KEY (run 27,
+        2026-09-17; user: "it seems to recognize when there are
+        untried/unpressed/unseen things on the different floors but not
+        remember that they are behind locked doors"). Both halves are the
+        run's own record: what a door there said, and what the bag holds.
+        Nothing here says which thing lies behind which door, or where the
+        key is."""
+        bag = (obs or {}).get("bag")
+        if not isinstance(bag, dict):
+            return ""
+        mid = str(region_or_map or "").split("|")[0]
+        if not mid:
+            return ""
+        for reg, lines in (self.hints or {}).items():
+            if str(reg).split("|")[0] != mid:
+                continue
+            for line in lines or []:
+                _up = str(line).upper().replace("É", "E")
+                m = self._LOCK_ASK.search(_up)
+                if not m:
+                    continue
+                item = "_".join(m.group(1).split())
+                if int(bag.get(item) or 0) > 0:
+                    continue          # held now: _shut_asked_for_held's case
+                quote = str(line).split(": ", 1)[-1].strip()
+                return (f" — a shut way on that floor said: \"{quote[:80]}\", "
+                        f"and your bag holds no {item}")
+        return ""
+
     def _unopened_doors(self, obs) -> list:
         """Doors never walked through that a PERSON is standing on.
 
@@ -14068,7 +14108,8 @@ class Executor:
                 if _far:
                     parts.append(f"{len(_far)} on parts you have never stood "
                                  f"on ({self._keys_with_looks(_m, _far[:4])})")
-                return f"{_m} has {_t} doorway(s): " + "; ".join(parts)
+                return (f"{_m} has {_t} doorway(s): " + "; ".join(parts)
+                        + self._lock_asked_unheld(_m, obs))
             # ...AND THE CUT WAS THE LIE HERE TOO. Three rows, sorted by
             # distance, and no word that there were more: from Vermilion
             # every house on the map outranks ROCK_TUNNEL_1F, whose untaken
@@ -14682,13 +14723,15 @@ class Executor:
                     (rank,
                      f"{region} ({', '.join(sorted(left))} — {len(path)} "
                      f"leg(s) away, first: {leg} to {fd})"
-                     + self._shut_asked_for_held(region, obs)))
+                     + self._shut_asked_for_held(region, obs)
+                     + self._lock_asked_unheld(region, obs)))
             else:
                 elsewhere.append(
                     (rank,
                      f"{region} ({', '.join(sorted(left))} — no walked "
                      f"route from here)"
-                     + self._shut_asked_for_held(region, obs)))
+                     + self._shut_asked_for_held(region, obs)
+                     + self._lock_asked_unheld(region, obs)))
         # FIELD ITEMS within reach. Computed BEFORE the early return: a
         # dead-end room with no listed exits is exactly where a blocking
         # item sits. pure30 beat the Mt Moon nerd beside two reachable
@@ -14965,7 +15008,8 @@ class Executor:
             if _p is None:
                 continue
             _far_rooms.append((len(_p), f"{_r} ({', '.join(sorted(_left)[:3])}"
-                                        f" — {len(_p)} leg(s) away)"))
+                                        f" — {len(_p)} leg(s) away)"
+                                        + self._lock_asked_unheld(_r, obs)))
         if _far_rooms:
             _far_rooms.sort(key=lambda p: p[0])
             remote_line += ("\nGROUND YOU HAVE STOOD ON THAT STILL HOLDS "
