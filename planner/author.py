@@ -7335,6 +7335,40 @@ _INFERRED = re.compile(
     re.I)
 
 
+def _record_fact_named(why, obs_path="run/obs.json") -> str:
+    """A fact of the run's own record that this reason names: an event
+    that fired, an item in the bag, a badge worn — or "".
+
+    The hedge-word refusal below exists for a reason that points at
+    nothing ("the event record indicates they have left Bill's house,
+    IMPLYING the thief sequence is complete"). It was also refusing "the
+    player possesses the Silph Scope and Poke Flute, indicating they have
+    reached the end of the tower", twice, with EVENT_BEAT_GHOST_MAROWAK
+    and EVENT_RESCUED_MR_FUJI fired and the flute in the bag — and "Clear
+    the Pokemon Tower" was pushed down the list as unconfirmed (run 27,
+    2026-09-17; user: "i thought it completed it because it got the poke
+    flute"). A reason that names a thing the record confirms is pointing
+    at something; what it concludes from it is the model's judgment, which
+    is the one thing these rungs leave to it."""
+    try:
+        cur = json.loads(Path(obs_path).read_text() or "{}")
+    except (OSError, ValueError):
+        return ""
+    up = str(why or "").upper().replace("\u00c9", "E")
+    sq = re.sub(r"[^A-Z]+", "", up)
+    for fl in sorted(cur.get("flags") or [], key=len, reverse=True):
+        if str(fl).upper() in up:
+            return f"{fl} fired"
+    for b in BADGES:
+        if b in sq and b in {str(x).upper() for x in (cur.get("badges") or [])}:
+            return f"{b} worn"
+    for it in sorted(cur.get("bag") or {}, key=len, reverse=True):
+        isq = re.sub(r"[^A-Z]+", "", str(it).upper())
+        if len(isq) >= 6 and not isq.startswith(("TM", "HM")) and isq in sq:
+            return f"{it} in the bag"
+    return ""
+
+
 def _inferred(why) -> bool:
     """A DONE VERDICT THAT REASONS FROM ONE FACT TO ANOTHER IS NOT A
     VERDICT. check-done crossed "Chase the Team Rocket thief out of the
@@ -7426,10 +7460,14 @@ def check_already_done(deed: str, start: str, model: str,
     except (ValueError, KeyError, OSError, AttributeError):
         return False
     if ans.get("done") and _inferred(ans.get("why")):
-        print(f"[already-done] refused: the reason reasons from one fact to "
-              f"another instead of pointing at the deed — "
-              f"{str(ans.get('why') or '')[:160]}", file=sys.stderr)
-        return False
+        _fact = _record_fact_named(ans.get("why"))
+        if not _fact:
+            print(f"[already-done] refused: the reason reasons from one fact to "
+                  f"another instead of pointing at the deed — "
+                  f"{str(ans.get('why') or '')[:160]}", file=sys.stderr)
+            return False
+        print(f"[already-done] hedged, but names {_fact}, which the record "
+              f"confirms: {str(ans.get('why') or '')[:160]}", file=sys.stderr)
     if ans.get("done"):
         print(f"[already-done] {str(ans.get('why') or '')[:160]}",
               file=sys.stderr)
@@ -9759,9 +9797,14 @@ def check_done(goal: str, start: str, model: str,
         return False
     _why = str(_ans.get("why") or "")[:240]
     if _ans.get("done") and _inferred(_why):
-        print(f"[check-done] refused: the reason reasons from one fact to "
-              f"another instead of pointing at the deed — {_why}")
-        return False
+        _fact = _record_fact_named(_why)
+        if not _fact:
+            print(f"[check-done] refused: the reason reasons from one fact to "
+                  f"another instead of pointing at the deed — {_why}")
+            return False
+        print(f"[check-done] done — the reason is hedged but names {_fact}, "
+              f"which the record confirms: {_why}")
+        return True
     print(f"[check-done] {'done' if _ans.get('done') else 'not done'}: {_why}")
     return bool(_ans.get("done"))
 
