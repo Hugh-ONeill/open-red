@@ -3081,6 +3081,15 @@ class Executor:
             return {"op": "walk_to", "x": _x, "y": _y}
         return {"op": "use_warp", "x": _x, "y": _y}
 
+    @staticmethod
+    def _cross_step_for(key: str) -> dict:
+        """A seam key as the cross op that takes it: "west" is the plain
+        cross, "west#skip2" the edge's third reachable cell."""
+        _mk = _re.match(r"^([a-z]+)#skip(\d+)$", str(key))
+        if _mk:
+            return {"op": "cross", "dir": _mk.group(1), "skip": int(_mk.group(2))}
+        return {"op": "cross", "dir": str(key).split("#", 1)[0]}
+
     def _explore_step(self, sg, obs, ignore_done=False):
         """One deterministic frontier expansion, because the model asked.
 
@@ -3380,7 +3389,7 @@ class Executor:
         def _exit_op(c):
             self.log("explore_step", subgoal=sg.get("id"), step="exit",
                      what=c.key, left=len(exits))
-            step = ({"op": "cross", "dir": c.key} if c.kind == "seam"
+            step = (self._cross_step_for(c.key) if c.kind == "seam"
                     else self._take_exit(c))
             return _run(step, f"{len(exits)} exit(s) here never taken; "
                               f"taking {c.label()}")
@@ -3829,7 +3838,7 @@ class Executor:
         exits2 = [c for c in cands2
                   if c.status == "untried" and c.kind in ("door", "seam")]
         def _there(c):
-            step = ({"op": "cross", "dir": c.key} if c.kind == "seam"
+            step = (self._cross_step_for(c.key) if c.kind == "seam"
                     else self._take_exit(c))
             ok, t2, cl = _run(step, f"taking {c.label()} there")
             return ok, tr + t2, cl
@@ -6172,6 +6181,18 @@ class Executor:
                 self.unreached_at.pop(here, None)
             self._save_memory()
         keys += list((m.get("connections") or {}).keys())
+        # THE OTHER CELLS OF A SEAM ARE WAYS OF THEIR OWN. The shim lists
+        # each seen edge's reachable cells in the order `skip` counts them;
+        # a plain cross uses the first, and the rest were invisible to the
+        # ledger — Route 13's west edge read as one way, taken 14x, while
+        # rows 8 and 10 had never been crossed (run 27, 2026-09-17). They
+        # join the frontier under the key a skip crossing already records
+        # (dir#skipN), so every reader of "ways never taken" sees them.
+        _sc = m.get("seam_cells") or {}
+        for _d, _cells in _sc.items():
+            if (isinstance(_cells, list) and len(_cells) > 1
+                    and _d in (m.get("connections") or {})):
+                keys += [f"{_d}#skip{i}" for i in range(1, min(len(_cells), 6))]
         # DOORS THAT EXIST BUT CANNOT BE WALKED TO stay out of the frontier
         # (you cannot take them now) and are recorded separately, because
         # the PLAN AUTHOR reads this ledger and had no way to learn they
@@ -8785,6 +8806,17 @@ class Executor:
             return None                  # never came in by a seam: nothing
         back, _from = ent                # to step back out of
         if back not in _OPP:
+            return None
+        # ...AND NOT INTO A POCKET. The part it would step back into is
+        # the one it last came from; when that is a pocket, every cell of
+        # its edge lands back here — Route 13 was last entered from the
+        # Route 14 nook, and this re-crossed the nook's east seam at three
+        # cells for six hops in half a second (run 27, 2026-09-17). The
+        # seam that opens another band is not the one behind you.
+        if self._is_pocket(_from, here):
+            self.log("recross_declined", where=here, back=back,
+                     reason="the part behind you is a pocket: every cell "
+                            "of its edge lands here")
             return None
         self._recrossed = getattr(self, "_recrossed", set()) | {key}
         self._recrossing = True

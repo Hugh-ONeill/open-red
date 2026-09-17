@@ -12,7 +12,7 @@ last one when the asked-for one is missing, and the crossing says which.
 import sys
 from pathlib import Path
 sh = (Path(__file__).resolve().parents[1] / "harness" / "shim.lua").read_text()
-b = sh[sh.index("local function bfs_to_edge(G, dir, skip, surf, blind)"):]
+b = sh[sh.index("bfs_to_edge = function(G, dir, skip, surf, blind, collect)"):]
 b = b[:b.index("\nlocal OPS = {}")]
 checks = [
     ("the finder remembers qualifying cells it skipped", "fb_x, fb_y = x, y" in b),

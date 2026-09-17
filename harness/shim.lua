@@ -482,6 +482,8 @@ end
 -- yes/no; carry the prompt into the observation so the choice has meaning.
 local warp_reach            -- assigned after DIRS/ledge_landing
 local pocket_of             -- assigned after warp_reach
+local bfs_to_edge           -- assigned with the cross op; the observation
+                            -- lists a seam's cells with it
 local region_reach          -- ditto; identity fill, no one-way hops
 local ui_back_out           -- ditto; needed by need_overworld above it
 
@@ -3022,6 +3024,29 @@ local function observe(G, seq, result)
         o.map.connections[d] = cn.map
       end
       o.map.connections_reach = _cr
+      -- THE CELLS OF EACH SEAM A WALK REACHES, in the order `skip` counts
+      -- them. A seam is a row and which cell you cross at decides what
+      -- you land on: Route 13's west edge is open at rows 6, 8 and 10, the
+      -- plain cross took row 6 every time and landed in the nook a Bird
+      -- Keeper plugs, and the page showed the edge as ONE way, taken
+      -- (run 27, 2026-09-17; user: "we've hit the infamous rt14
+      -- pocket"). Listed so the other cells can be ways of their own.
+      o.map.seam_cells = {}
+      local _dirword = { north = "up", south = "down",
+                         west = "left", east = "right" }
+      if bfs_to_edge then
+        for d in pairs(o.map.connections) do
+          if _cr[d] and _dirword[d] then
+            local cells = {}
+            local okb = pcall(bfs_to_edge, G, _dirword[d], 0, nil, nil, cells)
+            if okb and #cells > 0 then
+              local list = {}
+              for i, c in ipairs(cells) do list[i] = c.x .. "," .. c.y end
+              o.map.seam_cells[d] = list
+            end
+          end
+        end
+      end
     end
     -- Interactable objects the player can see: G.overworld.npcs is the LIVE
     -- list already filtered by objectVisible (taken items / beaten trainers /
@@ -5288,7 +5313,7 @@ local function doorway_labels(ws)
   return out
 end
 
-local function bfs_to_edge(G, dir, skip, surf, blind)
+bfs_to_edge = function(G, dir, skip, surf, blind, collect)
   local Collision = require("src.world.Collision")
   local ow = G.overworld
   local p = ow.player
@@ -5314,6 +5339,10 @@ local function bfs_to_edge(G, dir, skip, surf, blind)
   -- cross at the last one that was and say which.
   local fb_x, fb_y
   local function take(x, y)
+    -- EVERY CELL, IN THIS ORDER, when asked to collect: the observation
+    -- lists a seam's reachable cells so the page can offer each as a way
+    -- of its own, numbered the way `skip` counts them from here
+    if collect then collect[#collect + 1] = { x = x, y = y }; return nil end
     nfound = nfound + 1
     if nfound > skipn then return x, y end
     fb_x, fb_y = x, y
@@ -5502,6 +5531,7 @@ local function bfs_to_edge(G, dir, skip, surf, blind)
   -- with ledge rows and the BFS reported ZERO ledge hops, which is either
   -- "no ledge touches this nook" or "our ledge-tile match is wrong for this
   -- tileset" — and those need opposite fixes.
+  if collect then return collect end
   if nseen <= 24 and ow.map and ow.map.cellTile then
     local edge_tiles = {}
     for k in pairs(seen) do

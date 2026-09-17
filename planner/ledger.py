@@ -151,6 +151,7 @@ class Candidate:
     rank: tuple = field(default_factory=tuple)
     look: str = "door"           # door | stairs | pad | hole
     over_water: bool = False     # a doorstep across water, nobody knows SURF
+    cell: str = ""               # a seam row for ONE cell of the edge
     by_water: bool = False       # doors/things the swum reach touches and
                                  # the walk does not — water is not a wall
                                  # while the party carries SURF
@@ -171,6 +172,10 @@ class Candidate:
 
     def label(self) -> str:
         if self.kind == "seam":
+            if "#skip" in self.key:
+                return (f"walk {self.key.split('#', 1)[0]} at the edge's "
+                        f"cell ({self.cell})" if self.cell
+                        else f"walk {self.key}")
             return f"walk {self.key}"
         if self.kind == "door":
             _l = getattr(self, "look", "door") or "door"
@@ -1422,6 +1427,46 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
             c.note = _join(c.note, "no ground you can walk to from here "
                                    "touches that side of this map")
         out.append(c)
+
+    # ---- the other cells of each seam --------------------------------
+    # A SEAM IS A ROW, AND EACH CELL YOU CAN REACH IS A WAY OF ITS OWN.
+    # The shim lists them in the order `skip` counts them from where you
+    # stand; the plain row is the first, and these are the rest. Route
+    # 13's west edge: row 6 lands in the nook a Bird Keeper plugs, rows 8
+    # and 10 were never crossed, and the page showed one way, taken 14x
+    # (run 27, 2026-09-17). Where a cell lands is not said until crossed.
+    _sc = m.get("seam_cells") or {}
+    for d in (m.get("connections") or {}):
+        cells = [str(x) for x in (_sc.get(d) or [])]
+        if len(cells) < 2:
+            continue
+        for c0 in out:
+            if c0.kind == "seam" and c0.key == d:
+                c0.cell = cells[0]
+                c0.note = _join(c0.note,
+                                f"this edge has {len(cells)} cell(s) you can "
+                                f"reach; a plain cross uses the nearest, "
+                                f"({cells[0]}), and the others are listed "
+                                f"below as ways of their own")
+        for i, cell in enumerate(cells[1:6], 1):
+            key = f"{d}#skip{i}"
+            rec = taken.get(key) or {}
+            walked = ex._walked_dest(mid, key)
+            c = Candidate(key=key, kind="seam", dest=walked)
+            c.cell = cell
+            oc = outcomes.get(key) or {}
+            c.n = int(oc.get("n") or rec.get("n") or 0)
+            if oc.get("last"):
+                c.note = str(oc["last"])
+            if key in taken:
+                c.status = "taken"
+                c.dest = c.dest or rec.get("to")
+            else:
+                c.status = "untried"
+            c.note = _join(c.note,
+                           f"{{\"op\":\"cross\",\"dir\":\"{d}\",\"skip\":{i}}} "
+                           f"crosses at ({cell})")
+            out.append(c)
 
     # ---- things and people --------------------------------------------
     # ONE ENTRY PER NAME. Two bushes are both called CUT_TREE and interact
