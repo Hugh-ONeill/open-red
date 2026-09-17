@@ -17225,6 +17225,32 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             seen.append(xy)
             self._save_memory()
 
+    def _buy_from_lobby_refusal(self, obs, step) -> str | None:
+        """A buy from a floor with no counter, when the counter it would
+        climb to is on record without the item, is refused where it stands.
+
+        Celadon's 1F is a lobby: a buy there climbs to the 2F counter
+        (SHOP_COUNTER_FLOOR, shim SHOP_VIA). With that counter's shelf on
+        record and FRESH_WATER not on it, the run went up to be refused
+        and came back down to try "the service counter on the 1st floor"
+        again, nine rounds (run 27, 2026-09-17). The record is the run's
+        own reading; a counter named by the step is still walked to."""
+        if step.get("clerk"):
+            return None
+        lobby = ((obs or {}).get("map") or {}).get("id")
+        up = self.SHOP_COUNTER_FLOOR.get(str(lobby or ""))
+        rows = (getattr(self, "_shelves", {}) or {}).get(up) if up else None
+        item = str(step.get("item") or "").upper()
+        if not rows or not item or item in {str(x).upper() for x in rows}:
+            return None
+        return (f"buy({item}): REFUSED — no counter on {lobby} trades; a buy "
+                f"from here climbs to {up}, whose counter you have read: it "
+                f"sells " + ", ".join(str(x) for x in rows[:12])
+                + f". {item} is not on it, so there is nothing to climb for. "
+                f"A different counter is read by naming it from its own "
+                f"floor: {{\"op\":\"buy\",\"item\":X,\"count\":N,"
+                f"\"clerk\":\"<its name>\"}}.")
+
     def _run_traced(self, sg, macro, ignore_done=False):
         """Run a proposed macro step-by-step, returning (done, trace, clean).
         `trace` is plain-English per-op outcomes for feedback (incl. 'ran but
@@ -17809,6 +17835,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         f": REFUSED — OFF-LEDGER: there is no such "
                         f"{'thing' if op == 'interact' else 'door or direction'}"
                         f" here. What is here: {', '.join(_keys[:16]) or 'nothing'}.")
+                    continue
+            if op == "buy":
+                _lr = self._buy_from_lobby_refusal(obs, step)
+                if _lr:
+                    trace.append(_lr)
                     continue
             if op == "buy" and step.get("item") in self._cant_afford:
                 # The 3-strikes guard keys on the op AND its params, so

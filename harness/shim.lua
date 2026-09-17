@@ -7584,6 +7584,15 @@ function OPS.buy(G, c)
   if not (c.item and c.count) then return false, "buy needs item, count" end
   -- function-scope: the refusal below names the counter it actually read
   local clerk, all_clerks
+  -- ...AND THE FLOOR IT LEFT TO READ IT. A buy from Celadon's 1F lobby
+  -- climbs to the 2F counter (SHOP_VIA), and the refusal named that
+  -- counter's shelf as if the run had asked for it: "I will now check the
+  -- service counter on the 1st floor" -> up to 2F, refused, back down,
+  -- nine rounds (run 27, 2026-09-17; user: "its looping itself a bit
+  -- because its trying to buy from the service counter which brings it up
+  -- to 2F automatically"). Say where the buy started and that nothing
+  -- there trades.
+  local climbed_from
   -- TARGET semantics: own c.count total, not "c.count more". Escalation
   -- rounds carry state forward and re-propose their macros — with buy-more
   -- semantics every retry SPENT REAL MONEY (brock31 walked into Pewter
@@ -7638,12 +7647,16 @@ function OPS.buy(G, c)
             or " — there is no counter on this floor"))
     end
     local went_in, shop_why, shop_door_why = false, nil, nil
+    local from_mid = ow.map and ow.map.id
     if not clerk then
       -- one try at the door, then look again
       went_in, shop_why, shop_door_why = enter_shop(G)
       if went_in then
         ow = G.overworld
         clerk, all_clerks = pick_clerk(ow, wanted_clerk(ow, c))
+        if from_mid and ow.map and ow.map.id ~= from_mid then
+          climbed_from = from_mid
+        end
       end
     end
     if not clerk then
@@ -7704,7 +7717,12 @@ function OPS.buy(G, c)
     -- name the actual stock so the caller can adapt instead of retrying
     -- blind (Viridian famously sells no POTION at all)
     local _others = other_counters(all_clerks, clerk)
-    return false, c.item .. " is not on "
+    local _here = (G.overworld and G.overworld.map and G.overworld.map.id) or "?"
+    return false, (climbed_from
+        and ("no counter on " .. climbed_from .. " trades (nothing there "
+             .. "opens a shop), so this buy went to " .. _here .. " — ")
+        or "")
+      .. c.item .. " is not on "
       .. (((clerk and clerk.def or {}).name) or "this counter")
       .. "'s shelf, which holds: " .. table.concat(sold, ", ")
       .. (#_others > 0
