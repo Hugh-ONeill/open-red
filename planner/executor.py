@@ -7593,6 +7593,45 @@ class Executor:
 
     _LOCK_ASK = _re.compile(r"NEEDS AN? ([A-Z][A-Z ]{2,30}?)!")
 
+    def _pads_unridden_in_building(self, mids) -> str:
+        """The warp pads seen in these floors' building and never ridden.
+
+        A thing seen and not reached is "a way in you have not found yet",
+        and the run kept going back to the part it saw it from to find one
+        (run 27, 2026-09-17; user: "its not just the locked doors but also
+        areas walled off and only accessable via warp"). On a floor cut into
+        parts by walls, the ways onto a walled part that no walk covers are
+        the doorways the run has seen and not taken — and in Silph those are
+        pads, which set you down on a part of some floor. The page already
+        lists each floor's untaken doorways one floor at a time; this is the
+        same record read for the whole building, pads only, said once.
+        Where any pad goes is not said: it is not known until ridden."""
+        fams = {map_family(str(m).split("|")[0]) for m in mids if m}
+        rows, n = [], 0
+        looks = getattr(self, "warp_looks", {}) or {}
+        for m2 in sorted(self.map_doors or {}):
+            if map_family(m2) not in fams:
+                continue
+            walked = set()
+            for r2, ex2 in (self.explored or {}).items():
+                if r2.split("|")[0] != m2:
+                    continue
+                walked |= {k for k, e in ex2.items()
+                           if not (e or {}).get("shut")
+                           and (e or {}).get("to") != r2}
+            left = sorted(k for k in self.map_doors.get(m2, ())
+                          if k not in walked
+                          and (looks.get(m2) or {}).get(str(k)) == "pad")
+            if left:
+                n += len(left)
+                rows.append(f"{m2} " + ", ".join(f"({k})" for k in left))
+        if not rows:
+            return ""
+        return (f" Standing again where you saw them shows the same. In this "
+                f"building {n} warp pad(s) you have seen have never been "
+                f"ridden: " + "; ".join(rows) + ". Where a pad sets you down "
+                f"is not known until it is ridden.")
+
     def _lock_asked_unheld(self, region_or_map, obs) -> str:
         """A shut way on that FLOOR asked for a thing the bag does NOT hold.
 
@@ -15017,7 +15056,9 @@ class Executor:
                             + "; ".join(t for _, t in _far_rooms[:3])
                             + ". You saw these and could not walk to them "
                             "from where you stood — that is a way in you "
-                            "have not found yet, not a thing that is done.")
+                            "have not found yet, not a thing that is done."
+                            + self._pads_unridden_in_building(
+                                [t.split(" (")[0] for _, t in _far_rooms[:3]]))
         # ...AND ROOMS WHOSE PEOPLE ARE WORTH ANOTHER WORD. The re-offer
         # line only ever fired for the room being stood in, which is the
         # half that cannot reach the case it was built for: Daisy is in
