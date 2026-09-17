@@ -43,6 +43,11 @@ ins.write_text("LEG=Traverse Mt. Moon|Traverse Viridian Forest\n"
                "Obtain the Lift Key\n"
                "LEG=Defeat Erika for the Rainbow Badge|Buy a POTION\n")
 A.OUTLINE_INSERTS = ins
+outline = tmp / "outline.txt"
+outline.write_text("Defeat Lt. Surge for the Thunder Badge\nObtain the FRESH WATER\n"
+                   "Reach Celadon City\nDefeat Erika for the Rainbow Badge\n"
+                   "Obtain the Lift Key\nRetrieve the Silph Scope from the Rocket Game Corner\n")
+A.OUTLINE_PATH = outline
 RENAMED = "Obtain the FRESH WATER from the Cerulean City Mart"
 A._reword_chain = (lambda g: [("Obtain the FRESH WATER", RENAMED)]
                    if A._norm_obj(g) == A._norm_obj(RENAMED) else [])
@@ -60,6 +65,17 @@ ck("the displaced leg is read from the chain's record",
 ck("...under a later wording of the inserted leg too",
    A.displaced_by(RENAMED) == "Reach Celadon City")
 ck("a leg nobody inserted has none", A.displaced_by("Defeat Erika for the Rainbow Badge") is None)
+outline.write_text("Defeat Lt. Surge for the Thunder Badge\nObtain the FRESH WATER\n"
+                   "Defeat Erika for the Rainbow Badge\nObtain the Lift Key\n"
+                   "Retrieve the Silph Scope from the Rocket Game Corner\n")
+ck("a displaced leg crossed off the list no longer counts",
+   A.displaced_by("Obtain the FRESH WATER") is None)
+ck("...so its steps are no longer refused",
+   A.inserted_leg_problems({"goal": "Obtain the FRESH WATER", "subgoals": [
+       {"id": "a", "goal_text": "x", "done_when": {"map": "CELADON_CITY"}}]}) == [])
+outline.write_text("Defeat Lt. Surge for the Thunder Badge\nObtain the FRESH WATER\n"
+                   "Reach Celadon City\nDefeat Erika for the Rainbow Badge\n"
+                   "Obtain the Lift Key\nRetrieve the Silph Scope from the Rocket Game Corner\n")
 
 
 def plan(goal, *dws):

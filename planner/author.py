@@ -1273,6 +1273,7 @@ def freeze_new_parts(plan: dict) -> None:
 
 
 OUTLINE_INSERTS = Path("run/outline_inserts")
+OUTLINE_PATH = Path("plans/outline.txt")
 _AUTHORING_GOAL: str | None = None   # main's --goal, for validate()
 
 
@@ -1328,8 +1329,31 @@ def displaced_by(goal: str) -> str | None:
             continue
         leg, ins = line[4:].split("|", 1)
         if _norm_obj(ins) in names:
-            return leg.strip()
+            # ...WHILE IT IS STILL ON THE LIST. Once the displaced leg is
+            # crossed off, reaching it first is not circular, it is where
+            # the run already is: with "Reach Celadon City" done, the
+            # rewrite of the Fresh Water leg was refused every Celadon
+            # step and wrote itself a Cerulean plan instead (run 27,
+            # 2026-09-17). The record outlives the leg; the rule does not.
+            return leg.strip() if _still_listed(leg.strip()) else None
     return None
+
+
+def _still_listed(leg: str) -> bool:
+    """Is this objective still a line of the outline, under this wording
+    or a later one? A crossed-off leg is removed from the file."""
+    try:
+        lines = [l.strip() for l in OUTLINE_PATH.read_text().splitlines()
+                 if l.strip()]
+    except OSError:
+        return False
+    want = _norm_obj(leg)
+    for l in lines:
+        if _norm_obj(l) == want:
+            return True
+        if any(_norm_obj(a) == want for a, _b in _reword_chain(l)):
+            return True
+    return False
 
 
 def _step_is_the_leg(dw: dict, cond: dict) -> str | None:
