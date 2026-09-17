@@ -17098,11 +17098,60 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 step.get("item"), step.get("slot"), step.get("forget"),
                 step.get("floor"), step.get("move"))
 
+    _BLOCKED_WHY = _re.compile(
+        r"no reachable tile adjacent|couldn't reach the warp|could not reach "
+        r"the warp|not visible|is standing there|standing on the tiles you "
+        r"would press from|the walk was fenced|no path", _re.I)
+
+    def _strike_reason_lifted(self, sig, op, step, obs) -> str:
+        """Was the thing that struck this op out a BODY IN THE WAY that is
+        not there any more?
+
+        The strike gate refuses an op that came to nothing three times
+        "with nothing about you changed since", and what has changed is
+        measured by badges, event flags and bag kinds (_world_mark) — so a
+        person stepping off a doorstep is not a change. SAFFRONCITY_ROCKET8
+        stood on Silph Co's door at (18,22), the run was refused four times,
+        the Rocket then left, and the door read reachable with the gate
+        still refusing the warp that would have opened it (run 27,
+        2026-09-17). Both halves are on screen: what the refusal said, and
+        that the way is clear now. Only lifts, never strikes."""
+        why = str(self._dead_why.get(sig) or "")
+        if not why or not self._BLOCKED_WHY.search(why):
+            return ""
+        m = (obs or {}).get("map") or {}
+        if op == "use_warp" and step.get("x") is not None:
+            for w in (m.get("warps") or []):
+                if (w.get("x"), w.get("y")) == (step.get("x"), step.get("y")):
+                    return ("the doorway is on screen now and no walk to it "
+                            "is blocked") if w.get("reachable") else ""
+            return ""
+        if op == "interact":
+            want = step.get("name")
+            for o in (m.get("objects") or []):
+                if (want and o.get("name") == want) or (
+                        not want and (o.get("x"), o.get("y"))
+                        == (step.get("x"), step.get("y"))):
+                    return ("it is on screen now and standing beside it is "
+                            "not blocked") if o.get("reachable") else ""
+        return ""
+
     def _gated(self, sig, op, step, trace):
         """The 3-strikes refusal, shared by the generic path and the early
         cross/walk_to handlers — those dispatch before the generic gate,
         so a struck-out cross was still executed every round."""
         if self._dead_ops.get(sig, 0) < 3:
+            return False
+        _lift = self._strike_reason_lifted(sig, op, step,
+                                           self.settle() or {})
+        if _lift:
+            self.log("strike_lifted", op=op, why=self._dead_why.get(sig),
+                     lifted=_lift)
+            self._dead_ops[sig] = 0
+            self._dead_at[sig] = getattr(self, "_mark_now", None)
+            trace.append(f"(what turned this back before — "
+                         f"{self._dead_why.get(sig)} — is not in the way now: "
+                         f"{_lift}, so it is tried again.)")
             return False
         _args = ",".join(f"{k}={v}" for k, v in step.items()
                          if k in ("x", "y", "dir", "name", "item",
