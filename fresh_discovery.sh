@@ -497,6 +497,24 @@ while :; do
     if wording_rung "phantom"; then continue; fi
     echo "    (the sentence stands as written; authoring it)"
   fi
+  # A PLAN WRITTEN FROM ELSEWHERE IS ASKED FOR AGAIN FROM HERE. A rewrite
+  # is written from wherever the run was stuck mid-leg, and find_plan
+  # brings it back by its objective from anywhere: "Obtain the FRESH
+  # WATER" v1, written in Rock Tunnel, opened with exit_rock_tunnel, and
+  # the run walked thirteen legs back from the Celadon Center to satisfy
+  # it (2026-09-17). The old plan is kept; the new one is the next version.
+  if [ -s "$plan" ] \
+      && _from=$(python planner/plan_written_elsewhere.py "$plan" 2>/dev/null); then
+    echo "=== leg $i/${#LEGS[@]}: $plan was written from $_from — asking for it again from here"
+    _pb="${plan%.json}"; _pb="${_pb%%.v[0-9]*}"; _pv=0
+    for _p in "${_pb}".v[0-9]*.json; do
+      [ -e "$_p" ] || continue
+      _n=${_p##*.v}; _n=${_n%.json}
+      case $_n in (*[!0-9]*) continue;; esac
+      [ "$_n" -gt "$_pv" ] && _pv=$_n
+    done
+    plan="${_pb}.v$((_pv+1)).json"
+  fi
   if [ -s "$plan" ]; then
     echo "=== leg $i/${#LEGS[@]}: keeping existing $plan"
   else

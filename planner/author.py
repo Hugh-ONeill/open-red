@@ -10039,6 +10039,12 @@ def main():
                       drafts=prior)
     plan.setdefault("goal", args.goal)
     plan["authored_by"] = args.model
+    # WHERE IT WAS WRITTEN FROM. A plan's travel steps are relative to a
+    # place; picked up again from another one, they are walked literally
+    # (plan_written_elsewhere.py).
+    _wf = _map_now()
+    if _wf:
+        plan["written_from"] = _wf
     archive_draft(args.goal, plan)
     args.out.write_text(json.dumps(plan, indent=2))
     print(f"wrote {args.out}")
