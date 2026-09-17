@@ -1289,7 +1289,7 @@ local function seen_filter(G, o)
   for i, f in ipairs(front) do
     if i > 24 then break end
     fl[i] = { x = f.x, y = f.y, d = f.d, slide = f.slide or nil,
-              dir = f.dir or nil }
+              dir = f.dir or nil, vantage = f.vantage or nil }
   end
   -- ...AND THE MAP'S OWN COUNT, stand-point-free: seen walkable cells
   -- anywhere on this map with an unseen in-bounds neighbour. frontier_n
@@ -4630,6 +4630,46 @@ pocket_of = function(G, sx, sy, reach, cap)
   return out
 end
 
+-- A SPOT FROM WHICH UNSEEN GROUND COMES INTO VIEW. The frontier is the
+-- seen ground YOU CAN REACH that ends at unseen ground, so a cell no walk
+-- borders is never looked for: Celadon Mart 4F's counter clerk stands at
+-- (5,7) behind the counter, the footprint stopped one cell short of him,
+-- every reachable cell of the floor was seen, and the floor read finished
+-- with a person on it the page never listed (run 27, 2026-09-17; user:
+-- "it just never appeared in the bots area-footprint"). A player would
+-- walk to the left end of the counter and look. Asked only when the
+-- ordinary frontier is empty: the reachable cells whose view window (the
+-- screen around them) still covers unseen cells of this floor, nearest
+-- first, each with how many cells it would bring into view. Pure: it
+-- reads the flood and the mask and names no cell it cannot stand on.
+local function vantage_spots(dist, mask, W, H, vl, vr, vu, vd)
+  local out = {}
+  for k, d in pairs(dist) do
+    local x, y = k:match("^(-?%d+),(-?%d+)$")
+    x, y = tonumber(x), tonumber(y)
+    if x and y then
+      local n = 0
+      for uy = y - vu, y + vd do
+        if uy >= 0 and uy < H then
+          for ux = x - vl, x + vr do
+            if ux >= 0 and ux < W and not mask[ux .. "," .. uy] then
+              n = n + 1
+            end
+          end
+        end
+      end
+      if n > 0 then out[#out + 1] = { x = x, y = y, d = d, vantage = n } end
+    end
+  end
+  table.sort(out, function(a, b)
+    if a.d ~= b.d then return a.d < b.d end
+    if a.vantage ~= b.vantage then return a.vantage > b.vantage end
+    if a.y ~= b.y then return a.y < b.y end
+    return a.x < b.x
+  end)
+  return out
+end
+
 seen_reach = function(G, sx, sy, surf)
   local okc, Collision = pcall(require, "src.world.Collision")
   local ow, p = G.overworld, G.overworld and G.overworld.player
@@ -4772,6 +4812,12 @@ seen_reach = function(G, sx, sy, surf)
     if edge and not THROUGH[ck] then
       front[#front + 1] = { x = cur.x, y = cur.y, d = dist[ck] }
     end
+  end
+  -- ...and when no reachable seen ground ends anywhere, the spots that
+  -- still bring unseen ground into view (vantage_spots). Not in the dark:
+  -- a dark floor's window is not the screen's.
+  if #front == 0 and not (ow.dark and not (G.save and G.save.flashLit)) then
+    front = vantage_spots(dist, mask, W, H, VIEW_L, VIEW_R, VIEW_U, VIEW_D)
   end
   local function nearest_first(a, b)
     if a.d ~= b.d then return a.d < b.d end

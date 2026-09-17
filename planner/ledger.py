@@ -1639,6 +1639,15 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                       '{"op":"walk_to","x":%d,"y":%d} steps on and '
                       "reports where the slide put you"
                       % (f["x"], f["y"]))
+        elif f.get("vantage"):
+            # a spot no unseen ground borders, from which unseen ground
+            # comes into view all the same (shim vantage_spots)
+            c.note = (f"{c.n} step(s) from you over seen ground; from there "
+                      f"{int(f['vantage'])} cell(s) of this floor that have "
+                      f"never been on screen come into view — ground no walk "
+                      f"from here borders, so nothing nearer shows it; "
+                      "{\"op\":\"walk_to\",\"x\":%d,\"y\":%d} stands there"
+                      % (f["x"], f["y"]))
         else:
             c.note = (f"{c.n} step(s) from you over seen ground; "
                       "{\"op\":\"walk_to\",\"x\":%d,\"y\":%d} stands there"

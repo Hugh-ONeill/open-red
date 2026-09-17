@@ -40,7 +40,7 @@ ck("...an UNSEEN landing files the arrow as a slide frontier spot",
    "                                    slide = true,\n"
    "                                    dir = spinner_dir(G, ow.map, nx, ny) }" in sr)   # the way it points rides along (2026-09-07)
 ck("the observation carries the slide flag",
-   "fl[i] = { x = f.x, y = f.y, d = f.d, slide = f.slide or nil,\n              dir = f.dir or nil }" in sh)
+   "fl[i] = { x = f.x, y = f.y, d = f.d, slide = f.slide or nil,\n              dir = f.dir or nil, vantage = f.vantage or nil }" in sh)
 ck("the walker may aim AT an arrow (stepping on is the act)",
    "if nx == tx and ny == ty then return first end\n"
    "            if sx == tx and sy == ty then return first end" in sh)

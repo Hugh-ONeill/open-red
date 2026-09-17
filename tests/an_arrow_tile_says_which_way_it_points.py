@@ -24,7 +24,7 @@ def ck(n, ok, d=""): checks.append((n, bool(ok), d))
 
 ck("the shim reads a spinner's first move as a compass word",
    "local function spinner_dir(G, map, x, y)" in sh and 'words = { up = "north", down = "south", left = "west", right = "east" }' in sh)
-ck("...and the frontier entry carries it", "dir = spinner_dir(G, ow.map, nx, ny) }" in sh and "dir = f.dir or nil }" in sh)
+ck("...and the frontier entry carries it", "dir = spinner_dir(G, ow.map, nx, ny) }" in sh and "dir = f.dir or nil, vantage = f.vantage or nil }" in sh)
 ck("the step reply says the way it pointed and that it slid across this floor",
    '", pointing " .. _sd' in sh and "an arrow slides you across this floor the " in sh)
 c = L.Candidate(key="14,9", kind="frontier", look="arrow"); c.arrow_dir = "east"
