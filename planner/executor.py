@@ -1665,6 +1665,27 @@ def drop_edges_contradicting_doors(explored: dict, door_dests: dict) -> int:
 
 
 # ----------------------------------------------------------------- executor
+def _floor_list_spaced(text: str) -> str:
+    """A building directory as the sign lays it out: one floor to a line.
+
+    The sign prints each floor on its own line and the text keeps none of
+    that, so Celadon's directory reached the page as "5F: DRUG STORE
+    ROOFTOP SQUARE: VENDING MACHINES", which reads as the roof being part
+    of 5F (user, 2026-09-16: "it could very well just be part of 5F since
+    ROOFTOP SQUARE: breaks the number pattern"). Only text holding two or
+    more floor labels is touched; each label after the first starts a new
+    " / " entry, and the line-wrap padding is squeezed out."""
+    labels = list(_re.finditer(r"\b(?:B?\d+F|ROOF\w*(?:\s+SQUARE)?):", str(text)))
+    if len(labels) < 2:
+        return text
+    t = str(text)
+    head = t[:labels[0].start()]
+    parts = [t[a.start():(labels[k + 1].start() if k + 1 < len(labels) else len(t))]
+             for k, a in enumerate(labels)]
+    return (" ".join(head.split()) + (" " if head.strip() else "")
+            + " / ".join(" ".join(p.split()) for p in parts))
+
+
 class Executor:
     def __init__(self, bridge: Bridge, max_battle_turns: int = 40,
                  can_escalate: bool = False, model: str = "",
@@ -8952,7 +8973,8 @@ class Executor:
         if not out:
             return ""
         return ("THIS BUILDING'S OWN DIRECTORY, as you read it "
-                + "; ".join(f"on {am}: {h}" for am, h in out[:2])
+                + "; ".join(f"on {am}: {_floor_list_spaced(h)}"
+                            for am, h in out[:2])
                 + ". A directory lists the floors the BUILDING has; a lift's "
                   "panel lists the floors the LIFT serves.\n")
 
@@ -11978,7 +12000,8 @@ class Executor:
             _body = []
             for _n, _rg, _ls in _away:
                 for _l in _ls:
-                    _body.append(f"  ({_rg}, {_n} leg(s) away) {_l}")
+                    _body.append(f"  ({_rg}, {_n} leg(s) away) "
+                                 f"{_floor_list_spaced(_l)}")
                 if len(_body) >= 6:
                     break
             lines.append(
@@ -15517,7 +15540,7 @@ class Executor:
                             f"what the next press will say")
         then = ((getattr(self, "hints_at", {}) or {}).get(region) or {}).get(line)
         if then is None:
-            return line + _tail
+            return _floor_list_spaced(line) + _tail
         # A STAMP WRITTEN BEFORE THIS RULE IS A BARE FLAG COUNT; read both.
         if isinstance(then, dict):
             _tf = int(then.get("flags") or 0)
@@ -15536,8 +15559,8 @@ class Executor:
             if _new:
                 _bits.append("you picked up " + ", ".join(_new[:3]))
         if not _bits:
-            return line + _tail
-        return f"{line}  (said before {', and before '.join(_bits)}){_tail}"
+            return _floor_list_spaced(line) + _tail
+        return f"{_floor_list_spaced(line)}  (said before {', and before '.join(_bits)}){_tail}"
 
     def _atlas_text(self, here: str | None = None) -> str:
         parts = []
