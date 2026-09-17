@@ -975,6 +975,50 @@ def walked_shelves() -> dict:
     return out
 
 
+def read_counters_text() -> str:
+    """The counters this run has stood at, and what each was selling —
+    the run's own record, for a page that may be about to name one."""
+    sh = walked_shelves()
+    if not sh:
+        return ""
+    return ("\n\nCOUNTERS YOU HAVE READ (what each was selling when you stood "
+            "at it; nothing is known of counters you have not stood at):\n"
+            + "\n".join(f"  {m}: " + ", ".join(str(x) for x in items[:12])
+                        + (" — it has sold something different since"
+                           if moved else "")
+                        for m, (items, moved) in sorted(sh.items())))
+
+
+def names_a_counter_without(text: str) -> str | None:
+    """A sentence that puts a thing on a counter this run has read, where
+    the run saw it was not — the fact validate() refuses a plan on, asked
+    of the rungs that write sentences.
+
+    The wording rung rewrote "Obtain the FRESH WATER" into "... from the
+    Cerulean City Mart" on a memory, with Cerulean's counter on file
+    (POKE_BALL, POTION, REPEL, ...) and the author refused five drafts of
+    the same leg that night for carrying the sentence out (run 27,
+    2026-09-16). A counter that has moved is exempt, as in validate()."""
+    sh = walked_shelves()
+    if not sh:
+        return None
+    item = leg_condition(text).get("item")
+    if not item:
+        return None
+    words = set(re.sub(r"[^A-Z0-9]+", " ", str(text or "").upper()).split())
+    want = re.sub(r"[^A-Z]+", "", item.upper())
+    for mid, (items, moved) in sorted(sh.items()):
+        parts = mid.split("_")
+        if len(parts) < 2 or not all(w in words for w in parts) or moved:
+            continue
+        if want in {re.sub(r"[^A-Z]+", "", str(x).upper()) for x in items}:
+            continue
+        return (f"names {mid}, whose counter this run has read: it sells "
+                + ", ".join(str(x) for x in items[:12])
+                + f". {item} is not on it")
+    return None
+
+
 def fired_flags() -> list:
     """Every event flag this run has watched fire, oldest first — the only
     flag names the harness may volunteer (they are history, not contents)."""
@@ -7682,7 +7726,7 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             + ", ".join(done[:60])
             + ("\n\nOBJECTIVES YOU HAVE ALREADY FINISHED:\n"
                + "\n".join(_leg_line(n, t) for n, t in behind) if behind else "")
-            + done_ledger_text()
+            + done_ledger_text() + read_counters_text()
             + "\n\nSTILL ON THE DOCKET, in order:\n"
             + "\n".join(_leg_line(n, t) for n, t in ahead)
             + (departure_text(journal) if journal else "")
@@ -7729,6 +7773,13 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             turned_down.append((ins, f"{_unknown} is not an item, Pokemon, machine, "
                                      f"badge or place this game has; name a deed "
                                      f"about something that exists here, or none"))
+            continue
+        _sh = names_a_counter_without(ins)
+        if _sh:
+            print(f"[missing] turned down {ins!r}: {_sh} — {_why}",
+                  file=sys.stderr)
+            turned_down.append((ins, _sh + "; a deed that buys it there "
+                                     "cannot be done"))
             continue
         _ph_item = _premise_item_not_held(_why, start)
         if _ph_item:
@@ -9207,7 +9258,7 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
             + f"WHERE THE RUN STANDS: {start}\n{journal}"
             + _asked_text(asked)
             + _reword_history(goal) + ytext + offer
-            + recent_events() + done_ledger_text()
+            + recent_events() + done_ledger_text() + read_counters_text()
             + ("\n\nOBJECTIVES YOU HAVE FINISHED:\n"
                + "\n".join(_leg_line(n, t) for n, t in behind) if behind else "")
             + "\n\nSTILL ON YOUR LIST, in order:\n"
@@ -9314,6 +9365,12 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
               f"proved it cannot get to is not evidence for moving the "
               f"objective towards it; the wording stands",
               file=sys.stderr)
+        return ""
+    _sh = names_a_counter_without(new)
+    if _sh:
+        print(f"[wording] refused: {new!r} {_sh} — a sentence that puts a "
+              f"thing where the run has seen it is not is not evidence; the "
+              f"wording stands", file=sys.stderr)
         return ""
     others = [t for _, t in ahead if _norm_obj(t) != _norm_obj(goal)]
     others += [t for _, t in behind]
