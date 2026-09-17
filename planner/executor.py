@@ -9165,7 +9165,26 @@ class Executor:
         if not isinstance(target, str) and isinstance(done.get("area"), str):
             target = done["area"].split("|")[0]
         if not isinstance(target, str) or not target.strip():
-            return place
+            # A CONDITION THAT NAMES NO PLACE holds wherever it comes true.
+            # "Buy Fresh Water from the clerk on the first floor" over
+            # {"has_item": {"FRESH_WATER": 1}}: the run searched 1F, found
+            # no counter, and went out to search the city rather than
+            # another floor, because the step said first floor (run 27,
+            # 2026-09-17; user: "it wont check the other floors because the
+            # prompt says first floor for some reason"). Same rule as
+            # below, said for a condition with no place in it.
+            up0 = str(goal_text or "").upper()
+            toks0 = _re.findall(r"\b(B?\d{1,2}F|ROOF(?:TOP)?)\b", up0)
+            toks0 += [f"{o} FLOOR" for o in _re.findall(
+                r"\b(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|GROUND|TOP)"
+                r"\s+FLOOR\b", up0)]
+            if not toks0 or not done:
+                return place
+            return place + (
+                f"\nTHE CONDITION IS THE STEP: {json.dumps(done)} names no "
+                f"place; it holds wherever it comes true. The floor named in "
+                f"this step's words ({', '.join(sorted(set(toks0)))}) is the "
+                f"plan-writer's guess at where, not part of the condition.")
         T = target.strip().upper()
         # ...AND AN AREA IS A GUESS THE SAME WAY A FLOOR IS. "Locate and
         # enter the Secret House in the north area of the Safari Zone" over

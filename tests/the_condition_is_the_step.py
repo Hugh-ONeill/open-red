@@ -36,11 +36,16 @@ ck("a floor the condition itself names is not stray", e._words_vs_condition("Cli
 ck("a rooftop word against a mart floor is stray", "(ROOFTOP)" in e._words_vs_condition("Buy water on the rooftop", {"map": "CELADON_MART_5F"}))
 ck("an area condition is read by its map", "(B4F)" in e._words_vs_condition("the lift on B4F", {"area": "ROCKET_HIDEOUT_ELEVATOR|0,1"}))
 ck("no floor word, nothing said", e._words_vs_condition("Enter the Pokemon Tower", {"map": "POKEMON_TOWER_1F"}) == "")
-ck("a non-map condition says nothing", e._words_vs_condition("Get the Scope on B4F", {"has_item": {"SILPH_SCOPE": 1}}) == "")
+w3 = e._words_vs_condition("Get the Scope on B4F", {"has_item": {"SILPH_SCOPE": 1}})
+ck("a non-map condition with a floor in the words says the condition names no place",
+   "names no place; it holds wherever it comes true" in w3 and "(B4F)" in w3, w3)
+w4 = e._words_vs_condition("Buy Fresh Water from the clerk on the first floor", {"has_item": {"FRESH_WATER": 1}})
+ck("...a spelled-out floor too (the Fresh Water step, 2026-09-17)", "(FIRST FLOOR)" in w4 and "plan-writer's guess" in w4, w4)
+ck("...and nothing without a floor word", e._words_vs_condition("Buy Fresh Water from the clerk", {"has_item": {"FRESH_WATER": 1}}) == "")
 ck("junk is tolerated", e._words_vs_condition(None, None) == "" and e._words_vs_condition("x", {"map": 7}) == "")
 src = (ROOT / "planner" / "executor.py").read_text()
 ck("it rides the step statement at the top of the prompt",
-   'user = (f"SUBGOAL: {goal}\\nDONE_WHEN: {json.dumps(done)}"\n                    f"{self._words_vs_condition(goal, done, obs)}"' in src)   # obs: the flag translation counts what has fired
+   'user = (f"SUBGOAL: {goal}\\nDONE_WHEN: {json.dumps(done)}"\n                    f"{self._area_ids_note(done, obs)}"\n                    f"{self._words_vs_condition(goal, done, obs)}"' in src)   # obs: the flag translation counts what has fired
 bad = [x for x in checks if not x[1]]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok else f"\n      {str(d)[:300]}"))
