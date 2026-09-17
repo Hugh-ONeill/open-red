@@ -7643,6 +7643,67 @@ class Executor:
 
     _LOCK_ASK = _re.compile(r"NEEDS AN? ([A-Z][A-Z ]{2,30}?)!")
 
+    def _ways_off_known_line(self, obs, want_map: str, here: str) -> str:
+        """Every way off this floor the run has seen, read against a map it
+        has never stood on.
+
+        Route 12 after the flute: the step wanted ROUTE_13, the run believed
+        it lay west, and every westward crossing landed on ROUTE_11 — said
+        in the feedback each time, never read against the belief. The rows
+        already said the south side had never been on screen and row 1 was
+        the walk to the unseen ground (run 27, 2026-09-17; user: "now its
+        pingponging instead of exploring south"). This is those rows read
+        together: where each seen way off this floor is known to lead (the
+        run's own crossings and door records), that none of them is known
+        to lead where the step wants, and which sides of the floor have
+        never been looked at. Said only when every seen way has a known
+        far side; an untaken way is the never-taken rows' business.
+        Nothing here says which way is right."""
+        m = (obs or {}).get("map") or {}
+        mid = str(m.get("id") or "")
+        if not (want_map and mid) or want_map == mid:
+            return ""
+        stood = {str(r).split("|")[0]
+                 for r in list(self.visits or {}) + list(self.explored or {})}
+        if want_map in stood:
+            return ""
+        # what each seen way off this floor led to, from the run's own record
+        led: dict = {}
+        for r, ex in (self.explored or {}).items():
+            if str(r).split("|")[0] != mid:
+                continue
+            for k, e in (ex or {}).items():
+                to = str((e or {}).get("to") or "")
+                if to and "|" in to and not str(k).startswith("walk:"):
+                    led[str(k)] = to.split("|")[0]
+        for k, d in ((self.door_dests or {}).get(mid) or {}).items():
+            led.setdefault(str(k), str(d))
+        ways = []
+        for d in ("north", "south", "west", "east"):
+            if d in (m.get("connections") or {}):
+                ways.append(d)
+        for w in (m.get("warps") or []):
+            if w.get("x") is not None:
+                ways.append(f"{w.get('x')},{w.get('y')}")
+        if not ways or any(k not in led for k in ways):
+            return ""
+        if any(led[k] == want_map for k in ways):
+            return ""
+        parts = [(f"{k} -> {led[k]}" if not k[0].isdigit()
+                  else f"door ({k}) -> {led[k]}") for k in ways]
+        unseen = [str(x) for x in (m.get("sides_unseen") or [])]
+        fn = int(((m.get("seen") or {}).get("frontier_n")) or 0)
+        out = ("\nEVERY WAY OFF THIS FLOOR THAT YOU HAVE SEEN LEADS SOMEWHERE "
+               "YOU HAVE ALREADY BEEN: " + "; ".join(parts[:8])
+               + f". None of them is known to lead to {want_map}.")
+        if unseen:
+            out += (f" This floor's {', '.join(unseen)} side(s) have never "
+                    f"been on screen; a way on that side would be there.")
+        if fn:
+            out += (f" The seen ground ends at {fn} spot(s) on this floor; "
+                    f"standing at one brings what is past it into view.")
+        return out
+
     def _pads_unridden_in_building(self, mids) -> str:
         """The warp pads seen in these floors' building and never ridden.
 
@@ -15547,7 +15608,9 @@ class Executor:
             return (move_head + warned + "\n" + ledger_block + pp_line
                     + lift_line
                     + ("\n" + _rs_line if _rs_line else "")
-                    + floor_note + floor_away + route_line + _remote_worked
+                    + floor_note + floor_away + route_line
+                    + self._ways_off_known_line(obs, want_map, here)
+                    + _remote_worked
                     + shut_line
                     + hint_line + remote_line + _elsewhere_str
                     + self._bag_line(obs, sg_for_bag)
