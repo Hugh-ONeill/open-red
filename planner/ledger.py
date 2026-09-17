@@ -1199,9 +1199,10 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                                       if _regrown else ""))
                 elif w.get("over_water") or key in _over_water_of(ex, mid):
                     c.note = _join(c.note,
-                                   "the ground beside it is reached only "
-                                   "across water — a walk does not cross "
-                                   "water, and nobody in the party knows SURF")
+                                   "the ground beside it, as far as you have "
+                                   "seen it, is bounded by water and walls — "
+                                   "a walk does not cross water, and nobody "
+                                   "in the party knows SURF")
                 else:
                     c.note = _join(c.note,
                                    f"nor does any of the {_sp} other part(s) of "

@@ -13789,9 +13789,10 @@ class Executor:
         if _wet:
             floor_note += (
                 f"\nDOORWAYS ACROSS WATER: {', '.join(sorted(_wet))} — the "
-                f"ground beside {'it' if len(_wet) == 1 else 'them'} is "
-                f"reached only across water. A walk does not cross water, "
-                f"and nobody in the party knows SURF.")
+                f"ground beside {'it' if len(_wet) == 1 else 'them'}, as far "
+                f"as you have seen it, is bounded by water and walls, and "
+                f"joins no ground you can walk to. A walk does not cross "
+                f"water, and nobody in the party knows SURF.")
         if open_here:
             floor_note += (
                 f"\nDOORS ON THIS FLOOR YOU HAVE STOOD BESIDE AND NEVER "

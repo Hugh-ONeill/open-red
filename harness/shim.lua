@@ -2957,18 +2957,23 @@ local function observe(G, seq, result)
                               -- SURF: the doorstep is across water
                               -- ...or, when that water is entered from
                               -- another map, the doorway's own patch of
-                              -- ground: all of it on screen, joined to
-                              -- nothing you reach, not running off the
-                              -- map, no other doorway in it, and water at
-                              -- its edge (Cerulean Cave's mat, whose pond
-                              -- is ridden onto from Route 24).
+                              -- ground: joined to nothing you reach, not
+                              -- running off the map, no other doorway in
+                              -- it, and water at its edge (Cerulean Cave's
+                              -- mat, whose pond is ridden onto from Route
+                              -- 24). NOT "all of it on screen": the cave
+                              -- patch runs into columns no walk in the city
+                              -- ever brings into view, so that rule never
+                              -- fired there; the page hedges instead ("as
+                              -- far as you have seen it") (user, 2026-09-16,
+                              -- chose this over the strict reading).
                               over_water = (not reach[w.x .. "," .. w.y])
                                            and not party_knows_surf()
                                            and (swim_step_to(w.x, w.y,
                                                              wet_cells())
                                                 or (function()
                                                   local pk = pocket_of(G, w.x, w.y, reach, 400)
-                                                  return pk and pk.wet and pk.all_seen
+                                                  return pk and pk.wet
                                                          and not pk.joins and not pk.edge
                                                          and not pk.big and #pk.doors == 0
                                                 end)())

@@ -40,10 +40,10 @@ ck("the shim asks the water question whether or not SURF is known",
    and "swim_step_to(w.x, w.y,\n" in shim and "wet_cells())" in shim
    and "and not party_knows_surf()" in shim)
 
-ck("...or the doorway's own patch: all on screen, joined to nothing, off no "
-   "edge, no other doorway, water at its edge",
+ck("...or the doorway's own patch: joined to nothing, off no edge, no other "
+   "doorway, water at its edge (not required to be all on screen)",
    "pocket_of = function(G, sx, sy, reach, cap)" in shim
-   and "return pk and pk.wet and pk.all_seen" in shim
+   and "return pk and pk.wet\n" in shim and "pk.all_seen" not in shim.split("over_water = (not reach")[1][:1200]
    and "and not pk.joins and not pk.edge" in shim
    and "and not pk.big and #pk.doors == 0" in shim)
 ck("the patch flood ignores who stands on it and stops at doorways",
@@ -88,8 +88,9 @@ ck("the floor note names it apart from unfinished floor",
    "DOORWAYS ACROSS WATER:" in src and "unseen -= _wet" in src)
 ck("the doorways-you-cannot-walk-to line leaves it out",
    "shut = [t for t in shut if t[0] not in _ow_here]" in src)
-ck("the door row says the water instead of unseen ground",
-   "the ground beside it is reached only " in led)
+ck("the door row says the water instead of unseen ground, hedged to what was seen",
+   "seen it, is bounded by water and walls — " in led)
+ck("the floor note hedges the same way", "as far \"\n                f\"as you have seen it" in src or "as you have seen it, is bounded by water and walls" in src)
 ck("the other-room line leaves it out", "and not w0.get(\"over_water\")" in led)
 ck("the record is saved and loaded",
    '"door_over_water": getattr(self, "_door_over_water", {})' in src
