@@ -165,7 +165,9 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      held when the party was last made whole, so a reserve of 2 still lets
      the only POTION be used, and it does not hold back at all against a
      gym leader or the Champion: that fight is what the reserve was kept
-     for. The gym's trainers and the four Elite Four rooms still keep it. The bag count is on your screen; how many to
+     for. The gym's trainers and the four Elite Four rooms still keep it.
+     Nor does it hold back when the mon in the fight is the
+     last one standing: a blackout ends the road the reserve was kept for. The bag count is on your screen; how many to
      hold back for the rooms ahead is your call.
      A COUNT PER FIGHT CANNOT FIT EVERY BAG: "two a fight" rations five
      FULL_RESTOREs across a league and starves one long fight with ten

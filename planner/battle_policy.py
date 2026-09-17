@@ -59,7 +59,9 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
                                        than half of what the bag held when
                                        the party was last made whole, and
                                        not at all against a gym leader or
-                                       the Champion (battle.leader)
+                                       the Champion (battle.leader), nor
+                                       when the mon in the fight is the
+                                       last one standing
                     max_share: float } ] in ONE battle, spend at most this
                                        share of what the bag held of it
                                        when the battle began (rounded
@@ -263,6 +265,21 @@ def reset_run_budget() -> None:
     """The party has been made whole: the run's item ledger starts over."""
     RUN_BUDGET.clear()
     RUN_BAG.clear()
+
+
+def last_one_standing(obs: dict, b: dict | None = None) -> bool:
+    """Is the mon in the fight (or the one field-healed) the only party
+    member with any hp? Read off the party list; a solo party counts."""
+    party = (obs or {}).get("party") or []
+    up = [i for i, p in enumerate(party) if (p.get("hp") or 0) > 0]
+    if not up:
+        return False
+    if b is not None and b.get("partyIndex") is not None:
+        try:
+            return up == [int(b.get("partyIndex"))]
+        except (TypeError, ValueError):
+            pass
+    return len(up) == 1
 
 
 def reserve_now(rule_item, held: int, reserve) -> int:
@@ -722,8 +739,10 @@ def should_field_heal(obs: dict,
     item = resolve_item(fh.get("item"), bag, fh.get("prefer")
                         or DEFAULT_PREFER, missing=missing)
     _held = bag_holds(fh.get("item"), bag)
-    if item and _held - 1 < reserve_now(fh.get("item"), _held,
-                                        fh.get("reserve")):
+    # the same last-stand rule as battle_items: with one mon up, the road
+    # ahead the reserve was kept for is the one about to be lost
+    if item and not last_one_standing(obs) and _held - 1 < reserve_now(
+            fh.get("item"), _held, fh.get("reserve")):
         return None
     return (item, slot) if item else None
 
@@ -1105,7 +1124,14 @@ def choose(obs: dict, spec: dict | None = None,
         # end of it: holding a POTION back from BROCK keeps it for nothing
         # (user, 2026-09-16). The gym's trainers and the four rooms before
         # the Champion keep theirs.
-        _last_stand = bool(b.get("leader"))
+        # ...NOR ON THE LAST MON STANDING. A reserve keeps medicine for
+        # the road ahead, and a blackout ends the road: the party wakes at
+        # the last Center with the fight lost and the reserve untouched.
+        # Holding a POTION back from the one mon still up is keeping it
+        # for a walk the party is about to lose (user, 2026-09-17: "it
+        # still preserves the heal options it has even when the last mon
+        # will faint otherwise"). Who is up is on the party screen.
+        _last_stand = bool(b.get("leader")) or last_one_standing(obs, b)
         if not _last_stand and _held - 1 < reserve_now(
                 rule.get("item"), _held, rule.get("reserve")):
             continue

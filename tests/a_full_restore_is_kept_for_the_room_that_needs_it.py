@@ -29,9 +29,12 @@ def ck(name, cond):
     checks.append((name, bool(cond)))
 
 
-def obs(bag, hp=40, max_hp=200):
+def obs(bag, hp=40, max_hp=200, bench_hp=120):
+    # a second body on the bench: with one mon up, a reserve is waived
+    # (the last-stand rule), and these checks are about the reserve
     return {"mode": "battle", "bag": dict(bag),
-            "party": [{"species": "LAPRAS", "level": 55, "hp": hp, "max_hp": max_hp}],
+            "party": [{"species": "LAPRAS", "level": 55, "hp": hp, "max_hp": max_hp},
+                      {"species": "SNORLAX", "level": 50, "hp": bench_hp, "max_hp": 200}],
             "battle": {"kind": "trainer", "partyIndex": 0, "enemyIndex": 0,
                        "me": {"species": "LAPRAS", "level": 55, "hp": hp, "max_hp": max_hp,
                               "types": ["WATER", "ICE"], "status": None,
@@ -127,6 +130,37 @@ ck("...against their trainers and the four rooms before, it still does",
 ck("...and a leader fight still keeps its per-fight and per-run caps",
    spend_vs(dict(HEAL, reserve=3, max_uses_run=2), {"FULL_RESTORE": 5},
             True)[0] == 2)
+# ---- nor on the last mon standing (user, 2026-09-17) ----------------------
+# "it still preserves the heal options it has even when the last mon will
+# faint otherwise -- except for leader battles of course"
+def _last(bag, bench_hp, rule=None):
+    bp.reset_run_budget()
+    bp.RUN_BAG["heal"] = 5          # the bag held five at the last Center
+    o = obs(bag, bench_hp=bench_hp)
+    return bp.choose(o, spec(dict(rule or HEAL, reserve=3)), {"turn": 1, "intent": "traversal"}).get("op") == "battle_item"
+
+
+ck("with the bench fainted, a reserve holds nothing back from the last mon up",
+   _last({"FULL_RESTORE": 2}, 0))
+ck("...with a body still on the bench, the same reserve holds",
+   not _last({"FULL_RESTORE": 2}, 120))
+ck("a solo party is its own last stand",
+   bp.last_one_standing({"party": [{"hp": 5, "max_hp": 50}]}) is True
+   and bp.last_one_standing({"party": [{"hp": 5, "max_hp": 50}, {"hp": 0, "max_hp": 50}]}) is True
+   and bp.last_one_standing({"party": [{"hp": 5, "max_hp": 50}, {"hp": 9, "max_hp": 50}]}) is False)
+_fspec = dict(bp.DEFAULT_SPEC, name="t", field_heal={"item": "heal", "hp_below": 0.5, "reserve": 3})
+_fobs = {"mode": "overworld", "bag": {"FULL_RESTORE": 2},
+         "party": [{"species": "LAPRAS", "level": 55, "hp": 40, "max_hp": 200},
+                   {"species": "SNORLAX", "level": 50, "hp": 0, "max_hp": 200}]}
+bp.reset_run_budget()
+bp.RUN_BAG["heal"] = 5
+ck("the field heal after a fight waives its reserve for the last mon up too",
+   bp.should_field_heal(_fobs, _fspec) is not None)
+_fobs["party"][1]["hp"] = 120
+ck("...and keeps it with a body on the bench", bp.should_field_heal(_fobs, _fspec) is None)
+_src = (ROOT / "planner/battle_policy.py").read_text()
+ck("the rule is written in the DSL doc for the author",
+   "last one standing" in _src and "last one standing" in (ROOT / "planner/policy_author.py").read_text())
 _shim = (ROOT / "harness/shim.lua").read_text()
 ck("the shim marks a leader by the engine's badge-fight flag or the Champion",
    "o.battle.leader = (top.isGymLeader == true)" in _shim
@@ -182,7 +216,8 @@ ck("max_uses 1 with no run cap: once a battle, again next battle", f1 and not f2
 
 # ---- the field heal honours a reserve too ---------------------------------
 FIELD = {"mode": "overworld", "bag": {"FULL_RESTORE": 2},
-         "party": [{"species": "LAPRAS", "level": 55, "hp": 40, "max_hp": 200}]}
+         "party": [{"species": "LAPRAS", "level": 55, "hp": 40, "max_hp": 200},
+                   {"species": "SNORLAX", "level": 50, "hp": 120, "max_hp": 200}]}
 fh = dict(bp.DEFAULT_SPEC, field_heal={"item": "heal", "hp_below": 0.5})
 ck("a field heal fires with two in the bag and no reserve",
    bp.should_field_heal(FIELD, fh) == ("FULL_RESTORE", 1))
