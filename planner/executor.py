@@ -193,6 +193,7 @@ def static_cost(a: str, b: str, toll: dict, extra: dict | None = None):
 # Mt Moon rated the road outside better than the cave it was crossing, left,
 # was pulled back by its plan, and left again.
 import re as _re
+import unicodedata as _unicodedata
 
 
 def map_family(m) -> str:
@@ -9854,6 +9855,48 @@ class Executor:
                 f"{how} — {what}. A field move happens only when "
                 f"{{\"op\":\"field_move\",\"move\":\"{mv}\",\"x\":..,"
                 f"\"y\":..}} is one of your ops and runs.)")
+
+    def _use_item_would_have(self, macro, plan_said, obs) -> str:
+        """An item the model SAID it would use, in a round that pressed A
+        instead.
+
+        "I have the Poké Flute. I will return to Route 12, use the Poké
+        Flute on Snorlax to wake it up" — and the macro was cross,
+        interact(ROUTE12_SNORLAX), cross, three rounds running, each
+        answered "A sleeping POKéMON blocks the way!" (run 27, 2026-09-17;
+        user: "keeps on interacting with snorlax instead of using the
+        pokeflute, even though its thinking is saying 'use the poke
+        flute'"). Same shape as _go_would_have: only an item the model
+        named with a using verb, only one the bag holds, only in a round
+        that pressed something and used nothing. It says which op uses an
+        item; what the item does, and to what, stays the model's."""
+        if not plan_said:
+            return ""
+        steps = [st for st in (macro or []) if isinstance(st, dict)]
+        if any(st.get("op") == "use_item" for st in steps):
+            return ""
+        pressed = [st for st in steps if st.get("op") == "interact"]
+        if not pressed:
+            return ""
+        bag = (obs or {}).get("bag") or {}
+        said = _unicodedata.normalize("NFKD", str(plan_said))
+        said = "".join(c for c in said if not _unicodedata.combining(c)).upper()
+        for item in sorted(bag):
+            words = [w for w in str(item).split("_") if w]
+            if not words:
+                continue
+            pat = (r"\b(USE|USING|PLAY|PLAYING|BLOW|BLOWING)\b[^.]{0,40}?\b"
+                   + r"\W*".join(_re.escape(w) for w in words) + r"\b")
+            if not _re.search(pat, said):
+                continue
+            st = pressed[0]
+            what = st.get("name") or f"({st.get('x')},{st.get('y')})"
+            return (f"(You said use the {' '.join(words)}; this round pressed A "
+                    f"on {what} and used no item. An item in the bag is used "
+                    f"with {{\"op\":\"use_item\",\"item\":\"{item}\"}} — "
+                    f"with no slot it acts where you stand, on what you are "
+                    f"beside.)")
+        return ""
 
     def _go_would_have(self, macro, plan_said):
         """A journey the model NAMED, that `go` walks in ONE round.
@@ -20868,6 +20911,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     _go_note = ""
                 if _go_note:
                     trace = list(trace) + [_go_note]
+                try:
+                    _ui_note = self._use_item_would_have(
+                        macro, self._plan_said, self.settle() or {})
+                except Exception:
+                    _ui_note = ""
+                if _ui_note:
+                    trace = list(trace) + [_ui_note]
             if ok and redo:
                 # "somewhere else that also satisfies it": a couple of tiles
                 # is the same place. A real relocation crosses the map (the
