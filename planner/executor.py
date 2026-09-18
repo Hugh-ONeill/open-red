@@ -10813,6 +10813,64 @@ class Executor:
                 or "a fight started" in _wd
                 or "safari game ended" in _wd)
 
+    def _drain_fights(self, sg, o):
+        """Fight whatever battle is up; (obs after, fought?)."""
+        fought = False
+        while o and o.get("mode") == "battle":
+            fought = True
+            o = self.handle_battle(sg, o)
+            o = self.settle()
+        return o, fought
+
+    def _walk_on_after_fights(self, sg, op, step, obs, tries=3):
+        """A walk a wild fight interrupted is sent again from where the fight
+        left the party, up to `tries` times, while each try moves it. Returns
+        (obs, fights fought)."""
+        fights = 0
+        o, fought = self._drain_fights(sg, obs)
+        want = (step.get("x"), step.get("y"))
+        while fought and tries > 0:
+            fights += 1
+            tries -= 1
+            _pl = (o or {}).get("player") or {}
+            _at = (_pl.get("x"), _pl.get("y"))
+            if _at == want or None in _at:
+                break
+            self.log("walk_on_after_fight", subgoal=sg.get("id"), op=op,
+                     at=f"{_at[0]},{_at[1]}", to=f"{want[0]},{want[1]}")
+            self._send_safe(op, **step)
+            o2, fought = self._drain_fights(sg, self.settle() or o)
+            _pl2 = (o2 or {}).get("player") or {}
+            if (_pl2.get("x"), _pl2.get("y")) == _at and not fought:
+                o = o2
+                break
+            o = o2
+        if fought:
+            fights += 1
+        return o, fights
+
+    def _cross_on_after_fights(self, sg, step, obs, tries=3):
+        """A crossing a wild fight cut short is sent again from where the
+        fight left the party, up to `tries` times, while each try gets
+        further. Returns (obs, fights fought, last reply)."""
+        fights, r = 0, {}
+        o, fought = self._drain_fights(sg, obs)
+        while fought and tries > 0:
+            fights += 1
+            tries -= 1
+            _at = self._spot(o)
+            self.log("cross_on_after_fight", subgoal=sg.get("id"),
+                     dir=step.get("dir"), at=str(_at))
+            r = self._send_safe("cross", **step) or {}
+            o = self.settle() or o
+            if (r.get("result") or {}).get("ok"):
+                return o, fights, r
+            _d = str((r.get("result") or {}).get("detail") or "")
+            o, fought = self._drain_fights(sg, o)
+            if not self._walk_cut_by_the_world(_d) or self._spot(o) == _at:
+                break
+        return o, fights, r
+
     def _blamed_bush(self, det, obs):
         """The bush a walk's own refusal BLAMES, as (x,y), when the party
         can cut it; else None. Only the list the shim says stopped the walk
@@ -18685,6 +18743,27 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         self._strike(sig, _d0, _pre, obs)
                     continue
                 obs = self.settle() or _pre
+                # ...AND A CROSSING A FIGHT CUT SHORT GOES ON AFTER IT. The
+                # op said so itself ("a fight started 78 cell(s) short ...
+                # nothing has been learned") and the round ended there, one
+                # wild Tentacool per round up ninety cells of Route 21 (run
+                # 27, 2026-09-18). Fight, then send the same crossing again
+                # from where the fight left you, while each try gets further.
+                if self._walk_cut_by_the_world(_d0):
+                    obs, _fights, _r0 = self._cross_on_after_fights(sg, step, obs)
+                    if (_r0.get("result") or {}).get("ok"):
+                        _dd = str((_r0.get("result") or {}).get("detail") or "")
+                        _note = (f"cross(dir={step['dir']}): ok"
+                                 + (f" ({_dd})" if _dd else "")
+                                 + f" — {_fights} wild fight(s) came between, "
+                                   f"and the crossing went on after each")
+                        trace.append(_note)
+                        self._record_outcome(_pre, op, step, _note)
+                        if ((_pre.get("map") or {}).get("id")
+                                != (obs.get("map") or {}).get("id")):
+                            self.note_transition(_pre, step, obs, op_detail=_dd)
+                        continue
+                    _d0 = str((_r0.get("result") or {}).get("detail") or _d0)
                 trace.append(f"cross(dir={step['dir']}): FAILED — {_d0}")
                 self._record_outcome(_pre, op, step, f"cross: FAILED — {_d0}")
                 self._seam_proof(obs, step, _d0)
@@ -18708,6 +18787,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _d0 = str((_r0.get("result") or {}).get("detail") or "")
                 if (_r0.get("result") or {}).get("ok"):
                     obs = self.settle() or _pre
+                    # A WILD FIGHT IS NOT THE END OF THE WALK. The fight was
+                    # still up when this read where the party stood, so the
+                    # position was blank, the stopped-short check below could
+                    # not fire, and walk_to(4,0) up Route 21 said "ok" from
+                    # 78 cells short (run 27, 2026-09-18). Fight it, then walk
+                    # on from where it left you — the route walker's rule.
+                    obs, _fights = self._walk_on_after_fights(sg, "walk_to",
+                                                              step, obs)
+                    if _fights:
+                        _d0 = (_d0 + "; " if _d0 else "") + (
+                            f"{_fights} wild fight(s) came between, and the "
+                            f"walk went on after each")
                     # ...AND "ok" IS NOT "ARRIVED". The walk returns ok when a
                     # fight or a script stops it partway, with that said in
                     # its detail — and this line dropped the detail. Mansion
