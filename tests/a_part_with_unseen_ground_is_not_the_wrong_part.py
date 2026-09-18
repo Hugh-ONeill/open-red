@@ -31,7 +31,7 @@ def ck(name, cond, detail=""):
 
 src = (ROOT / "planner/executor.py").read_text()
 i = src.index("for back in range(idx - 1, max(-1, idx - 5), -1):")
-loop = src[i:i + 5200]
+loop = src[i:i + 7000]
 ck("the relocate asks the shim's frontier for the part the party stands on",
    '.get("seen")\n                                   or {}).get("frontier_n") or 0)' in loop)
 ck("...and stands down while it is above zero, ending the scan",

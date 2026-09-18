@@ -23665,6 +23665,19 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 return True
             has_macro = bool(sg.get("macro"))
             print(f"== subgoal: {sg['id']}" + ("" if has_macro else " (no macro)"))
+            # WHICH EARLIER PLACE STEPS HELD WHEN THIS ONE BEGAN — see the
+            # backtrack scan: a place the party then walked away from on
+            # this step's own rounds is not a step to redo.
+            try:
+                _at0 = self.settle() or {}
+                _held_at_start = {
+                    s0.get("id") for s0 in subgoals[:idx]
+                    if isinstance(s0, dict)
+                    and set(s0.get("done_when") or {}) <= {"map", "area", "not_area"}
+                    and (s0.get("done_when") or {})
+                    and pred_holds(s0.get("done_when") or {}, _at0)}
+            except Exception:
+                _held_at_start = set()
             ok = self._attempt(sg)
             _ran_any = True
             # BACKTRACK: a subgoal that cannot be done may not be the broken
@@ -23743,6 +23756,24 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                      candidate=c["id"], want=_want_pl,
                                      here=_here_map)
                             continue
+                        # ...NOR ONE THIS STEP'S OWN ROUNDS WALKED AWAY FROM.
+                        # exit_mansion (map CINNABAR_ISLAND) held when
+                        # enter_cinnabar_gym began; the gym was locked, the
+                        # run spent the step walking down into the Mansion
+                        # after the key, and the failed step re-opened
+                        # exit_mansion — which walked it straight back out,
+                        # three times over (run 27, 2026-09-18; user: "its in
+                        # an outrageous loop ... it happily routes itself out
+                        # the other exit on the 1st floor forgetting how much
+                        # effort it spent getting itself to that point"). The
+                        # place was left on purpose; the plan ends and is
+                        # rewritten from where the party stands.
+                        if c.get("id") in _held_at_start:
+                            self.log("backtrack_place_left_on_purpose",
+                                     failed=sg["id"], candidate=c["id"],
+                                     want=_want_pl, here=_here_map)
+                            cand = None
+                            break
                         cand, holds = c, False
                         break
                     want = (c.get("done_when") or {}).get("map")
