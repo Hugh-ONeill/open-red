@@ -1182,8 +1182,18 @@ local function seen_filter(G, o)
       for _, key in ipairs({ "boulder_switches", "switch_statues" }) do
         for _, e in ipairs(m[key] or {}) do
           local ex, ey = e.x or e[1], e.y or e[2]
-          if ex and not (ex >= pp.cellX - VIEW_L and ex <= pp.cellX + VIEW_R
-                         and ey >= pp.cellY - VIEW_U and ey <= pp.cellY + VIEW_D) then
+          local function _in_view(x, y)
+            return x and y and x >= pp.cellX - VIEW_L and x <= pp.cellX + VIEW_R
+                   and y >= pp.cellY - VIEW_U and y <= pp.cellY + VIEW_D
+          end
+          -- ...BUT THE WAY IT OPENS IS WHAT SHOWS IT. A boulder switch's
+          -- state is drawn at the barrier, not the switch: Victory Road
+          -- 1F's (17,13) opens (8,12), and with (8,12) in plain view and
+          -- SHUT the page said "the last time it was on screen its way was
+          -- OPEN" (entering 2F had reset it), so the run never shoved a
+          -- boulder back onto it (run 27, 2026-09-18).
+          if ex and not _in_view(ex, ey)
+             and not _in_view(e.opens_x, e.opens_y) then
             e.open_now = nil
           end
         end
