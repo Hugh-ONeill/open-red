@@ -6246,7 +6246,24 @@ local function yield_ground(G)
       -- warp, so it was taken, and the party was on Route 23 (2026-09-06).
       local safe = (ow.map and ow.map.inBounds and ow.map:inBounds(nx, ny))
                    and true or false
-      if safe and on_warp then
+      -- A BOULDER IS NOT GROUND TO STEP ASIDE ONTO. With STRENGTH on, a step
+      -- into one is a SHOVE: this sidestep tries "down" first, and on
+      -- Victory Road 2F, with the party at (4,14) above a boulder mid-route
+      -- at (4,15), it slid the boulder to (4,16), where nothing can move it
+      -- again (run 27, 2026-09-18; user: "it just moved the boulder into an
+      -- unmovable position somehow").
+      if safe then
+        for _, e in ipairs(ow.entities or {}) do
+          if e ~= p and e.cellX == nx and e.cellY == ny
+             and (e.def or {}).sprite == "SPRITE_BOULDER" then
+            safe = false
+            break
+          end
+        end
+      end
+      -- ...and the rest of the collision the game applies, everywhere, not
+      -- only when standing on a warp
+      if safe then
         safe = okc and Collision and Collision.canMove
           and Collision.canMove(ow.map, ow.entities, p, dir) and true or false
       end
