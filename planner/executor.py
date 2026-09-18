@@ -4420,16 +4420,32 @@ class Executor:
         by the explore picker and every ledger row (untried.py's law)."""
         unseen = int((getattr(self, "region_seen", None) or {})
                      .get(region, 0) or 0)
+        # ground across water counts while SURF can be used, and is not
+        # subject to the stood-there rule below: that rule reads the FOOT
+        # frontier, and a swept beach says nothing about the sea past it
+        water = (self._water_unseen(region)
+                 if hasattr(self, "_water_unseen") else 0)
         if not unseen:
-            return 0, ""
+            return water, ""
         _fh = (getattr(self, "frontier_here", None) or {}).get(region)
         if _fh != 0 or region not in (getattr(self, "visits", None) or {}):
-            return unseen, ""
+            return unseen + water, ""
         _then = (getattr(self, "_region_mark", None) or {}).get(region)
         _now = getattr(self, "_mark_now", None)
         if _then is not None and _now is not None and list(_then) == list(_now):
-            return 0, "done"
-        return unseen, "changed"
+            return water, ("" if water else "done")
+        return unseen + water, "changed"
+
+    def _water_unseen(self, region) -> int:
+        """Spots where a floor's seen ground ends ACROSS WATER, while a party
+        Pokemon knows SURF and the SOULBADGE lets it be used outside battle.
+        Both halves are on screen: the water and its edge, and the move on
+        the party's status pages. Nothing here says where the water goes."""
+        if not (getattr(self, "_knows_surf", False)
+                and getattr(self, "_soulbadge", False)):
+            return 0
+        return int((getattr(self, "region_seen_water", None) or {})
+                   .get(region, 0) or 0)
 
     def _sealed(self, region) -> set:
         """Seams still proven uncrossable AS OF NOW.
@@ -5026,6 +5042,7 @@ class Executor:
             self.seen_far = data.get("seen_far", {}) or {}
             self.map_seen = data.get("map_seen", {}) or {}
             self.region_seen = data.get("region_seen", {}) or {}
+            self.region_seen_water = data.get("region_seen_water", {}) or {}
             self.frontier_here = data.get("frontier_here", {}) or {}
             self._ghost_said = data.get("ghost_said", "") or ""
             self._dry_walks = data.get("dry_walks", {}) or {}
@@ -5701,6 +5718,7 @@ class Executor:
                  "seen_far": getattr(self, "seen_far", {}),
                  "map_seen": getattr(self, "map_seen", {}),
                  "region_seen": getattr(self, "region_seen", {}),
+                 "region_seen_water": getattr(self, "region_seen_water", {}),
                  "frontier_here": getattr(self, "frontier_here", {}),
                  "ghost_said": getattr(self, "_ghost_said", ""),
                  "dry_walks": getattr(self, "_dry_walks", {}),
@@ -6149,6 +6167,21 @@ class Executor:
                 if _fn_new == 0 and _fn_old > 0 and _fn_map > 0:
                     _fn_new = _fn_old
                 self.region_seen[here] = _fn_new
+                # ...AND THE GROUND ACROSS WATER, KEPT APART. frontier_n is
+                # ground a walk reaches; a floor that is nearly all sea
+                # (ROUTE_21) reads 0 once its beach is swept and left every
+                # list as finished, with SURF in the party and none of its
+                # water ever looked at (run 27, 2026-09-18). Counted from
+                # the shim's own water frontier; read only while SURF can be
+                # used (_water_unseen).
+                if not isinstance(getattr(self, "region_seen_water", None), dict):
+                    self.region_seen_water = {}
+                _fw_n = int(_sn.get("frontier_water_n") or 0)
+                if _fw_n:
+                    self.region_seen_water[here] = _fw_n
+                else:
+                    self.region_seen_water.pop(here, None)
+                self._soulbadge = "SOULBADGE" in ((obs or {}).get("badges") or [])
                 self.map_seen[_mid] = max(
                     (n for r, n in self.region_seen.items()
                      if r.split("|")[0] == _mid), default=0)
@@ -14907,7 +14940,10 @@ class Executor:
         # was fully explored (user, 2026-08-25). Recall of the run's own
         # last look at that floor: how many spots its seen ground ended at.
         _urows = []
-        for _ur, _un in (getattr(self, "region_seen", None) or {}).items():
+        _foot_seen = getattr(self, "region_seen", None) or {}
+        for _ur in sorted(set(_foot_seen)
+                          | set(getattr(self, "region_seen_water", None) or {})):
+            _un = int(_foot_seen.get(_ur, 0) or 0) + self._water_unseen(_ur)
             if not _un or _ur == here:
                 continue
             _p = self._route(here, _ur)
@@ -14933,7 +14969,11 @@ class Executor:
                 "of that floor have ever been on screen, and walked legs "
                 "from here): "
                 + "; ".join(
-                    f"{_m} ({-_n} spot(s), " + self._seen_cells_words(_m)
+                    f"{_m} ({-_n} spot(s), "
+                    + (f"{self._water_unseen(_m)} of them across water, which "
+                       f"a party Pokemon's SURF crosses, "
+                       if self._water_unseen(_m) else "")
+                    + self._seen_cells_words(_m)
                     + (f"{_d} leg(s))" if _d < 99
                        else "no walked route from here)")
                     for _d, _n, _m in _shown)

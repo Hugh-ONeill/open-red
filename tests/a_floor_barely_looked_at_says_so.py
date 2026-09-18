@@ -41,7 +41,7 @@ ck("no file = zero, no error", e2._seen_cell_count("X") == 0 and e2._seen_cells_
 
 src = (ROOT / "planner" / "executor.py").read_text()
 ck("the unseen-ground rows carry the count",
-   'f"{_m} ({-_n} spot(s), " + self._seen_cells_words(_m)' in src)
+   'f"{_m} ({-_n} spot(s), "' in src and "+ self._seen_cells_words(_m)" in src)
 ck("...with the caveat on the list's tail",
    "one spot can \"\n                  \"open onto most of a floor; the cell count says how much \"\n                  \"you have looked at, not how big the floor is." in src)
 bad = [c for c in checks if not c[1]]
