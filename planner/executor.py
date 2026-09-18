@@ -10834,6 +10834,10 @@ class Executor:
         return ("a box was up" in _wd or "kind=wild" in _wd
                 or "because of the battle" in _wd
                 or "a fight started" in _wd
+                # the push op's words for the same thing (2026-09-18)
+                # (a SCRIPT that speaks — a guard stepping out — is a
+                # refusal, not the world moving: "it said:" rules it out)
+                or ("something interrupted" in _wd and "it said:" not in _wd)
                 or "safari game ended" in _wd)
 
     def _drain_fights(self, sg, o):
@@ -21655,9 +21659,20 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # its count for that very macro is 0 — and this is the same
             # rule one layer up. A fight is the sea being the sea; let it
             # be re-sent, and let the world mark keep the honest limit.
-            if _seen and any(w in str(_seen.get("why") or "").lower()
-                             for w in ("because of the battle",
-                                       "a fight started")):
+            # ...AND THE PUSH OP'S WORDS FOR IT. A shove route on Victory
+            # Road 3F had its walk into place cut by four wild fights in a
+            # row, said "something interrupted the walk (interrupted (battle
+            # or script)) ... send it again", and this gate then refused the
+            # very re-send it asked for, twice (run 27, 2026-09-18; user:
+            # "now its just standing still not having pushed it in yet").
+            _sw = str((_seen or {}).get("why") or "").lower()
+            if _seen and (any(w in _sw for w in ("because of the battle",
+                                                 "a fight started"))
+                          # early in the push op's line, so the stored
+                          # reason's cut cannot lose it; a guard's script
+                          # speaks, and that is a refusal
+                          or ("something interrupted" in _sw
+                              and "it said:" not in _sw)):
                 self.log("repeat_allowed_after_battle", subgoal=sg["id"],
                          round=rnd, why=str(_seen.get("why"))[:160])
                 _seen = None
@@ -21837,7 +21852,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     _mac_key, {"n": 0, "why": ""})
                 _rec["n"] += 1
                 if _why:
-                    _rec["why"] = _why[:240]
+                    _rec["why"] = _why[:400]
             if _decl_lines:
                 trace = list(_decl_lines) + list(trace)
             # WORDS ARE NOT OPS: a deed the prose named and no op did is
