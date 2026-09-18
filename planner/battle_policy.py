@@ -225,8 +225,15 @@ CATCH_STATUS_MOVES = {"SLEEP_POWDER", "STUN_SPORE", "THUNDER_WAVE", "HYPNOSIS",
 # Each ladder is ordered WEAKEST FIRST, and holds only the items a player
 # restocks. MASTER_BALL and SAFARI_BALL are left out: one of a kind and
 # zone-bound, they are not a rung any ladder should climb on its own.
-HEAL_LADDER = ("POTION", "SUPER_POTION", "HYPER_POTION", "MAX_POTION",
-               "FULL_RESTORE")
+# ...AND THE DRINKS ARE HEALS TOO. FRESH_WATER, SODA_POP and LEMONADE
+# restore 50, 60 and 80 HP (the engine's ItemEffects table), in battle
+# and out; they sat in the bag unseen by every heal rule while the run
+# carried two (user, 2026-09-18: "should we count freshwater/sodapop/
+# lemonade as healing items? because they are, they just also have a
+# story purpose"). Ordered by what they restore; the story use is
+# guarded by HOLD_LAST, below.
+HEAL_LADDER = ("POTION", "FRESH_WATER", "SUPER_POTION", "SODA_POP",
+               "LEMONADE", "HYPER_POTION", "MAX_POTION", "FULL_RESTORE")
 REVIVE_LADDER = ("REVIVE", "MAX_REVIVE")
 BALL_LADDER = ("POKE_BALL", "GREAT_BALL", "ULTRA_BALL")
 CURE_LADDERS = {
@@ -242,8 +249,31 @@ ITEM_CLASSES = {"heal": HEAL_LADDER, "revive": REVIVE_LADDER,
 # What the item says on its own description screen. MAX_POTION and
 # FULL_RESTORE say "fully restores", which no deficit can exceed.
 FULL = 10 ** 6
-HEAL_AMOUNT = {"POTION": 20, "SUPER_POTION": 50, "HYPER_POTION": 200,
+HEAL_AMOUNT = {"POTION": 20, "FRESH_WATER": 50, "SUPER_POTION": 50,
+               "SODA_POP": 60, "LEMONADE": 80, "HYPER_POTION": 200,
                "MAX_POTION": FULL, "FULL_RESTORE": FULL}
+
+# THE LAST OF THESE IS NOT SPENT BY A RULE. The executor fills this from
+# the run's own record: while a way that turned the run back said it was
+# thirsty and is not marked cleared, the last FRESH_WATER, SODA_POP and
+# LEMONADE are held out of every automatic heal. The model can still use
+# one by name; nothing here says who wants it.
+HOLD_LAST: set = set()
+DRINKS = ("FRESH_WATER", "SODA_POP", "LEMONADE")
+
+
+def spendable(bag: dict) -> dict:
+    """The bag as a heal rule may spend it: one of each HOLD_LAST item
+    taken out."""
+    if not HOLD_LAST:
+        return bag
+    out = dict(bag or {})
+    for k in HOLD_LAST:
+        if int(out.get(k) or 0) > 0:
+            out[k] = int(out[k]) - 1
+            if out[k] <= 0:
+                out.pop(k)
+    return out
 
 PREFERENCES = ("weakest_sufficient", "best_available", "weakest_available")
 DEFAULT_PREFER = "weakest_sufficient"
@@ -728,7 +758,7 @@ def should_field_heal(obs: dict,
         return None
     if (obs or {}).get("mode") != "overworld":
         return None
-    bag = (obs or {}).get("bag") or {}
+    bag = spendable((obs or {}).get("bag") or {})
     if not bag:
         return None
     # WHO NEEDS IT DECIDES WHAT IS REACHED FOR, so the neediest mon is
@@ -1050,7 +1080,7 @@ def choose(obs: dict, spec: dict | None = None,
         return {"op": "battle_move", "index": alt}
     # in-battle item rules come first: spending the turn to heal beats
     # fainting (the model's rule decides the threshold and budget)
-    bag = obs.get("bag") or {}
+    bag = spendable(obs.get("bag") or {})
     items_used = ctx.setdefault("items_used", {})
     # WHAT THE BAG HELD WHEN THIS BATTLE BEGAN, for max_share: a count
     # per fight cannot be right for five FULL_RESTOREs and ten POTIONs

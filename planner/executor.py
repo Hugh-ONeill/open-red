@@ -16349,6 +16349,16 @@ class Executor:
                  cap=cap, policy_was=policy)
         return {"want": want, "cap": cap, "legs": [g["leg"] for g in hit]}
 
+    def _hold_drinks(self) -> None:
+        """Fill battle_policy.HOLD_LAST from the run's own record: an
+        uncleared way that turned the run back and said it was thirsty."""
+        thirsty = any("thirsty" in str((b or {}).get("what") or "").lower()
+                      and not (b or {}).get("cleared")
+                      for b in (getattr(self, "blockers", None) or {}).values())
+        battle_policy.HOLD_LAST.clear()
+        if thirsty:
+            battle_policy.HOLD_LAST.update(battle_policy.DRINKS)
+
     def handle_battle(self, subgoal: dict, obs: dict) -> dict:
         # traversal (spec-rule wild fleeing) is the DEFAULT: journey
         # subgoals that fought every Route 1 wild kept wiping and halving
@@ -16388,6 +16398,7 @@ class Executor:
         # its turn comes and the Forest's PIKACHU is two towns behind.
         _want0 = (_oi.get("want") if _oi and _oi.get("want")
                   else self._catch_target(subgoal))
+        self._hold_drinks()
         _ahead = self._catch_ahead(obs, subgoal, name, _want0)
         if _ahead:
             name, why = "catch", "a later objective on the outline"
