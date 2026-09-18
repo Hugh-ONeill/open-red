@@ -6067,12 +6067,20 @@ class Executor:
             # once the party walks off that floor nothing in the atlas has
             # ever held them — every page said 3F was a floor whose doors
             # were all taken, which is true and is not the whole of it.
-            _hs = sorted({f"{h.get('x')},{h.get('y')}"
-                          for h in (_m.get("holes") or [])
-                          if isinstance(h, dict) and h.get("x") is not None})
-            if _hs:
+            # ...ONE DROP, ONE ENTRY: the shim groups a two-tile hole under
+            # one drop id, and listing each tile read as three holes where
+            # the floor has two (Mansion 3F: (16,14)+(17,14), and (19,14)).
+            _grp: dict = {}
+            for h in (_m.get("holes") or []):
+                if isinstance(h, dict) and h.get("x") is not None:
+                    _grp.setdefault(h.get("drop") if h.get("drop") is not None
+                                    else f"_{h.get('x')},{h.get('y')}",
+                                    []).append((h.get("y"), h.get("x")))
+            _first = {f"{sorted(v)[0][1]},{sorted(v)[0][0]}" for v in _grp.values()}
+            _twins = {f"{x},{y}" for v in _grp.values() for (y, x) in sorted(v)[1:]}
+            if _first:
                 self.map_holes[_mid] = sorted(
-                    set(self.map_holes.get(_mid, ())) | set(_hs))
+                    (set(self.map_holes.get(_mid, ())) | _first) - _twins)
             # WHICH SETTING YOU LOOKED AT IT IN IS PART OF WHAT YOU SAW.
             # A statue setting is world state the run can put back, so
             # "unreachable" is only ever true OF A SETTING. The run pressed
@@ -7293,6 +7301,23 @@ class Executor:
             return
         key = (f"{step.get('x')},{step.get('y')}"
                if step.get("x") is not None else step.get("dir"))
+        # ...OR THE CELL A SWEEP STEPPED ONTO WHEN THE FLOOR DROPPED IT. The
+        # shim names it ("you stepped onto (16,14) on POKEMON_MANSION_3F");
+        # filed under that hole's first tile, the same key its row carries,
+        # so the hole reads as taken (run 27, 2026-09-18, Mansion 3F).
+        if key is None:
+            _fell = _re.search(r"you stepped onto \((\d+),(\d+)\) on ([A-Z0-9_]+)",
+                               str(op_detail or "") + " " + _d)
+            if _fell and _fell.group(3) == str(src).split("|")[0]:
+                key = f"{_fell.group(1)},{_fell.group(2)}"
+                _hl = [h for h in (((before_obs or {}).get("map") or {}).get("holes") or [])
+                       if isinstance(h, dict) and h.get("x") is not None]
+                _mine = next((h for h in _hl if f"{h.get('x')},{h.get('y')}" == key), None)
+                if _mine is not None and _mine.get("drop") is not None:
+                    _grp = sorted((h.get("y"), h.get("x")) for h in _hl
+                                  if h.get("drop") == _mine.get("drop"))
+                    key = f"{_grp[0][1]},{_grp[0][0]}"
+                self.log("transition_by_fall", frm=src, to=dst, via=key)
         if key is None:
             return
         # A LANDING THE DOOR'S OWN TABLE CONTRADICTS IS NOT THIS DOOR'S. The

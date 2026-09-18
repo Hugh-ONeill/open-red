@@ -12550,6 +12550,7 @@ end
 -- routed through. It reports what came into view and why it stopped. A
 -- battle interrupts it like any walk; the executor resumes it.
 function OPS.sweep(G, c)
+  local sweep_fell
   if not need_overworld(G) then
     return false, "not in overworld (a box was up and would not close: "
       .. _screen_name(G) .. ")"
@@ -12959,6 +12960,15 @@ function OPS.sweep(G, c)
       local x0, y0 = p.cellX, p.cellY
       walk(G, dir, 1)
       steps = steps + 1
+      -- A FLOOR THAT DROPS YOU MID-SWEEP. A sweep never steps onto a
+      -- doorway, but a hole is not one (Mansion 3F's are script cells):
+      -- the sweep walked onto (16,14) and landed on 1F, and with no cell
+      -- named the crossing was never filed, so the holes read as never
+      -- taken (run 27, 2026-09-18). Say which cell it stepped onto.
+      if (ow.map and ow.map.id) ~= map0 and DIRS[dir] then
+        sweep_fell = { x = x0 + DIRS[dir][1], y = y0 + DIRS[dir][2] }
+        break
+      end
       if p.cellX == x0 and p.cellY == y0 then break end     -- bumped
     end
     settle_slide(G)                   -- the last step may have been a slide
@@ -12971,12 +12981,18 @@ function OPS.sweep(G, c)
     if i > 12 then parts[#parts + 1] = ("(+%d more)"):format(#things - 12); break end
     parts[#parts + 1] = t.text
   end
+  local fell_words = sweep_fell
+    and ((" — the floor changed under you: you stepped onto (%d,%d) on %s "
+          .. "and are now on %s"):format(sweep_fell.x, sweep_fell.y,
+          tostring(map0), tostring(ow.map and ow.map.id)))
+    or ""
   local detail = ("swept %d step(s)%s, %d cell(s) newly on screen; %s — stopped: %s")
     :format(steps,
             (tx and ty) and ((" (spots taken nearest (%d,%d) first)"):format(tx, ty)) or "",
             (mask.n or 0) - nbefore,
             #parts > 0 and ("came into view: " .. table.concat(parts, "; "))
                         or "nothing new came into view", tostring(why))
+    .. fell_words
   -- A SWEEP NEVER STEPS ONTO A DOORWAY (the target picker skips every
   -- warp tile), so "until":"map_change" names a stop this walking cannot
   -- reach: every one of them has ended "nothing more to see from ground
