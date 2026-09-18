@@ -1336,7 +1336,14 @@ def _journal_self_ko(before_b: dict, after_obs: dict, move_id: str) -> bool:
     me = (before_b or {}).get("me") or {}
     if not move_id or (me.get("hp") or 0) <= 0:
         return False
-    txt = str((after_obs or {}).get("recent_text") or "")
+    # THE RUN OF BOXES, NOT THE LAST ONE. recent_text is the single last
+    # box ("ROCKY fainted!"), so "used EXPLOSION" was never in it and this
+    # journal never fired once: self_ko.json held only the hand-seeded
+    # SELFDESTRUCT, and Graveler exploded on turn one against Victory Road's
+    # Blackbelt and mid-fight against the rival (run 27, 2026-09-18).
+    # last_text is the joined run ("... used EXPLOSION! / ... fainted!").
+    txt = str((after_obs or {}).get("last_text")
+              or (after_obs or {}).get("recent_text") or "")
     words = str(move_id).replace("_", " ").upper()
     up = txt.upper()
     boxes = [b.strip() for b in up.split(" / ")]

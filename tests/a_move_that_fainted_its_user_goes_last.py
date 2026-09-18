@@ -101,6 +101,20 @@ ck("the battle loop records it after every move and hands the record to the poli
    "if _journal_self_ko(before_b, obs, move_id):" in src
    and '"self_ko": SELF_KO, "want": want,' in src)
 
+
+# THE REAL OBSERVATION: recent_text is the LAST box only, last_text the run.
+# The fixture above put the whole run in recent_text, which the shim never
+# does, and the journal never fired live once (2026-09-18).
+import executor as _EX  # noqa: E402
+_EX.SELF_KO.clear()
+_real = {"mode": "battle", "recent_text": "ROCKY fainted!",
+         "last_text": "Enemy MACHOKE used LOW KICK! / ROCKY used EXPLOSION! / ROCKY fainted!",
+         "party": []}
+_EX.SELF_KO_PATH = Path(tempfile.mkdtemp()) / "self_ko.json"
+ck_ok = _EX._journal_self_ko({"me": {"hp": 100}}, _real, "EXPLOSION")
+ck("a self-KO is read off the joined run of boxes, as the shim publishes it",
+   bool(ck_ok) and _EX.SELF_KO.get("EXPLOSION") == 1, _EX.SELF_KO)
+
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not d else f"  {str(d)[:200]}"))
