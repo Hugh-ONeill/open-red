@@ -9798,6 +9798,25 @@ class Executor:
             cls._ITEM_WORDS = out
         return cls._ITEM_WORDS
 
+    def _words_want_items(self, plan_said, bag) -> list:
+        """Items the round's own words say it needs and the bag lacks,
+        read the way the named-needs tally reads them: a sentence with a
+        need word and an item name in it."""
+        said = str(plan_said or "")
+        if not said:
+            return []
+        out = []
+        for sent in _re.split(r"(?<=[.!?;])\s+", said):
+            if not _re.search(self.NEED_WORDS, sent, _re.I):
+                continue
+            rest = sent
+            for nm, pat in self._item_word_patterns():
+                if pat.search(rest):
+                    if nm not in (bag or {}) and nm not in out:
+                        out.append(nm)
+                    rest = pat.sub(" ", rest)
+        return out
+
     def _tally_named_needs(self, plan_said, obs) -> list:
         """Tally, on each live un-lifted blocker the plan's WORDS concern,
         the item those words say it needs. Returns the (blocker key, ITEM)
@@ -12695,6 +12714,14 @@ class Executor:
             _subs = ((self.plan or {}).get("subgoals") or [])
             wants_item = any("has_item" in pred_keys(s2.get("done_when") or {})
                              for s2 in _subs if isinstance(s2, dict))
+        # ...AND WHAT THE ROUND'S OWN WORDS ARE AFTER. The step can be "enter
+        # the gym" while the model writes "I need the Secret Key" every
+        # round: the full-bag line was on the page, and the run walked out
+        # of the Center at 20/20 on a hunt for the key (run 27, 2026-09-18;
+        # user: "its walking out of the center with a full bag on a quest
+        # for an item"; "its not in the plan, just in the thinking").
+        _want_words = self._words_want_items(getattr(self, "_plan_said", ""), bag)
+        wants_item = wants_item or bool(_want_words)
         # A FULL BAG IS SAID WHATEVER THE STEP IS FOR. This was gated on
         # the step wanting an item, and 20/20 does not care what the step
         # is for: it silently refuses every gift and every ball on the
@@ -12728,7 +12755,15 @@ class Executor:
         # facts, put in the order that costs nothing. Which one to spend is
         # still the model's; the harness says only that they can be.
         usable = self._usable_on_a_mon(spare)
-        return ("\nYOUR BAG HOLDS " + f"{n}/{self.BAG_SLOTS}"
+        _words_line = ""
+        if _want_words and n >= self.BAG_SLOTS:
+            _words_line = ("\nYOUR OWN WORDS SAY YOU ARE AFTER "
+                           + ", ".join(_want_words[:3])
+                           + ", and a full bag will refuse "
+                           + ("it" if len(_want_words) == 1 else "them")
+                           + " when you find "
+                           + ("it" if len(_want_words) == 1 else "them") + ".")
+        return (_words_line + "\nYOUR BAG HOLDS " + f"{n}/{self.BAG_SLOTS}"
                 + " KINDS OF THING"
                 + (" — IT IS FULL, so every gift and every pickup is being "
                    "REFUSED until a slot goes" if n >= self.BAG_SLOTS
@@ -13245,6 +13280,71 @@ class Executor:
                  left=",".join(self._stow or []))
         if done:
             print(f"   (standing order: stored {', '.join(done)} at the PC)")
+        return obs
+
+    STORE_FOR_ROOM_SYS = (
+        "You are playing Pokemon Red. Your bag holds 20 kinds of thing and is "
+        "full: a gift or an item on the ground is refused until a slot goes. "
+        "You are standing at a Pokemon Center PC, which keeps anything you "
+        "deposit and gives it back at any Center. Decide whether to store "
+        "anything now, given what you said you are after. Reply with a JSON "
+        "object and nothing else: {\"why\":\"<one short sentence>\","
+        "\"store\":[\"ITEM\",...]} with items spelled as the bag spells "
+        "them, or {\"why\":\"...\",\"store\":[]} to store nothing.")
+
+    def _ask_store_for_room(self, obs, sg):
+        """A full bag at a PC while the round's words are after an item:
+        ask whether to store anything, once per visit, no round spent.
+
+        The bag line said 20/20 and what could go every round, and the run
+        walked out of the Cinnabar Center with it full, its own words saying
+        "I need the Secret Key" (run 27, 2026-09-18). Same shape as the heal
+        and buy questions: the facts, one answer, and the deed is the
+        store op the model could have sent itself."""
+        if (obs or {}).get("mode") != "overworld" or not self._pc_here(obs):
+            return obs
+        bag = (obs or {}).get("bag") or {}
+        if len(bag) < self.BAG_SLOTS:
+            return obs
+        want = self._words_want_items(getattr(self, "_plan_said", ""), bag)
+        if not want:
+            return obs
+        here = self._where(obs)
+        if getattr(self, "_store_asked_at", None) == here:
+            return obs
+        self._store_asked_at = here
+        keys = set((obs or {}).get("key_items") or [])
+        user = (f"WHAT YOUR OWN WORDS SAY YOU ARE AFTER: {', '.join(want[:3])}\n"
+                f"YOUR BAG ({len(bag)} of {self.BAG_SLOTS} kinds): "
+                + ", ".join(f"{k} x{v}" + (" (key item)" if k in keys else "")
+                            for k, v in sorted(bag.items()))
+                + f"\nWHAT YOU ARE TRYING TO DO RIGHT NOW: "
+                f"{(sg or {}).get('goal_text') or (sg or {}).get('id') or 'make progress'}\n"
+                "Store anything now?")
+        items, why = [], ""
+        try:
+            reply = brock_probe.chat(
+                [{"role": "system", "content": self.STORE_FOR_ROOM_SYS},
+                 {"role": "user", "content": user}], self.model)
+            mm = _re.search(r"\{.*\}", reply or "", _re.S)
+            dd = json.loads(mm.group(0)) if mm else {}
+            items = [str(x).upper().replace(" ", "_") for x in (dd.get("store") or [])
+                     if str(x).upper().replace(" ", "_") in bag]
+            why = str(dd.get("why") or "")[:200]
+        except Exception as e:
+            self.log("store_chat_error", subgoal=(sg or {}).get("id"), err=str(e)[:120])
+            return obs
+        done = []
+        for item in items[:5]:
+            r = (self._send_safe("store_item", item=item) or {})
+            if (r.get("result") or {}).get("ok"):
+                done.append(item)
+            obs = self.settle() or obs
+        self.log("store_for_room_asked", subgoal=(sg or {}).get("id"), want=want,
+                 chose=items, stored=done, why=why)
+        print(f"   (full bag at a PC, after {', '.join(want[:2])}: "
+              + (f"stored {', '.join(done)}" if done else "stored nothing")
+              + f" — {why})")
         return obs
 
     @staticmethod
@@ -20370,6 +20470,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # model has left an order and the things are in the bag, they
             # go now. See _stow_at_pc.
             start = self._stow_at_pc(start, sg) or start
+            start = self._ask_store_for_room(start, sg) or start
             start = self._ask_heal(start, sg) or start
             # ...AND THE COUNTER, on the same standing: what to buy is a
             # judgment (money has competing uses, a new kind takes a
