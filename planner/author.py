@@ -7450,7 +7450,8 @@ def check_already_done(deed: str, start: str, model: str,
         return True
     body = (f"THE OBJECTIVE: {deed}\n\nWHERE THE RUN STANDS: {start}"
             + recent_events() + _events_bearing(deed)
-            + walked_ground_text([(0, deed)], observed))
+            + walked_ground_text([(0, deed)], observed)
+            + crossings_text(deed, observed))
     try:
         reply = brock_probe.chat(
             [{"role": "system", "content": ALREADY_SYS},
@@ -9617,6 +9618,56 @@ def _event_names_a_place(event: str) -> bool:
     return any(sg in towns or re.fullmatch(r"ROUTE\d*", sg) for sg in segs)
 
 
+def crossings_text(goal: str, observed="run/explored.json") -> str:
+    """For an objective about going THROUGH a place: every way the run has
+    come into that place and every way it has left it, from its own record.
+
+    "Navigate the Seafoam Islands" came after "Reach Cinnabar Island" on the
+    outline, and the run crossed Seafoam to reach Cinnabar. The leg's own
+    judge read "has explored several floors of the Seafoam Islands but has
+    not yet exited the islands to reach the other side" while the record
+    held SEAFOAM_ISLANDS_1F|21,12 --(27,17)--> ROUTE_20|58,9 --west-->
+    CINNABAR_ISLAND, and the chain walked the run back from Cinnabar to do
+    it again (run 27, 2026-09-18). Where the run went in and where it came
+    out are facts; whether that is the objective done is the judge's."""
+    if not re.search(r"\b(through|across|traverse[sd]?|traversing|navigate[sd]?|"
+                     r"navigating|cross(?:es|ed|ing)?)\b", str(goal or ""), re.I):
+        return ""
+    words = re.sub(r"[^A-Z0-9]+", " ", str(goal).upper()).split()
+    fam = lambda m: re.sub(r"_(B?\d+F|ROOF|ELEVATOR)$", "", str(m).split("|")[0])
+    named = None
+    for m in sorted(ROUTE_MAPS, key=len, reverse=True):
+        parts = fam(m).split("_")
+        if len(parts) >= 2 and all(w in words for w in parts):
+            named = fam(m)
+            break
+    if not named:
+        return ""
+    try:
+        ex = (json.loads(Path(observed).read_text() or "{}").get("explored")
+              or {}) if observed else {}
+    except (OSError, ValueError):
+        ex = {}
+    ins, outs = [], []
+    for r, edges in ex.items():
+        rf = fam(r)
+        for k, e in (edges or {}).items():
+            to = str((e or {}).get("to") or "")
+            if not to or str(k).startswith("walk:"):
+                continue
+            tf = fam(to)
+            if rf != named and tf == named:
+                ins.append(f"{r} --({k})--> {to}")
+            elif rf == named and tf != named:
+                outs.append(f"{r} --({k})--> {to}")
+    if not (ins or outs):
+        return ""
+    return (f"\n\nYOUR CROSSINGS OF {named}, from your own walking — "
+            f"INTO it: " + ("; ".join(sorted(set(ins))[:6]) or "none recorded")
+            + " — OUT of it: " + ("; ".join(sorted(set(outs))[:6]) or "none recorded")
+            + ". Which of these is the far side is yours to judge.")
+
+
 def check_done(goal: str, start: str, model: str,
                observed=None, gained: str = "") -> bool:
     """The model judges whether a failed leg's objective is already met.
@@ -9777,6 +9828,7 @@ def check_done(goal: str, start: str, model: str,
           + _wording_lineage(goal)
           + f"\n\nWHERE THE RUN STANDS: {start}"
           + walked_ground_text([(0, goal)], observed)
+          + crossings_text(goal, observed)
           + plan_finish_text(goal, observed=observed)
           # WHAT THE LEG ACHIEVED, not just where it ended. A leg can fail
           # every subgoal and still have done the thing — and a FUSED
