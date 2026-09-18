@@ -14467,43 +14467,63 @@ class Executor:
         return out + (f', who said: "{said}"]' if said else "]")
 
     def _unseen_side_toward_words(self, region: str, target: str) -> str:
-        """A printed road off a side of this map never on screen, when the
-        printed map sends it toward the goal.
+        """Another walked map whose edge, SEEN and never crossed, leads onto
+        this floor, and how far that map is from the goal by the run's own
+        walking.
 
         Under the footprint a side joins the ledger only once it has been
         on screen, so ROUTE_21 — 90 cells tall, walked only at its southern
         tip beside Cinnabar — held one way, south, and nothing on the page
-        joined it to anything else. The page told the run Route 20's east
-        edge led AWAY from VIRIDIAN_CITY and had nothing to say about the
-        road north to PALLET_TOWN, so the run shuttled Route 20 <->
-        Cinnabar (run 27, 2026-09-18; user: "its definitly confused where
-        to go next to get back to viridian"). Same source and same words as
-        the goalward note on exits (the printed map is manual tier): which
-        way a printed road goes, nothing about what is on it or whether it
-        is open."""
+        joined it to anything else, while PALLET_TOWN's south edge had been
+        on screen since the first leg, reading "to ROUTE_21", never crossed
+        (water, and nobody knew SURF then). The run shuttled Route 20 <->
+        Cinnabar looking for Viridian (run 27, 2026-09-18; user: "its
+        definitly confused where to go next to get back to viridian").
+
+        NOT THE PRINTED MAP: this run holds no TOWN_MAP, and nothing may
+        quote one it does not own (tests/no_town_map_no_printed_map.py). A
+        compass key sits in a region's frontier only once that side has
+        been on screen, where the game named the map past it — so the name
+        is the run's own sighting. The distance is walked legs (_route)."""
         mp = str(region).split("|")[0]
-        edges = MAP_EDGES.get(mp) or {}
-        if not edges or not str(target or "").startswith("map:"):
+        t = str(target or "")
+        if not t.startswith("map:"):
             return ""
-        known = set()
+        goal = t[4:].split("|")[0]
+        if mp == goal:
+            return ""
+        taken: dict = {}
         for _r, _ex in (self.explored or {}).items():
-            if str(_r).split("|")[0] == mp:
-                known |= {str(k).split("#")[0] for k in (_ex or {})}
-        for _r, _fr in (self.frontier or {}).items():
-            if str(_r).split("|")[0] == mp:
-                known |= {str(k).split("#")[0] for k in (_fr or [])}
+            taken.setdefault(str(_r).split("|")[0], set()).update(
+                str(k).split("#")[0] for k in (_ex or {}))
+        goal_regions = [r for r in (self.visits or {})
+                        if str(r).split("|")[0] == goal]
         out = []
-        for d, to in sorted(edges.items()):
-            if d in known:
+        for _r, _fr in sorted((self.frontier or {}).items()):
+            _x = str(_r).split("|")[0]
+            if _x == mp:
                 continue
-            try:
-                if ledger.edge_tier(self, region, d, target) == 0:
-                    out.append(f"its {d} side has never been on screen, and "
-                               f"on the printed map that side is the road to "
-                               f"{to}, toward {str(target)[4:].split('|')[0]}")
-            except Exception:
-                continue
-        return (" — " + "; ".join(out)) if out else ""
+            for d in sorted({str(k).split("#")[0] for k in (_fr or [])}):
+                if d not in ("north", "south", "east", "west"):
+                    continue
+                if d in taken.get(_x, set()):
+                    continue
+                if (MAP_EDGES.get(_x) or {}).get(d) != mp:
+                    continue
+                legs = None
+                for _g in goal_regions:
+                    try:
+                        _p = self._route(_r, _g)
+                    except Exception:
+                        _p = None
+                    if _p is not None and (legs is None or len(_p) < legs):
+                        legs = len(_p)
+                if legs is None:
+                    continue
+                out.append(f"{_x}'s {d} edge, which you have seen lead onto "
+                           f"{mp} and never crossed, is on ground {legs} "
+                           f"walked leg(s) from {goal}")
+        return (" — " + "; ".join(dict.fromkeys(out))) if out else ""
 
     def exploration_text(self, obs, target: str = "", sg: dict | None = None) -> str:
         """Untried vs already-taken exits from where we stand."""
