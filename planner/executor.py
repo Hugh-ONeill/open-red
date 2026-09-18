@@ -21089,6 +21089,19 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                              subgoal=sg["id"], round=rnd,
                              why=str(_seen.get("why") or "")[:160] or "(none recorded)")
                     _seen = None
+            # ...AND A MACRO THE INTERFACE STOPPED IS NOT ONE THE WORLD
+            # REFUSED. "not in overworld (a box was up and would not
+            # close)" is a screen state: the sweep never took a step, and
+            # the six identical explores that followed were refused as
+            # repeats until the step died with its budget untouched (run
+            # 27, 2026-09-18, Seafoam; the box was a cry that would not
+            # end). Once the screen is clear the same macro is a new try.
+            if _seen and any(w in str(_seen.get("why") or "").lower()
+                             for w in ("not in overworld",
+                                       "would not close")):
+                self.log("repeat_allowed_ui_blocked", subgoal=sg["id"],
+                         round=rnd, why=str(_seen.get("why") or "")[:160])
+                _seen = None
             if _seen:
                 _others = len({k for k in self._spent_macros
                                if k[0] == _mac_key[0]

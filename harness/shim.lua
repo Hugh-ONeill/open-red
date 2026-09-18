@@ -7328,11 +7328,29 @@ end
 -- Same undersized-budget bug as settle_dialog (see there): 40 taps of B is
 -- under two pages of typing, so backing out of anything wordy reported
 -- failure with the box merely half-read. Progress-budgeted the same way.
+-- A BOX HELD OPEN BY A SOUND THAT DOES NOT END. The recomp holds an
+-- auto-advancing box (no prompt) until the cry it plays has finished
+-- (TextBox opts.auto: WaitForSoundToFinish), and A and B do nothing to
+-- it. "ROCKY used STRENGTH." waits on ROCKY's cry; with the audio
+-- device paused the source never reports finished, the box never
+-- closes, and every op after it failed "a box was up and would not
+-- close" (run 27, 2026-09-18, Seafoam). Stopping the sound is what
+-- finishing it would have done; the box then advances on its own.
+local function release_held_sound(G, t)
+  local src = t and t.auto and t.autoSrc
+  if src and src.isPlaying then
+    local okp, playing = pcall(src.isPlaying, src)
+    if okp and playing then pcall(src.stop, src); return true end
+  end
+  return false
+end
+
 ui_back_out = function(G)
   local stall, seen_top, seen_idx = 0, nil, nil
   for i = 1, 400 do
     local t = ui_top(G)
     dlg_trace(G, "back_out", i)
+    if stall > 10 and release_held_sound(G, t) then stall = 0 end
     -- a naming screen is not closed by B (B deletes a letter) and must
     -- not be confirmed by the harness: the name is the model's to give
     if naming_on_stack(G) then return false end
@@ -9227,6 +9245,7 @@ function OPS.field_move(G, c)
     if t == ow then break end
     if _fi > 300 and (not (t and t.pages)
                       or os.time() - _fm0 > 8) then break end
+    if _fi > 60 and _fi % 30 == 0 then release_held_sound(G, t) end
     if t and t.pages and t.pageIndex then
       local pg = t.pages[t.pageIndex]
       if type(pg) == "table" then said = table.concat(pg, " ")
