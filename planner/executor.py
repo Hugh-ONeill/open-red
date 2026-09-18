@@ -4133,7 +4133,7 @@ class Executor:
         out = []
         for _neg, legs, region, path in rows[:4]:
             fk, fd = path[0]
-            leg = (f"walk {fk}" if not fk[0].isdigit() else f"door ({fk})")
+            leg = ledger.leg_words(self, here, fk)
             out.append(f"{region} ({-_neg} spot(s), {legs} leg(s) away, "
                        f"first: {leg} to {fd}"
                        + (" — none of it reachable from where you last "
@@ -10767,6 +10767,46 @@ class Executor:
         for key, nxt in path:
             _now = self.b.obs() or {}
             _m = (_now.get("map") or {})
+            # A HOLE HOP: walk onto the hole and let the floor drop you.
+            # A fall on record is an edge like any other, so the route runs
+            # through it — and this loop only knew doors and seams, found no
+            # door at (16,14) on Mansion 3F, and ended every `go` there with
+            # "this map has no such way out any more" (run 27, 2026-09-18).
+            _hk = str(key).split("#")[0]
+            if (_is_door_key(_hk)
+                    and _hk in set((self.map_holes or {}).get(str(_m.get("id") or "")) or ())
+                    and not any(f"{w.get('x')},{w.get('y')}" == _hk
+                                for w in (_m.get("warps") or []))):
+                _hx, _hy = (int(v) for v in _hk.split(","))
+                _hdet, _hpos = "", None
+                o = _now
+                for _ in range(4):
+                    _hr = self._send_safe("walk_to", x=_hx, y=_hy)
+                    _hdet = ((_hr or {}).get("result") or {}).get("detail") or ""
+                    o = self.settle() or o
+                    while o and o.get("mode") == "battle":
+                        o = self.handle_battle(sg, o)
+                        o = self.settle()
+                    if (str(((o or {}).get("map") or {}).get("id"))
+                            != str(_m.get("id"))):
+                        break
+                    _p = self._where(o), str((o or {}).get("player"))
+                    if _p == _hpos:
+                        break
+                    _hpos = _p
+                self.log("route_hole_hop", subgoal=sg.get("id"), key=_hk,
+                         frm=self._where(_now), to=self._where(o))
+                if self._same_area(self._where(o), nxt):
+                    continue
+                self._route_why = (
+                    f"the leg {_hk} is a hole in this floor; walking onto it "
+                    f"did not drop you to {nxt}"
+                    + (f", and what the walk said was: "
+                       f"{str(_hdet)[:self.WHY_BUDGET]}" if _hdet else ""))
+                self.log("route_abandoned", subgoal=sg.get("id"),
+                         step=_hk, standing=self._where(o),
+                         why="walking onto the hole did not drop to the next leg")
+                return o
             # A LIFT HOP: ride the panel to that floor, then walk out of the
             # car. The label is the floor's own (5F, B4F, ROOF), which is
             # how the panel lists it and how the elevator op takes it.
@@ -15312,8 +15352,7 @@ class Executor:
             rank = (path is None, len(path or ()), -len(left), region)
             if path:
                 fk, fd = path[0]
-                leg = (f"walk {fk}" if not fk[0].isdigit()
-                       else f"door ({fk})")
+                leg = ledger.leg_words(self, here, fk)
                 elsewhere.append(
                     (rank,
                      f"{region} ({', '.join(sorted(left))} — {len(path)} "

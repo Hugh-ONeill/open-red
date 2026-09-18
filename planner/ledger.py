@@ -469,6 +469,20 @@ def shelf_of(ex, region_or_map: str) -> list:
     return list((getattr(ex, "_shelves", {}) or {}).get(mid) or [])
 
 
+def leg_words(ex, here, fk) -> str:
+    """How a route's first leg is named. A HOLE IS NOT A DOOR: once a fall
+    is on record the route runs through it, and the hint read "first: door
+    (16,14)" on Mansion 3F, where no door stands — the drop is taken by
+    walking onto it (run 27, 2026-09-18)."""
+    fk = str(fk)
+    if not fk[:1].isdigit():
+        return f"walk {fk}"
+    _mid = str(here or "").split("|")[0]
+    if fk.split("#")[0] in set(((getattr(ex, "map_holes", None) or {}).get(_mid)) or ()):
+        return f"hole ({fk}), walked onto"
+    return f"door ({fk})"
+
+
 def _left_parts(ex, region: str) -> list:
     # A LIFT CAR IS NEVER "STILL HAS EXITS NEVER TAKEN". Its one doorway is
     # re-pointed by the panel, so it counts as unwalked from every angle —
@@ -2170,7 +2184,7 @@ def plan_explore(ex, obs: dict, cands: list[Candidate] | None = None,
     if best:
         _, region, left, things, path, unseen, _unrb = best
         fk, fd = path[0]
-        first = f"walk {fk}" if not fk[0].isdigit() else f"door ({fk})"
+        first = leg_words(ex, here, fk)
         # THE NEAREST-AREA RECALL OUTRANKS THE UNREACHABLES NOTE. That note
         # used to take item 1 whenever anything unreachable sat on the
         # floor — and Route 20 always has sea trainers no walk reaches, so
@@ -2260,8 +2274,7 @@ def plan_explore(ex, obs: dict, cands: list[Candidate] | None = None,
             if _fk2 in _legs_seen:
                 continue
             _legs_seen.add(_fk2)
-            _first2 = (f"walk {_fk2}" if not _fk2[0].isdigit()
-                       else f"door ({_fk2})")
+            _first2 = leg_words(ex, here, _fk2)
             _has = []
             if _left2:
                 _has.append(f"{len(_left2)} exit(s) never taken")
