@@ -1925,6 +1925,7 @@ class Executor:
         self._item_from: dict = {}   # item -> {who, at, said}: who handed it over
         self._offered: dict = {}     # map -> {species: wild encounters}
         self._new_species_asked: dict = {}  # species -> {catch, why}
+        self._refused_gifts: dict = {}      # "MAP|who" -> {map, who, said}
         self._dead_why: dict = {}    # op signature -> last failure detail
         self._cut_bushes: dict = {}  # map -> ["x,y", ...] bushes cut before
         self._bush_ways: dict = {}   # part -> ["x,y", ...] bushes with ground past
@@ -5066,6 +5067,7 @@ class Executor:
             self._item_from = data.get("item_from") or {}
             self._offered = data.get("offered") or {}
             self._new_species_asked = data.get("new_species_asked") or {}
+            self._refused_gifts = data.get("refused_gifts") or {}
             self._wild_lv = data.get("wild_lv") or {}
             self._wild_seen = data.get("wild_seen") or {}
             self._grind_exp = data.get("grind_exp") or {}
@@ -5568,6 +5570,7 @@ class Executor:
                  "item_from": getattr(self, "_item_from", {}),
                  "offered": getattr(self, "_offered", {}),
                  "new_species_asked": getattr(self, "_new_species_asked", {}),
+                 "refused_gifts": getattr(self, "_refused_gifts", {}),
                  "wild_lv": getattr(self, "_wild_lv", {}),
                  "wild_seen": getattr(self, "_wild_seen", {}),
                  "grind_exp": getattr(self, "_grind_exp", {}),
@@ -13956,6 +13959,67 @@ class Executor:
                     "intent= and want= for what a bite is for]")
         return ""
 
+    _NO_ROOM = (r"[^.!?/]*\b(?:make room|make space|no more room|no room)"
+                r"\b[^.!?/]*[.!?]?")
+
+    def _refused_gifts_line(self, obs) -> str:
+        """Gifts and pickups a full bag refused, while the bag has room.
+
+        Two sources, both the run's own record: a line after a fight that
+        asked for room (kept by _note_fight), and a pressed thing that
+        answered "No more room for items!" (the hints). Each drops off when
+        it is settled — something arrived from that giver, or the ball is
+        gone from its spot. Said only while there is room: with the bag
+        full the same press would be refused again. Where each is, and how
+        far, is the run's own ledger; what to do about it is the model's."""
+        bag = (obs or {}).get("bag") or {}
+        if not isinstance(bag, dict) or len(bag) >= self.BAG_SLOTS:
+            return ""
+        here = self._where(obs) if obs else ""
+        got_from = {}
+        for it, rec in (getattr(self, "_item_from", None) or {}).items():
+            if isinstance(rec, dict):
+                got_from.setdefault(str(rec.get("at") or "").split("|")[0], set()).add(
+                    str(rec.get("who") or "").upper())
+        rows = []
+        for key, rec in (getattr(self, "_refused_gifts", None) or {}).items():
+            mp, who = str(rec.get("map") or ""), str(rec.get("who") or "")
+            if any(who.upper() in g for g in got_from.get(mp, ())):
+                continue
+            rows.append((mp, f"{who} in {mp} said \"{str(rec.get('said') or '').strip()}\" "
+                             f"after the fight"))
+        pat = _re.compile(self._NO_ROOM, _re.I)
+        for region, lines in (self.hints or {}).items():
+            gone = (getattr(self, "_gone", {}) or {}).get(region) or set()
+            for line in lines or []:
+                who, _, said = str(line).partition(": ")
+                if not said or not pat.search(said):
+                    continue
+                if "learn" in said.lower():
+                    continue                    # the move-slot question, not a gift
+                if who in gone:
+                    continue
+                if who.startswith("ITEM_"):
+                    xy = "(" + ",".join(who.rsplit("_", 2)[-2:]) + ")"
+                    rows.append((region.split("|")[0],
+                                 f"a ball at {xy} in {region.split('|')[0]}, "
+                                 f"which answered \"{said.strip()[:60]}\""))
+                elif not any(who.upper() in g for g in got_from.get(region.split("|")[0], ())):
+                    rows.append((region.split("|")[0],
+                                 f"{who} in {region.split('|')[0]} said \"{said.strip()[:80]}\""))
+        if not rows:
+            return ""
+        out = []
+        for mp, text in rows[:6]:
+            _reg = next((r for r in list(self.visits or {}) if r.split("|")[0] == mp), None)
+            path = self._route(here, _reg) if (here and _reg) else None
+            out.append(text + (f" — {len(path)} walked leg(s) away" if path
+                               else " — here" if _reg == here else ""))
+        return ("THINGS YOUR FULL BAG REFUSED, and the bag has room now "
+                f"({len(bag)} of {self.BAG_SLOTS} kinds): " + "; ".join(out)
+                + ". A refused gift is not taken back: asking again with room "
+                  "is how it is found out.\n")
+
     def _stored_machines_line(self, obs) -> str:
         """TMs in the PC that somebody in the party could learn now.
 
@@ -15646,7 +15710,8 @@ class Executor:
         if not _boxed and "pc_mons" in (obs or {}):
             _rs_line = ("IN PC STORAGE: no Pokemon — you have deposited none, and a "
                         "Center's PC holds only what you put in it.\n") + _rs_line
-        _rs_line = self._stored_machines_line(obs) + _rs_line
+        _rs_line = (self._refused_gifts_line(obs)
+                    + self._stored_machines_line(obs) + _rs_line)
         if _boxed:
             _rs_line = (
                 "IN PC STORAGE (yours, not in the party — a boxed Pokemon "
@@ -16602,6 +16667,25 @@ class Executor:
                     + (f". Fainted: {', '.join(fainted)}" if fainted else ""),
         }
         self.log("fight_recap", **{k: v for k, v in self._last_fight.items()})
+        # A GIFT AFTER THE FIGHT THAT A FULL BAG REFUSED. A leader's TM is
+        # handed over at the end of the badge fight, and with 20 kinds in
+        # the bag the game says "You should make room for this." instead —
+        # and a beaten leader hands it over when spoken to again. Nothing
+        # kept the line: ERIKA's TM21 went unrecorded and the run never
+        # went back (run 27, 2026-09-18; user: "something that would get
+        # the bot to cycle back to a gift with a non-full bag").
+        _said_raw = " / ".join(str((after or {}).get(k) or "")
+                               for k in ("recent_text", "last_text"))
+        _full_said = _re.search(self._NO_ROOM, _said_raw, _re.I)
+        if _full_said and bb.get("trainer") and not lost:
+            _mp = str(getattr(self, "_last_overworld_map", None) or "")
+            if _mp:
+                self._refused_gifts[f"{_mp}|{bb.get('trainer')}"] = {
+                    "map": _mp, "who": str(bb.get("trainer")),
+                    "said": _full_said.group(0).strip(), "after": "fight"}
+                self.log("gift_refused", map=_mp, who=bb.get("trainer"),
+                         said=_full_said.group(0))
+                self._save_memory()
 
     def _party_since_text(self, obs, sg) -> str:
         """Each party member's level and experience now, against when this

@@ -66,7 +66,7 @@ ck("a TM asked about under an earlier party carries that answer",
 ck("no stored machines, no line", ex._stored_machines_line({"pc_items": {"POTION": 1}, "machines": {}, "party": []}) == "")
 
 src = (ROOT / "planner/executor.py").read_text()
-ck("it rides the PC section of every page", "_rs_line = self._stored_machines_line(obs) + _rs_line" in src)
+ck("it rides the PC section of every page", "+ self._stored_machines_line(obs) + _rs_line)" in src)
 tn = src[src.index("    def _teachable_now(self, obs):"):]
 tn = tn[:tn.index("\n    def ", 10)]
 ck("the teach question still reads only the bag", "for item in sorted(bag):" in tn)
