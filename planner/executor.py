@@ -21812,9 +21812,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         f"setting, and it is {_set} right now. Flipping it "
                         f"moves walls on EVERY floor, so it can open ground "
                         f"no walk reaches while it stands as it is. Press "
-                        f"ONE and look: pressing a second one puts the "
-                        f"first straight back, and none of them is a thing "
-                        f"you have left untouched.")
+                        f"one and look. Pressing a second one flips the "
+                        f"setting straight back, but WITH YOU STANDING AT "
+                        f"THAT ONE: which side of the moved walls you are "
+                        f"left on is decided by where the statue you press "
+                        f"stands.")
                 if _open:
                     trace.append(
                         f"Do NOT conclude this area is a dead end yet: you "

@@ -38,7 +38,7 @@ ck("it says the setting is shared", "SHARE ONE SETTING" in h_on)
 ck("pressed reads as pressed", "currently PRESSED" in h_on)
 ck("unpressed reads as unpressed", "currently UNPRESSED" in h_off)
 ck("it warns a second press undoes the first",
-   "puts the first back" in h_on)
+   "so pressing a second one flips it back, with you standing at that one" in h_on)
 ck("the statue is still named", "(2,5)" in h_on)
 ck("it still says press facing up", "FACING" in h_on)
 ck("it does not say which setting is wanted",

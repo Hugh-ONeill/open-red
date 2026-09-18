@@ -95,9 +95,9 @@ ck("the row says the statues share one lever",
 ck("...and which way that lever is set right now",
    "set to PRESSED right now" in near)
 ck("...and that a second press undoes the first",
-   "puts the first one back" in near)
-ck("...and that a never-pressed statue is not an untried thing",
-   "never pressed is not an untried thing" in near)
+   "flips the same setting back" in near)
+ck("...and that where the pressed statue stands decides which side of the walls you are left on",
+   "which side of them you are left on is decided by where the statue you pressed stands" in near)
 ck("the trash-can wording is gone from the statue",
    "it can be pressed again" not in near)
 
@@ -166,8 +166,8 @@ ck("...read off the toggle the shim marks, not off a name prefix",
    'o.get("toggle")' in _blk and "_tog =" in _blk)
 ck("...saying which way the one setting is set now",
    "shares ONE " in _blk and "right now" in _blk)
-ck("...and that pressing a second one puts the first back",
-   "first straight back" in _blk)
+ck("...and that pressing a second one flips it back, from where that statue stands",
+   "setting straight back" in _blk and "where the statue you press" in _blk)
 ck("...while the press-them-all instruction stays for ordinary things",
    "Interact with all of "
    in SRC.split("Do NOT conclude this area is a dead end yet", 1)[1][:900])

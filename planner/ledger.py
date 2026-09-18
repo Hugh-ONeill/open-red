@@ -3382,8 +3382,10 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                  + (". THEY ALL SHARE ONE SETTING, which is currently "
                     + ("PRESSED" if m.get("switches_on") else "UNPRESSED")
                     + " — pressing ANY of them flips that one setting for "
-                      "every floor, so pressing a second one puts the "
-                      "first back"
+                      "every floor, so pressing a second one flips it "
+                      "back, with you standing at that one; which side of "
+                      "the moved walls you are left on is decided by where "
+                      "the statue you press stands"
                     if m.get("switches_on") is not None else "")
                  + ("" if _reach else
                     " — no statue on this floor has a press cell you can "
