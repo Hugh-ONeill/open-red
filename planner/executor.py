@@ -21192,6 +21192,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         obs=self.settle(),
                         phase=("REDO " if redo else "") + f"escalation {rnd}",
                         doing=json.dumps(macro)[:150])
+            _spot_before = self._spot(self.settle() or obs)
             ok, trace, clean = self._run_traced(sg, macro,
                                                 ignore_done=redo)
             # `ok` MEANS THE SUBGOAL WAS SATISFIED, NOT THAT THE OPS
@@ -21214,6 +21215,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # repeat seven rounds running (2026-08-25).
             _did = any(w in str(t) for t in trace
                        for w in ("map->", "moved", "warped", "crossed"))
+            # ...AND A WALK THAT ARRIVED MOVED THE PARTY. "walk_to(10,5): ok"
+            # has none of the words above, so explore's walk to a wall that
+            # a switch may have moved was filed as a try that came to
+            # nothing, and the four explores after it — each a different
+            # step, because explore reads the ledger — were refused as
+            # repeats (run 27, 2026-09-18, Mansion 2F; user: "it got
+            # interrupted by a battle, is it refusing to do the same thing
+            # now?"). Where the party stands is the measure, not the words.
+            try:
+                _did = _did or self._spot(self.settle() or obs) != _spot_before
+            except Exception:
+                pass
             # A GRIND THAT EARNED NOTHING IS SPENT; ONE THAT EARNED
             # SOMETHING NEVER IS. The blanket exemption was the right shape
             # and the wrong test — it would have let a grind on ground with
