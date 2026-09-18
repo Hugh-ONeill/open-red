@@ -3248,7 +3248,20 @@ class Executor:
         if _fw and self._knows_move(obs, "SURF") and _surf_shut:
             self.log("explore_step", subgoal=sg.get("id"), step="ride_shut",
                      badge="SOULBADGE", frontier_water=len(_fw))
-        if (_fw and not _params.get("no_sweep")
+        # ...AND NOT AGAIN WHERE THE GAME REFUSED THE RIDE. Seafoam B4F's
+        # currents turn SURF away at the mount point, the ride failed
+        # "SURF was REFUSED BY THE GAME", and explore rode for the same
+        # water frontier every round while a ladder up at (11,7) — walkable,
+        # never taken — sat beside it; the model's own copies of the round
+        # were refused as repeats (run 27, 2026-09-18; user: "theres an
+        # untaken ladder right next to it?"). A refusal is kept per part and
+        # world state, and explore goes on to what is left.
+        _ride_key = (self._where(obs), str(self._world_mark(obs)))
+        _ride_refused = _ride_key in getattr(self, "_ride_refused", set())
+        if _fw and _ride_refused:
+            self.log("explore_step", subgoal=sg.get("id"), step="ride_refused",
+                     frontier_water=len(_fw))
+        if (_fw and not _params.get("no_sweep") and not _ride_refused
                 and _params.get("until") != "doors_only"
                 and self._knows_move(obs, "SURF") and not _surf_shut):
             _f0 = _fw[0]
@@ -3262,6 +3275,10 @@ class Executor:
                 if _params.get(_k) is not None:
                     _steps[1][_k] = _params[_k]
             ok, tr, cl = self._run_traced(sg, _steps, ignore_done=ignore_done)
+            if any("REFUSED BY THE GAME" in str(t) for t in tr):
+                self._ride_refused = (getattr(self, "_ride_refused", set())
+                                      | {_ride_key})
+                self.log("ride_refused_kept", where=_ride_key[0])
             return ok, [f"explore (riding to where seen ground ends across "
                         f"the water, then sweeping): {t}" for t in tr], cl
         # ...THEN THE WALLS THAT MAY HAVE MOVED. A cell frozen shut at
