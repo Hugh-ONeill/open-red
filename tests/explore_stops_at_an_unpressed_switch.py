@@ -10,7 +10,10 @@ an ESCAPE_ROPE (user: "it was in the basement, it just didnt have the
 curiosity to explore the whole way").
 
 Pinned: an untouched, reachable switch statue stops explore before it
-walks away, with the press op spelled out, the same as a boulder does.
+walks away, with the press op spelled out, the same as a boulder does. So
+does a statue already pressed, while the floor still has unseen ground no
+walk reaches in the current setting (B1F again, same day: both statues had
+been pressed, 7 spots unseen, and explore walked the party up to 3F twice).
 Source-anchored: the step runs the game.
 """
 from __future__ import annotations
@@ -37,8 +40,25 @@ ck("...saying what is left and spelling the press",
 ck("...after the boulder rule and before the walk to another area",
    blk.index("_rocks_here = [c for c in cands") < blk.index("_levers_here = [c for c in cands")
    < blk.index("# nowhere here: the nearest area over walked ground"))
+ck("a pressed, reachable statue stops it too while the floor has ground no walk reaches",
+   '_statues = [c for c in cands if getattr(c, "toggle", None)' in blk
+   and "if _fn_here and _statues:" in blk
+   and "no walk from here reaches them with the statues set to" in blk)
+ck("...after the unpressed-statue rule and before the walk to another area",
+   blk.index("_levers_here = [c for c in cands") < blk.index("if _fn_here and _statues:")
+   < blk.index("# nowhere here: the nearest area over walked ground"))
 ck("explore still never presses a switch itself",
    'and "SWITCH" not in str(c.key).upper()' in blk)
+
+sys.path.insert(0, str(ROOT / "planner"))
+import executor as E  # noqa: E402
+_ex = object.__new__(E.Executor)
+ck("the room sweep does not press a switch statue either (B1F (20,3), pressed with no answer)",
+   _ex._not_for_explore_to_press("SWITCH_POKEMON_MANSION_B1F_20_3", "fixture",
+                                 "POKEMON_MANSION_B1F|10,9") != "")
+ck("...while an ordinary fixture is still swept",
+   _ex._not_for_explore_to_press("POKEMONMANSIONB1F_DIARY", "fixture",
+                                 "POKEMON_MANSION_B1F|10,9") == "")
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:

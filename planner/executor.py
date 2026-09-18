@@ -3488,6 +3488,32 @@ class Executor:
                   "pressing it is yours to choose — "
                   f'{{"op":"interact","x":{_c.x},"y":{_c.y},"answer":"yes"}}. '
                   "Walking off this floor leaves it exactly as it is."], []
+        # ...AND A STATUE ALREADY PRESSED, WHILE THIS FLOOR STILL HAS GROUND
+        # NO WALK REACHES. Reaching this line means no walk gets to any of
+        # the floor's unseen ground in the setting it stands in — and on a
+        # floor with a reachable statue, the setting is the one thing here
+        # that moves walls. Both B1F statues were pressed at some point, so
+        # the rule above stayed quiet, explore called the basement "fully
+        # worked" with 7 spots of it never on screen, and walked the party
+        # up to 3F twice (run 27, 2026-09-18; user: "that landed it upstairs
+        # again"). Say what is left and the setting, and stop; flipping it
+        # is the model's call, as it is above.
+        _fn_here = int(((_m.get("seen") or {}).get("frontier_n")) or 0)
+        _statues = [c for c in cands if getattr(c, "toggle", None)
+                    and "SWITCH" in str(c.key).upper() and c.reachable]
+        if _fn_here and _statues:
+            _c = _statues[0]
+            return False, [
+                f"explore: everything here that can be pressed or taken "
+                f"without a choice is done, but this floor still has "
+                f"{_fn_here} spot(s) where the ground you have seen ends, and "
+                f"no walk from here reaches them with the statues set to "
+                f"{_c.toggle}. A SWITCH STATUE is reachable here: "
+                + ", ".join(f"{c.key} at ({c.x},{c.y})" for c in _statues[:3])
+                + ". Pressing it flips that one setting for the whole "
+                  "building, which moves walls; whether to is yours — "
+                  f'{{"op":"interact","x":{_c.x},"y":{_c.y},"answer":"yes"}}. '
+                  "Walking off this floor leaves it exactly as it is."], []
         # nowhere here: the nearest area over walked ground with a way never
         # taken or a thing never pressed (same rule as ledger.plan_explore)
         here = self._where(obs)
@@ -4210,6 +4236,13 @@ class Executor:
             return "the PC is a menu, and what to do in it is yours"
         if "NURSE" in n.upper():
             return "the counter is the heal you decide on"
+        # A SWITCH STATUE: explore's own press list has skipped them since
+        # 2026-09-18, but the room sweep reads this list and pressed Mansion
+        # B1F's (20,3) with no answer — the question declined, the statue
+        # filed as pressed, and the floor one step closer to "fully worked"
+        # while 7 spots of it were never on screen (run 27).
+        if str(kind or "") == "fixture" and "SWITCH" in n.upper():
+            return "a switch statue moves walls across the whole building; pressing it is yours"
         _map = str(where or "").split("|")[0]
         if str(kind or "") == "trainer" and self._is_gym_leader(n, _map):
             return "this gym's LEADER — a badge fight"
