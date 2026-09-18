@@ -9760,7 +9760,17 @@ class Executor:
                   ("CUT_TREE", ("tree", "bush", "cut")),
                   ("WATER", ("water", "surf", "sea", "swim")),
                   ("SNORLAX", ("snorlax", "sleeping")),
-                  ("BOULDER", ("boulder", "strength")))
+                  ("BOULDER", ("boulder", "strength")),
+                  # A LOCKED DOOR, in its own words. "The door is locked..."
+                  # had no cue, so "I need the Secret Key to enter the
+                  # Cinnabar Gym", said every round, never counted against
+                  # the gym door, and the author read "nothing named yet as
+                  # what lifts it" and wrote a switch that restores the
+                  # gym's power (run 27, 2026-09-18; user: "the author keeps
+                  # writing goals that dont make sense in light of that fact
+                  # given we are keyless").
+                  ("LOCKED", ("locked", "lock", "door", "gym", "enter",
+                              "open")))
     _ITEM_WORDS = None
 
     @classmethod
@@ -9801,9 +9811,13 @@ class Executor:
             return []
         bag = (obs or {}).get("bag") or {}
         out = []
-        for sent in _re.split(r"(?<=[.!?;])\s+", said):
+        _sents = _re.split(r"(?<=[.!?;])\s+", said)
+        for _si, sent in enumerate(_sents):
             if not _re.search(self.NEED_WORDS, sent, _re.I):
                 continue
+            # the thing in the way is often the sentence before the need:
+            # "The Cinnabar Gym door is locked. I need the Secret Key ..."
+            _prev = _sents[_si - 1] if _si > 0 else ""
             found, rest = [], sent
             for nm, pat in self._item_word_patterns():
                 if pat.search(rest):
@@ -9812,7 +9826,7 @@ class Executor:
                     rest = pat.sub(" ", rest)
             if not found:
                 continue
-            low = rest.lower()
+            low = (rest + " " + _prev).lower()
             for bk, b in live:
                 what = str(b.get("what") or "").upper()
                 cues = [c for tag, cs in self.BLOCK_CUES if tag in what
