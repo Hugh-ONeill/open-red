@@ -1381,12 +1381,23 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str):
 
 
 def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
-                want=None, ball_cap=None):
+                want=None, ball_cap=None, ball=None):
     """Drive a battle turn-by-turn with a battle_policy spec (rules as data).
     The spec also owns the wild-flee decision (should_flee); trainers can
     never be fled, and if fleeing fails 3 times we fight it out. With
     SCORE_BATTLES, probe the oracle each turn and log policy-vs-oracle
-    agreement — the measuring stick, which does not alter play."""
+    agreement — the measuring stick, which does not alter play.
+
+    `ball` names the ball for THIS battle's catch rule — the Master Ball is
+    outside every ladder and is only ever thrown when named (a yes to a
+    Pokemon standing on the map, Executor._ask_new_species)."""
+    if ball and isinstance(spec, dict) and isinstance(spec.get("catch"), dict):
+        spec = dict(spec)
+        spec["catch"] = dict(spec["catch"], ball=ball)
+        # a Master Ball never misses: throw it on turn one rather than
+        # weaken a one-of-a-kind Pokemon first and risk knocking it out
+        if ball == "MASTER_BALL":
+            spec["catch"]["first_ball"] = True
     turns = 0
     flees = 0
     picks = 0
@@ -1567,9 +1578,9 @@ BATTLE_POLICIES = {
         b, o, lg, mt),
     "traversal": lambda b, o, lg, mt, want=None, ball_cap=None: _run_policy(
         ACTIVE_SPEC, b, o, lg, mt, intent="traversal"),
-    "catch": lambda b, o, lg, mt, want=None, ball_cap=None: _run_policy(
+    "catch": lambda b, o, lg, mt, want=None, ball_cap=None, ball=None: _run_policy(
         ACTIVE_SPEC, b, o, lg, mt, intent="catch", want=want,
-        ball_cap=ball_cap),
+        ball_cap=ball_cap, ball=ball),
 }
 
 
@@ -16682,7 +16693,19 @@ class Executor:
         # (2026-09-18: "right now we only have the master ball in hand").
         _bag = (obs or {}).get("bag") or {}
         balls = sum(int(_bag.get(k) or 0) for k in battle_policy.BALL_LADDER)
-        if balls < 1:
+        # ...UNLESS IT WAS STANDING ON THE MAP. A Pokemon the party walked up
+        # to and pressed — VICTORYROAD2F_MOLTRES — is one of its kind, and
+        # the one fight a MASTER_BALL is for. With the Master Ball the only
+        # ball, the rule above kept the question from being asked at all;
+        # the traversal policy fled on turn one and Moltres was gone for
+        # good (run 27, 2026-09-18; user: "the species you dont own thing
+        # should have fired"). On screen: the thing stood on the map with
+        # the species in its name; the bag.
+        _static = any(str(n).upper().endswith("_" + sp.upper())
+                      for n, _x, _y in (getattr(self, "_last_overworld_objs", None) or []))
+        _mb = int(_bag.get("MASTER_BALL") or 0)
+        _master_only = balls < 1 and _static and _mb > 0
+        if balls < 1 and not _master_only:
             return None
         party = (obs or {}).get("party") or []
         boxed = [m for m in ((obs or {}).get("pc_mons") or []) if isinstance(m, dict)]
@@ -16697,9 +16720,13 @@ class Executor:
                 f"IN THE PC BOX: "
                 + (", ".join(f"{m.get('species')} L{m.get('level')}" for m in boxed[:8])
                    if boxed else "nothing")
+                + ("\nIT WAS STANDING ON THE MAP — you walked up to it — not "
+                   "met in the grass." if _static else "")
                 + f"\nPOKE BALLS IN THE BAG (POKE, GREAT, ULTRA): {balls}"
-                + (" — and a MASTER_BALL, which is not thrown unless you "
-                   "name it" if int(_bag.get("MASTER_BALL") or 0) else "")
+                + ((" — your only ball is a MASTER_BALL, one of a kind; on a "
+                    "yes it is the ball thrown" if _master_only else
+                    " — and a MASTER_BALL, which is not thrown unless you "
+                    "name it") if _mb else "")
                 + "\n"
                 f"WHAT YOU ARE TRYING TO DO RIGHT NOW: "
                 f"{(subgoal or {}).get('goal_text') or (subgoal or {}).get('id') or 'make progress'}\n"
@@ -16725,7 +16752,10 @@ class Executor:
         print(f"   (a new species, {sp}: {'catch' if yes else 'leave'} — {why})")
         if not yes:
             return None
-        return {"want": {"species": {sp.upper()}, "types": set()}}
+        out = {"want": {"species": {sp.upper()}, "types": set()}}
+        if _master_only:
+            out["ball"] = "MASTER_BALL"
+        return out
 
     def _catch_ahead(self, obs, subgoal, policy, want_now) -> dict | None:
         """A wild that answers a LATER objective on the outline: the want
@@ -16851,6 +16881,7 @@ class Executor:
                   else self._catch_target(subgoal))
         self._hold_drinks()
         _ahead = self._catch_ahead(obs, subgoal, name, _want0)
+        _new = None
         if _ahead:
             name, why = "catch", "a later objective on the outline"
             _want0 = _ahead["want"]
@@ -17027,9 +17058,11 @@ class Executor:
         except Exception:
             _jpos = None
         _b_start = obs
+        _pol_kw = {"ball_cap": (_ahead or {}).get("cap")}
+        if name == "catch" and (_new or {}).get("ball"):
+            _pol_kw["ball"] = _new["ball"]
         obs = BATTLE_POLICIES[name](self.b, obs, self.log,
-                                    self.max_battle_turns, _want0,
-                                    ball_cap=(_ahead or {}).get("cap"))
+                                    self.max_battle_turns, _want0, **_pol_kw)
         if b0.get("kind") == "trainer" and _jpos is not None:
             try:
                 self._note_fight(_b_start, obs, _jpos)
