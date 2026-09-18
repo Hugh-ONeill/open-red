@@ -10746,6 +10746,15 @@ class Executor:
         landing in the same water (2026-08-27, "to 19 and back"). A region
         you walked into from a third place has a way out: the way you came.
         """
+        # ...AND NOT WHILE ITS SEA HAS NEVER BEEN LOOKED AT. ROUTE_21 is a
+        # beach and ninety cells of water; with SURF in the party the one
+        # recorded way out (back to Cinnabar) is only where the looking
+        # stopped, and the crossing's note "whose only recorded way out is
+        # back to CINNABAR_ISLAND" became the run's belief that Route 21
+        # leads nowhere (run 27, 2026-09-18; user: "its thinking rt21 only
+        # leads back to cinnabar").
+        if (self._water_unseen(region) if hasattr(self, "_water_unseen") else 0):
+            return False
         ex = self.explored.get(region) or {}
         outs = {str(v.get("to")).split("|")[0] for v in ex.values()
                 if isinstance(v, dict) and v.get("to")
@@ -18613,7 +18622,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             _skipped_why = (
                                 f" — crossing at the nearest gap of this "
                                 f"edge lands in {_lands}, whose only "
-                                f"recorded way out is back to {_h0}, so "
+                                f"recorded way out so far is back to {_h0}, so "
                                 f"another cell of the same edge was used")
                             self.log("cross_skip_pocket", subgoal=sg.get("id"),
                                      frm=_h0, dir=step["dir"], pocket=_lands)

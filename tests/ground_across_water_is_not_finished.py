@@ -63,6 +63,20 @@ ck("the unseen-ground row lists water-only floors and says how many spots are ac
    '| set(getattr(self, "region_seen_water", None) or {}))' in src
    and "of them across water, which " in src)
 
+def pocket(water):
+    ex = object.__new__(E.Executor)
+    ex.explored = {"ROUTE_21|10,88": {"south": {"to": "CINNABAR_ISLAND|10,0"}},
+                   "CINNABAR_ISLAND|10,0": {"north": {"to": "ROUTE_21|10,88"}}}
+    ex.region_seen_water = {"ROUTE_21|10,88": water} if water else {}
+    ex._knows_surf = True
+    ex._soulbadge = True
+    return ex._is_pocket("ROUTE_21|10,88", "CINNABAR_ISLAND|10,0")
+
+
+ck("a floor with sea never looked at is not a pocket while SURF can be used", pocket(5) is False)
+ck("...and with none it is, as before", pocket(0) is True)
+ck("the crossing's pocket note says 'so far'", "recorded way out so far is back to" in src)
+
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not d else f"  {str(d)[:300]}"))
