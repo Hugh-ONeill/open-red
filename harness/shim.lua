@@ -1249,6 +1249,11 @@ local function seen_filter(G, o)
       -- the water frontier is still right — the ground is there — but
       -- the page and the picker must know the ride is shut for now.
       if not ((G.save or {}).inventory or {}).SOULBADGE then
+        -- m.seen is built further down; this ran first the moment a
+        -- party knew SURF without the SOULBADGE, and indexed nil — the
+        -- driver died on every observation with water in view (run 27,
+        -- 2026-09-18, Safari Zone). Create it here; the builder merges.
+        m.seen = m.seen or {}
         m.seen.surf_badge_missing = "SOULBADGE"
       end
     end
@@ -1320,7 +1325,10 @@ local function seen_filter(G, o)
       end
     end
   end
-  m.seen = { n = mask.n or 0, frontier_n = #front, frontier_map_n = fmap }
+  m.seen = m.seen or {}
+  m.seen.n = mask.n or 0
+  m.seen.frontier_n = #front
+  m.seen.frontier_map_n = fmap
   -- WILD GROUND IN THE FOOTPRINT, COUNTED. Grass tiles are drawn on the
   -- screen and a cave floor is a cave floor; the run's ledger of wild
   -- ground only ever held maps it had FOUGHT on, so a grind step saw
