@@ -13047,49 +13047,75 @@ class Executor:
 
         One machine per boundary, so a bagful never stalls a round.
         """
-        pend = [t for t in self._teachable_now(obs)
-                if f"{t[0]}|{','.join(sorted(w[1] for w in t[2]))}"
-                not in (getattr(self, "_tm_asked", None) or {})]
+        # ...AND AN ANSWER THAT COULD NOT BE CARRIED OUT IS NOT AN ANSWER.
+        # TM06 arrived, the model chose VENUSAUR and to forget CUT, CUT is
+        # an HM move, and the record kept "asked" with the refusal beside
+        # it — so the question never came back and TOXIC sat in the bag
+        # (run 27, 2026-09-18; user: "were there ever explicit denials of
+        # teaching mega-drain or toxic to venu?"). A refused answer on the
+        # record is asked again once, with the refusal quoted.
+        _asked0 = getattr(self, "_tm_asked", None) or {}
+
+        def _open(t):
+            k = f"{t[0]}|{','.join(sorted(w[1] for w in t[2]))}"
+            rec = _asked0.get(k)
+            return rec is None or (rec.get("bad") and not rec.get("reasked"))
+        pend = [t for t in self._teachable_now(obs) if _open(t)]
         if not pend:
             return obs
         item, move, who = pend[0]
         key = f"{item}|{','.join(sorted(w[1] for w in who))}"
         is_hm = item.startswith("HM_")
-        user = self._teach_question(obs, item, move, who, sg)
-        choice, forget, why = None, None, ""
-        try:
-            reply = brock_probe.chat(
-                [{"role": "system", "content": self.TEACH_SYS},
-                 {"role": "user", "content": user}], self.model)
-            mm = _re.search(r"\{.*\}", reply or "", _re.S)
-            d = json.loads(mm.group(0)) if mm else {}
-            why = str(d.get("why") or "")[:200]
-            t = d.get("teach")
-            if t is not None:
-                choice = int(t)
-                f = d.get("forget")
-                forget = str(f).upper().replace(" ", "_") if f else None
-        except Exception as e:
-            self.log("teach_chat_error", subgoal=sg.get("id"), err=str(e)[:120])
-        # ...AND THE ANSWER IS CHECKED AGAINST THE SAME SCREEN THE QUESTION
-        # CAME FROM. A slot the game marks NOT ABLE, or a forget that is not
-        # one of that Pokemon's four, is a doomed op: the shim would refuse
-        # it with a good sentence nobody is going to read, because this is
-        # not a round and there is no feedback loop to read it in.
-        bad = ""
-        row = next((w for w in who if w[0] == choice), None) if choice else None
-        if choice is not None and row is None:
-            bad = f"slot {choice} is not one the game marks ABLE"
-        elif row is not None:
-            if len(row[2]) >= 4 and not forget:
-                bad = f"{row[1]} knows four moves and no forget= was given"
-            elif forget and forget not in row[2]:
-                bad = f"{row[1]} does not know {forget}"
-            elif forget and forget in self.FIELD_MOVE_WORDS:
-                bad = f"{forget} is an HM move and cannot be forgotten"
+        user0 = self._teach_question(obs, item, move, who, sg)
+        _prior = (_asked0.get(key) or {}).get("bad")
+        refused: list = [_prior] if _prior else []
+        choice, forget, why, bad = None, None, "", ""
+        for _try in range(3):
+            user = user0 + ("\n\nYOUR LAST ANSWER COULD NOT BE CARRIED OUT: "
+                            + "; ".join(refused)
+                            + ". Answer again: another move to forget, another "
+                              "Pokemon, or no teach at all."
+                            if refused else "")
+            choice, forget, why = None, None, ""
+            try:
+                reply = brock_probe.chat(
+                    [{"role": "system", "content": self.TEACH_SYS},
+                     {"role": "user", "content": user}], self.model)
+                mm = _re.search(r"\{.*\}", reply or "", _re.S)
+                d = json.loads(mm.group(0)) if mm else {}
+                why = str(d.get("why") or "")[:200]
+                t = d.get("teach")
+                if t is not None:
+                    choice = int(t)
+                    f = d.get("forget")
+                    forget = str(f).upper().replace(" ", "_") if f else None
+            except Exception as e:
+                self.log("teach_chat_error", subgoal=sg.get("id"), err=str(e)[:120])
+            # ...AND THE ANSWER IS CHECKED AGAINST THE SAME SCREEN THE QUESTION
+            # CAME FROM. A slot the game marks NOT ABLE, or a forget that is not
+            # one of that Pokemon's four, is a doomed op: the shim would refuse
+            # it with a good sentence nobody is going to read, because this is
+            # not a round and there is no feedback loop to read it in.
+            bad = ""
+            row = next((w for w in who if w[0] == choice), None) if choice else None
+            if choice is not None and row is None:
+                bad = f"slot {choice} is not one the game marks ABLE"
+            elif row is not None:
+                if len(row[2]) >= 4 and not forget:
+                    bad = f"{row[1]} knows four moves and no forget= was given"
+                elif forget and forget not in row[2]:
+                    bad = f"{row[1]} does not know {forget}"
+                elif forget and forget in self.FIELD_MOVE_WORDS:
+                    bad = f"{forget} is an HM move and cannot be forgotten"
+            if not bad:
+                break
+            refused.append(bad)
+            self.log("teach_reasked", subgoal=sg.get("id"), item=item,
+                     refused=bad, attempt=_try + 1)
         self._tm_asked = dict(getattr(self, "_tm_asked", None) or {})
         self._tm_asked[key] = {"teach": choice, "forget": forget,
-                               "why": why, "bad": bad}
+                               "why": why, "bad": bad,
+                               "reasked": bool(bad)}
         self.log("teach_asked", subgoal=sg.get("id"), item=item, move=move,
                  able=",".join(w[1] for w in who), teach=choice,
                  forget=forget, why=why, refused=bad)
