@@ -86,6 +86,10 @@ class _Ex:
     def _snapshot_anywhere(self, o): return None
     def _frontier_left(self, r): return set()
     def dead_for(self, t, r): return 0
+    def _seam_worth_more_cells(self, here, d):
+        return E.Executor._seam_worth_more_cells(self, here, d)
+    def _is_pocket(self, region, frm):
+        return region == "ROUTE_14|16,6"      # the nook: its only way out is back
     def __getattr__(self, _n): return {}
 
 
@@ -121,6 +125,16 @@ ck("a cell already crossed is a taken row with its landing",
    by2["west#skip1"].status == "taken" and by2["west#skip1"].dest == "ROUTE_14|5,8",
    (by2["west#skip1"].status, by2["west#skip1"].dest))
 ck("...while the next cell stays untried", by2["west#skip2"].status == "untried")
+# an ordinary edge, whose plain crossing lands somewhere open, gets no extra rows
+TAKEN3 = {"west": {"n": 3, "to": "ROUTE_14|5,4"}, "north": {"n": 1, "to": "ROUTE_12|0,61"}}
+by3 = {c.key: c for c in L.build(_Ex(TAKEN3), obs(), "map:ROUTE_15", outcomes={})}
+ck("an edge whose plain crossing lands somewhere open gets no extra rows",
+   "west#skip1" not in by3 and "west" in by3, sorted(by3))
+ck("...unless a skip crossing has already landed elsewhere",
+   "west#skip1" in {c.key for c in L.build(_Ex(dict(TAKEN3, **{"west#skip1": {"n": 1, "to": "ROUTE_14|16,6"}})), obs(), "map:ROUTE_15", outcomes={})})
+ck("the frontier asks the same question", "if not self._seam_worth_more_cells(here, _d):" in src)
+ck("...and stale seam keys are dropped when the ledger is loaded",
+   'self.frontier[_r] = [k for k in _ks if "#skip" not in str(k)]' in src)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:

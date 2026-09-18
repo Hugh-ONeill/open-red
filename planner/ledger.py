@@ -1436,9 +1436,17 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
     # and 10 were never crossed, and the page showed one way, taken 14x
     # (run 27, 2026-09-17). Where a cell lands is not said until crossed.
     _sc = m.get("seam_cells") or {}
+    _worth = getattr(ex, "_seam_worth_more_cells", None)
     for d in (m.get("connections") or {}):
         cells = [str(x) for x in (_sc.get(d) or [])]
         if len(cells) < 2:
+            continue
+        # only where the plain crossing lands in a pocket (or a skip has
+        # landed elsewhere): elsewhere one crossing is the edge
+        try:
+            if not (callable(_worth) and _worth(here, d)):
+                continue
+        except Exception:
             continue
         for c0 in out:
             if c0.kind == "seam" and c0.key == d:

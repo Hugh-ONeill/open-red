@@ -3081,6 +3081,20 @@ class Executor:
             return {"op": "walk_to", "x": _x, "y": _y}
         return {"op": "use_warp", "x": _x, "y": _y}
 
+    def _seam_worth_more_cells(self, here: str, d: str) -> bool:
+        """Is this seam's plain crossing from here known to land in a
+        pocket (a part whose only way out is back), or has a skip crossing
+        from here already landed somewhere else? Then its other cells are
+        ways of their own; otherwise one crossing is the edge."""
+        ex = self.explored.get(here) or {}
+        land = str((ex.get(d) or {}).get("to") or "")
+        lands = {str((e or {}).get("to") or "") for k, e in ex.items()
+                 if k == d or str(k).startswith(d + "#skip")}
+        lands.discard("")
+        if len(lands) > 1:
+            return True
+        return bool(land) and self._is_pocket(land, here)
+
     @staticmethod
     def _cross_step_for(key: str) -> dict:
         """A seam key as the cross op that takes it: "west" is the plain
@@ -4843,6 +4857,11 @@ class Executor:
             self.visits = data.get("visits", {})
             self._region_mark = data.get("region_mark") or {}
             self.frontier = data.get("frontier", {})
+            # a seam cell is a way only while its edge earns it (see
+            # note_frontier); the keys are re-minted per observation
+            for _r, _ks in list(self.frontier.items()):
+                if isinstance(_ks, list) and any("#skip" in str(k) for k in _ks):
+                    self.frontier[_r] = [k for k in _ks if "#skip" not in str(k)]
             self.sightings = data.get("sightings", {})
             self._gone = {r: set(v) for r, v in
                           (data.get("gone") or {}).items()}
@@ -6188,11 +6207,20 @@ class Executor:
         # rows 8 and 10 had never been crossed (run 27, 2026-09-17). They
         # join the frontier under the key a skip crossing already records
         # (dir#skipN), so every reader of "ways never taken" sees them.
+        # ...ONLY WHERE THE PLAIN CROSSING IS KNOWN TO LAND IN A POCKET.
+        # Listed for every edge, five cells of Route 14's east seam that
+        # all land on one part became five "ways never taken" (2026-09-18,
+        # first live page). The other cells are a search only when the
+        # first cell's landing is a dead end; elsewhere one crossing is
+        # the edge.
         _sc = m.get("seam_cells") or {}
         for _d, _cells in _sc.items():
-            if (isinstance(_cells, list) and len(_cells) > 1
+            if not (isinstance(_cells, list) and len(_cells) > 1
                     and _d in (m.get("connections") or {})):
-                keys += [f"{_d}#skip{i}" for i in range(1, min(len(_cells), 6))]
+                continue
+            if not self._seam_worth_more_cells(here, _d):
+                continue
+            keys += [f"{_d}#skip{i}" for i in range(1, min(len(_cells), 6))]
         # DOORS THAT EXIST BUT CANNOT BE WALKED TO stay out of the frontier
         # (you cannot take them now) and are recorded separately, because
         # the PLAN AUTHOR reads this ledger and had no way to learn they
