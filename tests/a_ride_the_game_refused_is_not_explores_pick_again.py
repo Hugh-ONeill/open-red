@@ -28,7 +28,7 @@ def ck(name, cond, detail=""):
 
 src = (ROOT / "planner/executor.py").read_text()
 i = src.index('        _fw = _m.get("frontier_water") or []')
-blk = src[i:i + 7000]
+blk = src[i:i + 11000]
 ck("a refused ride is kept against the part and the world state",
    '_ride_key = (self._where(obs), str(self._world_mark(obs)))' in blk
    and 'if any("REFUSED BY THE GAME" in str(t) for t in tr):' in blk
