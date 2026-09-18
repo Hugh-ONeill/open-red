@@ -14466,6 +14466,45 @@ class Executor:
         out = f" [handed to you by {rec['who']}" + (f" in {at}" if at else "")
         return out + (f', who said: "{said}"]' if said else "]")
 
+    def _unseen_side_toward_words(self, region: str, target: str) -> str:
+        """A printed road off a side of this map never on screen, when the
+        printed map sends it toward the goal.
+
+        Under the footprint a side joins the ledger only once it has been
+        on screen, so ROUTE_21 — 90 cells tall, walked only at its southern
+        tip beside Cinnabar — held one way, south, and nothing on the page
+        joined it to anything else. The page told the run Route 20's east
+        edge led AWAY from VIRIDIAN_CITY and had nothing to say about the
+        road north to PALLET_TOWN, so the run shuttled Route 20 <->
+        Cinnabar (run 27, 2026-09-18; user: "its definitly confused where
+        to go next to get back to viridian"). Same source and same words as
+        the goalward note on exits (the printed map is manual tier): which
+        way a printed road goes, nothing about what is on it or whether it
+        is open."""
+        mp = str(region).split("|")[0]
+        edges = MAP_EDGES.get(mp) or {}
+        if not edges or not str(target or "").startswith("map:"):
+            return ""
+        known = set()
+        for _r, _ex in (self.explored or {}).items():
+            if str(_r).split("|")[0] == mp:
+                known |= {str(k).split("#")[0] for k in (_ex or {})}
+        for _r, _fr in (self.frontier or {}).items():
+            if str(_r).split("|")[0] == mp:
+                known |= {str(k).split("#")[0] for k in (_fr or [])}
+        out = []
+        for d, to in sorted(edges.items()):
+            if d in known:
+                continue
+            try:
+                if ledger.edge_tier(self, region, d, target) == 0:
+                    out.append(f"its {d} side has never been on screen, and "
+                               f"on the printed map that side is the road to "
+                               f"{to}, toward {str(target)[4:].split('|')[0]}")
+            except Exception:
+                continue
+        return (" — " + "; ".join(out)) if out else ""
+
     def exploration_text(self, obs, target: str = "", sg: dict | None = None) -> str:
         """Untried vs already-taken exits from where we stand."""
         # A LEVEL IS NOT A PLACE. Everything below answers "where do I go
@@ -14936,6 +14975,7 @@ class Executor:
                     f"{_m} ({-_n} spot(s), " + self._seen_cells_words(_m)
                     + (f"{_d} leg(s))" if _d < 99
                        else "no walked route from here)")
+                    + self._unseen_side_toward_words(_m, target)
                     for _d, _n, _m in _shown)
                 + (f"; and {len(_urows) - len(_shown)} more floor(s)"
                    if len(_urows) > len(_shown) else "")
