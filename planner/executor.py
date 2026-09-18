@@ -7482,6 +7482,18 @@ class Executor:
                                   if h.get("drop") == _mine.get("drop"))
                     key = f"{_grp[0][1]},{_grp[0][0]}"
                 self.log("transition_by_fall", frm=src, to=dst, via=key)
+        elif key is not None and "," in str(key):
+            # a walk sent onto a hole's OTHER tile books the drop under its
+            # first tile, the key its row carries
+            _hl = [h for h in (((before_obs or {}).get("map") or {}).get("holes") or [])
+                   if isinstance(h, dict) and h.get("x") is not None]
+            _mine = next((h for h in _hl if f"{h.get('x')},{h.get('y')}" == str(key)), None)
+            if _mine is not None:
+                if _mine.get("drop") is not None:
+                    _grp = sorted((h.get("y"), h.get("x")) for h in _hl
+                                  if h.get("drop") == _mine.get("drop"))
+                    key = f"{_grp[0][1]},{_grp[0][0]}"
+                self.log("transition_by_fall", frm=src, to=dst, via=key)
         if key is None:
             return
         # A LANDING THE DOOR'S OWN TABLE CONTRADICTS IS NOT THIS DOOR'S. The
@@ -10838,9 +10850,17 @@ class Executor:
         left the party, up to `tries` times, while each try moves it. Returns
         (obs, fights fought)."""
         fights = 0
+        _mid0 = ((obs or {}).get("map") or {}).get("id")
         o, fought = self._drain_fights(sg, obs)
         want = (step.get("x"), step.get("y"))
+        # ...ON THE MAP IT WAS SENT ON. A walk onto a hole ends on the floor
+        # below, and a fight on landing is not a reason to walk to the same
+        # coordinates THERE.
+        _mid_start = (getattr(self, "_walk_map_at_send", None) or _mid0
+                      or ((o or {}).get("map") or {}).get("id"))
         while fought and tries > 0:
+            if ((o or {}).get("map") or {}).get("id") != _mid_start:
+                break
             fights += 1
             tries -= 1
             _pl = (o or {}).get("player") or {}
@@ -18816,6 +18836,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 sig = self._sig_of(_pre, op, step)
                 if self._gated(sig, op, step, trace):
                     continue
+                self._walk_map_at_send = ((_pre or {}).get("map") or {}).get("id")
                 _r0 = (self._send_safe("walk_to", **step) or {})
                 _d0 = str((_r0.get("result") or {}).get("detail") or "")
                 if (_r0.get("result") or {}).get("ok"):
@@ -18828,10 +18849,23 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     # on from where it left you — the route walker's rule.
                     obs, _fights = self._walk_on_after_fights(sg, "walk_to",
                                                               step, obs)
+                    self._walk_map_at_send = None
                     if _fights:
                         _d0 = (_d0 + "; " if _d0 else "") + (
                             f"{_fights} wild fight(s) came between, and the "
                             f"walk went on after each")
+                    # A WALK THAT CHANGED THE MAP IS A WAY TAKEN. walk_to onto
+                    # a hole drops the party to the floor below, and only
+                    # cross and use_warp ever booked their landings — so
+                    # Victory Road 3F's hole at (23,15), walked onto again and
+                    # again, read "never taken" every time and explore's item
+                    # 1 kept sending the party down it (run 27, 2026-09-18;
+                    # user: "its gone through the hole a few times but never
+                    # pushed the boulder into the hole yet").
+                    if (((_pre or {}).get("map") or {}).get("id")
+                            != ((obs or {}).get("map") or {}).get("id")
+                            and (obs or {}).get("mode") == "overworld"):
+                        self.note_transition(_pre, step, obs, op_detail=_d0)
                     # ...AND "ok" IS NOT "ARRIVED". The walk returns ok when a
                     # fight or a script stops it partway, with that said in
                     # its detail — and this line dropped the detail. Mansion
