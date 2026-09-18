@@ -3465,6 +3465,29 @@ class Executor:
                   '{"op":"push","x":N,"y":N,"to_x":N,"to_y":N} '
                   "takes the destination and works the shoving out. "
                   "Walking off this floor leaves it exactly as it is."], []
+        # ...AND THE SAME FOR A SWITCH STATUE NEVER PRESSED. explore does not
+        # press one (it moves the walls of the whole building; that is the
+        # model's choice), so a floor whose one unfinished thing was a
+        # statue read as done, and explore walked off it: Mansion B1F with
+        # SWITCH (20,3) never pressed and 48 cells of the floor out of
+        # reach, left for a pocket of 1F, where the run judged itself
+        # trapped and used an ESCAPE_ROPE (run 27, 2026-09-18; user: "it
+        # was in the basement, it just didnt have the curiosity to explore
+        # the whole way"). Say what is left and stop, as for a boulder.
+        _levers_here = [c for c in cands
+                        if "SWITCH" in str(c.key).upper()
+                        and c.status == "untouched" and c.reachable]
+        if _levers_here:
+            _c = _levers_here[0]
+            return False, [
+                "explore: everything here that can be pressed or taken "
+                "without a choice is done, and what is left on this floor is "
+                "a SWITCH STATUE never pressed: "
+                + ", ".join(f"{c.key} at ({c.x},{c.y})" for c in _levers_here[:3])
+                + ". A switch moves walls across the whole building, so "
+                  "pressing it is yours to choose — "
+                  f'{{"op":"interact","x":{_c.x},"y":{_c.y},"answer":"yes"}}. '
+                  "Walking off this floor leaves it exactly as it is."], []
         # nowhere here: the nearest area over walked ground with a way never
         # taken or a thing never pressed (same rule as ledger.plan_explore)
         here = self._where(obs)
