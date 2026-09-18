@@ -38,12 +38,13 @@ EXEC = (ROOT / "planner/executor.py").read_text()
 checks = []
 def ck(name, cond): checks.append((name, bool(cond)))
 
-yg = SHIM[SHIM.index("local function yield_ground(G)"):SHIM.index("local function yield_ground(G)") + 2400]
+yg = SHIM[SHIM.index("local function yield_ground(G)"):SHIM.index("local function yield_ground(G)") + 4000]
 ck("yield_ground knows when it stands on a door", "local on_warp = is_warp(p.cellX, p.cellY)" in yg)
 ck("...and on one only steps where the engine says a step lands",
    "ow.map:inBounds(nx, ny)" in yg and "Collision.canMove(ow.map, ow.entities, p, dir)" in yg
    and "if safe and walk(G, dir, 1) then" in yg)
-ck("...off a door it yields as before, in bounds", "if safe and on_warp then" in yg)
+ck("...and off a door it asks the same collision, and never steps into a boulder (2026-09-18)",
+   "if safe and on_warp then" not in yg and '(e.def or {}).sprite == "SPRITE_BOULDER"' in yg)
 
 uw = SHIM[SHIM.index("function OPS.use_warp"):SHIM.index("function OPS.use_warp") + 30000]
 ck("a crossing mid-walk is no longer a success",
