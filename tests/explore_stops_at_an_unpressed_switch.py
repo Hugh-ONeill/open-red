@@ -44,6 +44,14 @@ ck("a pressed, reachable statue stops it too while the floor has ground no walk 
    '_statues = [c for c in cands if getattr(c, "toggle", None)' in blk
    and "if _fn_here and _statues:" in blk
    and "no walk from here reaches them with the statues set to" in blk)
+ck("...counting the whole floor's unseen ground, not only the walled-in part stood in",
+   'int(_sn_here.get("frontier_map_n") or 0)' in blk)
+ck("...and saying where the statue stands decides which side of the walls you are left on",
+   "are left on is decided by where the statue you press" in blk)
+_lsrc = (ROOT / "planner/ledger.py").read_text()
+ck("the lever row no longer says a statue never pressed is not an untried thing",
+   "is not an untried thing, and" not in _lsrc
+   and "which side of them you are left on is decided by" in _lsrc)
 ck("...after the unpressed-statue rule and before the walk to another area",
    blk.index("_levers_here = [c for c in cands") < blk.index("if _fn_here and _statues:")
    < blk.index("# nowhere here: the nearest area over walked ground"))

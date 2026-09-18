@@ -3681,10 +3681,12 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                       + c.toggle + " right now. Pressing ANY statue, on ANY "
                       "floor, flips that one setting everywhere — so the "
                       "count above is how often THIS tile was pressed and "
-                      "says nothing about what stands open: a statue you "
-                      "have never pressed is not an untried thing, and "
-                      "pressing a second one puts the first one back. Which "
-                      "walls each setting opens is drawn on the screen")
+                      "says nothing about what stands open. Pressing a "
+                      "second one flips the same setting back, WITH YOU "
+                      "STANDING AT IT: the walls that move are the same, and "
+                      "which side of them you are left on is decided by "
+                      "where the statue you pressed stands. Which walls each "
+                      "setting opens is drawn on the screen")
         elif (not _varied) and c.kind == "fixture" \
                 and c.status in ("touched", "inert", "worth_a_word") \
                 and str(c.key).upper().startswith(("SWITCH", "TRASH_CAN")):

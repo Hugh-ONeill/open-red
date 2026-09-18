@@ -3498,7 +3498,12 @@ class Executor:
         # up to 3F twice (run 27, 2026-09-18; user: "that landed it upstairs
         # again"). Say what is left and the setting, and stop; flipping it
         # is the model's call, as it is above.
-        _fn_here = int(((_m.get("seen") or {}).get("frontier_n")) or 0)
+        # ...THE WHOLE FLOOR'S UNSEEN GROUND, not the part stood in: that
+        # part is exactly what the setting has walled in, so its own count
+        # is 0 (B1F: frontier_n 0, frontier_map_n 12, both statues in reach).
+        _sn_here = _m.get("seen") or {}
+        _fn_here = max(int(_sn_here.get("frontier_n") or 0),
+                       int(_sn_here.get("frontier_map_n") or 0))
         _statues = [c for c in cands if getattr(c, "toggle", None)
                     and "SWITCH" in str(c.key).upper() and c.reachable]
         if _fn_here and _statues:
@@ -3510,8 +3515,10 @@ class Executor:
                 f"no walk from here reaches them with the statues set to "
                 f"{_c.toggle}. A SWITCH STATUE is reachable here: "
                 + ", ".join(f"{c.key} at ({c.x},{c.y})" for c in _statues[:3])
-                + ". Pressing it flips that one setting for the whole "
-                  "building, which moves walls; whether to is yours — "
+                + ". Pressing one flips that one setting for the whole "
+                  "building, which moves walls, and which side of them you "
+                  "are left on is decided by where the statue you press "
+                  "stands; which to press, and whether, is yours — "
                   f'{{"op":"interact","x":{_c.x},"y":{_c.y},"answer":"yes"}}. '
                   "Walking off this floor leaves it exactly as it is."], []
         # nowhere here: the nearest area over walked ground with a way never
