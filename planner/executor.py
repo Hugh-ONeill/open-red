@@ -14466,64 +14466,90 @@ class Executor:
         out = f" [handed to you by {rec['who']}" + (f" in {at}" if at else "")
         return out + (f', who said: "{said}"]' if said else "]")
 
-    def _unseen_side_toward_words(self, region: str, target: str) -> str:
-        """Another walked map whose edge, SEEN and never crossed, leads onto
-        this floor, and how far that map is from the goal by the run's own
-        walking.
+    def _seen_edge_joins_line(self, here: str, want_map: str) -> str:
+        """A way SEEN and never crossed that joins two places the run has
+        walked, when the walked distances through it beat the walked way to
+        the goal the run already knows.
 
-        Under the footprint a side joins the ledger only once it has been
-        on screen, so ROUTE_21 — 90 cells tall, walked only at its southern
-        tip beside Cinnabar — held one way, south, and nothing on the page
-        joined it to anything else, while PALLET_TOWN's south edge had been
-        on screen since the first leg, reading "to ROUTE_21", never crossed
-        (water, and nobody knew SURF then). The run shuttled Route 20 <->
-        Cinnabar looking for Viridian (run 27, 2026-09-18; user: "its
-        definitly confused where to go next to get back to viridian").
+        ROUTE_21 was walked only at its southern tip beside Cinnabar, and
+        PALLET_TOWN's south edge had been on screen since leg 1 reading
+        "to ROUTE_21", never crossed (water; nobody knew SURF). Nothing
+        joined the two, so the only walked way from Cinnabar to Viridian
+        was fifteen legs back through Seafoam, and the run shuttled Route
+        20 <-> Cinnabar (run 27, 2026-09-18; user: "its definitly confused
+        where to go next to get back to viridian"). A first cut hung this
+        on Route 21's unseen-ground row, and a sweep of its beach then took
+        the row off the page.
 
-        NOT THE PRINTED MAP: this run holds no TOWN_MAP, and nothing may
+        NOT THE PRINTED MAP: this run holds no TOWN_MAP and nothing may
         quote one it does not own (tests/no_town_map_no_printed_map.py). A
-        compass key sits in a region's frontier only once that side has
-        been on screen, where the game named the map past it — so the name
-        is the run's own sighting. The distance is walked legs (_route)."""
-        mp = str(region).split("|")[0]
-        t = str(target or "")
-        if not t.startswith("map:"):
+        compass key sits in a region's frontier only once that side has been
+        on screen, where the game named the map past it — so the name is the
+        run's own sighting. Distances are walked legs (_route). Whether the
+        ground walked on the far map reaches that edge is NOT known, and the
+        line says so."""
+        goal = str(want_map or "").split("|")[0]
+        mid = str(here or "").split("|")[0]
+        if not goal or mid == goal or "None" in str(here):
             return ""
-        goal = t[4:].split("|")[0]
-        if mp == goal:
+        goal_regions = [r for r in (self.visits or {})
+                        if str(r).split("|")[0] == goal]
+        if not goal_regions:
             return ""
+
+        def _best(frm, tos):
+            best = None
+            for t in tos:
+                try:
+                    p = self._route(frm, t)
+                except Exception:
+                    p = None
+                if p is not None and (best is None or len(p) < best):
+                    best = len(p)
+            return best
+
+        cur = _best(here, goal_regions)
         taken: dict = {}
         for _r, _ex in (self.explored or {}).items():
             taken.setdefault(str(_r).split("|")[0], set()).update(
                 str(k).split("#")[0] for k in (_ex or {}))
-        goal_regions = [r for r in (self.visits or {})
-                        if str(r).split("|")[0] == goal]
-        out = []
+        rows = []
         for _r, _fr in sorted((self.frontier or {}).items()):
             _x = str(_r).split("|")[0]
-            if _x == mp:
-                continue
             for d in sorted({str(k).split("#")[0] for k in (_fr or [])}):
-                if d not in ("north", "south", "east", "west"):
+                if d not in ("north", "south", "east", "west") \
+                        or d in taken.get(_x, set()):
                     continue
-                if d in taken.get(_x, set()):
+                _mp = (MAP_EDGES.get(_x) or {}).get(d)
+                if not _mp or _mp == _x:
                     continue
-                if (MAP_EDGES.get(_x) or {}).get(d) != mp:
+                _mregs = [r for r in (self.visits or {})
+                          if str(r).split("|")[0] == _mp]
+                if not _mregs:
                     continue
-                legs = None
-                for _g in goal_regions:
-                    try:
-                        _p = self._route(_r, _g)
-                    except Exception:
-                        _p = None
-                    if _p is not None and (legs is None or len(_p) < legs):
-                        legs = len(_p)
-                if legs is None:
+                to_goal = _best(_r, goal_regions)
+                to_m = 0 if mid == _mp else _best(here, _mregs)
+                if to_goal is None or to_m is None:
                     continue
-                out.append(f"{_x}'s {d} edge, which you have seen lead onto "
-                           f"{mp} and never crossed, is on ground {legs} "
-                           f"walked leg(s) from {goal}")
-        return (" — " + "; ".join(dict.fromkeys(out))) if out else ""
+                if cur is not None and to_m + 1 + to_goal >= cur:
+                    continue
+                rows.append((to_m + 1 + to_goal, _x, d, _mp, to_m, to_goal))
+        if not rows:
+            return ""
+        rows.sort()
+        _, _x, d, _mp, to_m, to_goal = rows[0]
+        return ("\nA WAY YOU HAVE SEEN AND NEVER CROSSED JOINS TWO PLACES YOU "
+                f"HAVE WALKED: {_x}'s {d} edge leads onto {_mp} (you saw it "
+                f"from {_x}). "
+                + (f"You are on {_mp} now" if to_m == 0
+                   else f"{_mp} is {to_m} walked leg(s) from here")
+                + f", and {_x} is {to_goal} walked leg(s) from {goal}; "
+                + (f"the walked way to {goal} you do know is {cur} leg(s). "
+                   if cur is not None else
+                   f"you know no walked way to {goal} from here. ")
+                + f"Whether the ground of {_mp} you have walked reaches that "
+                  f"edge is not known — only that side of {_x} has been on "
+                  f"screen.")
 
     def exploration_text(self, obs, target: str = "", sg: dict | None = None) -> str:
         """Untried vs already-taken exits from where we stand."""
@@ -14995,7 +15021,6 @@ class Executor:
                     f"{_m} ({-_n} spot(s), " + self._seen_cells_words(_m)
                     + (f"{_d} leg(s))" if _d < 99
                        else "no walked route from here)")
-                    + self._unseen_side_toward_words(_m, target)
                     for _d, _n, _m in _shown)
                 + (f"; and {len(_urows) - len(_shown)} more floor(s)"
                    if len(_urows) > len(_shown) else "")
@@ -16185,6 +16210,7 @@ class Executor:
                     + ("\n" + _rs_line if _rs_line else "")
                     + floor_note + floor_away + route_line
                     + self._ways_off_known_line(obs, want_map, here)
+                    + self._seen_edge_joins_line(here, want_map)
                     + _remote_worked
                     + shut_line
                     + hint_line + remote_line + _elsewhere_str
