@@ -2331,6 +2331,46 @@ class Executor:
         except (OSError, AttributeError):
             pass
 
+    WAYPOINT_KEYS = frozenset({"map", "area"})
+
+    def _waypoint_passed(self, sg, obs):
+        """The id of a LATER step that already holds, when the step in play
+        asks only to be on a map (or area) and every step between them does
+        too; else None.
+
+        A step whose whole condition is "be on VICTORY_ROAD_1F" is a
+        waypoint: it proves nothing once the party stands past it. Plan 14
+        of the Indigo leg ran 3F -> 2F -> 1F -> ROUTE_23 -> INDIGO_PLATEAU;
+        2F's (29,7) door let the party out onto Route 23 on the Plateau
+        side, the page said "LATER STEPS OF THIS PLAN THAT ARE ALREADY TRUE:
+        ... ROUTE_23" twice, and the run kept trying to get back into
+        Victory Road for the 1F step (run 27, 2026-09-18; user: "it wants
+        to backtrack but its on rt23 indigo plateau side"). Only waypoints
+        fall this way: a step that checks an item, a flag, a badge or the
+        party is never passed by being somewhere, and stays the model's
+        skip. Not the plan's last step either — that is the objective."""
+        dw = sg.get("done_when")
+        if not (isinstance(dw, dict) and dw and not (set(dw) - self.WAYPOINT_KEYS)):
+            return None
+        subs = (self.plan or {}).get("subgoals") or []
+        idx = next((i for i, s2 in enumerate(subs)
+                    if isinstance(s2, dict) and s2.get("id") == sg.get("id")), None)
+        if idx is None or idx == len(subs) - 1:
+            return None
+        for s2 in subs[idx + 1:]:
+            if not isinstance(s2, dict):
+                return None
+            dw2 = s2.get("done_when")
+            try:
+                if dw2 and pred_holds(dw2, obs):
+                    return s2.get("id")
+            except Exception:
+                return None
+            if not (isinstance(dw2, dict) and dw2
+                    and not (set(dw2) - self.WAYPOINT_KEYS)):
+                return None
+        return None
+
     def _later_steps_true(self, sg, obs) -> list:
         """The plan's LATER steps whose condition already holds where the
         party stands: [(id, done_when), ...], in plan order.
@@ -22366,6 +22406,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 cur = self._leave_ui(cur, sg) or cur
             else:
                 self._ui_pending = 0
+            # A WAYPOINT THE PARTY IS ALREADY PAST ENDS ITSELF. See
+            # _waypoint_passed; the model's skip, taken for it.
+            if cur.get("mode") == "overworld":
+                _past = self._waypoint_passed(sg, cur)
+                if _past:
+                    self.log("subgoal_auto_skipped", subgoal=sg["id"], round=rnd,
+                             later=_past, at=self._where(cur))
+                    print(f"   ({sg['id']} only asks to be on a map, and the "
+                          f"plan's later step {_past} already holds where "
+                          f"the party stands — moving on)")
+                    self._skipped = sg["id"]
+                    return True, []
             stuck_note = ""      # per-round; the walk-back note appends below
             # THE PARTY'S HP IS ON THE SCREEN EVERY ROUND, so it is on the
             # page every round. It was said only for a become-goal
@@ -23661,6 +23713,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 self.log("subgoal_done", subgoal=sg["id"], attempt=attempt,
                          via="pre-check")
                 return True
+            # ...AND A WAYPOINT ALREADY PASSED, before any replay can walk
+            # the party back to it (_waypoint_passed)
+            if obs and obs.get("mode") == "overworld":
+                _past = self._waypoint_passed(sg, obs)
+                if _past:
+                    self.log("subgoal_auto_skipped", subgoal=sg["id"],
+                             later=_past, at=self._where(obs), via="pre-check")
+                    print(f"   ({sg['id']} only asks to be on a map, and the "
+                          f"plan's later step {_past} already holds — moving on)")
+                    return True
             self.log("subgoal_attempt", subgoal=sg["id"], attempt=attempt)
             self.status(subgoal=sg["id"], goal_text=sg.get("goal_text"),
                         done_when=sg.get("done_when"), obs=obs,
@@ -23898,6 +23960,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             print(f"== subgoal: {sg['id']} (already holds from where the "
                   f"party stands — honored)")
             self.log("subgoal_prior_done", subgoal=sg["id"], when="entry")
+            return True
+        try:
+            _o0 = self.settle()
+            _past0 = (self._waypoint_passed(sg, _o0)
+                      if _o0 and _o0.get("mode") == "overworld" else None)
+        except Exception:
+            _past0 = None
+        if _past0:
+            print(f"== subgoal: {sg['id']} (only asks to be on a map, and the "
+                  f"plan's later step {_past0} already holds — moving on)")
+            self.log("subgoal_auto_skipped", subgoal=sg["id"], later=_past0,
+                     via="entry")
             return True
         try:
             ok = self.run_subgoal(sg) if sg.get("macro") else False
