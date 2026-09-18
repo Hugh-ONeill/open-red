@@ -2626,6 +2626,20 @@ class Executor:
         here = self._where(pre_obs)
         if not here or "None" in str(here):
             return
+        # A STATUE PRESSED WITH A YES, COUNTED PER STATUE FOR THE WHOLE MAP.
+        # The outcome rows below are per subgoal and per part of the floor,
+        # and a flip renames the part, so nothing said "you have flipped at
+        # (18,25) nine times and never at (20,3)" — and Mansion B1F stood at
+        # (18,25) flipping between the same two views for three attempts
+        # (run 27, 2026-09-18; user: "its just been standing in the same
+        # place switching the statue on and off").
+        if (op == "interact" and str(key).startswith("SWITCH_")
+                and str(step.get("answer") or "").lower() in ("yes", "y")
+                and str(note).lstrip().startswith("ok")):
+            if not isinstance(getattr(self, "_lever_presses", None), dict):
+                self._lever_presses = {}
+            _lm = self._lever_presses.setdefault(str(here).split("|")[0], {})
+            _lm[key] = int(_lm.get(key) or 0) + 1
         # THE CLOCK'S WORD IS NOT THE DOOR'S. A walk to a Safari door that
         # the step clock ended on the way was booked as that door's outcome,
         # and the row then read "door (35,3) -> UNKNOWN — trying it said:
@@ -3507,6 +3521,11 @@ class Executor:
         _statues = [c for c in cands if getattr(c, "toggle", None)
                     and "SWITCH" in str(c.key).upper() and c.reachable]
         if _fn_here and _statues:
+            # the statue pressed least first, and each with its count: the
+            # run's own record of which handles it has actually flipped at
+            _lp = ((getattr(self, "_lever_presses", None) or {})
+                   .get(str(_m.get("id") or "")) or {})
+            _statues.sort(key=lambda c: int(_lp.get(c.key) or 0))
             _c = _statues[0]
             return False, [
                 f"explore: everything here that can be pressed or taken "
@@ -3514,7 +3533,10 @@ class Executor:
                 f"{_fn_here} spot(s) where the ground you have seen ends, and "
                 f"no walk from here reaches them with the statues set to "
                 f"{_c.toggle}. A SWITCH STATUE is reachable here: "
-                + ", ".join(f"{c.key} at ({c.x},{c.y})" for c in _statues[:3])
+                + ", ".join(f"{c.key} at ({c.x},{c.y}), "
+                            + (f"pressed with a yes {int(_lp.get(c.key))}x on this floor"
+                               if int(_lp.get(c.key) or 0) else "never pressed with a yes")
+                            for c in _statues[:3])
                 + ". Pressing one flips that one setting for the whole "
                   "building, which moves walls, and which side of them you "
                   "are left on is decided by where the statue you press "
@@ -5188,6 +5210,18 @@ class Executor:
             # order is the whole fact is the one the run spends attempts in
             # (Vermilion's gym, 2026-09-14). Same ledger, same lifetime.
             self._press_log = data.get("press_log") or {}
+            self._lever_presses = data.get("lever_presses") or {}
+            if not self._lever_presses:
+                # BACKFILL ONCE from the outcome rows, which kept a count per
+                # subgoal and per part: summed per statue per map, the ones
+                # whose last word was the press going through.
+                for _ok, _rows in (data.get("outcomes") or {}).items():
+                    _mp = str(_ok).split("|")[1] if str(_ok).count("|") >= 2 else ""
+                    for _nm, _r in (_rows or {}).items():
+                        if (_mp and str(_nm).startswith("SWITCH_")
+                                and str((_r or {}).get("last") or "").lstrip().startswith("ok")):
+                            _lm = self._lever_presses.setdefault(_mp, {})
+                            _lm[_nm] = int(_lm.get(_nm) or 0) + int((_r or {}).get("n") or 0)
             self._plan_hist = data.get("plan_hist") or {}
             if not self._shelves:
                 # BACKFILL ONCE from this world's journal: the counter's
@@ -5673,6 +5707,7 @@ class Executor:
                  "explore_picks": getattr(self, "_explore_picks", {}),
                  "swept": sorted(getattr(self, "_swept", set())),
                  "press_log": getattr(self, "_press_log", {}),
+                 "lever_presses": getattr(self, "_lever_presses", {}),
                  "plan_hist": getattr(self, "_plan_hist", {}),
                  "blackouts": self._blackouts,
                  "blackout_lead": self._blackout_lead,

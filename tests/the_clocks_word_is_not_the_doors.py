@@ -30,7 +30,7 @@ def ck(name, cond, detail=""):
 
 src = (ROOT / "planner" / "executor.py").read_text()
 i = src.index("def _record_outcome(self, pre_obs, op: str, step: dict, note: str):")
-blk = src[i:i + 3000]
+blk = src[i:i + 5000]
 ck("the recorder asks whether the world cut the walk before booking anything",
    "if self._walk_cut_by_the_world(note) or \"time's up\" in str(note).lower()" in blk)
 ck("...and books nothing when it did", '"outcome_not_the_doors"' in blk and blk.index('"outcome_not_the_doors"') < blk.index("book = self._outcomes.setdefault"))

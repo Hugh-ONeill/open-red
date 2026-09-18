@@ -68,6 +68,26 @@ ck("...while an ordinary fixture is still swept",
    _ex._not_for_explore_to_press("POKEMONMANSIONB1F_DIARY", "fixture",
                                  "POKEMON_MANSION_B1F|10,9") == "")
 
+_rx = object.__new__(E.Executor)
+_rx._where = lambda o: "POKEMON_MANSION_B1F|20,1"
+for _step, _note in [({"name": "SWITCH_POKEMON_MANSION_B1F_18_25", "answer": "yes"}, "ok (moved)"),
+                     ({"name": "SWITCH_POKEMON_MANSION_B1F_18_25", "answer": "yes"}, "ok — it said: x"),
+                     ({"name": "SWITCH_POKEMON_MANSION_B1F_20_3"}, "ok — it said: x"),
+                     ({"name": "SWITCH_POKEMON_MANSION_B1F_20_3", "answer": "yes"}, "FAILED — no path")]:
+    try:
+        _rx._record_outcome({}, "interact", _step, _note)
+    except Exception:
+        pass
+ck("a statue pressed with a yes is counted per statue per map; a declined or failed press is not",
+   getattr(_rx, "_lever_presses", {}) == {"POKEMON_MANSION_B1F": {"SWITCH_POKEMON_MANSION_B1F_18_25": 2}},
+   getattr(_rx, "_lever_presses", None))
+ck("the explore stop lists the least-pressed statue first, each with its count",
+   "_statues.sort(key=lambda c: int(_lp.get(c.key) or 0))" in blk
+   and '"never pressed with a yes"' in blk)
+ck("the tally is kept with the ledger and backfilled once from the outcome rows",
+   '"lever_presses": getattr(self, "_lever_presses", {}),' in src
+   and "BACKFILL ONCE from the outcome rows" in src)
+
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not d else f"  {d}"))
