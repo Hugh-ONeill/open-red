@@ -1924,6 +1924,7 @@ class Executor:
         self.hints_at: dict = {}     # region -> {line: flags fired when heard}
         self._item_from: dict = {}   # item -> {who, at, said}: who handed it over
         self._offered: dict = {}     # map -> {species: wild encounters}
+        self._new_species_asked: dict = {}  # species -> {catch, why}
         self._dead_why: dict = {}    # op signature -> last failure detail
         self._cut_bushes: dict = {}  # map -> ["x,y", ...] bushes cut before
         self._bush_ways: dict = {}   # part -> ["x,y", ...] bushes with ground past
@@ -5064,6 +5065,7 @@ class Executor:
             self.hints_at = data.get("hints_at") or {}
             self._item_from = data.get("item_from") or {}
             self._offered = data.get("offered") or {}
+            self._new_species_asked = data.get("new_species_asked") or {}
             self._wild_lv = data.get("wild_lv") or {}
             self._wild_seen = data.get("wild_seen") or {}
             self._grind_exp = data.get("grind_exp") or {}
@@ -5565,6 +5567,7 @@ class Executor:
                  "hints_at": getattr(self, "hints_at", {}),
                  "item_from": getattr(self, "_item_from", {}),
                  "offered": getattr(self, "_offered", {}),
+                 "new_species_asked": getattr(self, "_new_species_asked", {}),
                  "wild_lv": getattr(self, "_wild_lv", {}),
                  "wild_seen": getattr(self, "_wild_seen", {}),
                  "grind_exp": getattr(self, "_grind_exp", {}),
@@ -16076,6 +16079,95 @@ class Executor:
     CATCH_AHEAD_RESERVE = int(os.environ.get("RED_CATCH_AHEAD_RESERVE", "2")
                               or 2)
 
+    NEW_SPECIES_SYS = (
+        "You are playing Pokemon Red. A wild Pokemon of a species you have "
+        "never owned has appeared. Catching it costs Poke Balls and a few "
+        "turns; a party holds six, and with six in the party a catch goes "
+        "to the PC box, where it can be taken out at any Pokemon Center. "
+        "Decide whether to try to catch it, given your party, your balls "
+        "and what you are doing. Saying no is a real answer; you are asked "
+        "once per species. Reply with a JSON object and nothing else: "
+        "{\"why\":\"<one short sentence>\",\"catch\":true} or "
+        "{\"why\":\"...\",\"catch\":false}.")
+
+    def _ask_new_species(self, obs, subgoal) -> dict | None:
+        """A wild of a species never owned: ask once, throw on a yes.
+
+        Catching only ever happened toward a later outline leg (_catch_ahead)
+        or on a leg that asked for it, so a run whose outline named no
+        sixth member went on with five, and walked past the Dojo's prize
+        (run 27, 2026-09-18; user: "idk if theres any more catch rungs and
+        we only have 5"). Asked at ANY party size, not only with a slot
+        free: a question gated on room would catch everything early and
+        nothing once full (user: "itd be for any unowned species and all
+        the time instead of just when theres team space"). Facts only —
+        the species, level and types on the screen, the roster, the box,
+        the balls — and the answer is the model's. Once per species, kept
+        across attempts; no round is spent."""
+        b = (obs or {}).get("battle") or {}
+        if b.get("kind") != "wild" or b.get("ghost"):
+            return None
+        if ((obs or {}).get("safari") or {}).get("steps") is not None:
+            return None                      # the Safari game has its own balls
+        foe = b.get("foe") or {}
+        sp = str(foe.get("species") or "")
+        if not sp or foe.get("owned") is not False:
+            return None                      # owned, or not known either way
+        asked = self._new_species_asked
+        if sp in asked:
+            return None
+        # ...ONLY THE BALLS A CATCH WOULD THROW. The catch rule's `ball`
+        # class climbs POKE/GREAT/ULTRA and leaves the MASTER_BALL out on
+        # purpose; counted here, a bag holding only the Master Ball asked,
+        # got a yes, and fought the wild with nothing it would throw
+        # (2026-09-18: "right now we only have the master ball in hand").
+        _bag = (obs or {}).get("bag") or {}
+        balls = sum(int(_bag.get(k) or 0) for k in battle_policy.BALL_LADDER)
+        if balls < 1:
+            return None
+        party = (obs or {}).get("party") or []
+        boxed = [m for m in ((obs or {}).get("pc_mons") or []) if isinstance(m, dict)]
+        roster = "; ".join(
+            f"{m.get('nickname') or m.get('species')} ({m.get('species')}) "
+            f"L{m.get('level')} {'/'.join(str(t) for t in (m.get('types') or []))}"
+            for m in party)
+        user = (f"THE WILD POKEMON: {sp} L{foe.get('level')} "
+                f"({'/'.join(str(t) for t in (foe.get('types') or []))}) — you "
+                f"have never owned one.\n"
+                f"YOUR PARTY ({len(party)} of 6): {roster}\n"
+                f"IN THE PC BOX: "
+                + (", ".join(f"{m.get('species')} L{m.get('level')}" for m in boxed[:8])
+                   if boxed else "nothing")
+                + f"\nPOKE BALLS IN THE BAG (POKE, GREAT, ULTRA): {balls}"
+                + (" — and a MASTER_BALL, which is not thrown unless you "
+                   "name it" if int(_bag.get("MASTER_BALL") or 0) else "")
+                + "\n"
+                f"WHAT YOU ARE TRYING TO DO RIGHT NOW: "
+                f"{(subgoal or {}).get('goal_text') or (subgoal or {}).get('id') or 'make progress'}\n"
+                "Try to catch it?")
+        yes, why = False, ""
+        try:
+            reply = brock_probe.chat(
+                [{"role": "system", "content": self.NEW_SPECIES_SYS},
+                 {"role": "user", "content": user}], self.model)
+            mm = _re.search(r"\{.*\}", reply or "", _re.S)
+            dd = json.loads(mm.group(0)) if mm else {}
+            yes = dd.get("catch") is True or str(dd.get("catch")).lower() == "true"
+            why = str(dd.get("why") or "")[:200]
+        except Exception as e:
+            self.log("new_species_chat_error", subgoal=(subgoal or {}).get("id"),
+                     err=str(e)[:120])
+            return None
+        asked[sp] = {"catch": yes, "why": why}
+        self._save_memory()
+        self.log("new_species_asked", subgoal=(subgoal or {}).get("id"),
+                 foe=f"{sp} L{foe.get('level')}", party=len(party), balls=balls,
+                 catch=yes, why=why)
+        print(f"   (a new species, {sp}: {'catch' if yes else 'leave'} — {why})")
+        if not yes:
+            return None
+        return {"want": {"species": {sp.upper()}, "types": set()}}
+
     def _catch_ahead(self, obs, subgoal, policy, want_now) -> dict | None:
         """A wild that answers a LATER objective on the outline: the want
         to throw with and how many balls may go, or None.
@@ -16192,6 +16284,11 @@ class Executor:
         if _ahead:
             name, why = "catch", "a later objective on the outline"
             _want0 = _ahead["want"]
+        elif name != "catch":
+            _new = self._ask_new_species(obs, subgoal)
+            if _new:
+                name, why = "catch", "a species you have never owned, and you said catch it"
+                _want0 = _new["want"]
         # ...AND A CATCH POLICY WITH NO BALLS IS A FIGHT, said so. The
         # policy stays (it already falls through to ordinary moves without
         # a ball); the round's grind note carries the fact.

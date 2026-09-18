@@ -3605,6 +3605,15 @@ local function observe(G, seq, result)
       local f = o.battle.foe
       f.species, f.types, f.moves, f.stats, f.boosts = "GHOST", nil, {}, nil, nil
     end
+    -- ...AND WHETHER YOU HAVE ONE: the POKéDEX marks every species you
+    -- have owned, and the observation carried only its count, so "a
+    -- species you have never caught" could not be asked of a wild in
+    -- front of you (2026-09-18, the new-species question).
+    if o.battle.foe and not top.ghost and top.kind ~= "trainer" then
+      local _dex = (G.save and G.save.pokedex) or {}
+      local _sp = o.battle.foe.species
+      if _sp then o.battle.foe.owned = ((_dex.owned or {})[_sp] and true) or false end
+    end
     o.battle.player_mon, o.battle.enemy_mon = nil, nil
     if last_probe then o.battle.probe = last_probe; last_probe = nil end
   elseif top and top.pages and top.pageIndex then
