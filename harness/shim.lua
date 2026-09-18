@@ -4411,6 +4411,34 @@ region_reach = function(G) return warp_reach(G, true) end
 -- its own event flags, so when the boulders go down these cells stop
 -- being forced and everything opens on its own. Nothing here says how to
 -- put them down.
+-- WHERE A CURRENT PUTS YOU DOWN. A Seafoam current is a scripted ride:
+-- the engine's field data lists, per current cell, the moves it forces
+-- (B3F (15,8): 3 down, 5 right, 6 down — to the south door's shore).
+-- Returns the cell it ends on, or nil for a cell that is not a current
+-- start. Same standing as a spinner's landing: the game moves you there.
+function seafoam_landing(G, x, y)
+  local ow = G and G.overworld
+  local mid = ow and ow.map and ow.map.id
+  local sf = mid and G.data and G.data.field and G.data.field.seafoam
+              and G.data.field.seafoam[mid]
+  if not sf then return nil end
+  local starts = {}
+  for _, c in ipairs(sf.currents or {}) do starts[#starts + 1] = c end
+  if sf.entryCurrent then starts[#starts + 1] = sf.entryCurrent end
+  local step = { up = { 0, -1 }, down = { 0, 1 }, left = { -1, 0 }, right = { 1, 0 } }
+  for _, c in ipairs(starts) do
+    if c.x == x and c.y == y and c.moves then
+      local lx, ly = x, y
+      for _, m in ipairs(c.moves) do
+        local d = step[m.dir]
+        if d then lx, ly = lx + d[1] * (m.count or 1), ly + d[2] * (m.count or 1) end
+      end
+      return lx, ly
+    end
+  end
+  return nil
+end
+
 function seafoam_forced(G)
   local ow = G and G.overworld
   local mid = ow and ow.map and ow.map.id
@@ -4547,6 +4575,21 @@ function warp_reach(G, no_ledges, surf)
             -- reached and refused: the ride carries you off it again, so
             -- it is neither somewhere you end up nor somewhere you cross
             seen[key(nx, ny)] = nil
+            -- ...BUT A CURRENT SETS YOU DOWN SOMEWHERE, and that is
+            -- reached. B3F's currents carry the rider to the south door's
+            -- shore; counted as nowhere, the ladder at (25,14) read "its
+            -- way in is ground you have not stood on" from the west part
+            -- while the run had ridden there (run 27, 2026-09-18; user:
+            -- "it could reach, just with surf").
+            if FORCED[key(nx, ny)] == "carried" then
+              local cx2, cy2 = seafoam_landing(G, nx, ny)
+              if cx2 and not seen[key(cx2, cy2)] then
+                seen[key(cx2, cy2)] = true
+                if not (THROUGH and THROUGH[key(cx2, cy2)]) then
+                  q[#q + 1] = { x = cx2, y = cy2 }
+                end
+              end
+            end
           else
             seen[key(nx, ny)] = true
             if not (THROUGH and THROUGH[key(nx, ny)]) then
