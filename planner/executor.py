@@ -18352,6 +18352,28 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _d0 = str((_r0.get("result") or {}).get("detail") or "")
                 if (_r0.get("result") or {}).get("ok"):
                     obs = self.settle() or _pre
+                    # ...AND "ok" IS NOT "ARRIVED". The walk returns ok when a
+                    # fight or a script stops it partway, with that said in
+                    # its detail — and this line dropped the detail. Mansion
+                    # 3F: walk_to(16,14), the hole, "ok", a PONYTA mid-walk,
+                    # and twice the model replied "I have just walked onto
+                    # the hole ... I will now observe where this drop takes
+                    # me" with no ops, until the step's rounds ran out (run
+                    # 27, 2026-09-18). Where the party stands now is the
+                    # answer; say it when it is not the cell asked for.
+                    _pl = (obs or {}).get("player") or {}
+                    _at = (_pl.get("x"), _pl.get("y"))
+                    _mid0 = ((_pre or {}).get("map") or {}).get("id")
+                    _mid1 = ((obs or {}).get("map") or {}).get("id")
+                    if (_mid0 == _mid1 and _at != (step.get("x"), step.get("y"))
+                            and None not in _at):
+                        trace.append(
+                            f"walk_to({step.get('x')},{step.get('y')}): stopped "
+                            f"at ({_at[0]},{_at[1]}), not the cell asked for"
+                            + (f" — {_d0}" if _d0 else "")
+                            + ". Walk there again to finish it.")
+                        self._record_outcome(_pre, op, step, "walk_to: stopped short")
+                        continue
                     trace.append(f"walk_to({step.get('x')},{step.get('y')}): ok")
                     self._record_outcome(_pre, op, step, "walk_to: ok")
                     continue
@@ -20984,11 +21006,27 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if not macro:
                 self.log("escalate_bad_proposal", subgoal=sg["id"], round=rnd,
                          reply=reply[:600])
-                feedback = ("Your last reply held no ops. Return ONLY a JSON "
-                            "object {\"plan\":\"...\",\"ops\":[...]} "
-                            "(or a bare JSON array of ops).")
-                spent += 1
+                # A PLAN WITH NO OPS IS A MODEL WAITING TO SEE, NOT A ROUND
+                # SPENT. "I will now observe where this drop takes me" came
+                # twice on Mansion 3F, each counted against the step, and
+                # the step died on them (run 27, 2026-09-18). The first
+                # empty reply in a row is free, and told where the party
+                # actually stands; a second in a row is spent as before.
+                _now = self.settle() or obs
+                _pl = (_now or {}).get("player") or {}
+                _where_now = (f" You are standing at ({_pl.get('x')},"
+                              f"{_pl.get('y')}) on {self._where(_now)}; "
+                              f"nothing moves you until an op does."
+                              if _pl.get("x") is not None else "")
+                self._empty_in_row = int(getattr(self, "_empty_in_row", 0) or 0) + 1
+                feedback = ("Your last reply held no ops." + _where_now
+                            + " Return ONLY a JSON object "
+                              "{\"plan\":\"...\",\"ops\":[...]} "
+                              "(or a bare JSON array of ops).")
+                if self._empty_in_row > 1:
+                    spent += 1
                 continue
+            self._empty_in_row = 0
             # ONE LEG PER MACRO, enforced against ops written BLIND: after a
             # map change the walked graph cannot place, the rest targets a
             # map the model has never seen. A change onto WALKED ground —
