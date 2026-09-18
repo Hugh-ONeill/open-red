@@ -1778,9 +1778,26 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
         if (_bucket == 2 and _way and c.status in ("taken", "came_in_by", "back")
                 and str(target or "").startswith("map:")):
             _bucket = 1
+        # A BADGE IS ANSWERED BY THIS GYM'S LEADER. With no kind preferred
+        # for a badge goal every fresh row tied, and the tie fell to kind
+        # and name: in the Viridian Gym, under EARTHBADGE, GIOVANNI read
+        # seventh — behind an item ball the full bag refuses, the door out
+        # and three trainers — and the run, a few cells from him, wrote
+        # that walls and boulders kept it from him and went to fight the
+        # others (run 27, 2026-09-18; user: "but it was right next to the
+        # guy"). The leader is read off the game's own gym table
+        # (_is_gym_leader), the same one the sweep uses to keep its hands
+        # off him; whether to challenge him now is still the model's.
+        _leader = (str(target or "").startswith("badge:")
+                   and c.kind == "trainer" and c.status == "unbeaten"
+                   and hasattr(ex, "_is_gym_leader")
+                   and ex._is_gym_leader(c.key, str(mid or "")))
+        if _leader and c.reachable:
+            c.note = _join(c.note, "this gym's LEADER, and a walk from where "
+                                   "you stand reaches them")
         c.rank = (_bucket, not c.reachable, STATUS_RANK.get(c.status, 9),
                   1 if _refused(c) else 0,
-                  0 if c.kind in _goal_kinds else 1,
+                  0 if (c.kind in _goal_kinds or _leader) else 1,
                   0 if c.kind == "frontier" else 1, into_seen,
                   c.n, c.kind, c.key)
     out.sort(key=lambda c: c.rank)
@@ -1875,6 +1892,42 @@ def _stuck_things(cands: list) -> list:
 
 def plan_explore(ex, obs: dict, cands: list[Candidate] | None = None,
                  target: str | None = None) -> str:
+    """plan_explore's words, with what explore leaves to the model named
+    when the rest reads as done.
+
+    Explore never presses the PC, a nurse, a gym's leader or a switch
+    statue (executor _not_for_explore_to_press). With GIOVANNI the one fresh
+    thing in the Viridian Gym, the line read "THIS AREA IS FULLY WORKED
+    ... something you have done must be undone" directly above his row
+    (2026-09-18). A room whose fresh thing is a decision is not worked."""
+    line = _plan_explore_words(ex, obs, cands, target)
+    if not line or not hasattr(ex, "_not_for_explore_to_press"):
+        return line
+    _l = line.lower()
+    if not ("fully worked" in _l or "everything you can reach here is done" in _l
+            or "nothing untried" in _l):
+        return line
+    if cands is None:
+        cands = build(ex, obs, want_explore=False)
+    _here = ex._where(obs)
+    held = []
+    for c in cands:
+        if (c.status in ("untouched", "unspoken", "unbeaten") and c.reachable
+                and c.kind not in ("door", "seam", "op")):
+            why = ex._not_for_explore_to_press(c.key, c.kind, _here)
+            if why:
+                held.append((c, why))
+    if not held:
+        return line
+    c0, why0 = held[0]
+    return (f"explore leaves {', '.join(c.key for c, _ in held[:3])} to you "
+            f"({why0}) — "
+            f'{{"op":"interact","name":"{c0.key}"}} presses it. Apart from '
+            f"that: " + line)
+
+
+def _plan_explore_words(ex, obs: dict, cands: list[Candidate] | None = None,
+                        target: str | None = None) -> str:
     """What one `explore` step WOULD do from here, in words. Nothing runs.
 
     The order is the sweep's, made explicit: press what is untouched here
@@ -1983,7 +2036,15 @@ def plan_explore(ex, obs: dict, cands: list[Candidate] | None = None,
                                      "cuttable")
                      and c.reachable and not _refused(c)
                      and not _asking(c)
-                     and c.kind not in ("door", "seam", "op")),
+                     and c.kind not in ("door", "seam", "op")
+                     # THE WORDS FOLLOW THE DEED: explore never presses the
+                     # PC, a nurse, a gym's leader or a switch statue
+                     # (executor _not_for_explore_to_press), so this line
+                     # must not promise to — it read "press
+                     # VIRIDIANGYM_GIOVANNI here" (2026-09-18)
+                     and not (hasattr(ex, "_not_for_explore_to_press")
+                              and ex._not_for_explore_to_press(
+                                  c.key, c.kind, ex._where(obs)))),
                     key=lambda c: (0 if c.kind in _goal_kinds_of(target) else 1,
                                    _crowd.get(_stem(c.key), 1),
                                    order.get(c.kind, 4), c.key))
