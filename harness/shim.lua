@@ -7052,6 +7052,14 @@ function OPS.cross(G, c)
     -- nothing about the map. Say which failure this is, in words the
     -- proof-reader does not match.
     local _verdict
+    -- ...AND WHERE THE SEAM LEADS ONLY WITH THE TOWN MAP IN THE BAG. The
+    -- model's view already turns every connection's name into "?" without
+    -- it; this verdict named it anyway, "the south seam of PALLET_TOWN (to
+    -- ROUTE_21)", on a seam never crossed, and that name then rode the
+    -- ledger (run 27, 2026-09-18; user: "how would it know that pallets
+    -- south edge is 21 though? is there a sign?").
+    local _held = G and G.save and G.save.inventory and G.save.inventory.TOWN_MAP
+    if not _held then dest = nil end
     if (unseen_touched or 0) > 0 then
       _verdict = ("the %s seam of %s (to %s) cannot be reached over the "
         .. "ground you have SEEN — the search stopped where your "
