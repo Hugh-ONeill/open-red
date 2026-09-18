@@ -48,6 +48,8 @@ def obs(**kw):
     return {"map": m}
 
 
+import ledger as _L0
+_L0._left_parts = lambda ex, r: []
 got = fake()._ways_off_known_line(obs(), "ROUTE_13", "ROUTE_12|0,61")
 ck("every seen way off is read against the target",
    got.startswith("\nEVERY WAY OFF THIS FLOOR THAT YOU HAVE SEEN LEADS SOMEWHERE YOU HAVE ALREADY BEEN: north -> LAVENDER_TOWN; west -> ROUTE_11; door (10,15) -> ROUTE_12_GATE_1F. None of them is known to lead to ROUTE_13."), got)
@@ -61,6 +63,31 @@ ex = fake(); ex.explored["ROUTE_12|0,61"]["west"] = {"to": "ROUTE_13|0,0"}
 ck("a way known to lead to the target silences it", ex._ways_off_known_line(obs(), "ROUTE_13", "ROUTE_12|0,61") == "")
 ck("no target map, nothing", fake()._ways_off_known_line(obs(), "", "ROUTE_12|0,61") == "")
 ck("standing on the target, nothing", fake()._ways_off_known_line(obs(), "ROUTE_12", "ROUTE_12|0,61") == "")
+import ledger as _L
+_real = _L._left_parts
+_L._left_parts = lambda ex, r: ["1 thing(s) never pressed (SWITCH)"]
+ck("an outdoor neighbour with something left does not silence it (Route 12's pingpong)",
+   fake()._ways_off_known_line(obs(), "ROUTE_13", "ROUTE_12|0,61") != "")
+
+
+def mansion():
+    ex = object.__new__(E.Executor)
+    ex.visits = {"POKEMON_MANSION_1F|20,20": 5, "POKEMON_MANSION_B1F|23,22": 3, "CINNABAR_ISLAND|6,3": 9}
+    ex.explored = {"POKEMON_MANSION_1F|20,20": {"21,23": {"to": "POKEMON_MANSION_B1F|23,22"},
+                                                "south": {"to": "CINNABAR_ISLAND|6,3"}}}
+    ex.door_dests = {"POKEMON_MANSION_1F": {"21,23": "POKEMON_MANSION_B1F"}}
+    return ex
+
+
+mobs = {"map": {"id": "POKEMON_MANSION_1F", "connections": {"south": "CINNABAR_ISLAND"},
+                "warps": [{"x": 21, "y": 23}], "sides_unseen": [], "seen": {"frontier_n": 0}}}
+_L._left_parts = lambda ex, r: (["1 thing(s) never pressed (SWITCH)"] if r.startswith("POKEMON_MANSION_B1F") else [])
+ck("a stair to a floor of the same building with something left silences it (Mansion 1F -> B1F)",
+   mansion()._ways_off_known_line(mobs, "CINNABAR_GYM", "POKEMON_MANSION_1F|20,20") == "", mansion()._ways_off_known_line(mobs, "CINNABAR_GYM", "POKEMON_MANSION_1F|20,20"))
+_L._left_parts = lambda ex, r: []
+ck("...and with every floor spent it speaks",
+   mansion()._ways_off_known_line(mobs, "CINNABAR_GYM", "POKEMON_MANSION_1F|20,20") != "")
+_L._left_parts = _real
 src = (ROOT / "planner/executor.py").read_text()
 ck("it rides the page beside the route line",
    "+ floor_note + floor_away + route_line\n                    + self._ways_off_known_line(obs, want_map, here)" in src)

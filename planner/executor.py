@@ -7789,6 +7789,7 @@ class Executor:
             return ""
         # what each seen way off this floor led to, from the run's own record
         led: dict = {}
+        led_region: dict = {}
         for r, ex in (self.explored or {}).items():
             if str(r).split("|")[0] != mid:
                 continue
@@ -7796,6 +7797,7 @@ class Executor:
                 to = str((e or {}).get("to") or "")
                 if to and "|" in to and not str(k).startswith("walk:"):
                     led[str(k)] = to.split("|")[0]
+                    led_region[str(k)] = to
         for k, d in ((self.door_dests or {}).get(mid) or {}).items():
             led.setdefault(str(k), str(d))
         ways = []
@@ -7809,6 +7811,27 @@ class Executor:
             return ""
         if any(led[k] == want_map for k in ways):
             return ""
+        # ...AND NOT WHILE A PLACE THEY LEAD TO STILL HAS SOMETHING. On the
+        # Mansion's sealed 1F room this listed every door off the floor —
+        # the basement stairs among them — and said none led to the gym,
+        # while the basement still held a switch never pressed and ground
+        # never on screen; the run read it as "nothing here" and walked out
+        # (run 27, 2026-09-18). Inside one building the floors are one search:
+        # a stair to a floor with something left silences it, and that
+        # floor's own row says what. Between outdoor maps it still speaks —
+        # the next route over always has something left, and Route 12's
+        # pingpong is what the line is for.
+        _fam = map_family(mid)
+        for k in ways:
+            _dest = led_region.get(k)
+            if not _dest or map_family(_dest.split("|")[0]) != _fam:
+                continue
+            try:
+                import ledger as _lg
+                if _lg._left_parts(self, _dest):
+                    return ""
+            except Exception:
+                pass
         parts = [(f"{k} -> {led[k]}" if not k[0].isdigit()
                   else f"door ({k}) -> {led[k]}") for k in ways]
         unseen = [str(x) for x in (m.get("sides_unseen") or [])]
