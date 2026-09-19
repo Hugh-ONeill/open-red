@@ -1182,6 +1182,8 @@ def pred_holds(pred: dict | None, obs: dict) -> bool:
             if need is None or not mons or any(
                     (m.get("level") or 0) < need for m in mons):
                 return False
+            if len(mons) < PARTY_FLOOR:
+                return False            # met by shrinking the party
         elif key == "slot_level":
             # a specific party slot (1-based), for "get the SECOND one to N"
             mons = obs.get("party") or []
@@ -1384,6 +1386,19 @@ ACTIVE_SPEC = battle_policy.DEFAULT_SPEC
 def set_active_spec(spec):
     global ACTIVE_SPEC
     ACTIVE_SPEC = spec
+
+
+# THE PARTY A LEVEL LEG IS ABOUT. "Every party member is at least level N"
+# is true of a party of one, so depositing everyone under N met it without
+# a level gained (user, 2026-09-19: "as long as it doesnt 'solve' level
+# legs by depositing all underleveled pokemon"). The floor is the party's
+# size when the LEG began (Executor._party_floor, run/party_floor.json,
+# once per leg so a rewritten plan cannot re-take it from a shrunk party):
+# a swap, a weak member out and a stronger one in, keeps the size and still
+# counts, as the user asked on 2026-08-24; a deposit alone does not. It is
+# not written into the plan as party_size, which would make the step read
+# as a catching step. 0 = no floor (outside a plan).
+PARTY_FLOOR = 0
 
 
 def lay_train_rule(path) -> bool:
@@ -12942,7 +12957,12 @@ class Executor:
                         + ", ".join(f"slot {i} {sp} L{lv} (+{_need - lv})"
                                     for lv, sp, i in _short)
                         + ". A Pokemon in the PC is not in the party, and "
-                          "one in the party is counted however it got there.")
+                          "one in the party is counted however it got there."
+                        + (f" It also needs at least {PARTY_FLOOR} in the "
+                           f"party, as many as when this leg began: putting "
+                           f"a member away meets it only when another comes "
+                           f"out of the box in its place."
+                           if PARTY_FLOOR > 1 else ""))
                     # ...WHICH CUTS BOTH WAYS, AND ONLY ONE WAY WAS SAID.
                     # "However it got there" includes WITHDRAWN: the
                     # condition measures the party as composed, so who is
@@ -24456,6 +24476,37 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             _tmp.write_text(json.dumps(self.plan, indent=2))
             _tmp.replace(self.plan_path)
 
+    PARTY_FLOOR_PATH = RUN / "party_floor.json"
+
+    def _party_floor(self, plan, subgoals, obs) -> int:
+        """Set PARTY_FLOOR for this plan: the party's size when its LEG
+        began, if any step asks that every party member reach a level.
+
+        Recorded once per leg (by the plan's goal, the leg's own words) in
+        run/party_floor.json, so a second plan for the same leg, written
+        after the party was shrunk, still reads the size it started at."""
+        global PARTY_FLOOR
+        PARTY_FLOOR = 0
+        if not any("party_min_level" in pred_keys((sg or {}).get("done_when")
+                                                  or {})
+                   for sg in subgoals or [] if isinstance(sg, dict)):
+            return 0
+        leg = str((plan or {}).get("goal") or "")
+        try:
+            book = json.loads(self.PARTY_FLOOR_PATH.read_text() or "{}")
+        except (OSError, ValueError):
+            book = {}
+        size = len((obs or {}).get("party") or [])
+        if leg not in book:
+            book[leg] = size
+            try:
+                self.PARTY_FLOOR_PATH.write_text(json.dumps(book, indent=1))
+            except OSError:
+                pass
+        PARTY_FLOOR = int(book.get(leg) or 0)
+        self.log("party_floor", goal=leg, floor=PARTY_FLOOR, size=size)
+        return PARTY_FLOOR
+
     def run_plan(self, plan: dict) -> bool:
         # WHICH HARNESS PLAYED THIS ATTEMPT. Fixes land at the next boot,
         # so one run's journal is several harnesses in a row; the meter
@@ -24472,6 +24523,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             self._pin_slot_levels(subgoals, self.settle())
         except Exception as e:           # a pin is never worth the plan
             self.log("slot_pin_error", err=str(e)[:160])
+        try:
+            self._party_floor(plan, subgoals, self.settle())
+        except Exception as e:           # a floor is never worth the plan
+            self.log("party_floor_error", err=str(e)[:160])
         # WHAT REPLACED THE STICKY-WAYPOINT LEDGER. There used to be a
         # `_plan_done` map of "subgoal ids completed under this goal in an
         # earlier attempt", written on every success and carried across

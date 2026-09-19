@@ -136,7 +136,8 @@ if [ "$done_legs" = 0 ]; then
         run/seen.json run/seen.json.tmp \
         run/seen_walk.json run/seen_walk.json.tmp \
         run/last_state.json run/obs.json \
-        run/status.txt run/heartbeat
+        run/status.txt run/heartbeat \
+        run/party_floor.json
   # these budgets belong to a chain, not to the directory
   : > run/outline_reorders
   rm -f run/outline_skips run/outline_inserts run/outline_rewordings \
