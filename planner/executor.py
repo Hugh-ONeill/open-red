@@ -17700,6 +17700,7 @@ class Executor:
                             f"the first turn (the wild gets a free hit on it) "
                             f"and then fights.")
                 return fact
+            never = tr.get("fight_if") is False
             fi = tr.get("fight_if") or {}
             conds = []
             if fi.get("min_level_ratio") is not None:
@@ -17727,8 +17728,9 @@ class Executor:
                     + ("it is moved to the front before a grind; "
                        if tr.get("lead") else
                        "the party order is left as you set it; ")
-                    + (f"it fights a wild itself when " + " and ".join(conds)
-                       + f", and otherwise {other}."
+                    + (f"it never fights a wild itself: {other}." if never
+                       else f"it fights a wild itself when "
+                       + " and ".join(conds) + f", and otherwise {other}."
                        if conds else "it fights every wild itself."))
         except Exception:
             return ""

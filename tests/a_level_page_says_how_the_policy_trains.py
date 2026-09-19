@@ -82,6 +82,10 @@ ck("a flee rule and an unled trainee are said as such",
    "the party order is left as you set it" in w
    and "hits the wild for x2 or better" in w
    and "otherwise the battle is fled" in w, w)
+E.ACTIVE_SPEC = {"train": {"lead": True, "fight_if": False}}
+ck("a rule that never fights says so",
+   "it never fights a wild itself: it is switched out on the spot"
+   in ex._train_words(obs, sg), ex._train_words(obs, sg)[-200:])
 E.ACTIVE_SPEC = {"train": {"lead": True}}
 ck("a rule with no conditions fights everything",
    "it fights every wild itself" in ex._train_words(obs, sg))

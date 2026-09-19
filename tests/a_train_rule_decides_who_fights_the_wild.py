@@ -118,6 +118,10 @@ FLEE = {"train": {"lead": True, "fight_if": {"min_level_ratio": 0.9},
                   "else": "flee"}}
 r = bp.train_turn(battle(led, 1, GOLBAT), FLEE, {"trainee": 1, "turn": 1})
 ck("else flee runs instead", r and r["do"] == "flee", r)
+NEVER = {"train": {"lead": True, "fight_if": False}}
+r = bp.train_turn(battle(led, 1, GEODUDE), NEVER, {"trainee": 1, "turn": 1})
+ck("fight_if false never fights, whatever walks out",
+   bp.validate_spec(NEVER) == [] and r and r["do"] == "switch", r)
 PLOW = {"train": {"lead": True}}
 ck("no fight_if means it fights everything",
    bp.train_turn(battle(led, 1, GOLBAT), PLOW, {"trainee": 1, "turn": 1}) is None)

@@ -434,9 +434,10 @@ def _train_problems(tr) -> list:
     if tr.get("to") not in (None,) + TRAIN_TO:
         probs.append("train.to must be one of " + " / ".join(TRAIN_TO))
     fi = tr.get("fight_if")
-    if fi is not None:
+    if fi is not None and fi is not False:
         if not isinstance(fi, dict):
-            probs.append("train.fight_if must be null or an object")
+            probs.append("train.fight_if must be null (always), false "
+                         "(never) or an object of conditions")
         else:
             for k, v in fi.items():
                 if k not in _TRAIN_FIGHT_KEYS:
@@ -1145,9 +1146,11 @@ def train_fights(trainee: dict, foe: dict, fight_if: dict | None,
     """(would the trainee fight this wild itself?, why not).
 
     Every condition given must hold; a block with no fight_if always
-    fights. All of it is on the screen: both levels, the trainee's HP bar,
+    fights, and fight_if false never does. All of it is on the screen: both levels, the trainee's HP bar,
     its moves' types against the wild's, and what its moves have been SEEN
     to do to this species."""
+    if fight_if is False:
+        return False, "your rule never has it fight for itself"
     fi = fight_if or {}
     foe_types = [str(t).upper() for t in (foe.get("types") or [])]
     r = fi.get("min_level_ratio")
