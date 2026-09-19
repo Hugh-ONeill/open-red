@@ -1,0 +1,171 @@
+{
+  "name": "Aggressive-Safe-Hybrid",
+  "train": {
+    "lead": true,
+    "fight_if": {
+      "min_level_ratio": 0.8,
+      "min_hp_frac": 0.4,
+      "max_foe_matchup": 1.5
+    },
+    "else": "switch",
+    "to": "highest_level"
+  },
+  "provenance": {
+    "authored_by": "gemma4:31b-it-q4_K_M",
+    "run": "trainv1",
+    "via": "policy_author --train-block",
+    "rounds": 4,
+    "base_spec": "/home/wiz/Developer/red-recomp/plans/policy_model_v13.json",
+    "eval": {
+      "arena": "train_early+train_mid+train_late",
+      "arenas": {
+        "train_early": {
+          "arena": "train",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 3,
+          "blackouts": 0,
+          "agree": 180,
+          "scored": 181,
+          "dmg_gap": 25.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "PIKACHU L5 -> L9, 651 of the 875 experience to L10 in 400 steps (0 walk(s) to the nurse, 0 of those steps); 37 wild battle(s): 15 it fought alone, 22 shared, 0 fled, 0 earned it nothing; it fainted 0 time(s); 240 experience landed on members already at L10; stopped at 400 steps; the wilds met: RATTATA L2-4 x24, PIDGEY L2-5 x13",
+            "PIKACHU L5 -> L9, 699 of the 875 experience to L10 in 400 steps (1 walk(s) to the nurse, 68 of those steps); 46 wild battle(s): 18 it fought alone, 25 shared, 3 fled, 0 earned it nothing; it fainted 0 time(s); 282 experience landed on members already at L10; stopped at 400 steps; the wilds met: PIDGEY L2-4 x23, RATTATA L2-4 x23",
+            "PIKACHU L5 -> L9, 751 of the 875 experience to L10 in 400 steps (0 walk(s) to the nurse, 0 of those steps); 44 wild battle(s): 21 it fought alone, 23 shared, 0 fled, 0 earned it nothing; it fainted 0 time(s); 265 experience landed on members already at L10; stopped at 400 steps; the wilds met: RATTATA L2-4 x27, PIDGEY L2-5 x17"
+          ],
+          "bodies": 3.0,
+          "progress": 2.4011428571428572,
+          "gain": 2101,
+          "need": 2625,
+          "spill": 787,
+          "steps": 1200,
+          "budget": 1200,
+          "heals": 1,
+          "faints": 0,
+          "battles": 127,
+          "alone": 54,
+          "shared": 70,
+          "fled": 3,
+          "nothing": 0,
+          "reached": 0,
+          "turns": 257
+        },
+        "train_mid": {
+          "arena": "train",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 3,
+          "blackouts": 0,
+          "agree": 178,
+          "scored": 182,
+          "dmg_gap": 165.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "ODDISH L13 -> L18, 2747 of the 4199 experience to L20 in 600 steps (2 walk(s) to the nurse, 80 of those steps); 31 wild battle(s): 7 it fought alone, 20 shared, 3 fled, 1 earned it nothing; it fainted 1 time(s); 1584 experience landed on members already at L20; stopped at 600 steps; the wilds met: ZUBAT L15-18 x18, GEODUDE L16 x7, MACHOP L15-17 x5, ONIX L13 x1",
+            "ODDISH L13 -> L18, 2944 of the 4199 experience to L20 in 600 steps (2 walk(s) to the nurse, 80 of those steps); 33 wild battle(s): 8 it fought alone, 18 shared, 6 fled, 1 earned it nothing; it fainted 0 time(s); 1300 experience landed on members already at L20; stopped at 600 steps; the wilds met: ZUBAT L16-18 x18, GEODUDE L16-17 x10, MACHOP L15-17 x4, ONIX L13 x1",
+            "ODDISH L13 -> L20, 4205 of the 4199 experience to L20 in 573 steps (1 walk(s) to the nurse, 40 of those steps); 35 wild battle(s): 14 it fought alone, 20 shared, 0 fled, 1 earned it nothing; it fainted 1 time(s); 1526 experience landed on members already at L20; stopped at L20 reached; the wilds met: ZUBAT L15-18 x18, GEODUDE L16-17 x12, MACHOP L15-17 x3, ONIX L13-15 x2"
+          ],
+          "bodies": 3.0,
+          "progress": 2.3553226958799716,
+          "gain": 9896,
+          "need": 12597,
+          "spill": 4410,
+          "steps": 1773,
+          "budget": 1800,
+          "heals": 5,
+          "faints": 2,
+          "battles": 99,
+          "alone": 29,
+          "shared": 58,
+          "fled": 9,
+          "nothing": 3,
+          "reached": 1,
+          "turns": 264
+        },
+        "train_late": {
+          "arena": "train",
+          "rival_wins": 0,
+          "rival_trials": 0,
+          "pewter": 0,
+          "badge": 0,
+          "gauntlet_trials": 3,
+          "blackouts": 0,
+          "agree": 92,
+          "scored": 150,
+          "dmg_gap": 16700.0,
+          "rival_detail": [],
+          "gauntlet_detail": [
+            "MACHOP L24 -> L27, 6079 of the 11552 experience to L30 in 800 steps (1 walk(s) to the nurse, 134 of those steps); 26 wild battle(s): 9 it fought alone, 16 shared, 0 fled, 1 earned it nothing; it fainted 1 time(s); 3541 experience landed on members already at L30; stopped at 800 steps; the wilds met: ZUBAT L26 x8, MACHOP L22 x6, GEODUDE L24 x5, ONIX L36-42 x3, MACHOKE L41 x2, GOLBAT L40 x1, MAROWAK L40 x1",
+            "MACHOP L24 -> L26, 3496 of the 11552 experience to L30 in 800 steps (2 walk(s) to the nurse, 268 of those steps); 14 wild battle(s): 3 it fought alone, 9 shared, 0 fled, 2 earned it nothing; it fainted 2 time(s); 2632 experience landed on members already at L30; stopped at 800 steps; the wilds met: ONIX L36-42 x4, GEODUDE L24 x4, MACHOP L22 x2, MAROWAK L40 x1, ZUBAT L26 x1, GRAVELER L43 x1, MACHOKE L41 x1",
+            "MACHOP L24 -> L27, 6723 of the 11552 experience to L30 in 800 steps (1 walk(s) to the nurse, 134 of those steps); 25 wild battle(s): 3 it fought alone, 19 shared, 2 fled, 1 earned it nothing; it fainted 1 time(s); 5859 experience landed on members already at L30; stopped at 800 steps; the wilds met: ONIX L39-42 x10, MACHOKE L41 x4, GEODUDE L24 x3, ZUBAT L26 x3, MAROWAK L40 x2, MACHOP L22 x2, GOLBAT L40 x1"
+          ],
+          "bodies": 3.0,
+          "progress": 1.410837950138504,
+          "gain": 16298,
+          "need": 34656,
+          "spill": 12032,
+          "steps": 2400,
+          "budget": 2400,
+          "heals": 4,
+          "faints": 4,
+          "battles": 65,
+          "alone": 15,
+          "shared": 44,
+          "fled": 2,
+          "nothing": 4,
+          "reached": 0,
+          "turns": 200
+        }
+      },
+      "arena_stamps": {
+        "train_early": "0c7053b0f906",
+        "train_mid": "d911a2f25855",
+        "train_late": "1420ed32c0ed"
+      },
+      "cross_total": 2.1161,
+      "gauntlet_trials": 9,
+      "blackouts": 0
+    },
+    "references": {
+      "no train rule (the trainee is switched IN on turn one of every wild)": {
+        "train": null,
+        "cross_total": 0.5034,
+        "arenas": {
+          "train_early": 0.2213,
+          "train_mid": 0.1941,
+          "train_late": 0.0384
+        }
+      },
+      "always fight": {
+        "train": {
+          "lead": true
+        },
+        "cross_total": 1.3641,
+        "arenas": {
+          "train_early": 0.819,
+          "train_mid": 0.3531,
+          "train_late": 0.1289
+        }
+      },
+      "always switch out": {
+        "train": {
+          "lead": true,
+          "fight_if": false,
+          "else": "switch",
+          "to": "highest_level"
+        },
+        "cross_total": 1.5209,
+        "arenas": {
+          "train_early": 0.4697,
+          "train_mid": 0.5033,
+          "train_late": 0.4954
+        }
+      }
+    }
+  }
+}
