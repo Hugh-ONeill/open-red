@@ -17690,6 +17690,14 @@ class Executor:
             was = party[0] or {}
             self._send_safe("party_swap", a=1, b=slot)
             obs = self.settle() or obs
+            # ...AND REMEMBERED, so the order goes back when the step is
+            # over (_unlead_the_trainee): the first swap of a step is the
+            # one that says where the trainee came from
+            if not getattr(self, "_train_led", None):
+                self._train_led = {"sg": sg.get("id"), "home": slot,
+                                   "who": {"species": who.get("species"),
+                                           "dvs": who.get("dvs"),
+                                           "otId": who.get("otId")}}
             self.log("train_lead", subgoal=sg.get("id"), slot=slot,
                      who=who.get("species"), was=was.get("species"))
             trace.append(
@@ -17699,6 +17707,47 @@ class Executor:
                 f"trainee walks in first")
         except Exception as e:          # a lead is never worth the round
             self.log("train_lead_error", err=str(e)[:160])
+        return obs
+
+    def _unlead_the_trainee(self, obs, sg, trace):
+        """Put the party back as it stood once the step that led the
+        trainee is over.
+
+        The policy's `lead` moved the trainee to the front FOR the step
+        that was raising it. Left there, a member that has only just
+        reached its level starts every battle after: the next gym, a rival
+        on a cell, the league (nothing outside a faint prompt reorders a
+        party, and a fight that starts on a cell gets no lead rule). The
+        order was the model's before the step and is again after it. If the
+        model has moved the trainee itself since, that is its order now and
+        nothing is touched."""
+        led = getattr(self, "_train_led", None)
+        if not led:
+            return obs
+        try:
+            if led.get("sg") == (sg or {}).get("id") \
+                    or (obs or {}).get("mode") != "overworld":
+                return obs
+            self._train_led = None
+            party = (obs or {}).get("party") or []
+            home = int(led.get("home") or 0)
+            if not (1 < home <= len(party)):
+                return obs
+            want = dict(led.get("who") or {})
+            if slot_of({"slot": 1, "who": want}, party) != 1 \
+                    or (party[0].get("species") != want.get("species")
+                        and party[0].get("dvs") != want.get("dvs")):
+                return obs          # the model moved it; its order stands
+            self._send_safe("party_swap", a=1, b=home)
+            obs = self.settle() or obs
+            self.log("train_unlead", subgoal=(sg or {}).get("id"),
+                     slot=home, who=want.get("species"))
+            trace.append(
+                f"party_swap(1,{home}): {party[0].get('species')} goes back "
+                f"to slot {home} — it was in front only for the step that "
+                f"was raising it (your battle policy's train rule)")
+        except Exception as e:          # an order is never worth the round
+            self.log("train_unlead_error", err=str(e)[:160])
         return obs
 
     def _train_words(self, obs, sg) -> str:
@@ -17751,7 +17800,8 @@ class Executor:
                      if (tr.get("else") or "switch") == "switch"
                      else "the battle is fled")
             return (fact + f" YOUR BATTLE POLICY'S TRAIN RULE, for {name}: "
-                    + ("it is moved to the front before a grind; "
+                    + ("it is moved to the front before a grind (and put "
+                       "back when this step is over); "
                        if tr.get("lead") else
                        "the party order is left as you set it; ")
                     + (f"it never fights a wild itself: {other}." if never
@@ -19494,6 +19544,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         f"on without it.")
                     continue
                 self._cant_afford.pop(step["item"], None)   # wallet grew
+            obs = self._unlead_the_trainee(obs, sg, trace)
             if op == "grind":
                 obs = self._lead_the_trainee(obs, step, sg, trace)
             if op == "interact":

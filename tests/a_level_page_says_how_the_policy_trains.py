@@ -65,7 +65,9 @@ ck("...and no longer that only what fights earns",
    "only what fights, earns" not in t and "only what takes part, earns" in t)
 ck("the train rule is put in words for the trainee",
    "YOUR BATTLE POLICY'S TRAIN RULE, for MACHOP L24" in t, t[-500:])
-ck("...who walks in first", "it is moved to the front before a grind" in t)
+ck("...who walks in first",
+   "it is moved to the front before a grind (and put back when this step "
+   "is over)" in t)
 ck("...when it fights",
    "its level is at least 0.9x the wild's and its HP is at 50% or more" in t)
 ck("...and what happens otherwise",
