@@ -4815,13 +4815,35 @@ class Executor:
         idx = getattr(self, "_cur_sg_idx", None)
         sgs = ((self.plan or {}).get("subgoals") or []) if idx is not None else []
         undone = []
+        # ...AND PLACES. Waking at the Center takes the party back past
+        # every "be in that room" step it walked since the last step that
+        # still holds. The league's plan was lobby -> defeat_lorelei (map
+        # BRUNOS_ROOM) -> defeat_bruno (map AGATHAS_ROOM) -> ...; after the
+        # Champion wiped the party the plan still stood at defeat_agatha,
+        # and the run, back in Lorelei's room with her unbeaten, tried the
+        # north door fifteen times as if she were behind it (run 27,
+        # 2026-09-18; user: "we might need to make the e4 repressable once
+        # per attempt so it can actually get through after failing on the
+        # first go-around"). The steps after the last one that still holds
+        # where the party woke are the ones to walk again.
+        _last_hold = -1
+        for j, sgj in enumerate(sgs[:idx]):
+            try:
+                if pred_holds(sgj.get("done_when") or {}, o):
+                    _last_hold = j
+            except Exception:
+                continue
         for i, sg in enumerate(sgs[:idx]):
             dw = sg.get("done_when") or {}
             try:
                 if (pred_keys(dw) & {"flag", "badge"}) and not pred_holds(dw, o):
                     undone.append((i, sg["id"]))
+                elif (i > _last_hold and dw and not (set(dw) - {"map", "area"})
+                        and not pred_holds(dw, o)):
+                    undone.append((i, sg["id"]))
             except Exception:
                 continue
+        undone.sort()
         if undone:
             self._wipe_note += (
                 " STEPS OF YOUR PLAN THAT HAD BEEN DONE ARE UNDONE — their "
