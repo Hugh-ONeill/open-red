@@ -14248,9 +14248,17 @@ class Executor:
             return ""
         here = self._where(obs)
         cents = []
-        for r in set(self.visits or {}) | set(self.explored or {}):
+        # ...AND A NURSE IS A CENTER WHEREVER SHE STANDS. Only maps named
+        # *_POKECENTER counted, so INDIGO_PLATEAU_LOBBY — its nurse in the
+        # run's own sightings, a few steps from Route 23 — was never named,
+        # and every training plan walked back through Victory Road to heal
+        # in Viridian (run 27, 2026-09-18; user: "it kept trying to go to
+        # viridian").
+        _nurse_rooms = {str(r) for r, names in (self.sightings or {}).items()
+                        if any("NURSE" in str(n).upper() for n in (names or []))}
+        for r in set(self.visits or {}) | set(self.explored or {}) | _nurse_rooms:
             m = r.split("|")[0]
-            if not m.endswith("POKECENTER"):
+            if not (m.endswith("POKECENTER") or r in _nurse_rooms):
                 continue
             p2 = self._route(here, r)
             if p2 is not None:

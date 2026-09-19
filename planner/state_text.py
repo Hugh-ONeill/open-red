@@ -163,6 +163,55 @@ def respawn_text(r):
             f"you wake)")
 
 
+def centers_text(here_map):
+    """Every room the run has seen a nurse in — any of them heals — with the
+    ones on this map or one walked door from it named as such.
+
+    The start line named one Center, the wake point, and the training plans
+    for "every party member at level 50" all went back through Victory Road
+    to heal at Viridian while INDIGO_PLATEAU_LOBBY, its nurse in the run's
+    own sightings, was a few steps from Route 23 (run 27, 2026-09-18; user:
+    "it kept trying to go to viridian"). The run's own record only."""
+    try:
+        import json as _json
+        from pathlib import Path as _P
+        d = _json.loads((_P(__file__).resolve().parents[1] / "run" / "explored.json")
+                        .read_text() or "{}")
+    except Exception:
+        return ""
+    rooms = sorted({str(r).split("|")[0]
+                    for r, names in (d.get("sightings") or {}).items()
+                    if any("NURSE" in str(n).upper() for n in (names or []))})
+    if not rooms:
+        return ""
+    # walked hops between MAPS, up to three: the run's own edges only
+    adj: dict = {}
+    for r, ex in (d.get("explored") or {}).items():
+        a = str(r).split("|")[0]
+        for e in (ex or {}).values():
+            b = str((e or {}).get("to") or "").split("|")[0]
+            if b and b != a and not (e or {}).get("shut"):
+                adj.setdefault(a, set()).add(b)
+    hops = {str(here_map or ""): 0}
+    frontier = [str(here_map or "")]
+    for depth in (1, 2, 3):
+        nxt = []
+        for a in frontier:
+            for b in adj.get(a, ()):
+                if b not in hops:
+                    hops[b] = depth
+                    nxt.append(b)
+        frontier = nxt
+    words = []
+    for m2 in sorted(rooms, key=lambda x: (hops.get(x, 9), x)):
+        h = hops.get(m2)
+        words.append(m2 + (" (right here)" if h == 0 else
+                           f" ({h} walked hop(s) from here)" if h else ""))
+    return (" — ANY Pokemon Center heals, and the rooms where you have seen a "
+            "nurse are: " + ", ".join(words[:8])
+            + (f" and {len(words) - 8} more" if len(words) > 8 else ""))
+
+
 def daycare_text(dc):
     """The Pokemon that is NOT in the party because it is being raised.
 
@@ -195,7 +244,8 @@ if "region" in o:                    # last_state.json is already flattened
           + money_text(o.get("money")) + f", and {bag}"
           + daycare_text(o.get("daycare"))
           + hof_text(o.get("hall_of_fame"))
-          + respawn_text(o.get("respawn")))
+          + respawn_text(o.get("respawn"))
+          + centers_text(m))
     raise SystemExit
 m = (o.get("map") or {}).get("id")
 if not m:
@@ -221,4 +271,5 @@ print(f"standing in {m} with {party or 'no party'}, {badges}"
       + money_text(o.get("money")) + f", and {bag}"
       + daycare_text(o.get("daycare"))
       + hof_text(o.get("hall_of_fame"))
-      + respawn_text(o.get("respawn")))
+      + respawn_text(o.get("respawn"))
+      + centers_text(m))
