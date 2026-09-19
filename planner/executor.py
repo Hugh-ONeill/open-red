@@ -8725,6 +8725,105 @@ class Executor:
         except Exception:
             return ""
 
+    EDGE_WORDS = ("north", "south", "east", "west")
+
+    def _never_walked_note(self, obs) -> str:
+        """GROUND THE RUN HAS NEVER SET FOOT ON, for a step that is looking
+        for a kind of Pokemon.
+
+        The catch page said "the answer is different ground" and then named
+        only ground already tried: where the party stands, the maps it had
+        fought on, the maps it had walked through. Run 28's leg 5 (a WATER
+        or GRASS type, CHARMANDER in hand) searched Route 2 and the forest
+        four plans running while the west edge of VIRIDIAN_CITY, on the
+        run's own record never crossed, went unmentioned (user, 2026-09-19:
+        "what if rt22 did have a grass pokemon itd still be getting ignored
+        because it hasnt tried to look there"). Its wilds are no more known
+        than any unwalked ground's, which is the point: they are the only
+        ones not yet ruled out.
+
+        The run's own record only: exits of regions it has stood in that it
+        has never taken (_frontier_left, the one definition), nearest first
+        by walked route. Where an edge leads is not said (the printed map
+        is the TOWN MAP's, and this names no destination); the floor the
+        party stands on is left to its own ways-out list."""
+        try:
+            here = self._where(obs) if obs else None
+            here_map = str(here or "").split("|")[0]
+            regions = set(self.explored or {}) | set(self.frontier or {})
+            try:
+                from ledger import _over_water_of
+            except Exception:
+                _over_water_of = None
+            rows = []
+            for r in regions:
+                m = str(r).split("|")[0]
+                if not m or m == here_map:
+                    continue
+                left = self._frontier_left(r) or []
+                if not left:
+                    continue
+                path = self._route(here, r) if here else None
+                hops = len(path) if path is not None else None
+                wet = set()
+                if _over_water_of:
+                    try:
+                        wet = set(_over_water_of(self, m) or ())
+                    except Exception:
+                        wet = set()
+                for e in left:
+                    e = str(e)
+                    edge = e in self.EDGE_WORDS
+                    if not edge and not e[:1].isdigit():
+                        continue
+                    # THE REGION, as every other line of the page names it:
+                    # ROUTE_2 is two strips, and "the north edge of ROUTE_2"
+                    # read as never crossed on a map walked north out of
+                    # (the other strip's edge was the one walked)
+                    what = (f"the {e} edge of {r}" if edge
+                            else f"a door at ({e}) in {r}")
+                    tail = ("never crossed" if edge else "never taken")
+                    if e in wet:
+                        tail += ", across water"
+                    rows.append((0 if edge else 1,
+                                 hops if hops is not None else 99,
+                                 what, tail, hops))
+            if not rows:
+                return ""
+            # two lists, each nearest first by walked route: an edge and a
+            # door are different things to walk through, and a town's houses
+            # would otherwise crowd every edge off the line
+            rows.sort(key=lambda t: (t[1], t[2]))
+
+            def fmt(kind, cap):
+                seen, out = set(), []
+                for k, _h, what, tail, hops in rows:
+                    if k != kind or what in seen:
+                        continue
+                    seen.add(what)
+                    out.append(f"{what} ({tail}"
+                               + (f", {hops} walked leg(s) away"
+                                  if hops is not None else
+                                  ", no walked route from here is known")
+                               + ")")
+                more = len(out) - cap
+                return ("; ".join(out[:cap])
+                        + (f"; and {more} more" if more > 0 else ""))
+            edges, doors = fmt(0, 6), fmt(1, 4)
+            parts = []
+            if edges:
+                parts.append("map edges never crossed: " + edges)
+            if doors:
+                parts.append("doors never taken: " + doors)
+            return ("GROUND YOU HAVE NEVER SET FOOT ON, on maps you have "
+                    "walked — the only wild ground not yet ruled out. "
+                    + ". ".join(p[:1].upper() + p[1:] for p in parts)
+                    + ". What lies past each, and what lives there, is not "
+                      "known until it is walked; which is worth the walk is "
+                      "yours to read.")
+        except Exception:
+            return ""
+
     def _wild_elsewhere_fought_note(self, here_map, obs) -> str:
         """What the wild ground on OTHER maps has paid, for comparison.
 
@@ -13133,6 +13232,11 @@ class Executor:
                     + ". A floor whose wilds never include the thing you "
                       "want is a floor to leave, or ground of a different "
                       "kind — water, for one — to reach.")
+            # ...AND GROUND NEVER TRIED, wherever the party stands: every
+            # place named above has been tried already (_never_walked_note)
+            _nw = self._never_walked_note(obs)
+            if _nw:
+                lines.append(_nw)
         else:
             lines.append(
                 "HOW TO DO IT: {\"op\":\"grind\"} walks onto this floor's "
