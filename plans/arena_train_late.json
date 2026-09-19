@@ -1,0 +1,110 @@
+{
+  "party": [
+    {
+      "species": "LAPRAS",
+      "level": 55,
+      "moves": [
+        "BODY_SLAM",
+        "CONFUSE_RAY",
+        "ICE_BEAM",
+        "HYDRO_PUMP"
+      ],
+      "nickname": "LAPRAS"
+    },
+    {
+      "species": "KADABRA",
+      "level": 52,
+      "moves": [
+        "PSYBEAM",
+        "RECOVER",
+        "PSYCHIC_M",
+        "REFLECT"
+      ],
+      "nickname": "KADABRA"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 50,
+      "moves": [
+        "QUICK_ATTACK",
+        "WHIRLWIND",
+        "WING_ATTACK",
+        "AGILITY"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "VENUSAUR",
+      "level": 56,
+      "moves": [
+        "POISONPOWDER",
+        "RAZOR_LEAF",
+        "GROWTH",
+        "SLEEP_POWDER"
+      ],
+      "nickname": "VENUSAUR"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 50,
+      "moves": [
+        "DIG",
+        "SAND_ATTACK",
+        "SLASH",
+        "EARTHQUAKE"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "MACHOP",
+      "level": 24,
+      "moves": [
+        "KARATE_CHOP",
+        "LOW_KICK"
+      ],
+      "nickname": "MACHOP",
+      "dv": 8
+    }
+  ],
+  "bag": {
+    "HYPER_POTION": 5,
+    "FULL_HEAL": 2
+  },
+  "money": 20000,
+  "start": {
+    "map": "VICTORY_ROAD_2F",
+    "x": 27,
+    "y": 8,
+    "facing": "down"
+  },
+  "set_flags": [
+    "EVENT_BEAT_MOLTRES",
+    "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_0",
+    "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_1",
+    "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_2",
+    "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_3",
+    "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_4"
+  ],
+  "set_trainers": [
+    "VICTORY_ROAD_2F_obj_1",
+    "VICTORY_ROAD_2F_obj_2",
+    "VICTORY_ROAD_2F_obj_3",
+    "VICTORY_ROAD_2F_obj_4",
+    "VICTORY_ROAD_2F_obj_5",
+    "VICTORY_ROAD_2F_obj_6",
+    "VICTORY_ROAD_2F_obj_7",
+    "VICTORY_ROAD_2F_obj_8",
+    "VICTORY_ROAD_2F_obj_9",
+    "VICTORY_ROAD_2F_obj_10",
+    "VICTORY_ROAD_2F_obj_11",
+    "VICTORY_ROAD_2F_obj_12",
+    "VICTORY_ROAD_2F_obj_13"
+  ],
+  "train": {
+    "trainee": 6,
+    "goal": 30,
+    "steps": 800,
+    "heal_walk": 134,
+    "need_exp": 11552
+  }
+}

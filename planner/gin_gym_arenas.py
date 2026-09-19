@@ -710,6 +710,102 @@ def build_catch(c: dict) -> dict:
                       "targets": int(c["targets"])}}
 
 
+# ------------------------------------------------------- the training rooms
+# A PATCH OF WILD GROUND, A TRAINEE AND A LEVEL TO REACH (user, 2026-09-19:
+# "should we have some kind of training-policy and create a few training
+# rooms to see if we can promote the best behavior for training"). Two
+# tactics raise a weak member and each is right in different fights: the
+# trainee leads and switches out on turn one, keeping its share of the
+# experience; or it simply fights, with no wasted turn, no split and no
+# switch-in hit, and so fewer walks to a nurse. The spec's `train` block
+# chooses per encounter, and nothing scored it: every other room is a
+# trainer fight or a catch.
+#
+# A room is parked ON wild ground with every trainer on the map beaten,
+# like a catch room. What it measures is the FLOW: how far toward its goal
+# level the trainee got inside a fixed budget of STEPS, the walk to the
+# nearest nurse and back charged whenever the party has to go
+# (`heal_walk`, counted off the engine's own map tables from the start
+# cell to the nurse: the room's geography, the same for every candidate).
+#
+# THREE ROOMS, ONE FOR EACH ANSWER.
+TRAINS = [
+    # PLOW. A L5 PIKACHU on Route 1 (PIDGEY and RATTATA, L2-5, one step in
+    # ten): it wins every fight there by itself, so a switch is a wasted
+    # turn and half the experience given to an IVYSAUR that has no use for
+    # it. North grass (10-17, 6-9); Viridian's nurse is 34 steps off.
+    dict(name="train_early", map="ROUTE_1", badges=1, start=(12, 7),
+         party=[("IVYSAUR", 20), ("PIDGEOTTO", 18), ("PIKACHU", 5)],
+         trainee=3, goal=10, steps=400, heal_walk=68,
+         bag={"POTION": 3}, money=1500,
+         note="PIKACHU L5 beats everything Route 1 has (L2-5): fighting for "
+              "itself is the whole answer, and every switch is a turn and "
+              "half the experience thrown away."),
+    # PER ENCOUNTER. An ODDISH L13 in Rock Tunnel (L15-17, one step in
+    # seventeen). ABSORB is four times effective on GEODUDE and ONIX and
+    # it takes them; ZUBAT's LEECH_LIFE is four times effective on IT, and
+    # MACHOP out-levels it with nothing to fear from a 20-power ABSORB.
+    # Neither constant tactic is right here; the Route 10 nurse is outside
+    # the north mouth.
+    dict(name="train_mid", map="ROCK_TUNNEL_1F", badges=3, start=(15, 5),
+         party=[("CHARMELEON", 28), ("PIDGEOTTO", 26), ("ODDISH", 13)],
+         trainee=3, goal=20, steps=600, heal_walk=40,
+         bag={"POTION": 3, "SUPER_POTION": 3}, money=3000,
+         note="ODDISH L13 takes GEODUDE and ONIX (ABSORB x4) and loses to "
+              "ZUBAT (LEECH_LIFE x4 on it) and MACHOP: the right call "
+              "changes with what walks out of the dark."),
+    # SWITCH. Run 27's own shape: a MACHOP L24 beside a party in the
+    # fifties, in Victory Road 2F's pocket by the Route 23 mouth, the
+    # Indigo Plateau lobby's nurse 67 steps off. Half of what lives here is
+    # L36-43; MACHOP can take the L22-26 third and nothing else. It went
+    # L22 -> L24 in four attempts of that run.
+    dict(name="train_late", map="VICTORY_ROAD_2F", badges=8, start=(27, 8),
+         party=[("LAPRAS", 55), ("KADABRA", 52), ("PIDGEOT", 50),
+                ("VENUSAUR", 56), ("DUGTRIO", 50), ("MACHOP", 24)],
+         trainee=6, goal=30, steps=800, heal_walk=134,
+         bag={"HYPER_POTION": 5, "FULL_HEAL": 2}, money=20000,
+         note="MACHOP L24 in a party of fifties: it can take the L22-26 "
+              "wilds and must not meet the L36-43 ones, and the nurse is a "
+              "long walk, so every faint is dear."),
+]
+
+
+def exp_between(species: str, lo: int, hi: int) -> int:
+    """Experience from level lo to level hi on this species' own growth
+    curve (the engine's tables, check-side: a room's denominator)."""
+    import gin_save
+    mon = gin_save.load_lua(gin_save.GEN / "pokemon.lua").get(species) or {}
+    curve = gin_save.CURVES[mon["growthRate"]]
+    return int(curve(hi) - curve(lo))
+
+
+def build_train(c: dict) -> dict:
+    party = []
+    for n, entry in enumerate(c["party"], 1):
+        sp, lv = entry[0], entry[1]
+        moves = list(entry[2]) if len(entry) > 2 else natural_moves(sp, lv)
+        party.append({"species": sp, "level": lv, "moves": moves,
+                      "nickname": sp})
+        if n == c["trainee"]:
+            # ITS OWN DVs, so the slot check pinned to it can tell it from
+            # the rest when the policy moves it to the front: a built party
+            # is otherwise six Pokemon with one trainer id and DVs of 15
+            party[-1]["dv"] = 8
+    who = c["party"][c["trainee"] - 1]
+    objs = room_objects(c["map"])
+    return {"party": party, "bag": dict(c["bag"]), "money": c["money"],
+            "start": {"map": c["map"], "x": c["start"][0],
+                      "y": c["start"][1], "facing": "down"},
+            "set_flags": trainer_flags(c["map"]),
+            "set_trainers": [f"{c['map']}_obj_{i}" for i, _n, _x, _y in objs],
+            # read by the arena runner, ignored by gin_save
+            "train": {"trainee": int(c["trainee"]), "goal": int(c["goal"]),
+                      "steps": int(c["steps"]),
+                      "heal_walk": int(c["heal_walk"]),
+                      "need_exp": exp_between(who[0], int(who[1]),
+                                              int(c["goal"]))}}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true",
@@ -749,7 +845,38 @@ def main():
         print("    " + (r.stdout.strip().replace("\n", "\n    ")
                         or r.stderr.strip()[:300]))
         rc = rc or r.returncode
-    if a.only.startswith("catch_"):
+    for c in TRAINS:
+        if a.only and c["name"] != a.only:
+            continue
+        base = pick_base(c["badges"])
+        spec = build_train(c)
+        who = spec["party"][c["trainee"] - 1]
+        print(f"\n=== {c['name']}  {c['map']} at {c['start']}  raising "
+              f"{who['species']} L{who['level']} to L{c['goal']} in "
+              f"{c['steps']} steps (nurse and back: {c['heal_walk']})")
+        print(f"    base {base.parent.name if base else 'MISSING'}")
+        for m in spec["party"]:
+            print(f"    {m['species']:11s} L{m['level']:<3d} "
+                  + "/".join(m["moves"]))
+        print("    bag " + ", ".join(f"{k} x{v}" for k, v in spec["bag"].items()))
+        print(f"    {c['note']}")
+        if a.list:
+            continue
+        if not base or not Path(base).exists():
+            print(f"    SKIPPED: no base save for {c['name']}")
+            rc = 1
+            continue
+        sp = REPO / f"plans/arena_{c['name']}.json"
+        sp.write_text(json.dumps(spec, indent=2))
+        out = REPO / f"run/arena_{c['name']}.lua"
+        r = subprocess.run([sys.executable, str(REPO / "planner/gin_save.py"),
+                            "--base", str(base), "--spec", str(sp),
+                            "--out", str(out)],
+                           capture_output=True, text=True)
+        print("    " + (r.stdout.strip().replace("\n", "\n    ")
+                        or r.stderr.strip()[:300]))
+        rc = rc or r.returncode
+    if a.only.startswith(("catch_", "train_")):
         return rc
     for g in GYMS:
         if a.only and g["name"] != a.only:

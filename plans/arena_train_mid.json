@@ -1,0 +1,71 @@
+{
+  "party": [
+    {
+      "species": "CHARMELEON",
+      "level": 28,
+      "moves": [
+        "GROWL",
+        "EMBER",
+        "LEER",
+        "RAGE"
+      ],
+      "nickname": "CHARMELEON"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 26,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
+      ],
+      "nickname": "PIDGEOTTO"
+    },
+    {
+      "species": "ODDISH",
+      "level": 13,
+      "moves": [
+        "ABSORB"
+      ],
+      "nickname": "ODDISH",
+      "dv": 8
+    }
+  ],
+  "bag": {
+    "POTION": 3,
+    "SUPER_POTION": 3
+  },
+  "money": 3000,
+  "start": {
+    "map": "ROCK_TUNNEL_1F",
+    "x": 15,
+    "y": 5,
+    "facing": "down"
+  },
+  "set_flags": [
+    "EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_0",
+    "EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_1",
+    "EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_2",
+    "EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_3",
+    "EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_4",
+    "EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_5",
+    "EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_6"
+  ],
+  "set_trainers": [
+    "ROCK_TUNNEL_1F_obj_1",
+    "ROCK_TUNNEL_1F_obj_2",
+    "ROCK_TUNNEL_1F_obj_3",
+    "ROCK_TUNNEL_1F_obj_4",
+    "ROCK_TUNNEL_1F_obj_5",
+    "ROCK_TUNNEL_1F_obj_6",
+    "ROCK_TUNNEL_1F_obj_7"
+  ],
+  "train": {
+    "trainee": 3,
+    "goal": 20,
+    "steps": 600,
+    "heal_walk": 40,
+    "need_exp": 4199
+  }
+}

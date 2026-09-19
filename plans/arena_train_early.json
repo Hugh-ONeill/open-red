@@ -1,0 +1,57 @@
+{
+  "party": [
+    {
+      "species": "IVYSAUR",
+      "level": 20,
+      "moves": [
+        "TACKLE",
+        "GROWL",
+        "LEECH_SEED",
+        "VINE_WHIP"
+      ],
+      "nickname": "IVYSAUR"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 18,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK"
+      ],
+      "nickname": "PIDGEOTTO"
+    },
+    {
+      "species": "PIKACHU",
+      "level": 5,
+      "moves": [
+        "THUNDERSHOCK",
+        "GROWL"
+      ],
+      "nickname": "PIKACHU",
+      "dv": 8
+    }
+  ],
+  "bag": {
+    "POTION": 3
+  },
+  "money": 1500,
+  "start": {
+    "map": "ROUTE_1",
+    "x": 12,
+    "y": 7,
+    "facing": "down"
+  },
+  "set_flags": [],
+  "set_trainers": [
+    "ROUTE_1_obj_1",
+    "ROUTE_1_obj_2"
+  ],
+  "train": {
+    "trainee": 3,
+    "goal": 10,
+    "steps": 400,
+    "heal_walk": 68,
+    "need_exp": 875
+  }
+}
