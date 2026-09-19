@@ -17055,7 +17055,8 @@ class Executor:
                 + "\n"
                 f"WHAT YOU ARE TRYING TO DO RIGHT NOW: "
                 f"{(subgoal or {}).get('goal_text') or (subgoal or {}).get('id') or 'make progress'}\n"
-                "Try to catch it?")
+                + self._party_level_legs_words(party)
+                + "Try to catch it?")
         yes, why = False, ""
         try:
             reply = brock_probe.chat(
@@ -17081,6 +17082,36 @@ class Executor:
         if _master_only:
             out["ball"] = "MASTER_BALL"
         return out
+
+    def _party_level_legs_words(self, party) -> str:
+        """The outline's own "every party member is at least level N" legs
+        still ahead, for a question about adding a member.
+
+        THE CONDITION COUNTS WHOEVER IS IN THE PARTY. The species question
+        fired only in Victory Road in run 27, where a new member was a
+        L22 MACHOP beside a party at 50. From Route 1 on, a yes puts a L3
+        CATERPIE into a party that the model's own outline next asks to be
+        "at least level 12" — every member of it (user, 2026-09-19: "it
+        might be overtuned to be a catch-o-holic"). The legs are the
+        model's sentences and the predicate is the harness's own; which
+        way that cuts is the model's call."""
+        try:
+            ahead = [(i, l) for i, l in outline_ahead.legs_ahead(PLANS, RUN)
+                     if _re.search(r"every party member is at least level \d+",
+                                  l, _re.I)]
+        except Exception:
+            return ""
+        if not ahead:
+            return ""
+        i, leg = ahead[0]
+        room = len(party) < 6
+        return (f"YOUR OUTLINE AHEAD, leg {i}: \"{leg}\" — it counts EVERY "
+                f"Pokemon in the party, however it got there; one in the PC "
+                f"box counts for nothing. "
+                + ("A catch now joins the party."
+                   if room else
+                   "Your party is full, so a catch now goes to the PC box.")
+                + "\n")
 
     def _catch_ahead(self, obs, subgoal, policy, want_now) -> dict | None:
         """A wild that answers a LATER objective on the outline: the want
