@@ -70,7 +70,12 @@ t4 = q({"machines": {"TM_X": {"move": "MEGA_PUNCH"}}, "party": OBS["party"]}, "T
 ck("a ledger without types falls back to the bare move", "teaches MEGA_PUNCH." in t4, t4)
 
 src = (ROOT / "planner" / "executor.py").read_text()
-ck("the TM question is built from this", "user = self._teach_question(obs, item, move, who, sg)" in src)
+# the question is built once, and a refused answer is asked again with the
+# refusal added to it (0e6e7e9), so what is sent is this text plus that note
+ck("the TM question is built from this",
+   "user0 = self._teach_question(obs, item, move, who, sg)" in src
+   and "user = user0 + (" in src
+   and '{"role": "user", "content": user}], self.model)' in src)
 sh = (ROOT / "harness" / "shim.lua").read_text()
 ck("the shim's machines ledger carries the move's type and power",
    "type = mdef and mdef.type, power = mdef and mdef.power" in sh)
