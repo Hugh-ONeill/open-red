@@ -868,6 +868,42 @@ LIST_OPEN = "Nothing was chosen and it is left OPEN"
 PRED_MALFORMED: dict = {}
 
 
+def slot_of(want, party) -> int:
+    """The 1-based party slot a slot_level check reads NOW.
+
+    A slot number is where a Pokemon stood when the plan was written, and
+    the plan's own first step ("swap Graveler to slot 1 so it earns") moves
+    it. So a check pinned to WHO stood there ({"who": {"species",
+    "nickname"}}, written by Executor._pin_slot_levels at plan start) follows
+    that Pokemon; an unpinned or unfound one reads the slot as written.
+    Run 27's leg 26 checked "slot 4" for Graveler while Pidgeot sat there,
+    and the trainee switch-in sent Pidgeot in 63 times (2026-09-19)."""
+    try:
+        slot = int((want or {}).get("slot", 1))
+    except (TypeError, ValueError):
+        slot = 1
+    who = (want or {}).get("who") if isinstance(want, dict) else None
+    if isinstance(who, dict) and party:
+        # DVs and the trainer id are fixed for a Pokemon's life, evolution
+        # included (a MACHOP that evolves is renamed MACHOKE); species is
+        # the fallback for a pin written without them
+        dv, ot = who.get("dvs"), who.get("otId")
+        hits = []
+        if dv is not None:
+            hits = [i for i, m in enumerate(party)
+                    if isinstance(m, dict) and m.get("dvs") == dv
+                    and (ot is None or m.get("otId") == ot)]
+        if not hits:
+            sp = str(who.get("species") or "")
+            hits = [i for i, m in enumerate(party)
+                    if isinstance(m, dict) and str(m.get("species") or "") == sp]
+        if len(hits) == 1:
+            return hits[0] + 1
+        if slot - 1 in hits:
+            return slot
+    return slot
+
+
 def _pred_malformed(key, want, why):
     PRED_MALFORMED[f"{key}={want!r}"] = why
 
@@ -1106,10 +1142,7 @@ def pred_holds(pred: dict | None, obs: dict) -> bool:
                 _pred_malformed("slot_level", want,
                                 "needs {'slot':N,'min':N}")
                 return False
-            try:
-                slot = int(want.get("slot", 1))
-            except (TypeError, ValueError):
-                slot = 1
+            slot = slot_of(want, mons)
             # `min` MISSING IS NOT `min` ZERO. int(get("min", 0)) made
             # {"slot":2,"level":15} — the obvious thing to write, and wrong
             # — mean "slot 2 is at least level 0", which is true the moment
@@ -12745,7 +12778,7 @@ class Executor:
                 # The plan is not rewritten: the model wrote those words
                 # and they are its record. What the page adds is who the
                 # condition is actually reading.
-                _slot = (int(dw_val.get("slot") or 0)
+                _slot = (slot_of(dw_val, party)
                          if _kind == "slot_level" and isinstance(dw_val, dict)
                          else 1 if _kind == "lead_level" else 0)
                 if _slot and party:
@@ -12757,20 +12790,30 @@ class Executor:
                             f"{len(party)}, so there is nobody in it.")
                     else:
                         _lv = int(_occ.get("level") or 0)
+                        _pinned = isinstance(dw_val, dict) and isinstance(dw_val.get("who"), dict)
                         lines.append(
-                            f"WHAT THIS CONDITION COUNTS: SLOT {_slot} of "
-                            f"your party, whoever is standing in it — that "
-                            f"is {_occ.get('species')}{_mon_types(_occ)} "
+                            (f"WHAT THIS CONDITION COUNTS: the Pokemon that "
+                             f"stood in slot {dw_val.get('slot')} when this "
+                             f"plan began, wherever you move it — it is in "
+                             f"slot {_slot} now: "
+                             if _pinned else
+                             f"WHAT THIS CONDITION COUNTS: SLOT {_slot} of "
+                             f"your party, whoever is standing in it — that "
+                             f"is ")
+                            + f"{_occ.get('species')}{_mon_types(_occ)} "
                             f"L{_lv} right now"
                             + (f", still {_need - _lv} short of L{_need}."
                                if _lv < _need else
                                f", already at L{_need}, so this condition "
                                f"HOLDS and battling changes nothing here.")
-                            + " The step's own words name whoever stood in "
-                              "that slot when the plan was written; a party "
-                              "is reordered by switching, depositing and "
-                              "withdrawing, and an evolution renames one in "
-                              "place. The SLOT is what is read.")
+                            + (" Moving it to the front makes it the one "
+                               "sent out; the condition goes on reading it."
+                               if _pinned else
+                               " The step's own words name whoever stood in "
+                               "that slot when the plan was written; a party "
+                               "is reordered by switching, depositing and "
+                               "withdrawing, and an evolution renames one in "
+                               "place. The SLOT is what is read."))
                 if _kind == "party_min_level" and _short:
                     lines.append(
                         "WHAT THIS CONDITION COUNTS: every Pokemon IN YOUR "
@@ -17164,7 +17207,8 @@ class Executor:
         # whether it survives where the model chose to train is the model's
         # problem, and the journal will say.
         dw0 = subgoal.get("done_when") or {}
-        want_slot = (dw0.get("slot_level") or {}).get("slot")
+        want_slot = ((dw0.get("slot_level") or {}).get("slot")
+                     and slot_of(dw0.get("slot_level"), (obs or {}).get("party") or []))
         # WILD BATTLES ONLY. Training is something you do to weak wild
         # Pokemon; a trainer fight is not an opportunity you control, and
         # you cannot flee it. A plan that put the grind inside the gym sent
@@ -24088,6 +24132,40 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             print(f"   [predicate] {sg.get('id')}: {k} — {why}; "
                   f"this condition cannot be met as written")
 
+    def _pin_slot_levels(self, subgoals, obs) -> None:
+        """Pin every slot_level check to the Pokemon in that slot NOW, once.
+
+        The plan was written from this party order; its steps then reorder
+        the party to put each trainee in front, and a bare slot number goes
+        on reading whoever lands there — run 27 trained "slot 4" = Graveler
+        with Pidgeot in slot 4, and the harness switched Pidgeot in 63 times
+        (2026-09-19; user: "we also have to combat the accidental
+        switch-feeding behavior"). The pin is written into the plan file, so
+        a later attempt that starts from a reordered party keeps the
+        Pokemon the words were written about. Never re-pinned."""
+        party = (obs or {}).get("party") or []
+        changed = False
+        for sg in subgoals or []:
+            dw = (sg or {}).get("done_when") if isinstance(sg, dict) else None
+            sl = (dw or {}).get("slot_level") if isinstance(dw, dict) else None
+            if not isinstance(sl, dict) or isinstance(sl.get("who"), dict):
+                continue
+            try:
+                n = int(sl.get("slot", 1))
+            except (TypeError, ValueError):
+                continue
+            if 1 <= n <= len(party) and isinstance(party[n - 1], dict):
+                m = party[n - 1]
+                sl["who"] = {"species": m.get("species"), "dvs": m.get("dvs"),
+                             "otId": m.get("otId")}
+                changed = True
+                self.log("slot_level_pinned", subgoal=sg.get("id"), slot=n,
+                         who=str(m.get("species")))
+        if changed and getattr(self, "plan_path", None) and getattr(self, "plan", None):
+            _tmp = self.plan_path.with_suffix(".json.tmp")
+            _tmp.write_text(json.dumps(self.plan, indent=2))
+            _tmp.replace(self.plan_path)
+
     def run_plan(self, plan: dict) -> bool:
         # WHICH HARNESS PLAYED THIS ATTEMPT. Fixes land at the next boot,
         # so one run's journal is several harnesses in a row; the meter
@@ -24100,6 +24178,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         fails = 0
         backtracks = 0
         subgoals = plan["subgoals"]
+        try:
+            self._pin_slot_levels(subgoals, self.settle())
+        except Exception as e:           # a pin is never worth the plan
+            self.log("slot_pin_error", err=str(e)[:160])
         # WHAT REPLACED THE STICKY-WAYPOINT LEDGER. There used to be a
         # `_plan_done` map of "subgoal ids completed under this goal in an
         # earlier attempt", written on every success and carried across

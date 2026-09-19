@@ -30,8 +30,8 @@ blk = SRC.split("AND FOR A SLOT, WHO IS STANDING IN IT", 1)[1][:3600]
 import re                                               # noqa: E402
 flat = re.sub(r"\s+", " ", blk.replace('"', "").replace("\\", ""))
 
-ck("slot_level reads the slot off the condition",
-   'int(dw_val.get("slot") or 0)' in blk and '_kind == "slot_level"' in blk)
+ck("slot_level reads the slot off the condition (through the pin, 2026-09-19)",
+   'slot_of(dw_val, party)' in blk and '_kind == "slot_level"' in blk)
 ck("lead_level is slot 1", '1 if _kind == "lead_level" else 0' in blk)
 ck("the occupant is named, with its types",
    "_occ.get('species')" in blk and "_mon_types(_occ)" in blk)
