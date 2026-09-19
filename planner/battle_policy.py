@@ -198,6 +198,9 @@ DEFAULT_SPEC = {
     "catch": {"ball": "POKE_BALL", "throw_at_hp_frac": 0.7, "max_balls": 3},
     "replacement": {"order": "healthiest"},
     "lead": None,
+    # how a weak member is raised in a level step; None = the harness's
+    # old constant (the trainee is switched IN on turn one of every wild)
+    "train": None,
 }
 
 _SPEC_KEYS = set(DEFAULT_SPEC) | {"name", "provenance"}   # provenance = metadata
@@ -407,6 +410,53 @@ def _prefer_problems(rule: dict, where: str) -> list:
     return []
 
 
+TRAIN_ELSE = ("switch", "flee")
+TRAIN_TO = ("highest_level", "best_matchup", "resists", "healthiest",
+            "first_alive")
+_TRAIN_FIGHT_KEYS = {"min_level_ratio": (0.0, 3.0), "min_hp_frac": (0.0, 1.0),
+                     "min_matchup": (0.0, 4.0), "max_foe_matchup": (0.0, 4.0),
+                     "seen_ko_hits": (1, 6)}
+
+
+def _train_problems(tr) -> list:
+    """Problems with a `train` block (empty = valid)."""
+    if not isinstance(tr, dict):
+        return ["train must be null or an object"]
+    probs = []
+    extra = set(tr) - {"lead", "fight_if", "else", "to"}
+    if extra:
+        probs.append("train keys: lead, fight_if, else, to (not "
+                     + ", ".join(sorted(map(str, extra))) + ")")
+    if "lead" in tr and not isinstance(tr["lead"], bool):
+        probs.append("train.lead must be true/false")
+    if tr.get("else") not in (None,) + TRAIN_ELSE:
+        probs.append("train.else must be " + " / ".join(TRAIN_ELSE))
+    if tr.get("to") not in (None,) + TRAIN_TO:
+        probs.append("train.to must be one of " + " / ".join(TRAIN_TO))
+    fi = tr.get("fight_if")
+    if fi is not None:
+        if not isinstance(fi, dict):
+            probs.append("train.fight_if must be null or an object")
+        else:
+            for k, v in fi.items():
+                if k not in _TRAIN_FIGHT_KEYS:
+                    probs.append(f"train.fight_if has no condition '{k}' "
+                                 "(it has " + ", ".join(_TRAIN_FIGHT_KEYS)
+                                 + ")")
+                    continue
+                lo, hi = _TRAIN_FIGHT_KEYS[k]
+                if v is None:
+                    continue
+                if isinstance(v, bool) or not isinstance(v, (int, float)) \
+                        or not (lo <= v <= hi):
+                    probs.append(f"train.fight_if.{k} must be a number in "
+                                 f"[{lo}, {hi}]")
+                elif k == "seen_ko_hits" and int(v) != v:
+                    probs.append("train.fight_if.seen_ko_hits must be a "
+                                 "whole number")
+    return probs
+
+
 def validate_spec(spec) -> list:
     """Return a list of problems (empty = valid)."""
     probs = []
@@ -586,6 +636,8 @@ def validate_spec(spec) -> list:
             f = rp.get("min_hp_frac")
             if not (isinstance(f, (int, float)) and 0.0 <= float(f) <= 1.0):
                 probs.append("replacement.min_hp_frac float in [0,1]")
+    if "train" in spec and spec["train"] is not None:
+        probs += _train_problems(spec["train"])
     if "flee_wild" in spec:
         fw = spec["flee_wild"]
         if not isinstance(fw, dict):
@@ -1053,6 +1105,176 @@ def should_flee(obs: dict, spec: dict | None = None,
     if hb is not None and _hp_frac(b.get("me") or {}) < hb:
         return True
     return False
+
+
+# ---------------------------------------------------------------- training
+# TWO WAYS TO RAISE A WEAK MEMBER, EACH RIGHT IN DIFFERENT FIGHTS (user,
+# 2026-09-19). Experience is shared among the Pokemon that took part in a
+# battle, so a trainee that leads and SWITCHES OUT on turn one still earns
+# its share while a strong member does the fighting: right when it would
+# lose. A trainee that simply FIGHTS keeps the whole of it, wastes no turn
+# and hands nobody a free hit: right when it wins cleanly. Until now the
+# harness owned this and knew one move only: in a slot_level step it
+# switched the trainee IN on turn one of every wild battle, 5,128 times
+# across the runs, the weak member eating the free hit each time. The
+# `train` block makes it the policy's: who walks in first, when the trainee
+# fights for itself, and what happens when it should not. The trainee is
+# named by the plan's own condition, never by the spec.
+def active_slot(obs: dict) -> int | None:
+    """Which party slot is out in this battle (1-based), or None.
+
+    The shim says it (`battle.me.slot`); older observations are matched on
+    what the battle screen and the party screen both show."""
+    b = (obs or {}).get("battle") or {}
+    me = b.get("me") or {}
+    s = me.get("slot")
+    if isinstance(s, int) and not isinstance(s, bool) and s >= 1:
+        return s
+    party = (obs or {}).get("party") or []
+    same = [i + 1 for i, m in enumerate(party)
+            if m.get("species") == me.get("species")
+            and (me.get("level") is None or m.get("level") == me.get("level"))]
+    if len(same) > 1:
+        exact = [n for n in same if party[n - 1].get("hp") == me.get("hp")]
+        same = exact or same
+    return same[0] if same else None
+
+
+def train_fights(trainee: dict, foe: dict, fight_if: dict | None,
+                 journal: dict | None = None) -> tuple:
+    """(would the trainee fight this wild itself?, why not).
+
+    Every condition given must hold; a block with no fight_if always
+    fights. All of it is on the screen: both levels, the trainee's HP bar,
+    its moves' types against the wild's, and what its moves have been SEEN
+    to do to this species."""
+    fi = fight_if or {}
+    foe_types = [str(t).upper() for t in (foe.get("types") or [])]
+    r = fi.get("min_level_ratio")
+    if r is not None:
+        ratio = (trainee.get("level") or 0) / max(1, foe.get("level") or 1)
+        if ratio < r:
+            return False, (f"L{trainee.get('level')} against L"
+                           f"{foe.get('level')} is under {r:g}")
+    h = fi.get("min_hp_frac")
+    if h is not None and _hp_frac(trainee) < h:
+        return False, f"its hp is under {h:.0%}"
+    m = fi.get("min_matchup")
+    if m is not None and outgoing(trainee, foe_types) < m:
+        return False, f"nothing it holds hits this for x{m:g}"
+    fm = fi.get("max_foe_matchup")
+    if fm is not None and incoming(
+            foe_types, [str(t).upper()
+                        for t in (trainee.get("types") or [])]) > fm:
+        return False, f"this wild's types hit it for more than x{fm:g}"
+    k = fi.get("seen_ko_hits")
+    if k is not None:
+        best = max((observed_min_damage(journal, mv.get("id"),
+                                        foe.get("species"),
+                                        trainee.get("level")) or 0
+                    for mv in (trainee.get("moves") or [])
+                    if isinstance(mv, dict) and (mv.get("pp") or 0) > 0),
+                   default=0)
+        if best <= 0 or best * int(k) < (foe.get("hp") or 0):
+            return False, (f"nothing it holds has been seen to take this "
+                           f"down in {int(k)} hit(s)")
+    return True, ""
+
+
+def _train_to(obs: dict, order: str, skip: set) -> int | None:
+    """Who comes in when the trainee goes out: never the trainee, never
+    whoever is already out, never a fainted slot."""
+    party = (obs or {}).get("party") or []
+    pool = [(i + 1, m) for i, m in enumerate(party)
+            if (i + 1) not in skip and (m.get("hp") or 0) > 0]
+    if not pool:
+        return None
+    foe_types = [str(t).upper() for t in
+                 ((((obs or {}).get("battle") or {}).get("foe") or {})
+                  .get("types") or [])]
+    if order in ("resists", "best_matchup") and not foe_types:
+        order = "healthiest"
+    if order == "first_alive":
+        return pool[0][0]
+    if order == "best_matchup":
+        key = lambda n_m: (punch(n_m[1], foe_types) / max(0.125, incoming(
+            foe_types, [str(t).upper() for t in (n_m[1].get("types") or [])])),
+            n_m[1].get("level") or 0)
+    elif order == "resists":
+        key = lambda n_m: (-incoming(foe_types, [
+            str(t).upper() for t in (n_m[1].get("types") or [])]),
+            n_m[1].get("level") or 0)
+    elif order == "healthiest":
+        key = lambda n_m: (_hp_frac(n_m[1]), n_m[1].get("level") or 0)
+    else:                                   # highest_level
+        key = lambda n_m: (n_m[1].get("level") or 0, _hp_frac(n_m[1]))
+    return max(pool, key=key)[0]
+
+
+def train_turn(obs: dict, spec: dict | None = None,
+               ctx: dict | None = None) -> dict | None:
+    """What the spec's `train` block says about this turn of a WILD battle
+    in a level step, asked before every other rule:
+
+      {"do": "switch", "slot": n, "why": ...}   the trainee goes out
+      {"do": "bring",  "slot": t, "why": ...}   the trainee comes in
+      {"do": "flee",   "why": ...}
+      None   nothing to say: the ordinary rules (switch, flee, the move
+             scorer) decide, which is how the trainee fights for itself
+
+    ctx["trainee"] is the party slot the plan's condition is about RIGHT
+    NOW. A spec with no `train` block never gets here (the executor keeps
+    its old switch-in for it), and a trainer battle is never a training
+    battle: it cannot be fled and it is not an opportunity you control."""
+    spec = spec or DEFAULT_SPEC
+    ctx = ctx if ctx is not None else {}
+    tr = spec.get("train")
+    t = ctx.get("trainee")
+    b = (obs or {}).get("battle") or {}
+    if not tr or not t or (b.get("kind") or "wild") != "wild":
+        return None
+    party = (obs or {}).get("party") or []
+    if not (1 <= t <= len(party)) or (party[t - 1].get("hp") or 0) <= 0:
+        return None                 # a fainted trainee earns nothing
+    st = ctx.setdefault("train_state", {})
+    act = active_slot(obs)
+    foe = b.get("foe") or {}
+    # the trainee as the FIGHT shows it while it is out (HP moves there
+    # first); as the party screen shows it while it is on the bench
+    trainee = dict(party[t - 1])
+    if act == t:
+        me = b.get("me") or {}
+        trainee.update({k: me[k] for k in ("hp", "level", "moves", "types")
+                        if me.get(k) is not None})
+        if me.get("maxhp"):
+            trainee["max_hp"] = me["maxhp"]
+    fights, why_not = train_fights(trainee, foe, tr.get("fight_if"),
+                                   ctx.get("journal"))
+    if act == t:
+        st["been_out"] = True
+        if fights:
+            return None
+        if (tr.get("else") or "switch") == "flee":
+            return {"do": "flee", "why": f"train: {why_not}, so it runs"}
+        to = _train_to(obs, tr.get("to") or "highest_level", {t})
+        if to:
+            st["sent_out"] = True
+            return {"do": "switch", "slot": to,
+                    "why": f"train: {why_not}, so it goes out and shares "
+                           f"the experience"}
+        return None                 # nobody to hand over to: it fights
+    # somebody else is out
+    if st.get("been_out"):
+        return None                 # it has its share; let the fight end
+    if (ctx.get("turn") or 1) > 1:
+        return None
+    if fights:
+        return {"do": "bring", "slot": t,
+                "why": "train: it was not in front, and it can take this one"}
+    if (tr.get("else") or "switch") == "flee":
+        return {"do": "flee", "why": f"train: {why_not}, and it is not in "
+                                     f"front to share this one, so it runs"}
+    return None
 
 
 def choose(obs: dict, spec: dict | None = None,

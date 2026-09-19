@@ -3588,6 +3588,15 @@ local function observe(G, seq, result)
       end
       d.stats = s.curStats            -- effective in-battle stats
       d.boosts = s.stages             -- stat stage modifiers
+      -- WHICH PARTY SLOT IS OUT. The party screen marks it; without it
+      -- the policy matched the active mon to the party by species, and
+      -- two of a kind (or a trainee the same species as the lead) read
+      -- as the wrong one.
+      if mine then
+        for i, pm in ipairs(((G.save or {}).party) or {}) do
+          if pm == mon then d.slot = i break end
+        end
+      end
       return d
     end
     o.battle.me = side(top.player, true)

@@ -41,7 +41,7 @@ ck("it says a boxed one does not count toward the condition",
    "does not count toward this condition" in flat)
 ck("it gives the op that takes one out", "pc_withdraw" in branch)
 ck("it gives the op that puts one in", "pc_deposit" in branch)
-ck("it still explains the lead earns", "only what fights, earns" in branch)
+ck("it still explains the lead earns", "only what takes part, earns" in branch)
 ck("it does not tell the model which to pick",
    not any(w in branch.lower() for w in
            ("you should", "instead of", "better than", "swap out the weak")))

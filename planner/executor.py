@@ -904,6 +904,51 @@ def slot_of(want, party) -> int:
     return slot
 
 
+def trainee_of(done_when, party) -> tuple:
+    """(party slot, level to reach) of the Pokemon a level condition is
+    waiting on RIGHT NOW, or (None, None).
+
+    The plan names the trainee, never the battle policy: a slot_level
+    check names it outright (pinned to the Pokemon, see slot_of), a
+    lead_level check means whoever is in front, and "every party member is
+    at least level N" is waiting on the lowest one still short of it. The
+    policy's `train` block is handed this slot and decides what is done
+    with it (battle_policy.train_turn)."""
+    party = [m for m in (party or []) if isinstance(m, dict)]
+    if not isinstance(done_when, dict) or not party:
+        return None, None
+
+    def _lv(v):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+
+    preds = [done_when] + [d for d in (done_when.get("all_of") or [])
+                           if isinstance(d, dict)]
+    for dw in preds:
+        sl = dw.get("slot_level")
+        if isinstance(sl, dict):
+            need = _lv(sl.get("min", sl.get("level")))
+            slot = slot_of(sl, party)
+            if need and 1 <= slot <= len(party) \
+                    and (party[slot - 1].get("level") or 0) < need:
+                return slot, need
+    for dw in preds:
+        need = _lv(dw.get("lead_level"))
+        if need and (party[0].get("level") or 0) < need:
+            return 1, need
+    for dw in preds:
+        need = _lv(dw.get("party_min_level"))
+        if need:
+            short = [(m.get("level") or 0, i) for i, m in enumerate(party, 1)
+                     if (m.get("level") or 0) < need
+                     and (m.get("hp") or 0) > 0]
+            if short:
+                return min(short)[1], need
+    return None, None
+
+
 def _pred_malformed(key, want, why):
     PRED_MALFORMED[f"{key}={want!r}"] = why
 
@@ -1421,7 +1466,7 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str):
 
 
 def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
-                want=None, ball_cap=None, ball=None):
+                want=None, ball_cap=None, ball=None, trainee=None):
     """Drive a battle turn-by-turn with a battle_policy spec (rules as data).
     The spec also owns the wild-flee decision (should_flee); trainers can
     never be fled, and if fleeing fails 3 times we fight it out. With
@@ -1447,6 +1492,9 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
            # how many balls this battle may spend, when the throw is toward
            # a LATER objective (Executor._catch_ahead); None = the spec's
            "ball_cap": ball_cap,
+           # the party slot a level step is raising, for the spec's
+           # `train` block (None outside a level step, or with no block)
+           "trainee": trainee,
            # the run's item ledger, shared across battles until the party
            # is made whole (battle_policy.RUN_BUDGET; see log())
            "items_used_run": battle_policy.RUN_BUDGET}
@@ -1511,6 +1559,29 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
                                          .get("me") or {}).get("species"):
                     ctx["started_as"] = _n
                     break
+        # THE TRAIN BLOCK IS ASKED FIRST in a level step's wild battles:
+        # whether the trainee fights this one itself, hands it to a
+        # stronger member and keeps its share, or runs. What it leaves
+        # alone, the ordinary rules below decide.
+        _tt = (battle_policy.train_turn(obs, spec, ctx)
+               if ctx.get("trainee") else None)
+        if _tt and _tt.get("do") in ("switch", "bring"):
+            log("battle_turn", turn=turns, op="battle_switch",
+                params={"slot": _tt["slot"]}, why=_tt.get("why"),
+                train=_tt["do"])
+            obs = bridge.send("battle_switch", slot=_tt["slot"])
+            if ((obs or {}).get("result") or {}).get("ok"):
+                obs = bridge.obs() or obs
+                continue
+        elif _tt and _tt.get("do") == "flee" and flees < 12:
+            flees += 1
+            log("battle_turn", turn=turns, op="battle_run", params={},
+                why=_tt.get("why"), train="flee")
+            obs = bridge.send("battle_run")
+            r = (obs or {}).get("result") or {}
+            if r.get("ok") is False:
+                log("battle_run_failed", turn=turns, detail=r.get("detail"))
+            continue
         _to = battle_policy.should_switch(obs, spec, ctx)
         if _to:
             log("battle_turn", turn=turns, op="battle_switch",
@@ -1610,8 +1681,9 @@ def battle_slot1(bridge, obs, log, max_turns):
 # spent on bugs. The model gets no turn inside a wild battle, so it cannot
 # work around this itself; the target has to travel with the policy.
 BATTLE_POLICIES = {
-    "default": lambda b, o, lg, mt, want=None, ball_cap=None: _run_policy(
-        ACTIVE_SPEC, b, o, lg, mt, intent="fight"),
+    "default": lambda b, o, lg, mt, want=None, ball_cap=None, trainee=None:
+        _run_policy(ACTIVE_SPEC, b, o, lg, mt, intent="fight",
+                    trainee=trainee),
     "typed_v0": lambda b, o, lg, mt, want=None, ball_cap=None: _run_policy(
         battle_policy.SPECS["typed_v0"], b, o, lg, mt, intent="fight"),
     "slot1": lambda b, o, lg, mt, want=None, ball_cap=None: battle_slot1(
@@ -12690,7 +12762,26 @@ class Executor:
         """
         dw_val = target.split(":", 1)[1] if ":" in target else ""
         kind = target.split(":", 1)[0]
+        # A SLOT CONDITION'S VALUE IS AN OBJECT, and the target key carries
+        # it as its printed form. Everything below asked isinstance(dw_val,
+        # dict) of a string, so a slot_level page never once said which
+        # Pokemon its condition was reading, nor how far off it was
+        # (found 2026-09-19 while wiring the train rule to the same slot).
+        if isinstance(dw_val, str) and dw_val.lstrip().startswith("{"):
+            try:
+                import ast as _ast
+                _parsed = _ast.literal_eval(dw_val)
+                if isinstance(_parsed, dict):
+                    dw_val = _parsed
+            except (ValueError, SyntaxError):
+                pass
         party = (obs or {}).get("party") or []
+        # the step this page is for, which names the trainee
+        sg = getattr(self, "_cur_sg", None) or {}
+        if not trainee_of(sg.get("done_when") or {}, party)[0] \
+                and kind in ("slot_level", "lead_level", "party_min_level"):
+            sg = {"done_when": {kind: dw_val if isinstance(dw_val, dict)
+                                else dw_val}}
         # ...and for a CATCHING goal, where you stand decides what you
         # meet, so "walking somewhere new is not progress" is false of it.
         if kind in ("party_size", "has_species", "party_type", "dex_owned"):
@@ -12724,7 +12815,10 @@ class Executor:
                     f"happen first, is yours to work out.")
         else:
             lines = [f"\nTHIS IS NOT SOMEWHERE TO GO — IT IS SOMETHING TO "
-                     f"BECOME. The condition is {kind} {dw_val}, and no "
+                     f"BECOME. The condition is {kind} "
+                     + (str({k: v for k, v in dw_val.items() if k != "who"})
+                        if isinstance(dw_val, dict) else str(dw_val))
+                     + f", and no "
                      f"door satisfies it. Walking somewhere new is not "
                      f"progress here; fighting is."]
         if party:
@@ -13003,7 +13097,8 @@ class Executor:
                 "fails plainly if nothing wild lives on this floor, and then "
                 "somewhere wild is where to go. To level ONE Pokemon, "
                 "put it in slot 1 first ({\"op\":\"party_swap\"}) — the lead "
-                "is who gets sent out, and only what fights, earns.")
+                "is who gets sent out, and only what takes part, earns."
+                + self._train_words(obs, sg))
             # WHO IS IN THE PARTY IS PART OF A LEVEL CONDITION. The storage
             # line exists, and it was written into the CATCH branch only —
             # so on a "every party member is at least level N" goal, the
@@ -17206,8 +17301,20 @@ class Executor:
         # faint. Switching the trainee in executes the plan's stated intent;
         # whether it survives where the model chose to train is the model's
         # problem, and the journal will say.
+        # ...UNLESS THE POLICY SAYS HOW IT TRAINS. A spec with a `train`
+        # block owns this: who walks in first, when the trainee fights for
+        # itself, when it hands the fight over and keeps its share. The
+        # switch-in below was the harness's one constant answer (5,128
+        # times across the runs, the weak member eating the free hit each
+        # time) and stays only for a spec that has no block.
         dw0 = subgoal.get("done_when") or {}
-        want_slot = ((dw0.get("slot_level") or {}).get("slot")
+        _train_block = isinstance((ACTIVE_SPEC or {}).get("train"), dict)
+        _trainee = None
+        if _train_block and name == "default" \
+                and ((obs or {}).get("battle") or {}).get("kind") == "wild":
+            _trainee = trainee_of(dw0, (obs or {}).get("party") or [])[0]
+        want_slot = (not _train_block
+                     and (dw0.get("slot_level") or {}).get("slot")
                      and slot_of(dw0.get("slot_level"), (obs or {}).get("party") or []))
         # WILD BATTLES ONLY. Training is something you do to weak wild
         # Pokemon; a trainer fight is not an opportunity you control, and
@@ -17246,6 +17353,8 @@ class Executor:
         _pol_kw = {"ball_cap": (_ahead or {}).get("cap")}
         if name == "catch" and (_new or {}).get("ball"):
             _pol_kw["ball"] = _new["ball"]
+        if name == "default" and _trainee:
+            _pol_kw["trainee"] = _trainee
         obs = BATTLE_POLICIES[name](self.b, obs, self.log,
                                     self.max_battle_turns, _want0, **_pol_kw)
         if b0.get("kind") == "trainer" and _jpos is not None:
@@ -17523,6 +17632,106 @@ class Executor:
         except Exception as e:          # a lead is never worth the round
             self.log("lead_error", err=str(e)[:160])
         return obs
+
+    def _lead_the_trainee(self, obs, step, sg, trace):
+        """Before a grind in a level step, put the trainee in front when
+        the policy's `train` block says `lead`.
+
+        THE TRAINEE REACHED ITS BATTLES BY A SWITCH, on turn one of every
+        wild, the weak member taking the free hit: the only lever a battle
+        has. In the overworld the same thing costs nothing, which is what
+        `lead` does for a trainer press (_lead_before_a_fight). Whether the
+        trainee walks in first is the model's rule; this carries it out and
+        says so. A grind the op marks for catching or passing is not
+        training and is left alone."""
+        try:
+            tr = (ACTIVE_SPEC or {}).get("train")
+            if not isinstance(tr, dict) or not tr.get("lead"):
+                return obs
+            if str(step.get("intent") or "").lower() in ("catch", "pass",
+                                                          "traversal"):
+                return obs
+            if choose_battle_policy(sg)[0] != "default" \
+                    and str(step.get("intent") or "").lower() != "train":
+                return obs
+            party = (obs or {}).get("party") or []
+            slot, need = trainee_of(sg.get("done_when") or {}, party)
+            if not slot or slot == 1 or slot > len(party):
+                return obs
+            who = party[slot - 1] or {}
+            if (who.get("hp") or 0) <= 0:
+                return obs          # a fainted Pokemon cannot lead
+            was = party[0] or {}
+            self._send_safe("party_swap", a=1, b=slot)
+            obs = self.settle() or obs
+            self.log("train_lead", subgoal=sg.get("id"), slot=slot,
+                     who=who.get("species"), was=was.get("species"))
+            trace.append(
+                f"party_swap(1,{slot}): {who.get('species')} L"
+                f"{who.get('level')} leads, because this step is raising it "
+                f"to L{need} and your battle policy's train rule says the "
+                f"trainee walks in first")
+        except Exception as e:          # a lead is never worth the round
+            self.log("train_lead_error", err=str(e)[:160])
+        return obs
+
+    def _train_words(self, obs, sg) -> str:
+        """What the pinned policy's `train` block does in this step's wild
+        battles, in the page's own words, beside the fact it rests on:
+        experience is shared by the Pokemon that took part."""
+        try:
+            fact = (" Experience is SHARED among your Pokemon that took part "
+                    "in a battle and have not fainted, so a weak member that "
+                    "starts a fight and is switched out still earns its share "
+                    "while a stronger one finishes it; one that fights alone "
+                    "keeps all of it.")
+            tr = (ACTIVE_SPEC or {}).get("train")
+            party = (obs or {}).get("party") or []
+            slot, need = trainee_of((sg or {}).get("done_when") or {}, party)
+            if not slot:
+                return fact
+            who = party[slot - 1]
+            name = f"{who.get('species')} L{who.get('level')}"
+            if not isinstance(tr, dict):
+                if (((sg or {}).get("done_when") or {}).get("slot_level")
+                        and slot != 1):
+                    return (fact + f" Your battle policy has no train rule, "
+                            f"so in each wild battle {name} is switched IN on "
+                            f"the first turn (the wild gets a free hit on it) "
+                            f"and then fights.")
+                return fact
+            fi = tr.get("fight_if") or {}
+            conds = []
+            if fi.get("min_level_ratio") is not None:
+                conds.append(f"its level is at least {fi['min_level_ratio']:g}"
+                             f"x the wild's")
+            if fi.get("min_hp_frac") is not None:
+                conds.append(f"its HP is at {int(fi['min_hp_frac'] * 100)}% "
+                             f"or more")
+            if fi.get("min_matchup") is not None:
+                conds.append(f"it holds a move that hits the wild for "
+                             f"x{fi['min_matchup']:g} or better")
+            if fi.get("max_foe_matchup") is not None:
+                conds.append(f"the wild's types hit it for no more than "
+                             f"x{fi['max_foe_matchup']:g}")
+            if fi.get("seen_ko_hits") is not None:
+                conds.append(f"one of its moves has been seen to take that "
+                             f"species down in {int(fi['seen_ko_hits'])} "
+                             f"hit(s)")
+            other = ("it is switched out on the spot for your "
+                     + str(tr.get("to") or "highest_level").replace("_", " ")
+                     + " member and shares the experience"
+                     if (tr.get("else") or "switch") == "switch"
+                     else "the battle is fled")
+            return (fact + f" YOUR BATTLE POLICY'S TRAIN RULE, for {name}: "
+                    + ("it is moved to the front before a grind; "
+                       if tr.get("lead") else
+                       "the party order is left as you set it; ")
+                    + (f"it fights a wild itself when " + " and ".join(conds)
+                       + f", and otherwise {other}."
+                       if conds else "it fights every wild itself."))
+        except Exception:
+            return ""
 
     def _send_safe(self, op, **kw):
         """Bridge send that degrades a timeout to None instead of raising —
@@ -19257,6 +19466,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         f"on without it.")
                     continue
                 self._cant_afford.pop(step["item"], None)   # wallet grew
+            if op == "grind":
+                obs = self._lead_the_trainee(obs, step, sg, trace)
             if op == "interact":
                 obs = self._lead_before_a_fight(obs, step, sg, trace)
                 here_r = self._where(obs)
