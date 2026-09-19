@@ -23541,10 +23541,24 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # spur on that behavior in the first place so why force it to
                 # go back and redo things it already did"). A find is free and
                 # moves the cap out by one, up to the step's own budget.
+                # ...AND THE ALLOWANCE RUNNING OUT DOES NOT MAKE A FIND
+                # INTO A ROUND THAT WENT NOWHERE. The free rounds are
+                # capped at the step's own budget, and past that a round
+                # that found something new was charged as spent — so the
+                # fourth such round ended the step. Run 28's Mt. Moon step
+                # spent its four finds by round 7, explored three floors on
+                # rounds 8 to 11, and was cut off on round 12 with the
+                # ladder down just made reachable and the model's own plan
+                # saying it was taking it (2026-09-19, user: "it stopped
+                # while making progress in mt moon"). The ceiling below
+                # (rounds * 3 + bonuses) is what bounds the step; a round
+                # that found something new is never a round spent.
                 _news = self._round_news(_news0, cur)
-                if _news and _news_bonus < rounds:
-                    _news_bonus += 1
-                    self.log("round_for_news", subgoal=sg["id"], round=rnd, news=_news)
+                if _news:
+                    if _news_bonus < rounds:
+                        _news_bonus += 1
+                    self.log("round_for_news", subgoal=sg["id"], round=rnd,
+                             news=_news, bonus=_news_bonus)
                     trace.append(f"(this round found something new — {_news} — "
                                  f"and does not count against the step's rounds)")
                 else:
@@ -23611,9 +23625,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         f"on — {here_now}; this step gets one more round "
                         f"for it)")
                 _news_c = self._round_news(_news0, cur)
-                if visits[sig1[0]] >= 2 and _news_c and _news_bonus < rounds:
-                    _news_bonus += 1
-                    self.log("round_for_news", subgoal=sg["id"], round=rnd, news=_news_c)
+                if visits[sig1[0]] >= 2 and _news_c:
+                    # same rule as above: the allowance caps the CEILING,
+                    # not what counts as circling
+                    if _news_bonus < rounds:
+                        _news_bonus += 1
+                    self.log("round_for_news", subgoal=sg["id"], round=rnd,
+                             news=_news_c, bonus=_news_bonus)
                     trace.append(f"(back on {sig1[0]}, but this round found something new — "
                                  f"{_news_c} — and does not count against the step's rounds)")
                 elif visits[sig1[0]] >= 2:

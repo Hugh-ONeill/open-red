@@ -8,7 +8,10 @@ spent bumping a wall. Exploration burned the budget, the step failed, and the
 re-run redid the steps before it (the gate's second floor again; run 16,
 2026-09-08; user: "escalations are meant to spur on that behavior in the
 first place so why force it to go back and redo things it already did"). A
-find is free and moves the cap out by one, up to the step's own budget.
+find is free and moves the cap out by one, up to the step's own budget —
+and once that allowance is used up a find is still free, it just stops
+moving the cap: the step ends at the ceiling, never on a round that found
+something (run 28's Mt. Moon step, 2026-09-19).
 """
 from __future__ import annotations
 
@@ -45,8 +48,26 @@ ck("cells on another map are not compared (the map change is its own rule)",
 src = (ROOT / "planner" / "executor.py").read_text()
 ck("the round loop snapshots the start of every round", "_news0 = self._news_snapshot(start)" in src)
 ck("the cap moves out for news", "rnd < rounds * 3 + _fresh_bonus + _news_bonus" in src)
-ck("a same-map round with news is not charged", 'if _news and _news_bonus < rounds:\n                    _news_bonus += 1' in src)
-ck("...nor a circling round with news", "if visits[sig1[0]] >= 2 and _news_c and _news_bonus < rounds:" in src)
-ck("the bonus is bounded by the step's own budget", src.count("_news_bonus < rounds") >= 2)
+ck("a same-map round with news is not charged",
+   "                _news = self._round_news(_news0, cur)\n"
+   "                if _news:\n" in src)
+ck("...nor a circling round with news",
+   "if visits[sig1[0]] >= 2 and _news_c:" in src)
+# ...AND THE ALLOWANCE RUNNING OUT DOES NOT MAKE A FIND A SPENT ROUND.
+# Run 28's Mt. Moon step used its four free rounds by round 7 and was cut
+# off on round 12, mid-ladder, with four more ceiling rounds unused (user,
+# 2026-09-19: "it stopped while making progress in mt moon as esc12").
+ck("the allowance caps the ceiling, not what counts as circling",
+   src.count("                    if _news_bonus < rounds:\n"
+             "                        _news_bonus += 1") == 2)
+ck("a round with news never reaches the spend counter",
+   "spent += 1   # round went nowhere (same map/party/flags, nothing new)"
+   in src
+   and src.index("if _news:")
+   < src.index("spent += 1   # round went nowhere"))
+ck("the bonus is still bounded by the step's own budget",
+   src.count("_news_bonus < rounds") >= 2)
+ck("and the ceiling still ends a step that keeps finding trifles",
+   "rnd < rounds * 3 + _fresh_bonus + _news_bonus" in src)
 ck("the journal records it", '"round_for_news"' in src)
 sys.exit(1 if fails else 0)
