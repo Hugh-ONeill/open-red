@@ -2088,6 +2088,7 @@ class Executor:
         self.hints_at: dict = {}     # region -> {line: flags fired when heard}
         self._item_from: dict = {}   # item -> {who, at, said}: who handed it over
         self._offered: dict = {}     # map -> {species: wild encounters}
+        self._met_types: dict = {}   # species -> [types], as the battle showed
         self._new_species_asked: dict = {}  # species -> {catch, why}
         self._refused_gifts: dict = {}      # "MAP|who" -> {map, who, said}
         self._dead_why: dict = {}    # op signature -> last failure detail
@@ -5456,6 +5457,7 @@ class Executor:
             self.hints_at = data.get("hints_at") or {}
             self._item_from = data.get("item_from") or {}
             self._offered = data.get("offered") or {}
+            self._met_types = data.get("met_types") or {}
             self._new_species_asked = data.get("new_species_asked") or {}
             self._refused_gifts = data.get("refused_gifts") or {}
             self._wild_lv = data.get("wild_lv") or {}
@@ -5972,6 +5974,7 @@ class Executor:
                  "hints_at": getattr(self, "hints_at", {}),
                  "item_from": getattr(self, "_item_from", {}),
                  "offered": getattr(self, "_offered", {}),
+                 "met_types": getattr(self, "_met_types", {}),
                  "new_species_asked": getattr(self, "_new_species_asked", {}),
                  "refused_gifts": getattr(self, "_refused_gifts", {}),
                  "wild_lv": getattr(self, "_wild_lv", {}),
@@ -8725,6 +8728,76 @@ class Executor:
         except Exception:
             return ""
 
+    _SPECIES_TYPES_CACHE: dict = {}
+
+    def _types_met(self, sp: str) -> list:
+        """A species' types as the battle screen showed them when it was met
+        (_met_types); for one met before that was kept, the game's own
+        species table, which is what that screen was reading."""
+        sp = str(sp or "").upper()
+        got = (getattr(self, "_met_types", None) or {}).get(sp)
+        if got:
+            return list(got)
+        cache = Executor._SPECIES_TYPES_CACHE
+        if not cache:
+            try:
+                import gin_save
+                data = gin_save.load_lua(gin_save.GEN / "pokemon.lua") or {}
+                cache.update({str(k).upper(): [str(t).upper() for t in
+                                               ((v or {}).get("types") or [])]
+                              for k, v in data.items() if isinstance(v, dict)})
+            except Exception:
+                cache["?"] = []
+        return list(cache.get(sp) or [])
+
+    def _met_types_note(self, kind: str, dw_val) -> str:
+        """WHAT EVERY WILD BATTLE OF THE RUN HAS OFFERED, against what a
+        catch step wants: said once, across every map, in so many words.
+
+        The per-map tally was on the page, but only for the map underfoot
+        and as species names, so "nothing I have met anywhere is a GRASS
+        type" was the model's to assemble from pieces — and run 28 went
+        back to the forest for a fifth look (user, 2026-09-19: "basically
+        it should see that it cant get a grass pokemon anywhere its been
+        before and go somewhere new"). The run's own battles; what to do
+        about it is the model's."""
+        try:
+            if kind not in ("party_type", "has_species"):
+                return ""
+            raw = dw_val if isinstance(dw_val, str) else ""
+            wants = {w.strip().upper() for w in raw.split("|") if w.strip()}
+            if kind == "party_type" and wants & {"PSYCHIC", "PSYCHIC_TYPE"}:
+                wants |= {"PSYCHIC", "PSYCHIC_TYPE"}
+            if not wants:
+                return ""
+            offered = getattr(self, "_offered", None) or {}
+            total = sum(int(n or 0) for book in offered.values()
+                        if isinstance(book, dict) for n in book.values())
+            if not total:
+                return ""
+            maps = [m for m, book in offered.items()
+                    if isinstance(book, dict) and book]
+            hits = []
+            for m, book in offered.items():
+                for sp, n in (book or {}).items():
+                    ok = (bool(set(self._types_met(sp)) & wants)
+                          if kind == "party_type" else str(sp).upper() in wants)
+                    if ok:
+                        hits.append((m, sp, int(n or 0)))
+            said = " or ".join(sorted(w for w in wants if w != "PSYCHIC_TYPE"))
+            said += " type" if kind == "party_type" else ""
+            if not hits:
+                return (f"IN EVERY WILD BATTLE THIS RUN HAS HAD — {total}, on "
+                        f"{len(maps)} map(s): {', '.join(sorted(maps))} — not "
+                        f"one was a {said}. Every wild ground you have fought "
+                        f"on has shown what it holds, and that was not in it.")
+            hits.sort(key=lambda t: -t[2])
+            return (f"A {said} HAS BEEN MET in this run's wild battles: "
+                    + ", ".join(f"{sp} on {m} (x{n})" for m, sp, n in hits[:6])
+                    + ".")
+        except Exception:
+            return ""
+
     EDGE_WORDS = ("north", "south", "east", "west")
 
     def _never_walked_note(self, obs) -> str:
@@ -8745,8 +8818,9 @@ class Executor:
         The run's own record only: exits of regions it has stood in that it
         has never taken (_frontier_left, the one definition), nearest first
         by walked route. Where an edge leads is not said (the printed map
-        is the TOWN MAP's, and this names no destination); the floor the
-        party stands on is left to its own ways-out list."""
+        is the TOWN MAP's, and this names no destination). The floor the
+        party stands on is included, first: a line that claims to be the
+        whole list cannot leave out the nearest entry.""" 
         try:
             here = self._where(obs) if obs else None
             here_map = str(here or "").split("|")[0]
@@ -8758,13 +8832,22 @@ class Executor:
             rows = []
             for r in regions:
                 m = str(r).split("|")[0]
-                if not m or m == here_map:
+                if not m:
                     continue
                 left = self._frontier_left(r) or []
                 if not left:
                     continue
-                path = self._route(here, r) if here else None
-                hops = len(path) if path is not None else None
+                # ...THE FLOOR UNDERFOOT INCLUDED. It was left to its own
+                # ways-out list, and the line that says "the ONLY wild ground
+                # not yet ruled out" then omitted PEWTER_CITY's east edge
+                # while the party stood in Pewter: a claim of completeness
+                # with the nearest candidate missing (run 28, 2026-09-19;
+                # the model searched Pewter's houses for a Grass type).
+                if r == here:
+                    hops = 0
+                else:
+                    path = self._route(here, r) if here else None
+                    hops = len(path) if path is not None else None
                 wet = set()
                 if _over_water_of:
                     try:
@@ -8802,7 +8885,8 @@ class Executor:
                         continue
                     seen.add(what)
                     out.append(f"{what} ({tail}"
-                               + (f", {hops} walked leg(s) away"
+                               + (", on the ground you stand on" if hops == 0
+                                  else f", {hops} walked leg(s) away"
                                   if hops is not None else
                                   ", no walked route from here is known")
                                + ")")
@@ -13232,8 +13316,11 @@ class Executor:
                     + ". A floor whose wilds never include the thing you "
                       "want is a floor to leave, or ground of a different "
                       "kind — water, for one — to reach.")
-            # ...AND GROUND NEVER TRIED, wherever the party stands: every
-            # place named above has been tried already (_never_walked_note)
+            # WHAT EVERY BATTLE HAS OFFERED, said across all of them, and
+            # then the ground never tried, wherever the party stands
+            _mt = self._met_types_note(kind, dw_val)
+            if _mt:
+                lines.append(_mt)
             _nw = self._never_walked_note(obs)
             if _nw:
                 lines.append(_nw)
@@ -17434,6 +17521,11 @@ class Executor:
             _m = getattr(self, "_last_overworld_map", None) or "?"
             book = self._offered.setdefault(_m, {})
             book[str(foe["species"])] = book.get(str(foe["species"]), 0) + 1
+            # ...AND WHAT TYPE IT WAS, as the battle screen showed it, so a
+            # catch page can say what no ground has offered (_met_types_note)
+            if foe.get("types"):
+                self._met_types[str(foe["species"])] = [
+                    str(t).upper() for t in foe["types"]]
             # ...AND AT WHAT LEVEL. The species tally says whether the
             # thing you want lives here; it cannot say whether fighting
             # here is worth a round. A level-43 party walking back to
