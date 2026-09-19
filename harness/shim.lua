@@ -25,6 +25,13 @@ os.execute('mkdir -p "' .. BRIDGE .. '" 2>/dev/null')
 -- not close" with nothing recorded about WHICH box. Never read by the
 -- model, never on in a claim run.
 local DLG_TRACE = os.getenv("RED_DIALOG_TRACE") == "1"
+
+-- HOW FAR THE PLAYER HAS WALKED, counted a cell at a time since the game
+-- came up. A training room scores experience PER STEP, heal walks
+-- included, and no op's result said how many steps it took (grind paces
+-- "until something appears"). Instrumentation: the arena reads the
+-- difference; nothing model-facing prints it.
+local STEPS_WALKED = 0
 local function dlg_trace(G, where, i)
   if not DLG_TRACE then return end
   local f = io.open(BRIDGE .. "/dialog_trace.log", "a")
@@ -3968,6 +3975,7 @@ local function observe(G, seq, result)
   if o.mode == "overworld" and o.map then seen_filter(G, o) end
   seen_save()
   o.money = G.save and G.save.money
+  o.steps_walked = STEPS_WALKED
   -- Set event flags, for the EXECUTOR's done_when predicates (SPD tier 0).
   -- Instrumentation, not model eyes: the model-facing obs builder must strip
   -- this per CLAIM_RULES ("milestone/event flags are instrumentation").
@@ -4097,6 +4105,7 @@ local function walk(G, dir, steps)
       G.input.state[dir] = false
       U.wait(4)                -- settle into the cell
     end
+    if moved then STEPS_WALKED = STEPS_WALKED + 1 end
     if moved and ow.map and ow.map.id == map_before then
       local top = G.stack:top()
       -- A WILD ENCOUNTER IS NOT A SCRIPT. The engine pushes a
@@ -10593,6 +10602,28 @@ end
 --
 -- Decision-free like the rest: WHICH two slots, and whether to swap at
 -- all, is entirely the model's. The op drives the menu the player would.
+-- A TRAINING ROOM'S NURSE. A room is one patch of wild ground, and the
+-- walk from it to the nearest nurse and back is a fixed number of steps
+-- the room declares (plans/arena_train_*.json `heal_walk`). The trial
+-- charges those steps and calls this, which does exactly what the nurse
+-- does (engine HealParty: full HP, status cleared, PP restored). It exists
+-- only when the game was started AS an arena (RED_ARENA=1, which
+-- policy_author sets for its own isolated game and nothing else does), so
+-- no run can ever be healed by it.
+function OPS.arena_heal(G, c)
+  if os.getenv("RED_ARENA") ~= "1" then
+    return false, "no such op"
+  end
+  if not need_overworld(G) then return false, "not in overworld" end
+  local Pokemon = require("src.pokemon.Pokemon")
+  local n = 0
+  for _, mon in ipairs(((G.save or {}).party) or {}) do
+    Pokemon.heal(mon)
+    n = n + 1
+  end
+  return true, "arena nurse: " .. n .. " made whole"
+end
+
 function OPS.party_swap(G, c)
   if not need_overworld(G) then
     return false, "not in overworld (a box was up and would not close: "

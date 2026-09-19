@@ -315,10 +315,14 @@ def start_game(run_dir: Path, save: Path | None, speed: str):
         (run_dir / f).unlink(missing_ok=True)
     env = dict(os.environ, RED_BRIDGE_DIR=str(run_dir),
                POKEPORT_IDENTITY=TEST_IDENT, RED_MUTE="1")
+    # RED_GAME_LOG=<file> keeps what the game printed, for the day an
+    # isolated game dies and leaves nothing behind (a training room's did,
+    # 2026-09-19, mid use_item)
+    _log = os.environ.get("RED_GAME_LOG")
+    _sink = open(_log, "ab") if _log else subprocess.DEVNULL
     proc = subprocess.Popen([str(ROOT / "run.sh"), speed],
                             env=env, start_new_session=True,
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL)
+                            stdout=_sink, stderr=_sink)
     for _ in range(60):
         if (run_dir / "obs.json").exists():
             return proc

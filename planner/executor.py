@@ -551,6 +551,8 @@ def model_view(obs: dict, holding_map: bool = False,
     """
     o = dict(obs or {})
     o.pop("flags", None)
+    # the training rooms' pedometer: instrumentation, not something on screen
+    o.pop("steps_walked", None)
     # PP IS A BATTLE LIMIT, AND THIS IS WHERE THE NUMBER IS READ. The party
     # carries every move's PP, which is true and, for a field move, beside
     # the point: the engine's field-move gate checks the badge, the bike
