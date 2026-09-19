@@ -2267,11 +2267,25 @@ def author_train(args, names, build) -> None:
     def score_all(block, label):
         rows = []
         for an in names:
-            g = build(an)
-            try:
-                rr = g.score(with_train(base, block, label))
-            finally:
-                g.shutdown()
+            # A ROOM THAT DIES MID-SCORE IS BOOTED AGAIN, ONCE. The executor
+            # ends the process when the game stops answering (its exit 67,
+            # for campaign.sh to reboot on), and the first evening of these
+            # rooms one game went silent inside a use_item. An authoring run
+            # is an hour of trials; one dead window should not end it.
+            rr = None
+            for attempt in (1, 2):
+                g = build(an)
+                try:
+                    rr = g.score(with_train(base, block, label))
+                    break
+                except (SystemExit, RuntimeError, TimeoutError) as e:
+                    print(f"[{an}] the room died mid-score ({e}); "
+                          + ("booting it again" if attempt == 1
+                             else "giving up on it"), flush=True)
+                finally:
+                    g.shutdown()
+            if rr is None:
+                raise RuntimeError(f"{an} could not be scored")
             rows.append((an, rr))
             print(f"[{an}] " + feedback_text(label, rr), flush=True)
         return rows
