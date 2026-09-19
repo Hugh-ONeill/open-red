@@ -537,6 +537,10 @@ def _looks_like_item_name(name: str) -> bool:
     return any("_".join(parts[i:]) in _ITEM_IDS for i in range(1, len(parts)))
 
 
+# A Pokemon's own hidden numbers: in the save, on no screen.
+HIDDEN_MON_FIELDS = ("dvs", "statExp", "catchRate")
+
+
 def model_view(obs: dict, holding_map: bool = False,
                walked_dest=None) -> dict:
     """The observation as the MODEL may see it.
@@ -553,6 +557,24 @@ def model_view(obs: dict, holding_map: bool = False,
     o.pop("flags", None)
     # the training rooms' pedometer: instrumentation, not something on screen
     o.pop("steps_walked", None)
+    # WHAT NO SCREEN IN THIS GAME SHOWS. A party member carries its DVs,
+    # its stat experience and its catch rate in the save, and the shim
+    # published all three to the model for months (user, 2026-09-19: "is
+    # the pokemons dvs even something we should be giving the bot? i dont
+    # think its directly visible anywhere"). Gen 1 shows a status screen
+    # with level, HP, the four stats, types, moves and PP, the OT name and
+    # the ID number, and EXP POINTS with the points to the next level; it
+    # never shows a DV, a stat-experience total or a catch rate. The
+    # harness still reads DVs — the slot pin follows a Pokemon by them
+    # (slot_of) — off the raw observation, which is not this.
+    if o.get("party"):
+        o["party"] = [{k: v for k, v in (m or {}).items()
+                       if k not in HIDDEN_MON_FIELDS} if isinstance(m, dict)
+                      else m for m in o["party"]]
+    if o.get("pc_mons"):
+        o["pc_mons"] = [{k: v for k, v in (m or {}).items()
+                         if k not in HIDDEN_MON_FIELDS} if isinstance(m, dict)
+                        else m for m in o["pc_mons"]]
     # PP IS A BATTLE LIMIT, AND THIS IS WHERE THE NUMBER IS READ. The party
     # carries every move's PP, which is true and, for a field move, beside
     # the point: the engine's field-move gate checks the badge, the bike
