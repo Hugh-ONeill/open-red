@@ -168,6 +168,19 @@ ck("an observation without the slot is matched on what both screens show",
    bp.active_slot(old_obs) == 1)
 
 
+# -------------------------- the ordinary switch rule reaches a wild too
+# (TODO 2026-09-18: "check only_if_lead and vs: wild actually fire")
+WILD_RULE = {"switch": [{"to": 2, "vs": "wild", "only_if_lead": 1}]}
+ck("a switch rule written for wilds fires in a wild battle",
+   bp.should_switch(battle(led, 1, GOLBAT), WILD_RULE,
+                    {"turn": 1, "started_as": 1}) == 2)
+ck("...only for the lead it names",
+   bp.should_switch(battle(led, 1, GOLBAT), WILD_RULE,
+                    {"turn": 1, "started_as": 3}) is None)
+ck("...and never against a trainer",
+   bp.should_switch(battle(led, 1, GOLBAT, kind="trainer"), WILD_RULE,
+                    {"turn": 1, "started_as": 1}) is None)
+
 # ------------------------------------------------ the loop sends the switch
 class Bridge:
     def __init__(self, first):
