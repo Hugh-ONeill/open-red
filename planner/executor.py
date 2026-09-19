@@ -17055,7 +17055,8 @@ class Executor:
                 + "\n"
                 f"WHAT YOU ARE TRYING TO DO RIGHT NOW: "
                 f"{(subgoal or {}).get('goal_text') or (subgoal or {}).get('id') or 'make progress'}\n"
-                + self._party_level_legs_words(party)
+                + self._party_level_legs_words(party).replace(
+                    "{foe_level}", str(foe.get("level")))
                 + "Try to catch it?")
         yes, why = False, ""
         try:
@@ -17104,13 +17105,23 @@ class Executor:
         if not ahead:
             return ""
         i, leg = ahead[0]
+        m = _re.search(r"level (\d+)", leg, _re.I)
+        lv = m.group(1) if m else "N"
         room = len(party) < 6
-        return (f"YOUR OUTLINE AHEAD, leg {i}: \"{leg}\" — it counts EVERY "
-                f"Pokemon in the party, however it got there; one in the PC "
-                f"box counts for nothing. "
-                + ("A catch now joins the party."
+        # SAID AS WHAT IT ASKS OF THE NEW ONE. "It counts EVERY Pokemon in
+        # the party" was read as "more Pokemon count for more": run 28's
+        # first two answers were yes to a KAKUNA L6 and a WEEDLE L5
+        # "helping me work toward the level 12 party requirement"
+        # (2026-09-19). The predicate asks each member to be at the level.
+        return (f"YOUR OUTLINE AHEAD, leg {i}: \"{leg}\" — that is met only "
+                f"when EACH Pokemon in the party is itself at level {lv} or "
+                f"above. "
+                + (f"A catch now joins the party, and is then one more "
+                   f"Pokemon that has to reach level {lv} before that leg is "
+                   f"met (this one is L{{foe_level}})."
                    if room else
-                   "Your party is full, so a catch now goes to the PC box.")
+                   "Your party is full, so a catch now goes to the PC box, "
+                   "where it neither helps nor hinders that leg.")
                 + "\n")
 
     def _catch_ahead(self, obs, subgoal, policy, want_now) -> dict | None:

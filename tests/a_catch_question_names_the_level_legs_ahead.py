@@ -51,14 +51,18 @@ three = [{"species": "BULBASAUR", "level": 8}, {"species": "PIDGEY", "level": 4}
 w = ex._party_level_legs_words(three)
 ck("the next party-wide level leg is named with its position",
    'leg 3: "every party member is at least level 12"' in w, w)
-ck("...it counts every member, and the box counts for nothing",
-   "counts EVERY Pokemon in the party" in w and "PC box counts for nothing" in w)
-ck("...with room, a catch joins the party", "A catch now joins the party." in w)
+ck("...said as what it asks of each member",
+   "met only when EACH Pokemon in the party is itself at level 12" in w, w)
+ck("...with room, a catch is one more that has to reach it",
+   "A catch now joins the party, and is then one more Pokemon that has to "
+   "reach level 12 before that leg is met (this one is L{foe_level})." in w, w)
+ck("...never the words run 28 read as 'more counts for more'",
+   "counts EVERY Pokemon" not in w)
 ck("...and no deposit op is offered there", "pc_deposit" not in w)
 full = three + [{"species": "CATERPIE", "level": 3}] * 3
-ck("with six, a catch goes to the box",
-   "Your party is full, so a catch now goes to the PC box." in
-   ex._party_level_legs_words(full))
+ck("with six, a catch goes to the box, which neither helps nor hinders",
+   "Your party is full, so a catch now goes to the PC box, where it neither "
+   "helps nor hinders that leg." in ex._party_level_legs_words(full))
 (run / "outline_leg").write_text("3")
 ck("a leg already passed is not named; the next one is",
    'leg 5: "every party member is at least level 20"'
@@ -68,8 +72,8 @@ ck("no such leg ahead, no words", ex._party_level_legs_words(three) == "")
 
 src = (ROOT / "planner/executor.py").read_text()
 ck("the species question carries it",
-   "+ self._party_level_legs_words(party)\n                + \"Try to catch it?\")"
-   in src)
+   "+ self._party_level_legs_words(party).replace(" in src
+   and '"{foe_level}", str(foe.get("level")))' in src)
 ck("the level page does not invite a deposit with an empty box",
    "Your PC storage holds nothing. At any" not in src)
 
