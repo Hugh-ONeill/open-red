@@ -75,7 +75,21 @@ the winner is written as `plans/train_model_vN.json` with the references it was 
 beside. `planner/pick_policy.py --kind train` ranks those files on their own and
 refuses one that scored under a constant tactic; `fresh_run.sh` passes the pick to the
 executor as `--train-spec` (`RED_TRAIN` for a one-off, `plans/train.pin` to hold a
-choice). With no train rule the executor trains the old way.
+choice, `none` in either to turn it off). With no train rule the executor trains the
+old way.
+
+## First reading (2026-09-19, three trials a room, over v13)
+
+| rule | early | mid | late | of 3.00 |
+|---|---|---|---|---|
+| no train rule (the old switch-in) | 22% | 19% | 4% | 0.45 |
+| always fight | 82% | 35% | 13% | 1.30 |
+| always switch out | 47% | 50% | 50% | 1.47 |
+| gemma round 2, `train_model_v1.json` | 80% | 79% | 47% | 2.06 |
+
+`train_model_v1.json`: lead the trainee; fight when its level is at least 0.8 of the
+wild's, its HP at least 40% and the wild's types hit it for no more than x1.5;
+otherwise switch out to the highest level.
 
 Rooms boot the game: never beside a live chain.
 
