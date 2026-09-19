@@ -64,7 +64,9 @@ PB
 # plans/policy.pin holds one path. RED_POLICY still wins for a one-off;
 # delete the pin to hand the choice back to the picker (user, 2026-09-16:
 # "set v13 as the chain's policy").
-_pin=$(head -1 plans/policy.pin 2>/dev/null | tr -d '[:space:]')
+# (|| true inside: under pipefail a missing pin failed the pipeline and
+# set -e ended the launch before the executor started, 2026-09-19)
+_pin=$( { head -1 plans/policy.pin 2>/dev/null || true; } | tr -d '[:space:]')
 [ -n "$_pin" ] && [ ! -s "$_pin" ] && echo "[policy] pin $_pin is missing; falling back to the picker" >&2 && _pin=""
 POLICY="${RED_POLICY:-${_pin:-$(python planner/pick_policy.py \
         --badges "$_badges" --why || true)}}"
@@ -80,7 +82,7 @@ fi
 # train) and refuses one that lost to a constant tactic. Same override
 # ladder as the policy: RED_TRAIN for a one-off, plans/train.pin to hold a
 # choice, the picker otherwise. With none, the executor trains the old way.
-_tpin=$(head -1 plans/train.pin 2>/dev/null | tr -d '[:space:]')
+_tpin=$( { head -1 plans/train.pin 2>/dev/null || true; } | tr -d '[:space:]')
 [ -n "$_tpin" ] && [ "$_tpin" != "none" ] && [ ! -s "$_tpin" ] && echo "[policy] train pin $_tpin is missing; falling back to the picker" >&2 && _tpin=""
 # RED_TRAIN=none (or a pin holding "none") turns it off: no rule is passed.
 if [ "${RED_TRAIN:-$_tpin}" = "none" ]; then
