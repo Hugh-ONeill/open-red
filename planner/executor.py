@@ -7144,6 +7144,42 @@ class Executor:
             return set()
         return {str(x) for x in (na if isinstance(na, (list, tuple)) else [na])}
 
+    def _barred_parts_words(self, sg, obs) -> str:
+        """What a step's `not_area` rules out, said on the page.
+
+        The target key of {"map": "ROUTE_4", "not_area": [...]} is still
+        "map:ROUTE_4", and the page said only that: so a party standing in
+        a ruled-out part of Route 4 was told its goal was the map it was
+        already on, with nothing to say why the step had not closed. Run 28
+        spent an escalation reasoning that a warp at (27,3) must lead to
+        "the desired part of Route 4" (2026-09-19). The predicate is the
+        harness's own and the visits are the run's record; what to do about
+        it — walk on, or say the step is wrong — stays the model's."""
+        try:
+            bars = self._ruled_out_parts(sg)
+            if not bars:
+                return ""
+            dw = (sg or {}).get("done_when") or {}
+            want = str(dw.get("map") or dw.get("area") or "")
+            here = self._where(obs)
+            rows = []
+            for b in sorted(bars):
+                n = int((getattr(self, "visits", {}) or {}).get(b, 0) or 0)
+                rows.append(
+                    b + (" — the part you are standing in right now"
+                         if b == here else
+                         f" — walked {n}x" if n else " — never stood in"))
+            return ("THIS STEP RULES PARTS OUT: its condition asks for "
+                    + (want or "that map") + ", but NOT " + "; ".join(rows)
+                    + ". It closes when you stand on a part of "
+                    + (want.split("|")[0] or "that map")
+                    + " that is not one of those"
+                    + (" — you are in one of them now, so no amount of "
+                       "walking about in it can close this step."
+                       if here in bars else "") + "\n")
+        except Exception:
+            return ""
+
     @staticmethod
     def _target_key(sg) -> str:
         """What this subgoal is actually trying to reach/achieve."""
@@ -15105,7 +15141,7 @@ class Executor:
         if self._is_party_goal(target) and self._hunted():
             return self.training_text(obs, target)
         here = self._where(obs)
-        move_head = ""
+        move_head = self._barred_parts_words(sg, obs)
         if str(target or "").startswith("knows_move:"):
             _mv = str(target).split(":", 1)[1]
             _party = ", ".join(
