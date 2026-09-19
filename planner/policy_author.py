@@ -223,6 +223,18 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
        "prefer" says otherwise. A throw toward a LATER objective than the
        one in hand may be capped lower, to keep balls in reserve.
      Gen 1 catch odds rise with missing hp and with sleep or paralysis.)
+  train: null or {"lead": true|false,
+                  "fight_if": {"min_level_ratio": 0.0-3.0,
+                               "min_hp_frac": 0.0-1.0,
+                               "min_matchup": 0.0-4.0,
+                               "max_foe_matchup": 0.0-4.0,
+                               "seen_ko_hits": 1-6},
+                  "else": "switch"|"flee",
+                  "to": "highest_level"|"best_matchup"|"resists"|
+                        "healthiest"|"first_alive"}
+    (HOW A WEAK MEMBER IS RAISED, in the wild battles of a step whose goal
+     is a level. The plan names the trainee; this says what is done with
+     it. See TRAIN RULE below for every key.)
   lead: null or {"order": "healthiest"|"first_alive"|"highest_level"|
                           "most_hp"|"resists"|"best_matchup",
                  "vs": "trainer"|"wild"|"any", "min_hp_frac": 0.0-1.0}
@@ -259,6 +271,90 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
     20-power ABSORB at double no longer outranks a 120-power STAB move
     at neutral (it did, and KABUTOPS led LORELEI for forty turns).
 """
+
+# ------------------------------------------------------------ the train rule
+# THE TACTIC IS THE MODEL'S, CHOSEN ON EVIDENCE (user, 2026-09-19). What is
+# written here is the game's own rules about experience and what each key
+# of the block makes the harness do. Which keys to use is not said.
+TRAIN_DOC = """TRAIN RULE (the `train` block of a battle policy; JSON object,
+every key optional):
+  WHAT IT IS FOR. Some steps of the run have a LEVEL as their goal: "raise
+  this party member to level N". The plan names that member, the TRAINEE.
+  The step paces wild ground and every wild battle it meets is played by
+  your policy with no turn-by-turn help. This block says what happens to
+  the trainee in those battles. It is never used against a trainer.
+  THE GAME'S RULES IT RESTS ON:
+   - Slot 1 starts every battle. Reordering the party in the overworld
+     costs nothing; a switch INSIDE a battle costs the turn, and the wild
+     attacks whoever comes in.
+   - Experience is SHARED equally among your Pokemon that took part in the
+     battle and have not fainted. One that fights alone keeps all of it.
+     One that started the battle and was switched out still gets its
+     share. One that fainted gets none.
+   - A fled battle earns nothing, and fleeing can fail.
+   - A fainted trainee earns nothing until a nurse restores it, and the
+     nurse is a walk away from the wild ground and back.
+  THE KEYS:
+  lead: true|false
+    (true: before the wild ground is paced, the trainee is moved to the
+     FRONT of the party, so it starts every wild battle. false: the party
+     order is left alone; a trainee on the bench is then brought IN by a
+     switch on the first turn, but only against a wild that passes
+     fight_if, and the wild gets a free hit on it as it arrives.)
+  fight_if: {"min_level_ratio": 0.0-3.0, "min_hp_frac": 0.0-1.0,
+             "min_matchup": 0.0-4.0, "max_foe_matchup": 0.0-4.0,
+             "seen_ko_hits": 1-6}
+    (when the trainee FIGHTS THE WILD ITSELF. Every condition you give must
+     hold; give none and it fights everything; write false in place of the
+     object and it never fights for itself. They are checked again on
+     every turn the trainee is out, so a condition can also pull it out of
+     a fight that is going badly.
+       min_level_ratio  the trainee's level divided by the wild's is at
+                        least this (1.0 = same level)
+       min_hp_frac      the trainee's own HP fraction is at least this
+       min_matchup      the best type multiplier among the damaging moves
+                        the trainee holds, against this wild's types, is
+                        at least this (2 = it holds a super-effective move)
+       max_foe_matchup  the wild's own types hit the trainee's types for
+                        no more than this (1 = nothing it is weak to)
+       seen_ko_hits     this run has SEEN one of the trainee's moves do
+                        enough to this species, at the trainee's level, to
+                        take the wild down from its current HP in this many
+                        hits; a species never yet hit fails this)
+  else: "switch"|"flee"
+    (what happens to a wild the trainee should not fight.
+     "switch": the trainee goes out on the spot and `to` comes in and
+     finishes the fight. Both took part, so the experience is split between
+     them; the trainee takes no hit after it leaves.
+     "flee": the battle is run from; nothing is earned.
+     Default "switch".)
+  to: "highest_level"|"best_matchup"|"resists"|"healthiest"|"first_alive"
+    (who comes in when the trainee goes out; never the trainee, never a
+     fainted member. Default "highest_level".)
+  A policy with NO train block gets the harness's old constant: a trainee
+  named by slot is switched IN on the first turn of every wild battle.
+"""
+
+# The rules every candidate is read beside: what the harness did before
+# there was a block, and the two constant tactics (TODO 2026-09-19:
+# "Baselines to beat: always-switch, always-fight").
+TRAIN_BASELINES = [
+    ("no train rule (the trainee is switched IN on turn one of every wild)",
+     None),
+    ("always fight", {"lead": True}),
+    ("always switch out", {"lead": True, "fight_if": False,
+                           "else": "switch", "to": "highest_level"}),
+]
+
+
+def with_train(base: dict, block, name: str = "") -> dict:
+    """The base policy with this train block laid over it."""
+    d = {k: v for k, v in base.items() if k != "provenance"}
+    d["train"] = block
+    if name:
+        d["name"] = name
+    return d
+
 
 # ------------------------------------------------------- context, from evidence
 # WHAT USED TO BE HERE. A hand-written CONTEXT block that told the model
@@ -451,7 +547,8 @@ SYS_HEAD = ("You AUTHOR a Pokemon Red battle policy as a JSON SPEC in the "
 
 
 def sys_prompt(obs: dict | None = None, log_path: Path = None) -> str:
-    return SYS_HEAD + DSL_DOC + "\n\n" + evidence_context(obs, log_path)
+    return (SYS_HEAD + DSL_DOC + "\n" + TRAIN_DOC + "\n\n"
+            + evidence_context(obs, log_path))
 
 
 def _parse_spec(text: str):
@@ -523,6 +620,9 @@ class Gym:
             # _bind_books): the env for the game, the executor's paths,
             # and only then the game.
             os.environ["RED_BRIDGE_DIR"] = str(self.run_dir)
+            # the shim's arena nurse (OPS.arena_heal) exists only in a game
+            # started as an arena; a training room charges the walk in steps
+            os.environ["RED_ARENA"] = "1"
             _bind_books(self.run_dir)
             self.game = start_game(self.run_dir, self.from_save, "200")
         else:
@@ -653,6 +753,19 @@ class Gym:
                                             ).get("catch") or {}
             except (OSError, ValueError):
                 self.catch_cfg = {}
+        self.train_cfg = {}
+        if self.arena_spec:
+            try:
+                self.train_cfg = json.loads(Path(self.arena_spec).read_text()
+                                            ).get("train") or {}
+            except (OSError, ValueError):
+                self.train_cfg = {}
+        if self.arena == "train":
+            _tc = self.train_cfg
+            print(f"[gym] raising slot {_tc.get('trainee')} to "
+                  f"L{_tc.get('goal')}: {_tc.get('need_exp')} experience, "
+                  f"{_tc.get('steps')} steps a trial, the nurse and back "
+                  f"{_tc.get('heal_walk')}")
         if self.arena == "catch":
             print(f"[gym] hunting "
                   f"{'/'.join((self.catch_cfg.get('want_types') or []) + (self.catch_cfg.get('want_species') or []))}"
@@ -1245,6 +1358,229 @@ class Gym:
                 + f"; stopped at {why_end}")
         return res
 
+    def eval_spec_train(self, spec: dict, k: int = 3) -> dict:
+        """A patch of wild ground, a trainee and a level to reach: how far
+        toward it did the trainee get inside a fixed budget of STEPS?
+
+        THE FLOW IS WHAT IS SCORED, not experience per battle (user,
+        2026-09-19). Plowing through wins by wasting no turn, splitting
+        nothing and taking no switch-in hit; switch-feeding wins by keeping
+        a trainee that would lose off the floor, and a fainted trainee earns
+        nothing until a nurse has seen it. So the budget is steps walked,
+        and the walk to the nearest nurse and back is charged to it each
+        time the party has to go. That walk is the ROOM's (`heal_walk`, off
+        the map tables); the trial pays it and the shim's arena nurse makes
+        the party whole, the same for every candidate.
+
+        WHEN THE PARTY GOES is the page's decision in a run, not the
+        policy's, so the room uses one plain stand-in for every candidate:
+        the trainee has fainted, or three wild battles running earned it
+        nothing while somebody is hurt (the policy has stopped training).
+
+        Every battle is played through the executor exactly as a level step
+        would: a slot_level condition pinned to the trainee, the trainee
+        moved to the front when the `train` block says `lead`, the block's
+        own say on every turn. A blackout ends the trial where it stands.
+
+        Read off the party: the trainee's experience, and what landed on
+        members already at the goal (spilled: they had no use for it)."""
+        ex_mod.set_active_spec(spec)
+        cfg = getattr(self, "train_cfg", {}) or {}
+        t0 = int(cfg.get("trainee") or 1)
+        goal = int(cfg.get("goal") or 0)
+        budget = int(cfg.get("steps") or 400)
+        heal_walk = int(cfg.get("heal_walk") or 0)
+        need = max(1, int(cfg.get("need_exp") or 1))
+        res = {"arena": "train",
+               "rival_wins": 0, "rival_trials": 0, "pewter": 0, "badge": 0,
+               "gauntlet_trials": 0, "blackouts": 0, "agree": 0,
+               "scored": 0, "dmg_gap": 0.0, "rival_detail": [],
+               "gauntlet_detail": [], "bodies": 0.0,
+               "progress": 0.0, "gain": 0, "need": 0, "spill": 0,
+               "steps": 0, "budget": 0, "heals": 0, "faints": 0,
+               "battles": 0, "alone": 0, "shared": 0, "fled": 0,
+               "nothing": 0, "reached": 0, "turns": 0}
+        for _ in range(k):
+            r = self.b.send("checkpoint_restore", token="eval_e4",
+                            reseed=True, force=True)
+            battle_policy.reset_run_budget()
+            if not ((r or {}).get("result") or {}).get("ok"):
+                raise RuntimeError("arena restore failed: "
+                                   f"{((r or {}).get('result') or {}).get('detail')}")
+            res["gauntlet_trials"] += 1
+            start = LOG.stat().st_size if LOG.exists() else 0
+            obs = self.ex.settle()
+            party = (obs or {}).get("party") or []
+            if not (1 <= t0 <= len(party)):
+                raise RuntimeError(f"no party slot {t0} in this room")
+            who = party[t0 - 1]
+            # the condition a level step would carry, pinned as run_plan
+            # pins it, so the trainee is followed when the policy leads it
+            want = {"slot": t0, "min": goal,
+                    "who": {"species": who.get("species"),
+                            "dvs": who.get("dvs"), "otId": who.get("otId")}}
+            sg = {"id": "train_room",
+                  "goal_text": f"Raise {who.get('species')} to level {goal} "
+                               f"by battling wild Pokemon",
+                  "done_when": {"slot_level": want}}
+            lv0 = who.get("level")
+            step0 = (obs or {}).get("steps_walked")
+            step0 = step0 if isinstance(step0, int) else 0
+            walked = step0
+            charged = heals = faints = battles = 0
+            gain = spill = alone = shared = fled = nothing = 0
+            streak = dry = 0
+            reached = False
+            why_end = "the loop's own ceiling"
+            for _ in range(budget * 3):
+                sw = (obs or {}).get("steps_walked")
+                if isinstance(sw, int):
+                    walked = max(walked, sw)
+                spent = walked - step0 + charged
+                party = (obs or {}).get("party") or []
+                t = ex_mod.slot_of(want, party) if party else t0
+                me = party[t - 1] if 1 <= t <= len(party) else {}
+                if (me.get("level") or 0) >= goal:
+                    reached, why_end = True, f"L{goal} reached"
+                    break
+                if spent >= budget:
+                    why_end = f"{budget} steps"
+                    break
+                _mid = ((obs or {}).get("map") or {}).get("id")
+                if ((obs or {}).get("mode") != "battle" and _mid
+                        and _mid != self.arena_map):
+                    why_end = f"a blackout (woke in {_mid})"
+                    break
+                if (obs or {}).get("mode") != "battle":
+                    hurt = any((m.get("hp") or 0) < (m.get("max_hp") or 0)
+                               or m.get("status") for m in party)
+                    if (me.get("hp") or 0) <= 0 or (streak >= 3 and hurt):
+                        charged += heal_walk
+                        heals += 1
+                        self.b.send("arena_heal")
+                        battle_policy.reset_run_budget()
+                        obs = self.ex.settle()
+                        streak = 0
+                        continue
+                    obs = self.ex._lead_the_trainee(obs, {"op": "grind"},
+                                                    sg, [])
+                    self.b.send("grind", steps=max(1, min(60, budget - spent)))
+                    obs = self.ex.settle()
+                    if (obs or {}).get("mode") != "battle":
+                        dry += 1
+                        if dry >= 8:
+                            why_end = "eight grinds that met nothing"
+                            break
+                        continue
+                dry = 0
+                b = (obs or {}).get("battle") or {}
+                if b.get("kind") != "wild":
+                    obs = self._ride(obs)
+                    continue
+                battles += 1
+                party = (obs or {}).get("party") or []
+                t = ex_mod.slot_of(want, party) if party else t0
+                pre = [(m.get("exp") or 0, m.get("level") or 0)
+                       for m in party]
+                b_start = LOG.stat().st_size if LOG.exists() else 0
+                seen, frozen = object(), 0
+                for _t in range(400):
+                    if (obs or {}).get("mode") != "battle":
+                        break
+                    mark = self._battle_mark(obs)
+                    frozen = frozen + 1 if mark == seen else 0
+                    seen = mark
+                    if frozen >= 50:
+                        break
+                    obs = self.ex.handle_battle(sg, obs)
+                    obs = self.ex.settle()
+                post = (obs or {}).get("party") or []
+                got = others = 0
+                if len(post) == len(pre) and 1 <= t <= len(post):
+                    got = max(0, (post[t - 1].get("exp") or 0) - pre[t - 1][0])
+                    for i, m in enumerate(post):
+                        if i == t - 1:
+                            continue
+                        d = max(0, (m.get("exp") or 0) - pre[i][0])
+                        others += d
+                        if pre[i][1] >= goal:
+                            spill += d
+                    if (post[t - 1].get("hp") or 0) <= 0 \
+                            and (party[t - 1].get("hp") or 0) > 0:
+                        faints += 1
+                gain += got
+                ran = any(d.get("kind") == "battle_turn"
+                          and d.get("op") == "battle_run"
+                          for d in self._log_delta(b_start))
+                if got and others:
+                    shared += 1
+                elif got:
+                    alone += 1
+                elif ran:
+                    fled += 1
+                else:
+                    nothing += 1
+                streak = 0 if got else streak + 1
+            end = ((obs or {}).get("map") or {}).get("id")
+            met: dict = {}
+            for d in self._log_delta(start):
+                kd = d.get("kind")
+                if kd == "battle_start":
+                    _sp, _, _lv = str(d.get("foe") or "").rpartition(" L")
+                    if _sp and _lv.isdigit():
+                        e = met.setdefault(_sp, [0, int(_lv), int(_lv)])
+                        e[0] += 1
+                        e[1], e[2] = min(e[1], int(_lv)), max(e[2], int(_lv))
+                if kd == "battle_turn":
+                    res["turns"] += 1
+                elif kd == "blackout":
+                    res["blackouts"] += 1
+                elif kd == "oracle_score":
+                    res["scored"] += 1
+                    res["agree"] += 1 if d.get("agree") else 0
+                    res["dmg_gap"] += d.get("dmg_gap") or 0.0
+            blacked = bool(end and end != self.arena_map)
+            if blacked:
+                res["blackouts"] += 1
+            last = (obs or {}).get("party") or []
+            alive = [p for p in last if (p.get("hp") or 0) > 0]
+            res["bodies"] += (0.0 if blacked
+                              else len(alive) / max(1, len(last)))
+            spent = min(budget, walked - step0 + charged) if not reached \
+                else walked - step0 + charged
+            t = ex_mod.slot_of(want, last) if last else t0
+            lv1 = (last[t - 1].get("level") if 1 <= t <= len(last) else lv0)
+            res["progress"] += min(1.0, gain / need)
+            res["gain"] += gain
+            res["need"] += need
+            res["spill"] += spill
+            res["steps"] += spent
+            res["budget"] += budget
+            res["heals"] += heals
+            res["faints"] += faints
+            res["battles"] += battles
+            res["alone"] += alone
+            res["shared"] += shared
+            res["fled"] += fled
+            res["nothing"] += nothing
+            res["reached"] += 1 if reached else 0
+            res["gauntlet_detail"].append(
+                f"{who.get('species')} L{lv0} -> L{lv1}, {gain} of the "
+                f"{need} experience to L{goal} in {spent} steps "
+                f"({heals} walk(s) to the nurse, {heals * heal_walk} of "
+                f"those steps); {battles} wild battle(s): {alone} it fought "
+                f"alone, {shared} shared, {fled} fled, {nothing} earned it "
+                f"nothing; it fainted {faints} time(s)"
+                + (f"; {spill} experience landed on members already at "
+                   f"L{goal}" if spill else "")
+                + f"; stopped at {why_end}"
+                + ("; the wilds met: " + ", ".join(
+                    f"{sp} L{lo}" + (f"-{hi}" if hi != lo else "") + f" x{n}"
+                    for sp, (n, lo, hi) in sorted(met.items(),
+                                                  key=lambda kv: -kv[1][0]))
+                   if met else ""))
+        return res
+
     def eval_spec_e4(self, spec: dict, k: int = 3) -> dict:
         """How far up the Elite Four does this policy get, from healed?"""
         ex_mod.set_active_spec(spec)
@@ -1458,6 +1794,8 @@ class Gym:
             return self.eval_spec_e4(spec, k=self.trials)
         if self.arena == "catch":
             return self.eval_spec_catch(spec, k=self.trials)
+        if self.arena == "train":
+            return self.eval_spec_train(spec, k=self.trials)
         return self.eval_spec(spec)
 
     def eval_spec(self, spec: dict, k_rival: int = 6,
@@ -1548,6 +1886,22 @@ def feedback_text(name: str, r: dict) -> str:
         for i, g in enumerate(r.get("gauntlet_detail") or []):
             out += f"\n  trial {i+1}: {g}"
         return out
+    if r.get("arena") == "train":
+        n = max(1, r.get("gauntlet_trials", 1))
+        out = (f"{name}: the trainee earned {r.get('gain', 0)} of the "
+               f"{r.get('need', 0)} experience its goal needed across {n} "
+               f"trial(s) ({arena_fraction(r):.0%} of the room), "
+               f"{r.get('steps', 0)} of {r.get('budget', 0)} steps used, "
+               f"{r.get('heals', 0)} walk(s) to the nurse; "
+               f"{r.get('battles', 0)} wild battle(s): "
+               f"{r.get('alone', 0)} fought alone, {r.get('shared', 0)} "
+               f"shared, {r.get('fled', 0)} fled, {r.get('nothing', 0)} "
+               f"earned it nothing; it fainted {r.get('faints', 0)} "
+               f"time(s), {r.get('spill', 0)} experience landed on members "
+               f"already at the goal, blackouts {r['blackouts']}")
+        for i, g in enumerate(r.get("gauntlet_detail") or []):
+            out += f"\n  trial {i+1}: {g}"
+        return out
     if r.get("arena") == "gym" or r.get("standing"):
         n = max(1, r.get("gauntlet_trials", 1))
         out = (f"{name}: "
@@ -1589,6 +1943,7 @@ def rank_key(r: dict):
     # so it simply sorts first when it is there.
     return (r.get("rooms", 0), r.get("beaten", 0),
             r.get("caught", 0), -r.get("balls", 0),
+            round(r.get("progress", 0.0), 6), -r.get("steps", 0),
             r["badge"], r["pewter"],
             r["rival_wins"] / max(1, r["rival_trials"]),
             -r["blackouts"], -r["dmg_gap"])
@@ -1634,6 +1989,10 @@ def arena_fraction(r: dict) -> float:
         # of the wanted Pokemon the grass OFFERED, how many came home; a
         # trial that met none is not counted against the spec
         return r.get("caught", 0) / max(1, r.get("met", 0))
+    if a == "train":
+        # how far toward its goal level the trainee got inside the step
+        # budget, each trial capped at the goal
+        return r.get("progress", 0.0) / t
     # the Brock arena runs two trials of different kinds and they weigh
     # the same: the badge at the end of the walk, and the rival
     badge = r.get("badge", 0) / t
@@ -1650,6 +2009,14 @@ def arena_quality(r: dict) -> float:
         # the same catches for fewer balls: a ball a catch is perfect
         thrift = (r.get("caught", 0) / r["balls"]) if r.get("balls") else 0.0
         return max(0.0, min(0.999, 0.6 * min(1.0, thrift) + 0.4 * bodies))
+    if r.get("arena") == "train":
+        # the same progress in fewer steps, with less of the experience
+        # landing on members that had no use for it
+        left = 1.0 - (r.get("steps", 0) / max(1, r.get("budget") or 1))
+        earned = (r.get("gain") or 0) + (r.get("spill") or 0)
+        clean = 1.0 - ((r.get("spill") or 0) / earned) if earned else 0.0
+        return max(0.0, min(0.999, 0.5 * max(0.0, left) + 0.3 * clean
+                            + 0.2 * bodies))
     scored = max(1, r.get("scored") or 0)
     # agreement with the move oracle, which is the only per-turn measure
     # of play quality the arena has
@@ -1671,6 +2038,9 @@ def arena_points(r: dict) -> float:
     won exactly the same fights are ordered by how much of the party
     they had left and how close to the oracle they played."""
     base = arena_fraction(r)
+    if r.get("arena") == "train":
+        # a room with no fights to count: the bonus is a twentieth of it
+        return base + arena_quality(r) / 20.0
     of = (max(1, r.get("gauntlet_trials") or 1)
           * (r.get("met") if r.get("arena") == "catch" and r.get("met")
              else r.get("standing")
@@ -1777,6 +2147,14 @@ for _path in PATHS:
 for _c in ("catch_weedle", "catch_abra", "catch_powerplant"):
     ARENAS[_c] = ("catch", REPO / f"run/arena_{_c}.lua",
                   REPO / f"plans/arena_{_c}.json")
+# THE TRAINING ROOMS (2026-09-19): wild ground, a trainee and a level to
+# reach inside a step budget, built by gin_gym_arenas.py (TRAINS). They
+# score the spec's `train` block and are ranked on their own, apart from
+# the fights (pick_policy --kind train).
+TRAIN_ROOMS = ("train_early", "train_mid", "train_late")
+for _c in TRAIN_ROOMS:
+    ARENAS[_c] = ("train", REPO / f"run/arena_{_c}.lua",
+                  REPO / f"plans/arena_{_c}.json")
 # The three found rather than built (09-12 and 09-15): the same gyms with
 # whatever a run happened to be carrying, kept on disk and out of every
 # sweep as the control if a built arena ever reads as easier than the
@@ -1841,6 +2219,145 @@ def room_roster(map_id: str) -> list:
     return out
 
 
+TRAIN_HEAD = """You are writing ONE part of a Pokemon Red battle policy: its
+TRAIN rule. The rest of the policy is already written and is not yours to
+change. Reply with a single JSON object and nothing else:
+  {"name": "<short name>", "train": { ... }}
+
+"""
+
+
+def room_text(name: str) -> str:
+    """What a player standing in a training room can see of it: the party,
+    the goal, the step budget and the walk to the nurse. What lives in the
+    wild ground there is NOT said; the results say what was met."""
+    try:
+        sp = json.loads(Path(ARENAS[name][2]).read_text())
+    except (OSError, ValueError, KeyError):
+        return name
+    tc = sp.get("train") or {}
+    t = int(tc.get("trainee") or 1)
+    lines = [f"{name}: on {((sp.get('start') or {}).get('map'))}, party "
+             + "; ".join(f"{i}. {m.get('species')} L{m.get('level')} "
+                         f"({'/'.join(m.get('moves') or [])})"
+                         for i, m in enumerate(sp.get("party") or [], 1))]
+    lines.append(f"  the TRAINEE is slot {t}, to be raised to L"
+                 f"{tc.get('goal')} ({tc.get('need_exp')} experience); a "
+                 f"trial is {tc.get('steps')} steps, and a walk to the "
+                 f"nurse and back costs {tc.get('heal_walk')} of them; the "
+                 f"party goes to the nurse when the trainee has fainted, or "
+                 f"when three wild battles running earned it nothing while "
+                 f"somebody is hurt")
+    return "\n".join(lines)
+
+
+def author_train(args, names, build) -> None:
+    """The train block's own authoring loop: the model writes the block,
+    every candidate is laid over the SAME base policy and scored in EVERY
+    training room, and what comes back is read beside the constant tactics.
+
+    Every round sees every room, unlike the fight arenas' loop, because the
+    rooms disagree on purpose: an early route where the trainee wins by
+    itself, a cave where it depends on what walks out, a late cave where it
+    can take a third of what lives there. A block tuned in one of them is
+    the wrong block. A boot is about twenty seconds; the trials are the
+    cost either way."""
+    base = battle_policy.load_spec(args.base_spec)
+
+    def score_all(block, label):
+        rows = []
+        for an in names:
+            g = build(an)
+            try:
+                rr = g.score(with_train(base, block, label))
+            finally:
+                g.shutdown()
+            rows.append((an, rr))
+            print(f"[{an}] " + feedback_text(label, rr), flush=True)
+        return rows
+
+    refs = []
+    for label, block in TRAIN_BASELINES:
+        print(f"\n[reference] {label}", flush=True)
+        refs.append((label, block, score_all(block, label)))
+
+    def told(label, block, rows):
+        return (cross_text(label, rows) + "\n  the rule: "
+                + json.dumps(block, separators=(",", ":")))
+
+    ref_text = "\n".join(told(f"REFERENCE, not yours: {lb}", bl, rw)
+                         for lb, bl, rw in refs)
+    sys_msg = (TRAIN_HEAD + TRAIN_DOC + "\nTHE ROOMS YOU ARE SCORED IN (a "
+               "candidate is played in every one; its score in a room is how "
+               "much of the experience to the goal level the trainee earned "
+               "inside the step budget):\n"
+               + "\n".join(room_text(n) for n in names)
+               + f"\n\nTHE POLICY YOUR RULE IS LAID OVER: "
+                 f"{base.get('name')}, which flees a wild when the Pokemon "
+                 f"that is out is under "
+                 f"{(base.get('flee_wild') or {}).get('hp_below')} of its HP.")
+    cands = []            # (name, block, rows)
+    if not args.train_eval:
+        for rnd in range(1, args.rounds + 1):
+            fb = ref_text + ("\n" + "\n".join(
+                told(f"candidate #{i+1} ({nm})", bl, rw)
+                for i, (nm, bl, rw) in enumerate(cands)) if cands else "")
+            user = (f"Write train rule candidate #{rnd}.\nRESULTS SO FAR:\n"
+                    f"{fb}\nWrite a rule that raises the trainee further "
+                    f"than the best above in EVERY room (JSON only).")
+            reply = brock_probe.chat(
+                [{"role": "system", "content": sys_msg},
+                 {"role": "user", "content": user}], args.model)
+            got = _parse_spec(reply) or {}
+            block = got.get("train")
+            probs = (battle_policy._train_problems(block)
+                     if isinstance(block, dict) else ["no train object"])
+            if probs:
+                print(f"[round {rnd}] invalid rule: {probs}", flush=True)
+                ref_text += (f"\ncandidate #{rnd} was INVALID ({probs}); "
+                             f"use only the keys above.")
+                continue
+            nm = str(got.get("name") or f"train_r{rnd}")[:40]
+            print(f"\n[round {rnd}] {nm}: "
+                  f"{json.dumps(block, separators=(',', ':'))}", flush=True)
+            (REPO / f"run/train_cand_{args.run_id}_{rnd}.json").write_text(
+                json.dumps({"name": nm, "train": block}, indent=2))
+            cands.append((nm, block, score_all(block, nm)))
+
+    print("\n[across] every rule, every room:")
+    for lb, bl, rw in refs:
+        print(told(f"reference: {lb}", bl, rw))
+    for i, (nm, bl, rw) in enumerate(cands):
+        print(told(f"candidate #{i+1} ({nm})", bl, rw))
+    if not cands:
+        print("\nno candidates authored (references only)")
+        return
+    best = max(range(len(cands)), key=lambda i: cross_key(cands[i][2]))
+    nm, block, rows = cands[best]
+    artifact = {
+        "name": nm, "train": block,
+        "provenance": {
+            "authored_by": args.model, "run": args.run_id,
+            "via": "policy_author --train-block", "rounds": len(cands),
+            "base_spec": str(args.base_spec),
+            "eval": {"arena": "+".join(names),
+                     "arenas": {an: rr for an, rr in rows},
+                     "arena_stamps": {an: arena_stamp(an) for an in names},
+                     "cross_total": round(cross_key(rows)[0], 4),
+                     "gauntlet_trials": sum(r.get("gauntlet_trials", 0)
+                                            for _, r in rows),
+                     "blackouts": sum(r.get("blackouts", 0)
+                                      for _, r in rows)},
+            "references": {lb: {"train": bl,
+                                "cross_total": round(cross_key(rw)[0], 4),
+                                "arenas": {an: round(arena_fraction(rr), 4)
+                                           for an, rr in rw}}
+                           for lb, bl, rw in refs}}}
+    args.out.write_text(json.dumps(artifact, indent=2))
+    print(f"\nBEST: {nm} -> {args.out}")
+    print(told(nm, block, rows))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=4)
@@ -1857,7 +2374,7 @@ def main():
                          "the arena, instead of replaying --plan. Make one "
                          "with planner/make_savepoint.py")
     ap.add_argument("--arena", default="brock",
-                    choices=("brock", "e4", "gym", "catch"),
+                    choices=("brock", "e4", "gym", "catch", "train"),
                     help="brock: the L5 rival and the Boulder Badge run. "
                          "e4: how far up the Elite Four a candidate gets "
                          "from the savepoint. gym: one room, everyone in "
@@ -1873,7 +2390,36 @@ def main():
                          "worth, and break ties on it")
     ap.add_argument("--trials", type=int, default=3,
                     help="restore trials per candidate per savepoint arena")
+    ap.add_argument("--train-block", action="store_true",
+                    help="author the policy's TRAIN rule only: each "
+                         "candidate block is laid over --base-spec and "
+                         "scored in every training room named by --arenas "
+                         "(default: all three), beside the constant "
+                         "tactics. Writes --out as a train artifact "
+                         "(plans/train_model_vN.json)")
+    ap.add_argument("--train-eval", action="store_true",
+                    help="with --train-block: score the reference rules in "
+                         "the rooms and stop, authoring nothing")
+    ap.add_argument("--base-spec", type=Path, default=None,
+                    help="the policy a train block is laid over (default: "
+                         "plans/policy.pin, else the picker's choice)")
     args = ap.parse_args()
+    if args.train_block or args.train_eval:
+        args.train_block = True
+        if not args.arenas and args.arena == "brock":
+            args.arenas = ",".join(TRAIN_ROOMS)
+        if not args.base_spec:
+            _pin = REPO / "plans/policy.pin"
+            _p = (_pin.read_text().split() or [""])[0] if _pin.exists() else ""
+            args.base_spec = (REPO / _p) if _p else None
+        if not args.base_spec or not Path(args.base_spec).exists():
+            sys.exit("--train-block needs --base-spec (no plans/policy.pin)")
+        # never the fight policies' own default file
+        if args.out == REPO / "plans/policy_model_v1.json":
+            _n = 1
+            while (REPO / f"plans/train_model_v{_n}.json").exists():
+                _n += 1
+            args.out = REPO / f"plans/train_model_v{_n}.json"
 
     # ONE POLICY ACROSS STAGES, not one per stage (user, 2026-08-24). A
     # spec authored in one arena names that arena's items and dies
@@ -1884,7 +2430,8 @@ def main():
     names = [n.strip() for n in (args.arenas or args.arena).split(",")
              if n.strip()]
     for n in names:
-        if n not in ARENAS and n not in ("brock", "e4", "gym", "catch"):
+        if n not in ARENAS and n not in ("brock", "e4", "gym", "catch",
+                                         "train"):
             sys.exit(f"unknown arena {n}; known: {', '.join(ARENAS)}")
 
     def build(name: str) -> Gym:
@@ -1905,7 +2452,7 @@ def main():
             try:
                 print(f"[gym] booting the {name} arena (attempt {attempt})...")
                 g.boot()
-                if kind in ("e4", "gym", "catch"):
+                if kind in ("e4", "gym", "catch", "train"):
                     g.prepare_arena()
                 else:
                     g.prepare()
@@ -1916,6 +2463,14 @@ def main():
                 if attempt == 2:
                     raise
                 time.sleep(3)
+
+    if args.train_block:
+        _not = [n for n in names if ARENAS.get(n, ("",))[0] != "train"]
+        if _not:
+            sys.exit("--train-block scores training rooms only, not "
+                     + ", ".join(_not))
+        author_train(args, names, build)
+        return
 
     gym = build(names[0])
     print(f"[gym] ready (rival fight re-armable: {gym.rival_ok})")
