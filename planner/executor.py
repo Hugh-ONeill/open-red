@@ -8442,6 +8442,44 @@ class Executor:
                 + self._wild_here_note(here_map, obs)
                 + self._wild_never_fought_note(here_map, obs))
 
+    def _flee_hp_words(self, obs, short=False) -> str:
+        """The pinned battle policy's own flee threshold, said where a level
+        step's page says wilds are fought, and the lead's HP when it is
+        under it.
+
+        The page said "a wild met here: it is FOUGHT, because this step is
+        judged on levels" and "every wild battle is experience", while the
+        policy flees any wild with the lead under 30% HP and a fled battle
+        earns nothing: run 27's level-50 leg fled 150 of its training
+        battles on turn one and MACHOP went L22 -> L24 in four attempts
+        (2026-09-18; user: "maybe we can just tighten up the wording a bit
+        to let the bot see that better"). The threshold is the model's own
+        rule (flee_wild.hp_below); the HP is on the screen."""
+        try:
+            hb = ((ACTIVE_SPEC or {}).get("flee_wild") or {}).get("hp_below")
+            if hb is None:
+                return ""
+            pct = int(round(float(hb) * 100))
+            lead = next((m for m in ((obs or {}).get("party") or [])
+                         if isinstance(m, dict) and (m.get("hp") or 0) > 0), None)
+            now = ""
+            if lead and lead.get("max_hp"):
+                frac = (lead.get("hp") or 0) / max(1, lead.get("max_hp"))
+                if frac < float(hb):
+                    now = (f" — and your lead "
+                           f"{lead.get('nickname') or lead.get('species')} is "
+                           f"at {int(frac * 100)}% now, so a wild met now is "
+                           f"fled")
+            if short:
+                return (f" (your own battle policy FLEES a wild while the lead "
+                        f"is under {pct}% HP, and a fled battle earns nothing"
+                        + now + ")")
+            return (f" while your lead is at {pct}% HP or more; under that, "
+                    f"your own battle policy FLEES it on the first turn, and "
+                    f"a fled battle earns no experience" + now)
+        except Exception:
+            return ""
+
     def _wild_here_note(self, here_map, obs) -> str:
         """THE GROUND YOU ARE STANDING ON, and what this step does with it.
 
@@ -8480,7 +8518,8 @@ class Executor:
                 deft = ("a ball is thrown at what this step is looking for; "
                         "anything else is fled")
             elif self._is_party_goal(tgt):
-                deft = "it is FOUGHT, because this step is judged on levels"
+                deft = ("it is FOUGHT, because this step is judged on levels"
+                        + self._flee_hp_words(obs))
             else:
                 deft = ("it is FLED — this step is not about the party, so "
                         "nothing is thrown and nothing is fought")
@@ -12916,7 +12955,8 @@ class Executor:
                 "HOW TO DO IT: {\"op\":\"grind\"} walks onto this floor's "
                 "wild ground (tall grass outdoors; in a cave or tower, any "
                 "floor tile) and paces until something appears, and every "
-                "wild battle is experience for whoever you send out. It "
+                "wild battle FOUGHT is experience for whoever you send out"
+                + self._flee_hp_words(obs, short=True) + ". It "
                 "fails plainly if nothing wild lives on this floor, and then "
                 "somewhere wild is where to go. To level ONE Pokemon, "
                 "put it in slot 1 first ({\"op\":\"party_swap\"}) — the lead "
