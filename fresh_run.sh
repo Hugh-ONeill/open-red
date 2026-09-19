@@ -73,6 +73,21 @@ if [ -n "$POLICY" ] && [ -s "$POLICY" ]; then
   pol=(--policy-spec "$POLICY")
   echo "[policy] $POLICY"
 fi
+# ...AND THE TRAIN RULE LAID OVER IT. How a weak member is raised is its
+# own artifact (plans/train_model_v*.json), authored over the fight policy
+# and scored in the training rooms, which say nothing about fights and the
+# fight rooms nothing about them; pick_policy ranks it apart (--kind
+# train) and refuses one that lost to a constant tactic. Same override
+# ladder as the policy: RED_TRAIN for a one-off, plans/train.pin to hold a
+# choice, the picker otherwise. With none, the executor trains the old way.
+_tpin=$(head -1 plans/train.pin 2>/dev/null | tr -d '[:space:]')
+[ -n "$_tpin" ] && [ ! -s "$_tpin" ] && echo "[policy] train pin $_tpin is missing; falling back to the picker" >&2 && _tpin=""
+TRAIN="${RED_TRAIN:-${_tpin:-$(python planner/pick_policy.py \
+        --kind train --why || true)}}"
+if [ -n "$TRAIN" ] && [ -s "$TRAIN" ]; then
+  pol+=(--train-spec "$TRAIN")
+  echo "[policy] train rule $TRAIN"
+fi
 # BACKGROUNDED SO IT CAN BE REGISTERED AND SO THE TRAP CAN REACH IT.
 # Run in the foreground, a SIGTERM to this script ran the EXIT trap (killing
 # the game) and then LEFT THE EXECUTOR ALIVE, talking to a bridge whose game

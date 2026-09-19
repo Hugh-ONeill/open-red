@@ -1386,6 +1386,30 @@ def set_active_spec(spec):
     ACTIVE_SPEC = spec
 
 
+def lay_train_rule(path) -> bool:
+    """Lay a train artifact's `train` block over the active battle policy.
+
+    The fight policy and the train rule are authored and ranked apart (the
+    rooms that score one say nothing about the other), so they arrive as
+    two files and are joined here. A rule that does not validate is left
+    off, loudly: the run then trains the old way rather than not at all."""
+    try:
+        d = json.loads(Path(path).read_text())
+        block = d.get("train")
+        probs = (battle_policy._train_problems(block)
+                 if isinstance(block, dict) else ["no train object"])
+    except (OSError, ValueError) as e:
+        block, probs = None, [str(e)[:120]]
+    if probs:
+        print(f"[policy] train rule {path} NOT used: {probs}")
+        return False
+    set_active_spec(dict(ACTIVE_SPEC or battle_policy.DEFAULT_SPEC,
+                         train=block))
+    print(f"[policy] train rule: {d.get('name')} ({path}) "
+          f"{json.dumps(block, separators=(',', ':'))}")
+    return True
+
+
 # run-long damage journal: what the player has SEEN each move do to each
 # species at each of our levels (HP bars are on screen). Feeds the policy's
 # empirical KO detection — no computed damage internals in the decision
@@ -25291,11 +25315,17 @@ def main():
     ap.add_argument("--policy-spec", type=Path, default=None,
                     help="model-authored battle-policy spec (JSON); replaces "
                          "the hand-seeded default in every battle decision")
+    ap.add_argument("--train-spec", type=Path, default=None,
+                    help="a model-authored TRAIN rule (plans/train_model_v*."
+                         "json, scored in the training rooms); its `train` "
+                         "block is laid over whichever battle policy plays")
     args = ap.parse_args()
     if args.policy_spec:
         set_active_spec(battle_policy.load_spec(args.policy_spec))
         print(f"[policy] active spec: {ACTIVE_SPEC.get('name')} "
               f"({args.policy_spec})")
+    if args.train_spec:
+        lay_train_rule(args.train_spec)
 
     global SCORE_BATTLES, VERIFY_MACROS
     # RED_SCORE_BATTLES=1 does the same as --score-battles. The flag exists

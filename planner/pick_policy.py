@@ -26,6 +26,15 @@ and MAX_REVIVE, which no early party has ever seen.
   pick_policy.py                 the best sound spec, any arena
   pick_policy.py --badges 3      the best for a run wearing three badges
   pick_policy.py --why           say what was rejected and why
+  pick_policy.py --kind train    the best TRAIN rule (plans/train_model_v*)
+
+A THIRD KIND, RANKED ON ITS OWN (2026-09-19). A train rule is the `train`
+block alone, authored over a base policy and scored in the training rooms
+(policy_author.py --train-block): how far a trainee got toward its goal
+level inside a step budget. That number has nothing to do with rooms
+cleared or badges won, so train artifacts never enter the fight ranking
+and the fight policies never enter theirs. The executor lays the chosen
+rule over whichever fight policy plays (--train-spec).
 """
 from __future__ import annotations
 
@@ -69,6 +78,13 @@ def fit_across(ev: dict) -> dict:
     {} for the single-arena specs that came before."""
     ar = ev.get("arenas")
     return ar if isinstance(ar, dict) and len(ar) > 1 else {}
+
+
+def rooms_of(ev: dict) -> dict:
+    """Every room an artifact was scored in, one or many (a train rule
+    scored in a single room still has a score to rank)."""
+    ar = ev.get("arenas")
+    return ar if isinstance(ar, dict) else {}
 
 
 def cross_score(ev: dict) -> tuple:
@@ -165,16 +181,90 @@ def rank(paths, badges: int | None = None):
     return max(sound, key=lambda r: r[4])[0], rows
 
 
+def train_rejected(p: Path) -> str:
+    """Why this train artifact should not be chosen, or ""."""
+    try:
+        d = json.loads(p.read_text())
+    except (OSError, ValueError):
+        return "unreadable"
+    if not isinstance(d.get("train"), dict):
+        return "it carries no train rule"
+    ev = (d.get("provenance") or {}).get("eval") or {}
+    rooms = ev.get("arenas") or {}
+    if not rooms:
+        return "no recorded trial at all"
+    trials = sum(int((r or {}).get("gauntlet_trials") or 0)
+                 for r in rooms.values())
+    if not trials:
+        return "its trial ran no battles"
+    if sum(int((r or {}).get("blackouts") or 0)
+           for r in rooms.values()) >= trials:
+        return f"blacked out in all {trials} of its own trials"
+    # A RULE THAT LOST TO A CONSTANT IS NOT AN IMPROVEMENT ON ONE. Every
+    # artifact records what the constant tactics scored in the same rooms
+    # on the same day; a rule under the best of them would have the run
+    # train worse than "always fight" or "always switch" would.
+    refs = (d.get("provenance") or {}).get("references") or {}
+    best_ref = max((float((v or {}).get("cross_total") or 0.0)
+                    for v in refs.values()), default=0.0)
+    if float(ev.get("cross_total") or 0.0) < best_ref:
+        return (f"scored {float(ev.get('cross_total') or 0.0):.2f} across "
+                f"its rooms, under a constant tactic's {best_ref:.2f}")
+    return ""
+
+
+def rank_train(paths):
+    """(winner, rows) among train artifacts — rows are (path, why)."""
+    rows = [(p, train_rejected(p)) for p in sorted(paths)]
+    sound = [p for p, why in rows if not why]
+    # only scores from the same rooms compare; more rooms first, then the
+    # mean of them (cross_score), the same rule the fight policies follow
+    if not sound:
+        return None, rows
+    def key(p):
+        ev = _eval(p)
+        ar = rooms_of(ev)
+        try:
+            total = float(ev.get("cross_total") or 0.0)
+        except (TypeError, ValueError):
+            total = 0.0
+        return (len(ar), round(total / max(1, len(ar)), 6),
+                -sum(int((r or {}).get("blackouts") or 0)
+                     for r in ar.values()))
+    return max(sound, key=key), rows
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", type=Path, default=REPO / "plans")
-    ap.add_argument("--glob", default="policy_model_v*.json")
+    ap.add_argument("--glob", default=None)
+    ap.add_argument("--kind", choices=("fight", "train"), default="fight",
+                    help="fight: the battle policy (policy_model_v*). "
+                         "train: the train rule laid over it "
+                         "(train_model_v*), ranked on the training rooms")
     ap.add_argument("--badges", type=int, default=None,
                     help="how many badges the run holds, to pick the tier")
     ap.add_argument("--why", action="store_true",
                     help="print every spec and why it did or did not win")
     a = ap.parse_args()
-    paths = list(Path(a.dir).glob(a.glob))
+    if a.kind == "train":
+        paths = list(Path(a.dir).glob(a.glob or "train_model_v*.json"))
+        win, rows = rank_train(paths)
+        if a.why:
+            for p, why in rows:
+                mark = "WINNER" if p == win else ("REJECT" if why else "  ok  ")
+                _ev = _eval(p)
+                _ac = rooms_of(_ev)
+                _mean = float(_ev.get("cross_total") or 0.0) / max(1, len(_ac))
+                print(f"{mark} {p.name:28s} "
+                      + (why or f"across {len(_ac)} training room(s), "
+                                f"{_mean:.0%} of each"),
+                      file=sys.stderr)
+        if not win:
+            return 1
+        print(win)
+        return 0
+    paths = list(Path(a.dir).glob(a.glob or "policy_model_v*.json"))
     if not paths:
         return 1
     win, rows = rank(paths, a.badges)
