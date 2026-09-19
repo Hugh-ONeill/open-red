@@ -253,6 +253,8 @@ sh = (ROOT / "fresh_run.sh").read_text()
 ck("the launch script picks it apart from the policy",
    "--kind train" in sh and '--train-spec "$TRAIN"' in sh
    and "plans/train.pin" in sh)
+ck("...and RED_TRAIN=none turns it off",
+   'if [ "${RED_TRAIN:-$_tpin}" = "none" ]; then' in sh)
 
 # ------------------------------------------------------------------ the shim
 shim = (ROOT / "harness/shim.lua").read_text()

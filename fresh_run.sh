@@ -81,9 +81,15 @@ fi
 # ladder as the policy: RED_TRAIN for a one-off, plans/train.pin to hold a
 # choice, the picker otherwise. With none, the executor trains the old way.
 _tpin=$(head -1 plans/train.pin 2>/dev/null | tr -d '[:space:]')
-[ -n "$_tpin" ] && [ ! -s "$_tpin" ] && echo "[policy] train pin $_tpin is missing; falling back to the picker" >&2 && _tpin=""
-TRAIN="${RED_TRAIN:-${_tpin:-$(python planner/pick_policy.py \
-        --kind train --why || true)}}"
+[ -n "$_tpin" ] && [ "$_tpin" != "none" ] && [ ! -s "$_tpin" ] && echo "[policy] train pin $_tpin is missing; falling back to the picker" >&2 && _tpin=""
+# RED_TRAIN=none (or a pin holding "none") turns it off: no rule is passed.
+if [ "${RED_TRAIN:-$_tpin}" = "none" ]; then
+  TRAIN=""
+  echo "[policy] train rule: none (the executor trains the old way)"
+else
+  TRAIN="${RED_TRAIN:-${_tpin:-$(python planner/pick_policy.py \
+          --kind train --why || true)}}"
+fi
 if [ -n "$TRAIN" ] && [ -s "$TRAIN" ]; then
   pol+=(--train-spec "$TRAIN")
   echo "[policy] train rule $TRAIN"
