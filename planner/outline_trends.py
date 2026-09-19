@@ -34,51 +34,10 @@ except Exception:                                     # pragma: no cover
     def _norm_obj(t):
         return re.sub(r"[^a-z0-9]+", " ", t.lower()).strip()
 
-# (item, where the game gives it, the wrong places drafts name it)
-SOURCES = [
-    ("Secret Key", r"secret key", r"pokemon mansion|mansion",
-     r"game corner|safari|celadon|saffron|ruins|cinnabar (gym|lab)|blaine"),
-    ("HM03 SURF", r"hm03|\bsurf\b", r"safari|secret house|warden",
-     r"cinnabar|gym|blaine|mansion|seafoam|fuchsia gym|koga"),
-    ("HM04 STRENGTH", r"hm04|strength", r"warden|fuchsia|safari|gold teeth",
-     r"cinnabar|seafoam|victory|mansion|gym|celadon|game corner"),
-    ("HM01 CUT", r"hm01|\bcut\b", r"s\.?\s?s\.?\s?anne|captain|vermilion",
-     r"viridian|pewter|forest|mt\.? moon|cerulean|bill|celadon|game corner"),
-    ("HM02 FLY", r"hm02|\bfly\b", r"route 16|celadon|cycling",
-     r"vermilion|saffron|fuchsia|cinnabar|s\.?\s?s\.?\s?anne|lavender"),
-    ("HM05 FLASH", r"hm05|flash", r"route 2|oak's aide|aide|viridian forest",
-     r"rock tunnel|celadon|lavender|vermilion|s\.?\s?s\.?\s?anne"),
-    ("Silph Scope", r"silph scope|\bscope\b", r"hideout|game corner|giovanni|rocket",
-     r"silph co|saffron|lavender|tower|fuji|cinnabar"),
-    ("Poke Flute", r"flute", r"fuji|tower|lavender",
-     r"celadon|game corner|silph|saffron|vermilion|cycling|route 16"),
-    ("S.S. Ticket", r"ticket", r"bill|cerulean|sea cottage|route 25",
-     r"captain|celadon|game corner|saffron|chief|vermilion|dock|fan club"),
-    ("Bike Voucher", r"voucher", r"fan club|vermilion", r"cerulean|celadon|game corner"),
-    ("Card Key", r"card key", r"silph|5f", r"celadon|game corner|hideout|saffron gym"),
-    ("Gold Teeth", r"gold teeth", r"safari", r"tower|lavender|celadon|cinnabar"),
-    ("Master Ball", r"master ball", r"silph|president", r"game corner|celadon|cinnabar"),
-    ("Oak's Parcel", r"parcel", r"mart|viridian", r"pewter|oak's lab$|cerulean"),
-    ("Old Amber", r"old amber|amber", r"museum|pewter", r"mt\.? moon|cinnabar|lab"),
-]
-
-# names the game never prints
-WRONG_BADGE = re.compile(r"\b(thunderbolt|grass|psychic|fire|poison|water|"
-                         r"rock|electric|ground|ghost|fighting) badge", re.I)
-BADGES = ["boulder", "cascade", "thunder", "rainbow", "soul", "marsh",
-          "volcano", "earth"]
-
-# things that are not in this game, or garbled past use
-NONSENSE = [
-    ("Pokemon/ball 'retrieved' from the Poke Mart (the parcel, garbled)",
-     r"(retrieve|get|obtain).*(pokemon|poke ?balls?) from the (poke ?mart|pokemon center|mart)"),
-    ("a Pikachu from the S.S. Anne", r"pikachu.*anne|anne.*pikachu"),
-    ("'Ethereal' Bike", r"ethereal"),
-    ("Secret Key 'returned' anywhere", r"return the secret key"),
-    ("'Secret Technique'", r"secret technique"),
-    ("Cycling Road as a place to GET the bicycle", r"bicycle from the cycling road|bike from the cycling road"),
-    ("Rival as Champion by name 'Champion' before the Elite Four", r"defeated rival as the champion"),
-]
+# the tables of false facts live in outline_facts.py, shared with the
+# hand-pick judge (compare_outlines.py)
+from outline_facts import (SOURCES, WRONG_BADGE, BADGES,    # noqa: E402,F401
+                           NONSENSE)
 
 # real gates worth counting the passes that never name them
 WATCH = [

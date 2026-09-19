@@ -14,6 +14,16 @@ and Victory Road, Silph Co before Sabrina, the Secret Key before Blaine,
 Victory Road before the Plateau. And an arrival that comes AFTER acting in
 that town ("Reach Pewter City" after "Defeat Brock", run 15's outline).
 
+FALSE FACTS COME FIRST (2026-09-19). Run 27 reached the Hall of Fame on a
+draw this table would have passed over: five gates not named, CUT after
+Surge. Every one of those was a GAP, and a gap stalls the run until the
+model writes the missing leg (it wrote five). A FALSE FACT sends the run
+somewhere wrong for rounds, and the chain cannot be told "no" when the
+model builds it out of true elements (user). So the table is ordered by
+false facts, fewest first, then by gates in a place that cannot work (↓ ↑
+?), and only then by gates not named. planner/outline_facts.py has the
+tables.
+
 THIS IS OUR JUDGE FOR OUR CHOICE, and nothing here reaches the model. The
 never-point rule governs what the model is told; the person choosing
 between its drafts is owed the truth about them in one screen. What each
@@ -25,6 +35,9 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from outline_facts import false_facts                 # noqa: E402
 
 BADGES = [("boulder", "B"), ("cascade", "C"), ("thunder", "T"),
           ("rainbow", "R"), ("marsh", "M"), ("soul", "S"),
@@ -206,8 +219,32 @@ def judge(legs: list) -> dict:
     out["dupes"] = dupes
     for x, y in dupes:
         flags.append(f"twice?: {x!r} / {y!r}")
+    # FALSE FACTS: a confident claim the game does not bear out. A gate
+    # named at a wrong source is one too, and is the same leg, so it is
+    # counted once.
+    ff = false_facts(legs)
+    named = {leg for _, leg, _ in ff}
+    for name, need, before, wrong, after in GATES:
+        if gates.get(name) == "?":
+            i = _first(legs, need)
+            if i is not None and legs[i] not in named:
+                named.add(legs[i])
+                ff.append(("source", legs[i], f"{name} is not got there"))
+    out["false"] = ff
+    for kind, leg, why in ff:
+        flags.insert(0, f"FALSE FACT ({kind}): {leg!r} — {why}")
     out["flags"] = flags
     return out
+
+
+def rank(j: dict) -> tuple:
+    """Lower is the better pick: false facts, then gates placed where they
+    cannot work, then gates never named, then the same thing twice."""
+    g = list(j["gates"].values())
+    return (len(j["false"]),
+            sum(1 for v in g if v in ("↓", "↑", "?")),
+            sum(1 for v in g if v == "✗"),
+            len(j["dupes"]))
 
 
 def main(paths):
@@ -220,20 +257,27 @@ def main(paths):
         j["seconds"] = (int(secs.read_text().strip())
                         if secs.exists() else None)
         rows.append((p, legs, j))
+    # the better pick first; a tie keeps the order the paths were given in
+    rows.sort(key=lambda r: rank(r[2]))
     names = [str(p.name) for p, _, _ in rows]
     w = max(len(n) for n in names)
     gate_names = [g[0] for g in GATES]
-    print(f"{'outline':<{w}}  legs  badges    upkeep  {'levels':<16} time    "
-          + "  ".join(g[:8].center(8) for g in gate_names))
+    print(f"{'outline':<{w}}  false  legs  badges    upkeep  {'levels':<16} "
+          f"time    " + "  ".join(g[:8].center(8) for g in gate_names))
     for p, legs, j in rows:
         t = f"{j['seconds'] // 60}m{j['seconds'] % 60:02d}s" if j["seconds"] else "--"
         b = j["badges"] + ("" if not j["badges_missing"]
                            else f" -{len(j['badges_missing'])}")
         lv = "/".join(str(x) for x in j["levels"]) or "--"
-        print(f"{p.name:<{w}}  {j['legs']:>4}  {b:<9} {j['upkeep']:>6}  "
-              f"{lv:<16} {t:<7} "
+        print(f"{p.name:<{w}}  {len(j['false']):>5}  {j['legs']:>4}  {b:<9} "
+              f"{j['upkeep']:>6}  {lv:<16} {t:<7} "
               + "  ".join(j["gates"][g].center(8) for g in gate_names))
-    print("\n  ✓ named and in a place that can work   ↓ named, but after what "
+    print("\n  false: legs that state something the game does not bear out "
+          "(a wrong source, a badge it never prints, a garbled errand). "
+          "Ordered by that, then by misplaced gates, then by gates not named: "
+          "a gap is a leg the model writes when it gets there; a false fact "
+          "is rounds spent somewhere wrong.")
+    print("  ✓ named and in a place that can work   ↓ named, but after what "
           "needs it   ↑ named before the town it is got in   ? named at a "
           "wrong source   ✗ not named")
     print("  badges: the order of the eight, first letter each "
