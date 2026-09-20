@@ -9521,7 +9521,20 @@ null} if it belongs where it is and failed for some other reason.
 
 Write the why FIRST. Name the thing the later position gives you that
 here and now does not: a place, an item, a move, a person. If you cannot
-name it, the answer is null."""
+name it, the answer is null.
+
+WHAT ELSE MOVES WITH IT. Add "with": [N, N] — the numbers of objectives
+that would be left standing in front of this one and cannot be done until
+it is. Moving "Reach the city" and leaving "Defeat its gym leader" where it
+was leaves the run walking at the same shut door for another four attempts.
+Only objectives that are now BEFORE the place you are sending this one, at
+most three, and only ones that genuinely wait on it; leave it out
+otherwise."""
+
+
+# The legs the last check_later said must move with the one it pushed, by
+# TEXT: positions shift as soon as the first push lands.
+LATER_WITH: list = []
 
 
 def check_later(goal: str, n: int, ahead: list, start: str, journal: str,
@@ -9578,6 +9591,34 @@ def check_later(goal: str, n: int, ahead: list, start: str, journal: str,
         after = last
     print(f"[later] {goal!r} moves to after leg {after}: {why}",
           file=sys.stderr)
+    # ...AND WHAT WAITS ON IT MOVES TOO. Run 28 pushed "Reach Vermilion
+    # City" behind the S.S. Ticket and left "Defeat Lt. Surge for the
+    # Thunder Badge" — his gym is IN Vermilion — standing in front of it,
+    # so the next leg was as unreachable as the one just moved (user,
+    # 2026-09-20). Which legs wait on this one is the model's knowledge,
+    # asked for here; the harness only refuses numbers that are not legs
+    # in front of the new position, and caps how many may ride along.
+    _with, seen = [], set()
+    _texts = {i: t for i, t in ahead}
+    for w in (ans.get("with") or [])[:6]:
+        try:
+            w = int(w)
+        except (TypeError, ValueError):
+            continue
+        if w in seen or w == n or w not in _texts:
+            continue
+        if not (n < w <= after):
+            print(f"[later] not moving leg {w} along: it does not stand "
+                  f"between {goal!r} and its new place", file=sys.stderr)
+            continue
+        seen.add(w)
+        _with.append(w)
+        if len(_with) == 3:
+            break
+    for w in _with:
+        print(f"[later] ...and leg {w} moves with it ({_texts[w]!r}): it "
+              f"waits on the one being moved", file=sys.stderr)
+    LATER_WITH[:] = [_texts[w] for w in _with]
     return after
 
 
@@ -10086,6 +10127,11 @@ def main():
         at = check_later(args.goal, args.leg, ahead, args.start or "", jt,
                          args.model, pushed=args.pushed)
         if at:
+            # the position on stdout, as before; the legs that move with
+            # it beside it, by TEXT, for the caller to push in turn
+            # (positions shift the moment the first push lands)
+            Path("run/outline_push_with").write_text(
+                "\n".join(LATER_WITH) + ("\n" if LATER_WITH else ""))
             print(at)
             sys.exit(0)
         sys.exit(3)

@@ -910,6 +910,25 @@ while :; do
       if python planner/push_leg.py "$i" "$at"; then
         disposed "moved to after leg $at"
         archive_plans_of "$leg"
+        # ...AND WHAT WAITS ON IT GOES WITH IT. "Reach Vermilion City" was
+        # pushed behind the S.S. Ticket and "Defeat Lt. Surge for the
+        # Thunder Badge" — his gym is in Vermilion — stayed in front of
+        # it, so the very next leg was as unreachable as the one just
+        # moved (run 28, 2026-09-20). The model names them (check-later's
+        # "with"); each is pushed to sit after the SAME leg, found by its
+        # text because the first push already moved the numbers.
+        _anchor=$(sed -n "${at}p" plans/outline.txt)
+        while IFS= read -r _co; do
+          [ -n "$_co" ] || continue
+          _ci=$(grep -nxF -- "$_co" plans/outline.txt | head -1 | cut -d: -f1)
+          _ai=$(grep -nxF -- "$_anchor" plans/outline.txt | head -1 | cut -d: -f1)
+          if [ -n "$_ci" ] && [ -n "$_ai" ] && [ "$_ci" -lt "$_ai" ] \
+              && python planner/push_leg.py "$_ci" "$_ai"; then
+            echo "=== leg $_ci moved with it, to after leg $_ai: $_co ==="
+            archive_plans_of "$_co"
+          fi
+        done < <(cat run/outline_push_with 2>/dev/null || true)
+        : > run/outline_push_with
         continue
       fi
       echo "[later] the push did not happen; the ladder goes on" >&2
