@@ -77,6 +77,17 @@ GATES = [
      r"elite four|champion|indigo plateau", None, r"earth badge"),
 ]
 
+# THE ORDER THE TOWNS CAN BE REACHED IN, which is not the badge order and
+# is what hides this fault: run 28's outline won its badges in the box's
+# own order, Boulder to Earth, and still put LAVENDER after SAFFRON —
+# Lavender gates the road to Celadon (the underground path from Route 8),
+# Celadon sells the drink Saffron's guards want, so the run spent an
+# afternoon at a shut gate (user, 2026-09-20: "its hard to tell in this
+# case because badge order is correct"). Check-side, like every table
+# here: it is for the person choosing between drafts.
+REACH_ORDER = ["pallet", "viridian", "pewter", "cerulean", "vermilion",
+               "lavender", "celadon", "saffron", "fuchsia", "cinnabar"]
+
 ARRIVE = re.compile(r"(reach|arrive|travel|go|sail|enter|walk|fly|ride|"
                     r"navigate|cross|get to|head|make your way)\b", re.I)
 
@@ -219,6 +230,27 @@ def judge(legs: list) -> dict:
     out["dupes"] = dupes
     for x, y in dupes:
         flags.append(f"twice?: {x!r} / {y!r}")
+    # ...AND THE ORDER THE TOWNS ARE REACHED IN. The first leg that
+    # ARRIVES in each town, read against the order the game lets a run
+    # reach them; a pair out of order is a stretch the run cannot walk.
+    firsts = []
+    for town in REACH_ORDER:
+        i = next((n for n, l in enumerate(legs)
+                  if ARRIVE.match(l) and re.search(town, l, re.I)), None)
+        if i is not None:
+            firsts.append((i, town))
+    out["reach_bad"] = []
+    # firsts is in REACH_ORDER order; a pair is wrong when the outline
+    # arrives at the LATER one first
+    for a in range(len(firsts)):
+        for b in range(a + 1, len(firsts)):
+            ia, ta = firsts[a]      # ta must be reachable first
+            ib, tb = firsts[b]
+            if ia > ib:
+                out["reach_bad"].append((tb, ta))
+                flags.append(f"reach order: {tb.capitalize()} is reached "
+                             f"before {ta.capitalize()}, and the run cannot "
+                             f"get to it until {ta.capitalize()} is done")
     # FALSE FACTS: a confident claim the game does not bear out. A gate
     # named at a wrong source is one too, and is the same leg, so it is
     # counted once.
@@ -242,6 +274,7 @@ def rank(j: dict) -> tuple:
     cannot work, then gates never named, then the same thing twice."""
     g = list(j["gates"].values())
     return (len(j["false"]),
+            len(j.get("reach_bad") or ()),
             sum(1 for v in g if v in ("↓", "↑", "?")),
             sum(1 for v in g if v == "✗"),
             len(j["dupes"]))
@@ -262,17 +295,23 @@ def main(paths):
     names = [str(p.name) for p, _, _ in rows]
     w = max(len(n) for n in names)
     gate_names = [g[0] for g in GATES]
-    print(f"{'outline':<{w}}  false  legs  badges    upkeep  {'levels':<16} "
-          f"time    " + "  ".join(g[:8].center(8) for g in gate_names))
+    print(f"{'outline':<{w}}  false  reach  legs  badges    upkeep  "
+          f"{'levels':<16} time    "
+          + "  ".join(g[:8].center(8) for g in gate_names))
     for p, legs, j in rows:
         t = f"{j['seconds'] // 60}m{j['seconds'] % 60:02d}s" if j["seconds"] else "--"
         b = j["badges"] + ("" if not j["badges_missing"]
                            else f" -{len(j['badges_missing'])}")
         lv = "/".join(str(x) for x in j["levels"]) or "--"
-        print(f"{p.name:<{w}}  {len(j['false']):>5}  {j['legs']:>4}  {b:<9} "
+        print(f"{p.name:<{w}}  {len(j['false']):>5}  "
+              f"{len(j.get('reach_bad') or ()):>5}  {j['legs']:>4}  {b:<9} "
               f"{j['upkeep']:>6}  {lv:<16} {t:<7} "
               + "  ".join(j["gates"][g].center(8) for g in gate_names))
-    print("\n  false: legs that state something the game does not bear out "
+    print("\n  reach: pairs of towns whose arrivals are in an order the run "
+          "cannot walk (Lavender gates Celadon, Celadon's drink opens "
+          "Saffron, Fuchsia's HM03 opens Cinnabar). The badge order can be "
+          "perfect while this is wrong.")
+    print("  false: legs that state something the game does not bear out "
           "(a wrong source, a badge it never prints, a garbled errand). "
           "Ordered by that, then by misplaced gates, then by gates not named: "
           "a gap is a leg the model writes when it gets there; a false fact "

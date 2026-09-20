@@ -5063,6 +5063,96 @@ def _stage_outline(legs: list, model: str) -> dict:
     return out
 
 
+STAGE_ORDER_SYS = """You wrote a Pokemon Red playthrough outline and
+grouped it into STAGES. Here they are in the order your list does them.
+
+The question is only the ORDER OF THE STAGES: can the run actually take
+them this way round? A stage is out of place if the run cannot get into it
+— or cannot finish it — until a LATER stage has been done. A city behind a
+gate that only opens with something from another city is the usual case.
+
+You are not rewriting anything and not moving single objectives. A stage
+moves whole, with everything in it, in the order it already has.
+
+Reply with ONLY {"why": "<one sentence>", "order": ["<stage>", "<stage>",
+...]} listing EVERY stage name exactly as given, in the order you mean —
+or {"why": "...", "order": null} if the order they are in is right.
+
+Write the why FIRST, and name what makes the change necessary: the gate,
+the item, the person. If you cannot name it, the answer is null."""
+
+
+def _stage_blocks(legs: list, stages: dict) -> list:
+    """[(stage name, [legs])] in the order the list does them."""
+    out = []
+    for l in legs:
+        name = stages.get(l)
+        if not name:
+            name = out[-1][0] if out else ""
+        if not out or out[-1][0] != name:
+            out.append((name, [l]))
+        else:
+            out[-1][1].append(l)
+    return out
+
+
+def _stage_order(goal: str, legs: list, stages: dict, model: str) -> list:
+    """Ask whether the stages can be done in the order they are written,
+    and move whole stages if not.
+
+    THE ORDER IS THE OUTLINE'S WEAK PART (user, 2026-09-20: "if you ignore
+    the out of order bits the outline is pretty ideal" ... "basically the
+    ordering issue here was in which towns were included in which
+    stages"). Run 28's outline had "Celadon & Saffron City" before
+    "Lavender & Fuchsia City": Saffron's gates want a drink sold in
+    Celadon, and Celadon itself is reached past Lavender, so the run spent
+    its afternoon at a shut gate and the ladder tore the list apart one
+    leg at a time trying to fix it. Every other pass asks about single
+    objectives; this one asks about the chapters, which is the grain the
+    mistake is made at.
+
+    Nothing is added, dropped or reworded: the answer must be the same
+    stage names, and each stage travels with its own objectives in their
+    own order."""
+    blocks = _stage_blocks(legs, stages)
+    names = [b[0] for b in blocks]
+    if len(names) < 3 or len(set(names)) != len(names):
+        return legs
+    body = (f"THE GOAL: {goal}\n\nYOUR STAGES, in the order your list does "
+            f"them:\n" + "\n".join(
+                f"  {i}. {nm}\n" + "\n".join(f"       {l}" for l in ls)
+                for i, (nm, ls) in enumerate(blocks, 1)))
+    try:
+        reply = brock_probe.chat(
+            [{"role": "system", "content": STAGE_ORDER_SYS},
+             {"role": "user", "content": body}], model)
+        m = re.search(r"\{.*\}", reply, re.S)
+        ans = json.loads(m.group(0)) if m else {}
+    except (ValueError, KeyError, OSError, AttributeError):
+        return legs
+    why = str(ans.get("why") or "")[:200]
+    order = ans.get("order")
+    if not order:
+        print(f"[stages] the order stands: {why}", file=sys.stderr)
+        return legs
+    order = [str(x).strip() for x in order if str(x).strip()]
+    if sorted(order) != sorted(names):
+        print(f"[stages] order refused: it is not the same stages back "
+              f"({len(order)} named, {len(names)} given) — {why}",
+              file=sys.stderr)
+        return legs
+    if order == names:
+        print(f"[stages] the order stands: {why}", file=sys.stderr)
+        return legs
+    by_name = {nm: ls for nm, ls in blocks}
+    print(f"[stages] reordered: {' -> '.join(order)} — {why}",
+          file=sys.stderr)
+    out = []
+    for nm in order:
+        out.extend(by_name[nm])
+    return out
+
+
 STAGE_MISSING_SYS = """You wrote a Pokemon Red playthrough outline and
 grouped it into stages. You are being shown ONE stage of it, with the rest
 of the outline around it for context.
@@ -5718,6 +5808,14 @@ def outline(goal: str, model: str, rounds: int = 3,
     # outline reached the end holding Surf three times.
     legs = _dedupe_outline(_outline_review(goal, legs, model) or legs)
     stages = _stage_outline(legs, model)
+    if stages:
+        # ...AND ARE THE CHAPTERS THEMSELVES IN A ORDER THE RUN CAN TAKE?
+        # Asked before what is missing from each, so anything added lands
+        # in a stage that is already in its right place.
+        _ordered = _stage_order(goal, legs, stages, model)
+        if _ordered != legs:
+            legs = _ordered
+            stages = _stage_outline(legs, model) or stages
     if stages:
         # ...and now that the outline has chapters, ask each of them what
         # it is missing. Last pass of all: everything before it has had its
