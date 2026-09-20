@@ -55,9 +55,12 @@ SOURCES = [
      r"silph co|saffron|lavender|tower|fuji|cinnabar"),
     ("Poke Flute", r"flute", r"fuji|tower|lavender",
      r"celadon|game corner|silph|saffron|vermilion|cycling|route 16"),
+    # ...AND THE SHIP IT IS FOR IS NOT WHERE IT COMES FROM. Run 28 rewrote
+    # its own leg to "from Bill on the S.S. Anne" and wrote four plans to
+    # board the ship the ticket buys passage onto (2026-09-19).
     ("S.S. Ticket", r"ticket", r"bill|cerulean|sea cottage|route 25",
      r"captain|celadon|game corner|saffron|chief|vermilion|dock|fan club|"
-     r"warden"),
+     r"warden|s\.?\s?s\.? ?anne|\bship\b"),
     ("Bike Voucher", r"voucher", r"fan club|vermilion", r"cerulean|celadon|game corner"),
     ("Card Key", r"card key", r"silph|5f", r"celadon|game corner|hideout|saffron gym"),
     ("Gold Teeth", r"gold teeth", r"safari", r"tower|lavender|celadon|cinnabar"),
@@ -95,6 +98,9 @@ NONSENSE = [
 
 _ACQUIRE = re.compile(r"(obtain|retrieve|get|receive|collect|find|acquire|"
                       r"pick up|take|grab|buy|purchase|win|earn|fetch)", re.I)
+_CLAUSE_END = re.compile(r"[,;:]|\b(then|afterwards?|next|and then|so that|"
+                         r"in order to|to (?:board|use|reach|enter|open|show)|"
+                         r"before|after|once)\b", re.I)
 _FROM = re.compile(r"\b(from|in|at|inside|within|off)\b", re.I)
 
 
@@ -119,14 +125,28 @@ def false_facts(legs) -> list:
         # man, when it is CUT got from the right one.
         m = _FROM.search(p)
         head, tail = (p[:m.start()], p[m.end():]) if m else (p, "")
+        # ...AND ONLY THE CLAUSE THAT SAYS WHERE IT COMES FROM. A wrong
+        # place counts beside a right one ("from BILL on the S.S. ANNE"),
+        # but a sentence that fetches it in one clause and uses it in the
+        # next ("from Bill at the Sea Cottage, then board the S.S. Anne")
+        # says nothing false and must not be caught (user, 2026-09-20:
+        # "what were running the danger of is this grabbing true facts
+        # too"). The clause ends at a comma, a semicolon, or a word that
+        # starts the next deed.
+        tail = _CLAUSE_END.split(tail, 1)[0]
         # ...and only a leg that GETS the thing claims where it is got:
         # "Use the Coin Case at the Game Corner" is true.
         if not _ACQUIRE.match(head.strip()):
             tail = ""
         for item, rx, right, wrong in SOURCES:
+            # A WRONG PLACE IS WRONG EVEN BESIDE A RIGHT ONE. The right
+            # name used to excuse the sentence, so "the S.S. Ticket from
+            # BILL on the S.S. ANNE" read as true on the strength of Bill
+            # (2026-09-19). Each table's wrong list names places the thing
+            # is NOT kept, so naming one is the false claim whatever else
+            # the sentence says.
             if (tail and re.search(rx, head, re.I)
-                    and re.search(wrong, tail, re.I)
-                    and not re.search(right, tail, re.I)):
+                    and re.search(wrong, tail, re.I)):
                 hit = ("source", leg, f"{item} is not got there")
                 break
         if not hit:

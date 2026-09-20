@@ -125,10 +125,17 @@ import outline_trends as T  # noqa: E402
 ck("the trends tool reads the same tables",
    T.SOURCES is F.SOURCES and T.NONSENSE is F.NONSENSE
    and T.WRONG_BADGE is F.WRONG_BADGE)
-for f in ("author.py", "executor.py", "ledger.py", "state_text.py",
-          "policy_author.py"):
+for f in ("executor.py", "ledger.py", "state_text.py", "policy_author.py"):
     ck(f"nothing in {f} can put these tables in a prompt",
        "outline_facts" not in (ROOT / "planner" / f).read_text())
+# author.py reads them in ONE place, to refuse writing a false source into
+# the outline (2026-09-20); what goes back to the model carries no fact,
+# which a_false_fact_is_not_written_into_the_outline pins.
+_au = (ROOT / "planner/author.py").read_text()
+ck("the author reads them only in the check that refuses one",
+   _au.count("from outline_facts import") == 1
+   and _au.count("false_facts(") == 1
+   and "def says_a_false_fact" in _au)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:

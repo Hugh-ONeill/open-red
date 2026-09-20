@@ -989,6 +989,36 @@ def read_counters_text() -> str:
                         for m, (items, moved) in sorted(sh.items())))
 
 
+def says_a_false_fact(text: str) -> str:
+    """Why this sentence is false, or "" — CHECK-SIDE, never quoted back.
+
+    A GAP IS A LEG THE RUN WILL WRITE; A FALSE FACT IS ROUNDS SPENT
+    SOMEWHERE WRONG, and the chain writes them into its own list. Run 28
+    rewrote leg 13 from "Retrieve the S.S. Ticket from Bill" to "...from
+    Bill on the S.S. Anne" — the ship the ticket is FOR — and then wrote
+    four plans to board it, each needing the ticket it was fetching (user,
+    2026-09-19: "it should have been caught and guarded against in the
+    first place"). The tables are planner/outline_facts.py, the same ones
+    the hand-pick judge counts. What comes back to the model is a form
+    refusal and never the fact: the harness does not hand over answers
+    (the pamphlet standard), it only declines to write the claim down."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from outline_facts import false_facts
+    except Exception:
+        return ""
+    for _kind, _leg, why in false_facts([str(text or "")]):
+        return why
+    return ""
+
+
+# What the model is told instead — the shape of the sentence, not the fact.
+FALSE_FACT_FEEDBACK = ("say the deed WITHOUT claiming where the thing is "
+                       "kept or who hands it over, unless the run has been "
+                       "told or has seen it; name what to do, not where the "
+                       "game keeps it")
+
+
 def names_a_counter_without(text: str) -> str | None:
     """A sentence that puts a thing on a counter this run has read, where
     the run saw it was not — the fact validate() refuses a plan on, asked
@@ -7837,6 +7867,12 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
                                      f"badge or place this game has; name a deed "
                                      f"about something that exists here, or none"))
             continue
+        _ff = says_a_false_fact(ins)
+        if _ff:
+            print(f"[missing] turned down {ins!r}: {_ff} — {_why}",
+                  file=sys.stderr)
+            turned_down.append((ins, FALSE_FACT_FEEDBACK))
+            continue
         _sh = names_a_counter_without(ins)
         if _sh:
             print(f"[missing] turned down {ins!r}: {_sh} — {_why}",
@@ -9428,6 +9464,13 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
               f"proved it cannot get to is not evidence for moving the "
               f"objective towards it; the wording stands",
               file=sys.stderr)
+        return ""
+    _ff = says_a_false_fact(new)
+    if _ff:
+        # the reason is ours; the model is told the wording stands
+        print(f"[wording] refused: {new!r} — {_ff}; a rewrite may not put a "
+              f"thing somewhere the game does not keep it, and the wording "
+              f"stands", file=sys.stderr)
         return ""
     _sh = names_a_counter_without(new)
     if _sh:
