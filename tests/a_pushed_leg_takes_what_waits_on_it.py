@@ -92,6 +92,39 @@ ck("...and a repeat is not two of them", len(with_) == 2, with_)
 at, with_ = ask({"why": "it belongs here", "after": None, "with": [14]})
 ck("a leg that is not moved carries nothing", at == 0 and with_ == [])
 
+# ---- an arrival takes the deeds done in that place, named or not -------
+# Run 28 pushed "Reach Celadon City" to 31 and the model named the Game
+# Corner and the Silph Scope but forgot the department store, which then
+# stood fifteen legs before the city it is in (user, 2026-09-20).
+CEL = [(16, "Reach Celadon City"),
+       (17, "Visit the Celadon Department Store"),
+       (18, "Infiltrate the Rocket Game Corner"),
+       (19, "every party member is at least level 30"),
+       (20, "Reach Lavender Town"),
+       (21, "Clear the Pokemon Tower")]
+at, with_ = ask({"why": "the guard wants a drink", "after": 21, "with": [18]},
+                goal="Reach Celadon City", n=16, ahead=CEL)
+ck("the deed in that place is carried even though nobody named it",
+   at == 21 and "Visit the Celadon Department Store" in with_, with_)
+ck("...and what the model did name is carried too",
+   "Infiltrate the Rocket Game Corner" in with_, with_)
+ck("...while a leg that is about somewhere else stays",
+   "Reach Lavender Town" not in with_ and "Clear the Pokemon Tower" not in with_
+   and "every party member is at least level 30" not in with_, with_)
+at, with_ = ask({"why": "x", "after": 21, "with": []},
+                goal="Clear the Pokemon Tower", n=16,
+                ahead=[(16, "Clear the Pokemon Tower"),
+                       (17, "Reach Lavender Town"), (21, "Reach Fuchsia City")])
+ck("a leg that is not an arrival carries nothing by place",
+   with_ == [], with_)
+at, with_ = ask({"why": "x", "after": 19, "with": []},
+                goal="Reach Celadon City", n=16,
+                ahead=[(16, "Reach Celadon City"),
+                       (17, "Reach Celadon City again"),
+                       (19, "Defeat Erika for the Rainbow Badge")])
+ck("...and an arrival does not drag another arrival along",
+   with_ == [], with_)
+
 src = (ROOT / "planner/author.py").read_text()
 ck("the names are written where the chain can read them",
    'Path("run/outline_push_with").write_text(' in src)

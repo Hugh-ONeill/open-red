@@ -9537,6 +9537,11 @@ otherwise."""
 # TEXT: positions shift as soon as the first push lands.
 LATER_WITH: list = []
 
+# "Reach X", "Travel to X", "Enter X" — the same verbs compare_outlines
+# reads for an arrival that comes after the deed done there.
+_ARRIVES = re.compile(r"(reach|arrive|travel|go|sail|enter|walk|fly|ride|"
+                      r"navigate|cross|get to|head|make your way)\b", re.I)
+
 
 def check_later(goal: str, n: int, ahead: list, start: str, journal: str,
                 model: str, pushed: int = 0) -> int:
@@ -9601,6 +9606,24 @@ def check_later(goal: str, n: int, ahead: list, start: str, journal: str,
     # in front of the new position, and caps how many may ride along.
     _with, seen = [], set()
     _texts = {i: t for i, t in ahead}
+    # ...AND AN ARRIVAL TAKES THE DEEDS DONE THERE, NAMED OR NOT. Pushing
+    # "Reach Celadon City" to 31 left "Visit the Celadon Department Store"
+    # at 16: a shop inside a city the list now reaches fifteen legs later
+    # (run 28, 2026-09-20; user: "its also pulled ahead 'visit the celadon
+    # department store' ahead of reach celadon which doesnt make sense").
+    # The model named two of the three legs in that city and forgot the
+    # shop. This needs no knowledge of the game: the leg being moved is an
+    # ARRIVAL at a place, the legs left behind NAME that place, and an
+    # arrival after the deed is the fault compare_outlines already flags.
+    _arrival = _ARRIVES.match(goal.strip())
+    _place = ((_names(goal) & _place_words()) if _arrival else set())
+    _auto = []
+    if _place:
+        for i, t in ahead:
+            if not (n < i <= after) or i == n:
+                continue
+            if _place <= _names(t) and not _ARRIVES.match(t.strip()):
+                _auto.append(i)
     for w in (ans.get("with") or [])[:6]:
         try:
             w = int(w)
@@ -9619,6 +9642,14 @@ def check_later(goal: str, n: int, ahead: list, start: str, journal: str,
     for w in _with:
         print(f"[later] ...and leg {w} moves with it ({_texts[w]!r}): it "
               f"waits on the one being moved", file=sys.stderr)
+    for w in _auto:
+        if w in seen:
+            continue
+        seen.add(w)
+        _with.append(w)
+        print(f"[later] ...and leg {w} moves with it ({_texts[w]!r}): it "
+              f"names the place this leg ARRIVES at, and would otherwise "
+              f"come before the run gets there", file=sys.stderr)
     LATER_WITH[:] = [_texts[w] for w in _with]
     return after
 
