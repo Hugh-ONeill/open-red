@@ -20,7 +20,9 @@ def ck(name, cond): checks.append((name, bool(cond)))
 src = Path("planner/executor.py").read_text()
 i = src.find("DO NOT WALK INTO A POCKET WE HAVE ALREADY MAPPED")
 ck("the guard exists", i > 0)
-blk = src[i:i + 2400]
+# the window is the guard's whole block; it grew when _pocket was
+# bound before the branch (2026-09-19)
+blk = src[i:i + 3000]
 
 ck("it reads the landing from the atlas, not a guess",
    'self.explored.get(_h0) or {})' in blk and '.get("to")' in blk)

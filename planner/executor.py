@@ -19483,12 +19483,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # documents as "the direction stays the model's" — and the
                 # direction is untouched. Said out loud in the trace, and
                 # never overriding a skip the model asked for itself.
+                # BOTH SET BEFORE THE BRANCH THAT FILLS THEM. `_pocket`
+                # was bound only when the step carried no `skip` of its
+                # own, and read unconditionally after the cross — so a
+                # model-written {"op":"cross","skip":N} crashed the whole
+                # attempt with UnboundLocalError (run 28, leg 13, 2026-09-19;
+                # live since 913c9f8, 2026-08-27).
                 _skipped_why = ""
+                _pocket = None
                 if step.get("skip") is None:
                     _h0 = self._where(_pre)
                     _lands = ((self.explored.get(_h0) or {})
                               .get(step["dir"]) or {}).get("to")
-                    _pocket = None
                     if _lands and _lands != _h0:
                         if self._seam_row_uniform(_h0.split("|")[0],
                                                   step["dir"]):
