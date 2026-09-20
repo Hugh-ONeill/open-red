@@ -4859,6 +4859,12 @@ class Executor:
         mid = ((obs or {}).get("map") or {}).get("id")
         if not mid or mid == "None":
             return
+        # ...AND WHICH OF THEM THIS LEG HAS STOOD ON. See _looked_note.
+        try:
+            self._leg_looked.setdefault(str(mid), 0)
+            self._leg_looked[str(mid)] += 1
+        except AttributeError:
+            self._leg_looked = {str(mid): 1}
         tr = getattr(self, "_map_trail", None)
         if tr is None:
             tr = self._map_trail = []
@@ -5480,6 +5486,9 @@ class Executor:
             self._item_from = data.get("item_from") or {}
             self._offered = data.get("offered") or {}
             self._met_types = data.get("met_types") or {}
+            self._leg_goal = data.get("leg_goal")
+            self._leg_looked = data.get("leg_looked") or {}
+            self._leg_tries = int(data.get("leg_tries") or 0)
             self._new_species_asked = data.get("new_species_asked") or {}
             self._refused_gifts = data.get("refused_gifts") or {}
             self._wild_lv = data.get("wild_lv") or {}
@@ -5996,6 +6005,9 @@ class Executor:
                  "hints_at": getattr(self, "hints_at", {}),
                  "item_from": getattr(self, "_item_from", {}),
                  "offered": getattr(self, "_offered", {}),
+                 "leg_goal": getattr(self, "_leg_goal", None),
+                 "leg_looked": getattr(self, "_leg_looked", {}),
+                 "leg_tries": getattr(self, "_leg_tries", 0),
                  "met_types": getattr(self, "_met_types", {}),
                  "new_species_asked": getattr(self, "_new_species_asked", {}),
                  "refused_gifts": getattr(self, "_refused_gifts", {}),
@@ -7165,6 +7177,36 @@ class Executor:
         if not na:
             return set()
         return {str(x) for x in (na if isinstance(na, (list, tuple)) else [na])}
+
+    def _looked_note(self, obs) -> str:
+        """WHERE THIS LEG HAS ALREADY LOOKED, on a hunt for a thing.
+
+        Run 28 spent eight attempts on the S.S. Ticket writing the same
+        plan — Vermilion, the dock, board the ship — while the page's own
+        ways-out row said ROUTE_24, one walk north, "still has 6 thing(s)
+        never pressed and 10 spot(s) of ground in there never on screen"
+        (user, 2026-09-19: "how has it not done the bill stuff in 8
+        attempts of this leg? its not like theres many places for it to
+        go"). The lead was on the page; what was not was that the run had
+        already been round this loop. Its own attempts, counted. Which
+        place to try next is the model's, as it was before."""
+        try:
+            looked = getattr(self, "_leg_looked", None) or {}
+            tries = int(getattr(self, "_leg_tries", 0) or 0)
+            if tries < 2 or not looked:
+                return ""
+            here = str(((obs or {}).get("map") or {}).get("id") or "")
+            rows = sorted(looked.items(), key=lambda kv: -kv[1])
+            return ("WHERE THIS LEG HAS ALREADY LOOKED, across its "
+                    f"{tries} attempt(s): "
+                    + ", ".join(f"{m} ({n}x)" + (" — you are on it now"
+                                                 if m == here else "")
+                                for m, n in rows[:10])
+                    + (f", and {len(rows) - 10} more" if len(rows) > 10
+                       else "")
+                    + ". What it wants was not on any of them.\n")
+        except Exception:
+            return ""
 
     def _barred_parts_words(self, sg, obs) -> str:
         """What a step's `not_area` rules out, said on the page.
@@ -15164,6 +15206,8 @@ class Executor:
             return self.training_text(obs, target)
         here = self._where(obs)
         move_head = self._barred_parts_words(sg, obs)
+        if not str(target or "").startswith(("map:", "area:")):
+            move_head += self._looked_note(obs)
         if str(target or "").startswith("knows_move:"):
             _mv = str(target).split(":", 1)[1]
             _party = ", ".join(
@@ -24839,6 +24883,14 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         fails = 0
         backtracks = 0
         subgoals = plan["subgoals"]
+        # A LEG'S OWN SEARCH RECORD, kept across its attempts and cleared
+        # when the leg changes (_looked_note).
+        _goal_now = str(plan.get("goal") or "")
+        if _goal_now != getattr(self, "_leg_goal", None):
+            self._leg_goal = _goal_now
+            self._leg_looked = {}
+            self._leg_tries = 0
+        self._leg_tries = int(getattr(self, "_leg_tries", 0)) + 1
         try:
             self._pin_slot_levels(subgoals, self.settle())
         except Exception as e:           # a pin is never worth the plan
