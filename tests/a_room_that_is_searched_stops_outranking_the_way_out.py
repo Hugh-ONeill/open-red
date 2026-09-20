@@ -59,9 +59,19 @@ ck("everyone else still counts",
    and not held("ITEM_ROUTE_24_10_5", "trainer", "ROUTE_24|4,4"))
 
 # ---- and locality now means "still being searched" ---------------------------
-j = src.index("_has_left = bool(left or unpressed or unseen)")
+# ...AND WHAT COUNTS IS GROUND OR A WAY OUT, NOT PEOPLE (2026-09-20). A
+# beaten CERULEAN_GYM holding two people never spoken to counted as the
+# area still being searched and held both of Cerulean's ways out below it,
+# round after round, while the leg needed to leave the city (user: "its
+# genuinely stuck because it refuses to explore further than the *already
+# explored* city"). The room keeps its place in the field on distance; it
+# just no longer outranks a way out of town.
+j = src.index("_has_left = bool(left or unseen)")
 lblk = src[j - 300:j + 500]
-ck("locality asks whether anything is left there", "_has_left = bool(left or unpressed or unseen)" in lblk)
+ck("locality asks whether ground or a way out is left there",
+   "_has_left = bool(left or unseen)" in lblk)
+ck("...and people alone no longer keep a room local",
+   "_has_left = bool(left or unpressed or unseen)" not in src)
 ck("...and a way no walk reaches is not counted as something left",
    "_unr" not in lblk.split("_has_left =")[1].split("\n")[0])
 ck("...and only a room still being searched keeps its place",
@@ -71,12 +81,12 @@ ck("locality still ranks above the starvation term and distance",
 
 # the arithmetic of the decision
 def local(same_place, left, unpressed, unseen):
-    return 0 if (same_place and bool(left or unpressed or unseen)) else 1
-ck("a room with people still to press stays local", local(True, [], ["CLERK"], 0) == 0)
+    return 0 if (same_place and bool(left or unseen)) else 1
 ck("a room with ground still to see stays local", local(True, [], [], 4) == 0)
 ck("a room with an untaken exit stays local", local(True, ["3,7"], [], 0) == 0)
-ck("a room with none of the three joins the general field",
-   local(True, [], [], 0) == 1)
+ck("a room with only people left joins the general field",
+   local(True, [], ["CLERK"], 0) == 1)
+ck("a room with none of them joins it too", local(True, [], [], 0) == 1)
 ck("somewhere else is not local however much it holds",
    local(False, ["east"], ["ITEM"], 13) == 1)
 

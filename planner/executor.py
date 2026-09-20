@@ -4003,7 +4003,18 @@ class Executor:
             # of town is what pinned ROUTE_24 at zero picks. A way out no
             # walk reaches is deliberately not counted: walking there again
             # cannot reach it either.
-            _has_left = bool(left or unpressed or unseen)
+            # ...AND A ROOM WITH ONLY PEOPLE LEFT TO PRESS IS NOT GROUND
+            # STILL BEING SEARCHED. Cerulean was worked to the last cell,
+            # its two ways out of town one leg off — and CERULEAN_GYM, a
+            # beaten gym holding two people never spoken to, counted as
+            # "the area you are in" and outranked them round after round
+            # (run 28, 2026-09-20; user: "its genuinely stuck because it
+            # refuses to explore further than the *already explored*
+            # city"). A person is worth pressing and the room stays in the
+            # field on its own merits; what it no longer does is hold a
+            # way out of town below it. Ground to look at and ways never
+            # taken are what "searching" means here.
+            _has_left = bool(left or unseen)
             _local = 0 if ((_reg_b == _here_b or region in _rooms)
                            and _has_left) else 1
             # WITHIN A TIER, DISTANCE LEADS; THEN A WAY OUT BEATS GROUND
