@@ -16,6 +16,8 @@ Usage: carry_gates.py <old_plan.json> <new_plan.json> [--journal run/executor_lo
 from __future__ import annotations
 
 import json
+
+import pred_text
 import sys
 from pathlib import Path
 
@@ -158,7 +160,7 @@ def carry(old: dict, new: dict, journal: Path | None = None,
     _swap = (_died_on is not None and replaced(_died_on, old, new))
     if _swap:
         print(f"[gates] not carrying {_died_on.get('id')} "
-              f"{json.dumps(_died_on.get('done_when') or {})} — the attempt "
+              f"{pred_text.dumps(_died_on.get('done_when') or {})} — the attempt "
               f"failed on it and the rewrite put a different gate of the "
               f"same kind in its place. That is a replacement, not a drop.")
     _gone = fired_and_cleared(journal, live_flags() if live is None else live)

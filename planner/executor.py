@@ -51,6 +51,7 @@ from pathlib import Path
 from bridge import Bridge, RUN
 import battle_policy
 import ledger
+import pred_text
 import outline_ahead
 
 # Which gym holds which badge — the pamphlet's leader page.
@@ -10174,7 +10175,7 @@ class Executor:
                                  f"The steps after it, this one included, were written for "
                                  f"someone standing in {place}.")
             else:
-                lines.append(f"step {x.get('id')} ({json.dumps(dw)[:80]}) was NOT achieved and "
+                lines.append(f"step {x.get('id')} ({pred_text.dumps(dw)[:80]}) was NOT achieved and "
                              f"was carried past; this step's words may assume it was.")
         if not lines:
             return ""
@@ -10257,7 +10258,7 @@ class Executor:
             if not toks0 or not done:
                 return place
             return place + (
-                f"\nTHE CONDITION IS THE STEP: {json.dumps(done)} names no "
+                f"\nTHE CONDITION IS THE STEP: {pred_text.dumps(done)} names no "
                 f"place; it holds wherever it comes true. The floor named in "
                 f"this step's words ({', '.join(sorted(set(toks0)))}) is the "
                 f"plan-writer's guess at where, not part of the condition.")
@@ -10278,7 +10279,7 @@ class Executor:
         stray = sorted({t for t in toks if not T.endswith("_" + t)})
         if not stray:
             return place
-        return place + (f"\nTHE CONDITION IS THE STEP: {json.dumps(done)} holds "
+        return place + (f"\nTHE CONDITION IS THE STEP: {pred_text.dumps(done)} holds "
                 f"wherever you stand in {T}, whichever floor's door you take "
                 f"into it. The floor named in this step's words "
                 f"({', '.join(stray)}) is the plan-writer's guess at where, "
@@ -17213,7 +17214,7 @@ class Executor:
             f"PLAN     {st.get('plan','?')}",
             f"SUBGOAL  {st.get('subgoal','?')}  [{st.get('phase','')}]",
             "GOAL     " + _wrap_status(st.get("goal_text") or ""),
-            f"DONE_WHEN{json.dumps(st.get('done_when') or {})}",
+            f"DONE_WHEN{pred_text.dumps(st.get('done_when') or {})}",
             # what it is THINKING: its own plan from the last reply (the
             # plan echo), so the status line shows intent in its words.
             # NOT TRUNCATED (user, 2026-08-19): the cut fell mid-sentence
@@ -22167,7 +22168,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if plan_echo:
                 self.log("escalate_echo", subgoal=sg["id"], round=rnd,
                          echo=plan_echo[:2000])
-            user = (f"SUBGOAL: {goal}\nDONE_WHEN: {json.dumps(done)}"
+            user = (f"SUBGOAL: {goal}\nDONE_WHEN: {pred_text.dumps(done)}"
                     f"{self._area_ids_note(done, obs)}"
                     f"{self._words_vs_condition(goal, done, obs)}"
                     f"{self._carried_premise_note(sg, obs)}"

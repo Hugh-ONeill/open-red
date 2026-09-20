@@ -35,6 +35,7 @@ import sys
 from pathlib import Path
 
 import brock_probe   # reuse chat()
+import pred_text
 
 # EVERY MODE THE SHIM CAN ACTUALLY REPORT, read out of the shim so the two
 # cannot drift. `mode` was the one predicate whose values were freeform:
@@ -1448,7 +1449,7 @@ def inserted_leg_problems(plan: dict, goal: str | None = None) -> list:
         if not hit:
             continue
         out.append(
-            f"subgoal[{i}] ({s.get('id')}) ends on {json.dumps(s.get('done_when'))} "
+            f"subgoal[{i}] ({s.get('id')}) ends on {pred_text.dumps(s.get('done_when'))} "
             f"— that is {hit}, which is what '{displaced}' ends on: the "
             f"objective THIS LEG WAS PUT IN FRONT OF because it could not be "
             f"done as things stood. A step that needs that objective first "
@@ -1531,7 +1532,7 @@ def validate(plan: dict) -> list:
             # offer were impossible and the round could only fail again.
             _fix = ((f"REMOVE {tag} ({sid}) and let the step after it stand, or "
                      f"give {tag} exactly the condition of the step after it"
-                     + (f": {json.dumps(_ndw)}" if isinstance(_ndw, dict) and _ndw else ""))
+                     + (f": {pred_text.dumps(_ndw)}" if isinstance(_ndw, dict) and _ndw else ""))
                     if _nxt is not None else
                     (f"REMOVE {tag} ({sid}) and end the leg on the step before "
                      f"it, or give {tag} a condition from the list above that "
@@ -2771,7 +2772,7 @@ def witness_already_true_problems(plan: dict, obs: dict | None = None) -> list:
     dw = last.get("done_when")
     if witness_holds_now(dw, obs, trust_bag=True) is True:
         return [f"the OBJECTIVE ({last.get('id')}) done_when "
-                f"{json.dumps(dw)} ALREADY HOLDS where the run stands — a "
+                f"{pred_text.dumps(dw)} ALREADY HOLDS where the run stands — a "
                 f"plan whose objective is true before it starts completes "
                 f"without doing the deed. Write a condition that only the "
                 f"deed makes true: a thing GONE that you hold NOW (lacks_item "
@@ -4428,7 +4429,7 @@ def drafts_text(drafts: list) -> str:
              "other addition:"]
     for i, p in enumerate(drafts, 1):
         skel = "; ".join(
-            f"{s.get('id')} {json.dumps(s.get('done_when'))}"
+            f"{s.get('id')} {pred_text.dumps(s.get('done_when'))}"
             for s in (p.get("subgoals") or [])[:20])
         lines.append(f"  draft {i}: {skel}")
     return "\n".join(lines)
@@ -4498,7 +4499,7 @@ def pick_plan(goal: str, plans: list, model: str,
             _mark = ("   <- THE LAST STEP: this plan is finished when this "
                      "holds, and the leg is judged on it"
                      if j == len(subs) - 1 else "")
-            out.append(f"{sg.get('id')}: {json.dumps(sg.get('done_when'))}{_mark}")
+            out.append(f"{sg.get('id')}: {pred_text.dumps(sg.get('done_when'))}{_mark}")
         return "\n     ".join(out)
 
     # ...AND SAY WHEN THEY DO NOT AGREE ABOUT IT. Counting is the harness's
@@ -4717,8 +4718,8 @@ def review(goal: str, plan: dict, model: str, start: str | None = None,
             b = next((x for x in plan["subgoals"] if x["id"] == a["id"]), None)
             if b and b.get("done_when") != a.get("done_when"):
                 print(f"[review]   ~ {a['id']}: "
-                      f"{json.dumps(b.get('done_when'))} -> "
-                      f"{json.dumps(a.get('done_when'))}")
+                      f"{pred_text.dumps(b.get('done_when'))} -> "
+                      f"{pred_text.dumps(a.get('done_when'))}")
         return revised
     return plan
 
@@ -10257,7 +10258,7 @@ def main():
     args.out.write_text(json.dumps(plan, indent=2))
     print(f"wrote {args.out}")
     for s in plan["subgoals"]:
-        print(f"  {s['id']}: done_when={json.dumps(s['done_when'])}")
+        print(f"  {s['id']}: done_when={pred_text.dumps(s['done_when'])}")
 
 
 if __name__ == "__main__":

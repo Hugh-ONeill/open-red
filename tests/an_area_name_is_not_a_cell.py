@@ -54,7 +54,7 @@ ck("nothing says where another part is",
 src = (ROOT / "planner/executor.py").read_text()
 ck("the note sits beside DONE_WHEN on the page",
    'f"{self._area_ids_note(done, obs)}"' in src
-   and src.index('DONE_WHEN: {json.dumps(done)}')
+   and src.index('DONE_WHEN: {pred_text.dumps(done)}')
    < src.index('f"{self._area_ids_note(done, obs)}"'))
 
 failed = [n for n, ok in checks if not ok]
