@@ -19987,6 +19987,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             wild_in_way = ""
             _op_det = ""
             self._op_battles = 0        # wild encounters this op met
+            # ...AND "NO BALLS" IS SAID OF THIS OP'S OWN BATTLES. The flag
+            # is raised when a catch policy meets a wild with an empty bag
+            # and read by the next GRIND's note — and it was never lowered
+            # in between, so wilds met on a plain walk left it standing.
+            # Run 29 walked Route 1 with no balls, bought ten in Viridian,
+            # and its first grind 18 seconds later reported "NO POKé BALLS
+            # of any kind in the bag, so nothing could be caught" with
+            # POKE_BALL x10 on the status line beside it (user, 2026-09-21).
+            self._no_balls_note = False
             # THE OP MAY SAY WHAT ITS BATTLES ARE FOR. The battle policy is
             # chosen per STEP from the step's predicate, so a knows_move
             # step whose model-authored plan was "catch something that can
