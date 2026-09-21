@@ -10392,6 +10392,58 @@ class Executor:
                            if other else ""))
         return "WORDS ARE NOT THE BAG: " + "; ".join(bits) + "."
 
+    # A PLAN TO EARN MONEY FROM WILD POKEMON. Run 29 stood on Route 2 with
+    # 93 yen and wrote it eight rounds running: "I will grind for money by
+    # fighting wild Pokemon on Route 2 until I have sufficient funds" (user,
+    # 2026-09-21: "it thinks you get money from wild pokemon" ... "we want
+    # to prevent it from happening in the first place because its a wrong
+    # fact that we might be promoting"). Nothing in the harness had told it
+    # so — but the one sentence that says otherwise sat behind a REFUSED
+    # buy, and the run never issued one: it went straight to the grass. The
+    # words are in the plan, so the answer goes where the plan is read, the
+    # same place a claim to hold a thing the bag does not hold is answered.
+    # The run's own purse leads; the plain fact follows it, and is held back
+    # when a party member knows the one move that makes it untrue.
+    _MONEY_WORDS = r"\b(money|yen|funds?|cash|afford|pok[eé]?dollars?)\b"
+    _EARN_WORDS = r"\b(grind\w*|earn\w*|farm\w*|make|made|making|get|gain\w*|"\
+                  r"collect\w*|accumulat\w*|raise|build up)\b"
+    # "train" is the front of "trainers", and a plan to fight TRAINERS for
+    # money is right. So the wild has to be named outright, or named loosely
+    # in a sentence that does not speak of trainers at all.
+    _WILD_WORDS = r"\b(wild|grass|grind\w*|encounters?)\b"
+    _WILD_LOOSE = r"\b(train(?:ing|s)?|level\w*|route \d+)\b"
+    _TRAINER_WORDS = r"\b(trainers?|gym|leaders?|rival)\b"
+
+    def _money_from_wilds_note(self, plan_said, obs) -> str:
+        said = str(plan_said or "")
+        if not said:
+            return ""
+        hit = None
+        for sent in _re.split(r"(?<=[.!?;])\s+", said):
+            if not (_re.search(self._MONEY_WORDS, sent, _re.I)
+                    and _re.search(self._EARN_WORDS, sent, _re.I)):
+                continue
+            if (_re.search(self._WILD_WORDS, sent, _re.I)
+                    or (_re.search(self._WILD_LOOSE, sent, _re.I)
+                        and not _re.search(self._TRAINER_WORDS, sent, _re.I))):
+                hit = " ".join(sent.split())
+                break
+        if not hit:
+            return ""
+        n, paid = (getattr(self, "_wild_pay", None) or [0, 0])[:2]
+        # PAY DAY scatters coins in any battle, so the plain fact is only
+        # plain while nobody in the party knows it.
+        pay_day = any(str((mv or {}).get("id")) == "PAY_DAY"
+                      for m in ((obs or {}).get("party") or [])
+                      for mv in (m.get("moves") or []))
+        out = [f'THE MONEY IN THAT PLAN: "{hit[:160]}"']
+        if n:
+            out.append(f"over this run, {n} wild encounter(s) have paid "
+                       f"{paid} in total")
+        if not pay_day:
+            out.append("trainers pay, wild battles do not")
+        return " — ".join(out) + "."
+
     def _spoken_item_note(self, trace, obs) -> str:
         """WHAT SOMETHING SAID IT NEEDS, AGAINST THE BAG. "Darn! It needs a
         CARD KEY!" was relayed verbatim eight times and the run answered
@@ -23057,6 +23109,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _obs_now = self.settle() or obs
                 _held = self._held_claim_note(self._plan_said, _obs_now)
                 _spoke = self._spoken_item_note(trace, _obs_now)
+                _coin = self._money_from_wilds_note(self._plan_said, _obs_now)
+                if _coin:
+                    _held = (_held + " " + _coin).strip()
             except Exception:
                 _held, _spoke = "", ""
             try:
