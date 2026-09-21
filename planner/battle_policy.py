@@ -27,7 +27,15 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
              min_hp_frac: float only while own hp/max >= this (default 0.5)
              vs: "trainer"|"wild"|"any" (default "trainer")
              only_if_best_physical: bool  only when our best damage move is
-                physical (e.g. TAIL_WHIP helps TACKLE, not BUBBLE) } ]
+                physical (e.g. TAIL_WHIP helps TACKLE, not BUBBLE)
+             per_foe: bool      count max_uses and first_turns from when
+                THIS foe came out, not from the battle's start — what a
+                move puts on a foe leaves with it (default false)
+             only_if_foe_clear: bool  only while the foe does not already
+                show what this move puts on it: a status in its box for a
+                sleep/poison/paralysis move, seeded, confused
+             min_foe_level_ratio: float  only when foe level >= this x ours
+             only_if_leader: bool  only in a leader's fight } ]
   switch: [ { to: int|str      bring in this party slot MID-BATTLE, or
                              name an ORDER and let it pick: "resists",
                              "best_matchup", "healthiest", "first_alive".
@@ -527,6 +535,15 @@ def validate_spec(spec) -> list:
                         isinstance(r["min_hp_frac"], (int, float))
                         and 0.0 <= r["min_hp_frac"] <= 1.0):
                     probs.append(f"setup[{i}].min_hp_frac must be in [0,1]")
+                for bk in ("per_foe", "only_if_foe_clear", "only_if_leader"):
+                    if bk in r and not isinstance(r[bk], bool):
+                        probs.append(f"setup[{i}].{bk} must be true/false")
+                if "min_foe_level_ratio" in r and not (
+                        isinstance(r["min_foe_level_ratio"], (int, float))
+                        and not isinstance(r["min_foe_level_ratio"], bool)
+                        and 0.0 <= r["min_foe_level_ratio"] <= 3.0):
+                    probs.append(f"setup[{i}].min_foe_level_ratio must be "
+                                 "in [0,3]")
     for i, r in enumerate(spec.get("switch") or []):
         if isinstance(r, dict) and isinstance(r.get("to"), str) \
                 and r["to"] not in ("resists", "best_matchup",
@@ -1280,6 +1297,49 @@ def train_turn(obs: dict, spec: dict | None = None,
     return None
 
 
+# WHAT THE SCREEN SAID THE FOE NOW CARRIES. The status box shows SLP / PSN
+# / PAR / BRN / FRZ; "was seeded!" and "became confused!" are printed when
+# they land and "LEECH SEED saps" / "is confused!" every turn after. The
+# observation carries each as the engine keeps it, and only its PRESENCE is
+# read here: how many confused turns are left is on no screen.
+_BOX_EFFECTS = ("SLEEP_EFFECT", "POISON_EFFECT", "PARALYZE_EFFECT")
+
+
+def foe_carries(move: dict, foe: dict) -> bool:
+    """True when the foe already shows what this move would put on it, so
+    using it again is a turn spent on "But it failed!"."""
+    eff = str((move or {}).get("effect") or "").upper()
+    if (move or {}).get("power"):
+        return False              # a damaging move is never "already done"
+    if eff == "LEECH_SEED_EFFECT":
+        return bool((foe or {}).get("leechSeeded"))
+    if eff == "CONFUSION_EFFECT":
+        return (foe or {}).get("confusedTurns") is not None
+    if eff in _BOX_EFFECTS:
+        return bool((foe or {}).get("status"))
+    return False
+
+
+def _foe_clock(ctx: dict, foe: dict) -> tuple:
+    """(which foe this is, 1-based; which of ITS turns this is). A new foe
+    is a different species or level, or the same again at a higher HP than
+    it was last seen at with nothing of ours left on it."""
+    ctx = ctx if isinstance(ctx, dict) else {}
+    turn = ctx.get("turn") or 1
+    key = (str((foe or {}).get("species")), (foe or {}).get("level"))
+    hp = (foe or {}).get("hp") or 0
+    st = ctx.get("_foe_clock")
+    fresh = (st is None or st["key"] != key
+             or (hp > st["hp"] and hp >= ((foe or {}).get("maxhp") or hp + 1)
+                 and not foe_carries({"effect": "LEECH_SEED_EFFECT"}, foe)
+                 and not (foe or {}).get("status")))
+    if fresh:
+        st = ctx["_foe_clock"] = {"key": key, "n": (st["n"] + 1 if st else 1),
+                                  "since": turn, "hp": hp}
+    st["hp"] = hp
+    return st["n"], max(1, turn - st["since"] + 1)
+
+
 def choose(obs: dict, spec: dict | None = None,
            ctx: dict | None = None) -> dict:
     """Return a battle op. Falls back to slot-1 fight if no data."""
@@ -1288,6 +1348,9 @@ def choose(obs: dict, spec: dict | None = None,
     b = obs.get("battle") or {}
     me, foe = b.get("me") or {}, b.get("foe") or {}
     kind = b.get("kind") or "wild"
+    # which foe this is and which of its turns, kept every turn choose()
+    # is asked, so an item or a switch turn does not stall the count
+    _foe_n, _foe_turn = _foe_clock(ctx, foe)
     # DISABLE makes a slot unselectable. Choosing it anyway is not a wasted
     # turn — the game refuses the input, so the turn never resolves and the
     # disable counter never ticks down: a permanent deadlock. pure26 sat in
@@ -1551,9 +1614,20 @@ def choose(obs: dict, spec: dict | None = None,
         mv = next((m for m in moves if m.get("id") == mid), None)
         if not mv:
             continue
-        if used.get(mid, 0) >= rule.get("max_uses", 1):
+        # WHAT A MOVE PUTS ON A FOE LEAVES WITH IT. Counted per battle, a
+        # LEECH_SEED or a sleep was spent on whoever came out first and
+        # the ace behind it was never touched: run 29's BULBASAUR met
+        # BROCK with a rule-less LEECH_SEED and lost the first fight to an
+        # ONIX its TACKLE could not dent (user, 2026-09-21: "its
+        # preventing good ol bulba from leeching and winning first thing
+        # without a rematch"). per_foe counts uses and turns from when
+        # THIS foe came out.
+        _per = bool(rule.get("per_foe"))
+        _key = f"{mid}@{_foe_n}" if _per else mid
+        if used.get(_key, 0) >= rule.get("max_uses", 1):
             continue
-        if (ctx.get("turn") or 1) > rule.get("first_turns", 2):
+        _turn = _foe_turn if _per else (ctx.get("turn") or 1)
+        if _turn > rule.get("first_turns", 2):
             continue
         if _hp_frac(me) < rule.get("min_hp_frac", 0.5):
             continue
@@ -1562,9 +1636,18 @@ def choose(obs: dict, spec: dict | None = None,
             continue
         if rule.get("only_if_best_physical") and not best_is_physical:
             continue
-        used[mid] = used.get(mid, 0) + 1
+        if rule.get("only_if_foe_clear") and foe_carries(mv, foe):
+            continue
+        if rule.get("only_if_leader") and not (obs.get("battle") or {}).get(
+                "leader"):
+            continue
+        if (foe.get("level") or 0) < float(
+                rule.get("min_foe_level_ratio") or 0) * (me.get("level") or 0):
+            continue
+        used[_key] = used.get(_key, 0) + 1
         return {"op": "battle_move", "index": mv["index"],
-                "_why": f"setup {mid} (use {used[mid]})"}
+                "_why": f"setup {mid} (use {used[_key]}"
+                        + (f" on foe {_foe_n}" if _per else "") + ")"}
     pool = damaging or scored     # only status moves left -> use them
     if spec.get("avoid_status_moves", True) and damaging:
         pool = damaging
