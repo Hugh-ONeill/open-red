@@ -131,11 +131,21 @@ import policy_author as PA    # noqa: E402
 PS = (ROOT / "planner/policy_author.py").read_text()
 ck("both gauntlet scorers add the spent/unspent line to every trial",
    PS.count("+ self._spent(obs)") == 2)
+# THE ROOM'S OWN BAG IS NOT THE POINT, and reading a live one made this
+# check a hostage: it asserted "FULL_RESTORE spent 3, unspent 2" off the
+# league's five, and the arenas were rebuilt on run 27's save, which walked
+# in with two FULL_RESTORE and two MAX_POTION (2026-09-21). What is being
+# pinned is the arithmetic, so the bag it works on is written here.
+import json as _json, tempfile as _tf
+_spec = Path(_tf.mkdtemp()) / "room.json"
+_spec.write_text(_json.dumps({"bag": {"FULL_RESTORE": 5, "REVIVE": 2}}))
 g = PA.Gym.__new__(PA.Gym)
-g.arena_spec = ROOT / "plans/arena_e4_real.json"
+g.arena_spec = _spec
 line = g._spent({"bag": {"FULL_RESTORE": 2}})
 ck("the line reads from the arena's starting bag and the screen's ending bag",
    "FULL_RESTORE spent 3, unspent 2" in line)
+ck("...and a kind spent to nothing is still counted",
+   "REVIVE spent 2, unspent 0" in line)
 h = PA.Gym.__new__(PA.Gym)
 h.arena_spec = None
 ck("a room with no medicine in its bag says nothing", h._spent({"bag": {}}) == "")
