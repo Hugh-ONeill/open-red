@@ -21517,6 +21517,31 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         "{\"why\":\"<one or two sentences>\",\"take\":\"<the ball's "
         "name, exactly as listed, or none>\"}.")
 
+    # EVERY BALL IS LOOKED AT BEFORE ONE IS TAKEN. Asked for a reason and a
+    # name, the pick was a pure function of which ball was LISTED FIRST: 40
+    # asks against run 28's own outline at leg 0 took BULBASAUR 13 of the 13
+    # times its ball was shuffled to the top ("satisfies both the water/grass
+    # and grass/electric requirements") and CHARMANDER the other 27 of 27
+    # ("fulfills the requirement for a FIRE type"), SQUIRTLE never — one leg
+    # answered against two, decided by the shuffle (2026-09-21; the record
+    # was 3 CHARMANDER to 2 BULBASAUR in five starts). The shuffle made the
+    # bias fair and left it standing. With the reply made to say, for every
+    # ball, which of its own numbered objectives that one would answer, the
+    # same 40 asks took BULBASAUR 36, SQUIRTLE 4 (it answers two as well)
+    # and CHARMANDER 0, in every list order. Nothing is added to the page:
+    # the objectives are the model's, the judgment is the model's, and it is
+    # only made to give it once per ball. Used when there ARE objectives to
+    # hold the balls against; with none, the plain question stands.
+    OFFER_CHOICE_EACH_SYS = (
+        "You are playing Pokemon Red. Several Poke Balls stand side by side "
+        "and each has told you what it holds; you may take one of them, or "
+        "none. Nothing else is happening: this is only the choice. Reply "
+        "with a JSON object and nothing else: "
+        "{\"each\":{\"<ball name>\":\"<which of the numbered objectives "
+        "below this one would answer, or none>\", ...one entry for every "
+        "ball listed},\"why\":\"<one or two sentences>\",\"take\":\"<the "
+        "ball's name, exactly as listed, or none>\"}.")
+
     def _ask_offer_choice(self, sg, obs, order, goals):
         """(ball, why) — or None when it could not be asked or understood,
         and the round gets the offers to answer in its own way."""
@@ -21530,7 +21555,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                   "it. Answer with the ball's name, or none.")
         try:
             reply = brock_probe.chat(
-                [{"role": "system", "content": self.OFFER_CHOICE_SYS},
+                [{"role": "system",
+                  "content": (self.OFFER_CHOICE_EACH_SYS if goals.strip()
+                              else self.OFFER_CHOICE_SYS)},
                  {"role": "user", "content": user}], self.model)
         except Exception as e:
             self.log("offer_choice_error", subgoal=sg.get("id"), err=str(e))
@@ -21549,8 +21576,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                      reply=str(reply)[:300])
             return None
         why = str(d.get("why") or "")[:300]
+        # what it said of each ball is kept beside the pick, so a choice
+        # can be read against its own reckoning afterwards
+        _each = d.get("each") if isinstance(d.get("each"), dict) else {}
         self.log("offer_choice", subgoal=sg.get("id"), take=take, why=why,
-                 order=[n for n, _w in order])
+                 order=[n for n, _w in order],
+                 each={str(k)[:60]: str(v)[:160] for k, v in _each.items()
+                       if str(k) in names})
         return take, why
 
     @staticmethod
