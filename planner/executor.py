@@ -5555,6 +5555,7 @@ class Executor:
             self._met_types = data.get("met_types") or {}
             self._leg_goal = data.get("leg_goal")
             self._leg_looked = data.get("leg_looked") or {}
+            self._wild_pay = list(data.get("wild_pay") or [0, 0])
             self._leg_tries = int(data.get("leg_tries") or 0)
             self._new_species_asked = data.get("new_species_asked") or {}
             self._refused_gifts = data.get("refused_gifts") or {}
@@ -6074,6 +6075,7 @@ class Executor:
                  "offered": getattr(self, "_offered", {}),
                  "leg_goal": getattr(self, "_leg_goal", None),
                  "leg_looked": getattr(self, "_leg_looked", {}),
+                 "wild_pay": list(getattr(self, "_wild_pay", None) or [0, 0]),
                  "leg_tries": getattr(self, "_leg_tries", 0),
                  "met_types": getattr(self, "_met_types", {}),
                  "new_species_asked": getattr(self, "_new_species_asked", {}),
@@ -20651,6 +20653,29 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _nb = getattr(self, "_op_battles", 0)
                 if _nb:
                     note += f" over {_nb} wild encounter(s)"
+                # ...AND WHAT IT PAID. Run 29 stood on Route 2 with 93 yen
+                # and wrote the same plan eight rounds running: "I will
+                # grind for money by fighting wild Pokemon on Route 2 until
+                # I have sufficient funds" (user, 2026-09-21: "its currently
+                # training because it thinks you get money from wild
+                # pokemon"). Wild Pokemon carry none — but nothing ever put
+                # that where the plan was written, and the run's own purse
+                # is the proof: it is measured here, said for THIS grind and
+                # totalled over every grind of the run. Whether to keep
+                # grinding is the model's; it has the arithmetic now.
+                _m0, _m1 = (pre_obs or {}).get("money"), (obs or {}).get("money")
+                if _nb and isinstance(_m0, int) and isinstance(_m1, int):
+                    _paid = _m1 - _m0
+                    _tally = list(getattr(self, "_wild_pay", None) or [0, 0])
+                    _tally[0] += _nb
+                    _tally[1] += max(0, _paid)
+                    self._wild_pay = _tally
+                    note += (f" and {_paid:+d} money"
+                             if _paid else " and no money")
+                    if _tally[0] >= 12:
+                        note += (f" (over this whole run, {_tally[0]} wild "
+                                 f"encounter(s) have paid {_tally[1]} in "
+                                 f"total)")
                 # THE BALLS IT THREW ARE PART OF THE STORY. Five Poke Balls
                 # went at a Doduo inside one grind, and the summary said only
                 # "NO POKé BALLS of any kind in the bag, so nothing could be
