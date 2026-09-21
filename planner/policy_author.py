@@ -83,38 +83,7 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      (SELFDESTRUCT, EXPLOSION) ranks behind every other move that can
      hit and is chosen only when nothing else can; "free" scores it by
      power like any other (default "last")
-  setup: list of deliberate status-move rules, each:
-      {"move": "TAIL_WHIP", "max_uses": 1-6, "first_turns": 1-8,
-       "min_hp_frac": 0.0-1.0, "vs": "trainer"|"wild"|"any",
-       "only_if_best_physical": true/false, "per_foe": true/false,
-       "only_if_foe_clear": true/false,
-       "min_foe_level_ratio": 0.0-3.0, "only_if_leader": true/false}
-    (use the move up to max_uses times, only in the battle's first
-     first_turns turns, only while own hp fraction >= min_hp_frac,
-     only against that battle kind; only_if_best_physical limits the rule
-     to fights where our best damage move is PHYSICAL — a Defense-drop
-     like TAIL_WHIP does nothing for a special move like BUBBLE)
-    (A MOVE WITH NO POWER IS NEVER PICKED BY SCORE while any damaging move
-     has PP: it scores 0, so the only way one is used is a rule here that
-     NAMES it. Name
-     every such move you would want used if a party member had it — a
-     rule for a move nobody knows costs nothing and waits.)
-    (per_foe: what a move puts on a foe leaves with that foe. Without
-     per_foe, max_uses and first_turns are counted from the start of the
-     BATTLE, so a trainer's second Pokemon comes out after the window has
-     shut and with the uses already spent. With per_foe true they are
-     counted again from the turn each foe comes out.)
-    (only_if_foe_clear: fire only while the foe does not already show
-     what this move puts on it — a status in its box for a move that
-     sleeps, poisons or paralyses; already seeded; already confused. The
-     game answers a second one with "But it failed!" and the turn is
-     gone. With this on, a max_uses above 1 is a retry after a miss.)
-    (min_foe_level_ratio: fire only when the foe's level is at least this
-     many times your own — both are on the battle screen. only_if_leader:
-     fire only in a gym leader's or the Champion's fight. Both are ways to
-     keep a turn that does no damage for a fight long enough to repay it;
-     which fights those are is yours to judge.)
-  switch: list of mid-battle switch rules, each:
+""" + battle_policy.SETUP_DOC + """  switch: list of mid-battle switch rules, each:
       {"to": 1-6 OR "resists"|"best_matchup"|"healthiest"|"first_alive",
        "first_turns": 1-8, "max_uses": 1-6,
        "vs": "trainer"|"wild"|"any", "hp_below": null or 0.0-1.0,

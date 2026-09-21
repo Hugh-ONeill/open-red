@@ -1424,6 +1424,61 @@ def set_active_spec(spec):
 PARTY_FLOOR = 0
 
 
+# A MOVE WITH NO POWER IS USED ONLY BY A RULE THAT NAMES IT, and the policy
+# is written offline by an author that cannot know the party: v13 names
+# CONFUSE_RAY and SLEEP_POWDER, and three fresh draws of the block each named
+# the same six moves and never LEECH_SEED. Run 29 reached BROCK with
+# BULBASAUR's LEECH_SEED, PIKACHU's THUNDER_WAVE, GROWL, TAIL_WHIP and
+# SAND_ATTACK in the party and no rule for any of them, so none could ever
+# be chosen (user, 2026-09-21: "its preventing good ol bulba from leeching
+# and winning first thing without a rematch"). The rule for a move the
+# party HOLDS is asked for when it is first seen (Executor._ask_setup_rules)
+# and kept here, the model's own words, laid over whichever policy plays.
+# null is an answer too: it means "leave it unused", and is not asked again.
+SETUP_RULES_FILE = "setup_rules.json"
+
+
+def _setup_rules_read() -> dict:
+    try:
+        d = json.loads((RUN / SETUP_RULES_FILE).read_text())
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _setup_order(book: dict) -> list:
+    """The run's own rules, in the order the model put them. One rule fires
+    a turn and the first that can is used, so which comes first decides
+    whether a two-turn window is still open when its move's turn comes."""
+    live = [k for k, v in book.items() if k != "_order"
+            and isinstance(v, dict) and isinstance(v.get("rule"), dict)]
+    order = [k for k in (book.get("_order") or []) if k in live]
+    return order + sorted(k for k in live if k not in order)
+
+
+def lay_setup_rules() -> int:
+    """Append the run's own setup rules to the active policy, for moves the
+    policy does not already name. Returns how many were laid."""
+    global ACTIVE_SPEC
+    base = ACTIVE_SPEC if ACTIVE_SPEC is not None else battle_policy.DEFAULT_SPEC
+    # laid afresh each time: what an earlier call laid is taken off first,
+    # so a revised rule replaces the one it revises
+    own = [r for r in (base.get("setup") or [])
+           if not (isinstance(r, dict) and r.get("_run"))]
+    named = {str(r.get("move")) for r in own if isinstance(r, dict)}
+    book = _setup_rules_read()
+    add = [dict(book[k]["rule"], _run=True) for k in _setup_order(book)
+           if str(book[k]["rule"].get("move")) == k and k not in named]
+    if not add and len(own) == len(base.get("setup") or []):
+        return 0
+    spec = dict(base)
+    spec["setup"] = own + add
+    if battle_policy.validate_spec(spec):
+        return 0
+    ACTIVE_SPEC = spec
+    return len(add)
+
+
 def lay_train_rule(path) -> bool:
     """Lay a train artifact's `train` block over the active battle policy.
 
@@ -21518,6 +21573,233 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         return (head + f'. Asked which to take, you chose {take}: "{why}" — '
                 f"pressed it and answered yes: {det[:200]}")
 
+    SETUP_RULE_SYS = (
+        "You are playing Pokemon Red. Your battles are fought for you by a "
+        "battle policy. That policy NEVER uses a move with no power while a "
+        "damaging move has PP, unless one of its `setup` rules names the "
+        "move. A Pokemon in your party knows a move with no power that no "
+        "rule names, so as things stand it will never be used, in any "
+        "battle. Write the rule for it, or null to leave it unused. What "
+        "the move does, and which fights are worth a turn that does no "
+        "damage, is yours to judge.\n\nA RULE:\n" + battle_policy.SETUP_DOC
+        + "\nONE RULE FIRES A TURN: each turn the rules are tried in order "
+        "and the first that can fire is used. A rule standing ahead of this "
+        "one spends turns this one's first_turns is counting, so where it "
+        "goes in the order is part of the rule.\n"
+        "\nReply with a JSON object and nothing else: "
+        "{\"why\":\"<one or two sentences>\",\"rule\":{...one rule, its "
+        "\"move\" exactly as given...} or null,\"before\":\"<a move from "
+        "YOUR OWN RULES SO FAR to go ahead of, or null to go last>\"}.")
+
+    SETUP_ECHO_SYS = (
+        "You are playing Pokemon Red. You have just written `setup` rules "
+        "for the no-power moves your party knows, one move at a time. Below "
+        "is what those rules, together, make each Pokemon DO: its first "
+        "turns against a foe of its own level that carries nothing yet, "
+        "played out by the policy exactly as it will play them. A turn "
+        "spent on a no-power move is a turn that does no damage. The WILD "
+        "line is how EVERY wild battle would open for that Pokemon, the "
+        "hundreds fought while training included; the TRAINER line is a "
+        "trainer's every Pokemon. A move that never appears on a line is "
+        "never reached.\n\nA RULE:\n" + battle_policy.SETUP_DOC
+        + "\nONE RULE FIRES A TURN: each turn the rules are tried in order "
+        "and the first that can fire is used.\n"
+        "\nReply with a JSON object and nothing else: {\"why\":\"<one or "
+        "two sentences>\",\"setup\":[...every rule you are keeping, changed "
+        "as you see fit, in the order to try them...]} — or "
+        "{\"why\":\"...\",\"setup\":null} if the lines are what you meant.")
+
+    def _setup_dry_run(self, member, kind, turns=4) -> list:
+        """The moves the policy as it stands would pick, turn by turn, for
+        this party member against a clear foe of its own level."""
+        spec = ACTIVE_SPEC if ACTIVE_SPEC is not None \
+            else battle_policy.DEFAULT_SPEC
+        moves = [dict(mv, index=i, accuracy=mv.get("accuracy") or 100,
+                      category=mv.get("category") or "physical")
+                 for i, mv in enumerate((member.get("moves") or []), 1)]
+        lvl = member.get("level") or 1
+        me = {"species": member.get("species"), "level": lvl,
+              "hp": member.get("max_hp") or member.get("hp") or 30,
+              "maxhp": member.get("max_hp") or member.get("hp") or 30,
+              "types": member.get("types") or [], "moves": moves, "slot": 1}
+        ob = {"battle": {"kind": kind, "leader": False, "me": me,
+                         "foe": {"species": "FOE", "level": lvl, "hp": 40,
+                                 "maxhp": 40, "types": []}},
+              "party": [member], "bag": {}}
+        ctx, out = {"turn": 0, "used": {}, "intent": "fight"}, []
+        for t in range(1, turns + 1):
+            ctx["turn"] = t
+            try:
+                d = battle_policy.choose(ob, spec, ctx) or {}
+            except Exception:
+                break
+            out.append(next((str(m.get("id")) for m in moves
+                             if m["index"] == d.get("index")),
+                            str(d.get("op") or "?")))
+        return out
+
+    def _setup_echo(self, party, book) -> bool:
+        """Play the run's own rules back, once, and take a revision."""
+        mine = _setup_order(book)
+        if not mine:
+            return False
+        lay_setup_rules()
+        lines, shown = [], {}
+        for m in party:
+            known = [str(mv.get("id")) for mv in (m.get("moves") or [])
+                     if not (mv.get("power") or 0)]
+            if not any(k in mine for k in known):
+                continue
+            w = self._setup_dry_run(m, "wild")
+            t = self._setup_dry_run(m, "trainer")
+            shown[str(m.get("species"))] = {"wild": w, "trainer": t}
+            lines.append(f"  {m.get('species')} L{m.get('level')} (no-power "
+                         f"moves: {', '.join(known)})\n"
+                         f"    WILD:    {' -> '.join(w)}\n"
+                         f"    TRAINER: {' -> '.join(t)}")
+        if not lines:
+            return False
+        user = ("WHAT YOUR RULES DO:\n" + "\n".join(lines)
+                + "\n\nYOUR RULES, in the order they are tried:\n"
+                + "\n".join("  " + json.dumps(book[k]["rule"]) for k in mine))
+        try:
+            reply = brock_probe.chat(
+                [{"role": "system", "content": self.SETUP_ECHO_SYS},
+                 {"role": "user", "content": user}], self.model)
+            g = _re.search(r"\{.*\}", reply or "", _re.S)
+            d = json.loads(g.group(0)) if g else {}
+        except Exception as e:
+            self.log("setup_rule_error", err=str(e)[:160])
+            return False
+        new = d.get("setup") if isinstance(d, dict) else None
+        why = str((d or {}).get("why") or "")[:300]
+        if not isinstance(new, list):
+            self.log("setup_rule_echo", shown=shown, kept=True, why=why)
+            return False
+        rules = [r for r in new if isinstance(r, dict)
+                 and str(r.get("move")) in mine]
+        if battle_policy.validate_spec(
+                dict(battle_policy.DEFAULT_SPEC, setup=rules)):
+            self.log("setup_rule_echo", shown=shown, kept=True, why=why,
+                     refused=True)
+            return False
+        order = []
+        for r in rules:
+            k = str(r.get("move"))
+            if k not in order:
+                order.append(k)
+                book[k] = dict(book[k], rule=dict(r))
+        for k in mine:
+            if k not in order:          # left out of the reply: unused
+                book[k] = dict(book[k], rule=None)
+        book["_order"] = order
+        return True
+
+    def _ask_setup_rules(self, obs) -> int:
+        """Ask, once per move, for the setup rule of each no-power move the
+        party holds that no rule names. Returns how many rules were added."""
+        if (os.environ.get("RED_ARENA") == "1"
+                or os.environ.get("RED_SETUP_ASK", "1") == "0"
+                or not getattr(self, "model", None)):
+            return 0
+        party = (obs or {}).get("party") or []
+        spec = ACTIVE_SPEC if ACTIVE_SPEC is not None \
+            else battle_policy.DEFAULT_SPEC
+        named = {str(r.get("move")) for r in (spec.get("setup") or [])
+                 if isinstance(r, dict) and not r.get("_run")}
+        book = _setup_rules_read()
+        todo = []
+        for m in party:
+            for mv in (m.get("moves") or []):
+                mid = str((mv or {}).get("id") or "")
+                if (mid and not (mv.get("power") or 0) and mid not in named
+                        and mid not in book
+                        and mid not in [t[0] for t in todo]):
+                    todo.append((mid, mv, m))
+        added = 0
+        for mid, mv, m in todo[:6]:
+            others = ", ".join(
+                f"{x.get('id')} ({x.get('type')}, power {x.get('power') or 0})"
+                for x in (m.get("moves") or []) if x.get("id") != mid)
+            user = (f"THE MOVE: {mid} ({mv.get('type')}, no power, "
+                    f"{mv.get('max_pp') or mv.get('pp')} PP), known by "
+                    f"{m.get('species')} L{m.get('level')}.\n"
+                    f"ITS OTHER MOVES: {others or 'none'}\n"
+                    "YOUR PARTY: " + ", ".join(
+                        f"{x.get('species')} L{x.get('level')}" for x in party)
+                    + "\nMOVES YOUR POLICY ALREADY HAS A RULE FOR (tried "
+                      "first, in this order): "
+                    + (", ".join(str(r.get("move")) for r in
+                                 (spec.get("setup") or [])
+                                 if isinstance(r, dict) and not r.get("_run"))
+                       or "none")
+                    + "\nYOUR OWN RULES SO FAR, tried after those, in this "
+                      "order: "
+                    + ("; ".join(
+                        f"{k} (max_uses {book[k]['rule'].get('max_uses', 1)}, "
+                        f"first_turns {book[k]['rule'].get('first_turns', 2)}"
+                        f"{', per_foe' if book[k]['rule'].get('per_foe') else ''}"
+                        f", known by {book[k].get('who')})"
+                        for k in _setup_order(book)) or "none yet"))
+            try:
+                reply = brock_probe.chat(
+                    [{"role": "system", "content": self.SETUP_RULE_SYS},
+                     {"role": "user", "content": user}], self.model)
+                g = _re.search(r"\{.*\}", reply or "", _re.S)
+                d = json.loads(g.group(0)) if g else None
+            except Exception as e:
+                self.log("setup_rule_error", move=mid, err=str(e)[:160])
+                continue
+            if not isinstance(d, dict) or "rule" not in d:
+                self.log("setup_rule_unparsed", move=mid,
+                         reply=str(reply)[:300])
+                continue
+            rule, why = d.get("rule"), str(d.get("why") or "")[:300]
+            if isinstance(rule, dict):
+                rule = dict(rule, move=mid)
+                probs = battle_policy.validate_spec(
+                    dict(battle_policy.DEFAULT_SPEC, setup=[rule]))
+                if probs:            # not kept: asked again at the next plan
+                    self.log("setup_rule_refused", move=mid, rule=rule,
+                             problems=probs[:4])
+                    continue
+            else:
+                rule = None
+            _ord = _setup_order(book)
+            book[mid] = {"rule": rule, "why": why,
+                         "who": f"{m.get('species')} L{m.get('level')}"}
+            if rule:
+                _bf = str(d.get("before") or "")
+                _ord.insert(_ord.index(_bf) if _bf in _ord else len(_ord), mid)
+            book["_order"] = _ord
+            self.log("setup_rule_asked", move=mid, who=book[mid]["who"],
+                     rule=rule, why=why, order=list(_ord))
+            added += 1 if rule else 0
+        if todo:
+            def _write():
+                try:
+                    (RUN / SETUP_RULES_FILE).write_text(
+                        json.dumps(book, indent=1, sort_keys=True))
+                except OSError:
+                    pass
+            _write()
+            # ...AND PLAYED BACK, ONCE. Written one move at a time, the
+            # rules were each plausible and together a loss: two GROWLs
+            # ahead of a LEECH_SEED whose window is two turns, so the seed
+            # was never reached, and a GROWL with no level floor opening
+            # every wild battle of the run (hand run, 2026-09-21). What they
+            # make each Pokemon DO is computed, not guessed, and said back.
+            if added and self._setup_echo(party, book):
+                _write()
+            lay_setup_rules()
+            after = {str(m.get("species")): {
+                "wild": self._setup_dry_run(m, "wild"),
+                "trainer": self._setup_dry_run(m, "trainer")}
+                for m in party}
+            self.log("setup_rules_laid", order=_setup_order(book),
+                     plays=after)
+        return added
+
     OFFER_CHOICE_SYS = (
         "You are playing Pokemon Red. Several Poke Balls stand side by side "
         "and each has told you what it holds; you may take one of them, or "
@@ -24967,6 +25249,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             self._party_floor(plan, subgoals, self.settle())
         except Exception as e:           # a floor is never worth the plan
             self.log("party_floor_error", err=str(e)[:160])
+        try:
+            self._ask_setup_rules(self.settle())
+        except Exception as e:           # nor is a rule for a status move
+            self.log("setup_rule_error", err=str(e)[:160])
         # WHAT REPLACED THE STICKY-WAYPOINT LEDGER. There used to be a
         # `_plan_done` map of "subgoal ids completed under this goal in an
         # earlier attempt", written on every success and carried across
@@ -25872,6 +26158,10 @@ def main():
               f"({args.policy_spec})")
     if args.train_spec:
         lay_train_rule(args.train_spec)
+    if os.environ.get("RED_ARENA") != "1":
+        _n = lay_setup_rules()
+        if _n:
+            print(f"[policy] {_n} setup rule(s) of this run's own laid over it")
 
     global SCORE_BATTLES, VERIFY_MACROS
     # RED_SCORE_BATTLES=1 does the same as --score-battles. The flag exists
