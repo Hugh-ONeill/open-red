@@ -1,15 +1,15 @@
 {
   "party": [
     {
-      "species": "GRAVELER",
-      "level": 41,
+      "species": "KADABRA",
+      "level": 52,
       "moves": [
-        "ROCK_THROW",
-        "SELFDESTRUCT",
-        "HARDEN",
-        "EARTHQUAKE"
+        "PSYBEAM",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
       ],
-      "nickname": "GRAVELER"
+      "nickname": "KADABRA"
     },
     {
       "species": "PIDGEOT",
@@ -24,7 +24,7 @@
     },
     {
       "species": "VENUSAUR",
-      "level": 45,
+      "level": 44,
       "moves": [
         "VINE_WHIP",
         "BODY_SLAM",
@@ -34,19 +34,8 @@
       "nickname": "VENUSAUR"
     },
     {
-      "species": "KADABRA",
-      "level": 52,
-      "moves": [
-        "PSYBEAM",
-        "THUNDER_WAVE",
-        "PSYCHIC_M",
-        "REFLECT"
-      ],
-      "nickname": "KADABRA"
-    },
-    {
       "species": "LAPRAS",
-      "level": 44,
+      "level": 43,
       "moves": [
         "MIST",
         "BODY_SLAM",
@@ -54,15 +43,27 @@
         "ICE_BEAM"
       ],
       "nickname": "LAPRAS"
+    },
+    {
+      "species": "GRAVELER",
+      "level": 40,
+      "moves": [
+        "ROCK_THROW",
+        "SELFDESTRUCT",
+        "MEGA_PUNCH",
+        "EARTHQUAKE"
+      ],
+      "nickname": "GRAVELER"
     }
   ],
   "bag": {
     "FRESH_WATER": 2,
+    "MAX_POTION": 1,
     "MAX_REVIVE": 1,
-    "REVIVE": 2,
-    "SUPER_POTION": 4
+    "REVIVE": 5,
+    "SUPER_POTION": 10
   },
-  "money": 22798,
+  "money": 11066,
   "start": {
     "map": "FUCHSIA_GYM",
     "x": 4,

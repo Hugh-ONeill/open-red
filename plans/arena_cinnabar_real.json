@@ -1,15 +1,15 @@
 {
   "party": [
     {
-      "species": "LAPRAS",
-      "level": 45,
+      "species": "GRAVELER",
+      "level": 43,
       "moves": [
-        "MIST",
-        "BODY_SLAM",
-        "CONFUSE_RAY",
-        "SURF"
+        "SELFDESTRUCT",
+        "HARDEN",
+        "EARTHQUAKE",
+        "EXPLOSION"
       ],
-      "nickname": "LAPRAS"
+      "nickname": "GRAVELER"
     },
     {
       "species": "PIDGEOT",
@@ -23,15 +23,15 @@
       "nickname": "PIDGEOT"
     },
     {
-      "species": "GRAVELER",
-      "level": 44,
+      "species": "KADABRA",
+      "level": 53,
       "moves": [
-        "SELFDESTRUCT",
-        "HARDEN",
-        "EARTHQUAKE",
-        "EXPLOSION"
+        "PSYBEAM",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
       ],
-      "nickname": "GRAVELER"
+      "nickname": "KADABRA"
     },
     {
       "species": "VENUSAUR",
@@ -45,19 +45,21 @@
       "nickname": "VENUSAUR"
     },
     {
-      "species": "KADABRA",
-      "level": 53,
+      "species": "LAPRAS",
+      "level": 44,
       "moves": [
-        "PSYBEAM",
-        "THUNDER_WAVE",
-        "PSYCHIC_M",
-        "REFLECT"
+        "MIST",
+        "BODY_SLAM",
+        "CONFUSE_RAY",
+        "SURF"
       ],
-      "nickname": "KADABRA"
+      "nickname": "LAPRAS"
     }
   ],
-  "bag": {},
-  "money": 71861,
+  "bag": {
+    "FRESH_WATER": 2
+  },
+  "money": 53248,
   "start": {
     "map": "CINNABAR_GYM",
     "x": 16,

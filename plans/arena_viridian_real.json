@@ -1,15 +1,15 @@
 {
   "party": [
     {
-      "species": "KADABRA",
-      "level": 55,
+      "species": "LAPRAS",
+      "level": 46,
       "moves": [
-        "PSYBEAM",
-        "THUNDER_WAVE",
-        "PSYCHIC_M",
-        "REFLECT"
+        "BODY_SLAM",
+        "CONFUSE_RAY",
+        "ICE_BEAM",
+        "SURF"
       ],
-      "nickname": "KADABRA"
+      "nickname": "LAPRAS"
     },
     {
       "species": "PIDGEOT",
@@ -34,19 +34,8 @@
       "nickname": "GRAVELER"
     },
     {
-      "species": "LAPRAS",
-      "level": 47,
-      "moves": [
-        "BODY_SLAM",
-        "CONFUSE_RAY",
-        "ICE_BEAM",
-        "SURF"
-      ],
-      "nickname": "LAPRAS"
-    },
-    {
       "species": "VENUSAUR",
-      "level": 49,
+      "level": 48,
       "moves": [
         "VINE_WHIP",
         "TOXIC",
@@ -54,10 +43,21 @@
         "GROWTH"
       ],
       "nickname": "VENUSAUR"
+    },
+    {
+      "species": "KADABRA",
+      "level": 54,
+      "moves": [
+        "PSYBEAM",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
+      ],
+      "nickname": "KADABRA"
     }
   ],
   "bag": {},
-  "money": 88801,
+  "money": 73311,
   "start": {
     "map": "VIRIDIAN_GYM",
     "x": 16,

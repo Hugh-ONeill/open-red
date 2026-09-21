@@ -1,17 +1,6 @@
 {
   "party": [
     {
-      "species": "GEODUDE",
-      "level": 21,
-      "moves": [
-        "DIG",
-        "MEGA_PUNCH",
-        "ROCK_THROW",
-        "SELFDESTRUCT"
-      ],
-      "nickname": "GEODUDE"
-    },
-    {
       "species": "KADABRA",
       "level": 25,
       "moves": [
@@ -21,6 +10,17 @@
         "THUNDER_WAVE"
       ],
       "nickname": "KADABRA"
+    },
+    {
+      "species": "IVYSAUR",
+      "level": 28,
+      "moves": [
+        "BODY_SLAM",
+        "LEECH_SEED",
+        "VINE_WHIP",
+        "POISONPOWDER"
+      ],
+      "nickname": "IVYSAUR"
     },
     {
       "species": "PIDGEOTTO",
@@ -34,19 +34,21 @@
       "nickname": "PIDGEOTTO"
     },
     {
-      "species": "IVYSAUR",
-      "level": 29,
+      "species": "GEODUDE",
+      "level": 21,
       "moves": [
-        "BODY_SLAM",
-        "LEECH_SEED",
-        "VINE_WHIP",
-        "POISONPOWDER"
+        "DIG",
+        "MEGA_PUNCH",
+        "ROCK_THROW",
+        "SELFDESTRUCT"
       ],
-      "nickname": "IVYSAUR"
+      "nickname": "GEODUDE"
     }
   ],
-  "bag": {},
-  "money": 9342,
+  "bag": {
+    "POTION": 2
+  },
+  "money": 4226,
   "start": {
     "map": "VERMILION_GYM",
     "x": 4,

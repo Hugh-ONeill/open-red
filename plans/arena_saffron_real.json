@@ -1,19 +1,19 @@
 {
   "party": [
     {
-      "species": "KADABRA",
-      "level": 49,
+      "species": "VENUSAUR",
+      "level": 40,
       "moves": [
-        "PSYBEAM",
-        "THUNDER_WAVE",
-        "PSYCHIC_M",
-        "REFLECT"
+        "BODY_SLAM",
+        "VINE_WHIP",
+        "POISONPOWDER",
+        "RAZOR_LEAF"
       ],
-      "nickname": "KADABRA"
+      "nickname": "VENUSAUR"
     },
     {
       "species": "PIDGEOT",
-      "level": 37,
+      "level": 36,
       "moves": [
         "RAZOR_WIND",
         "QUICK_ATTACK",
@@ -23,15 +23,15 @@
       "nickname": "PIDGEOT"
     },
     {
-      "species": "VENUSAUR",
-      "level": 41,
+      "species": "KADABRA",
+      "level": 48,
       "moves": [
-        "BODY_SLAM",
-        "VINE_WHIP",
-        "POISONPOWDER",
-        "RAZOR_LEAF"
+        "PSYBEAM",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
       ],
-      "nickname": "VENUSAUR"
+      "nickname": "KADABRA"
     },
     {
       "species": "GRAVELER",
@@ -56,9 +56,11 @@
   ],
   "bag": {
     "FRESH_WATER": 2,
-    "FULL_HEAL": 3
+    "FULL_HEAL": 3,
+    "HYPER_POTION": 2,
+    "REVIVE": 1
   },
-  "money": 23056,
+  "money": 32939,
   "start": {
     "map": "SAFFRON_GYM",
     "x": 8,

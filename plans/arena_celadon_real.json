@@ -2,18 +2,18 @@
   "party": [
     {
       "species": "KADABRA",
-      "level": 39,
+      "level": 37,
       "moves": [
+        "CONFUSION",
         "THUNDER_WAVE",
         "PSYBEAM",
-        "RECOVER",
-        "PSYCHIC_M"
+        "RECOVER"
       ],
       "nickname": "KADABRA"
     },
     {
       "species": "PIDGEOTTO",
-      "level": 32,
+      "level": 31,
       "moves": [
         "SAND_ATTACK",
         "QUICK_ATTACK",
@@ -46,13 +46,13 @@
     }
   ],
   "bag": {
-    "ANTIDOTE": 1,
+    "ANTIDOTE": 3,
     "BURN_HEAL": 5,
-    "FRESH_WATER": 3,
-    "PARLYZ_HEAL": 4,
-    "SUPER_POTION": 7
+    "FRESH_WATER": 1,
+    "PARLYZ_HEAL": 5,
+    "SUPER_POTION": 11
   },
-  "money": 18659,
+  "money": 9208,
   "start": {
     "map": "CELADON_GYM",
     "x": 4,

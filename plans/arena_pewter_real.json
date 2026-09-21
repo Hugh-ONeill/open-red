@@ -1,31 +1,30 @@
 {
   "party": [
     {
-      "species": "BULBASAUR",
-      "level": 15,
-      "moves": [
-        "TACKLE",
-        "GROWL",
-        "LEECH_SEED",
-        "VINE_WHIP"
-      ],
-      "nickname": "BULBASAUR"
-    },
-    {
       "species": "PIDGEY",
-      "level": 13,
+      "level": 12,
       "moves": [
         "GUST",
         "SAND_ATTACK",
         "QUICK_ATTACK"
       ],
       "nickname": "PIDGEY"
+    },
+    {
+      "species": "BULBASAUR",
+      "level": 12,
+      "moves": [
+        "TACKLE",
+        "GROWL",
+        "LEECH_SEED"
+      ],
+      "nickname": "BULBASAUR"
     }
   ],
   "bag": {
     "ANTIDOTE": 1
   },
-  "money": 1439,
+  "money": 2395,
   "start": {
     "map": "PEWTER_GYM",
     "x": 4,

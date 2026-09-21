@@ -68,10 +68,10 @@
     }
   ],
   "bag": {
-    "FULL_RESTORE": 2,
-    "MAX_POTION": 2
+    "FULL_RESTORE": 9,
+    "MAX_POTION": 5
   },
-  "money": 31859,
+  "money": 2060,
   "start": {
     "map": "LORELEIS_ROOM",
     "x": 4,
