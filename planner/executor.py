@@ -22299,9 +22299,22 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # over on run 17's Nidoran leg, six walks into the Route 22
             # rival (2026-09-13). The count and the op are the run's own
             # record and belong on every page until the step ends.
+            # ...AND IT GOES AT THE TOP ONCE IT IS A PATTERN. Measured on
+            # the journals (planner/blocks.py, 2026-09-21): this block sat
+            # at 87-96% of the page while the trainer's own name sat at 4%,
+            # and this project's own earlier measurement is that the median
+            # position of whatever the run acts on is 14% of the way in. So
+            # it was being said where nothing is read. Run 27 walked back
+            # into BROCK five times in ninety seconds with this block on
+            # every page. The FIRST wipe stays where it was — one is bad
+            # luck and the page has more useful things to lead with; from
+            # the second it leads, because by then it is the most important
+            # fact on the page (user, 2026-09-21: "we cant forget about the
+            # position findings").
+            _wipes_block = ""
             if getattr(self, "_bo_here", 0):
                 _bo_last = (getattr(self, "_bo_ops", []) or ["?"])[-1]
-                memory += (
+                _wipes_block += (
                     f"\nTHIS STEP HAS BLACKED OUT {self._bo_here} TIME(S). "
                     f"A blackout is the whole party fainting: you wake at a "
                     f"Pokemon Center, healed, HALF YOUR MONEY GONE, and "
@@ -22320,12 +22333,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # THE FIGHT ITSELF, as the screen showed it (_note_fight)
                 _lf = getattr(self, "_last_fight", None) or {}
                 if _lf.get("lost"):
-                    memory += (f"THE LAST FIGHT YOU LOST (vs {_lf['who']}"
+                    _wipes_block += (f"THE LAST FIGHT YOU LOST (vs {_lf['who']}"
                                + (f", {_lf['where']}" if _lf.get("where") else "")
                                + f"): {_lf['text']}.\n")
                 _since = self._party_since_text(start, sg)
                 if _since:
-                    memory += _since + "\n"
+                    _wipes_block += _since + "\n"
                 # ...AND WHERE WILD BATTLES HAPPEN, once a trainer has beaten
                 # the party more than once. That page listed trainers and
                 # the money they paid and never a patch of grass, so after
@@ -22341,10 +22354,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                              + self._wild_never_fought_note(_hm, start)
                              ).lstrip(". ")
                     if _wild.strip():
-                        memory += (_wild.rstrip() + " On this step a wild "
+                        _wipes_block += (_wild.rstrip() + " On this step a wild "
                                    "met while walking is fled; {\"op\":"
                                    "\"grind\",\"intent\":\"train\"} "
                                    "fights them.\n")
+            if _wipes_block:
+                memory = ((_wipes_block.lstrip("\n") + "\n" + memory)
+                          if self._bo_here > 1 else memory + _wipes_block)
             # the switches as they stood on this page, for the next page's
             # "it was open the last time you stood here" (see _note_switches)
             self._note_switches(start)

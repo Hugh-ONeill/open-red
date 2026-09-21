@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "PIDGEY",
-      "level": 12,
+      "level": 13,
       "moves": [
         "GUST",
         "SAND_ATTACK",
@@ -12,11 +12,12 @@
     },
     {
       "species": "BULBASAUR",
-      "level": 12,
+      "level": 13,
       "moves": [
         "TACKLE",
         "GROWL",
-        "LEECH_SEED"
+        "LEECH_SEED",
+        "VINE_WHIP"
       ],
       "nickname": "BULBASAUR"
     }

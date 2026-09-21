@@ -319,13 +319,23 @@ GYMS = [
     dict(name="pewter", map="PEWTER_GYM", leader="BROCK", ace=14,
          badges=0, door=(4, 13), puzzle=False,
          paths=dict(
-             real=dict(party=[("PIDGEY", 12), ("BULBASAUR", 12)],
+             real=dict(party=[("PIDGEY", 13), ("BULBASAUR", 13)],
              bag={"ANTIDOTE": 1}, money=2395,
-             note="What run 27 WALKED IN WITH at BROCK, read from the save it took when "
-                  "the leg before this fight finished "
-                  "(leg_05_every_party_member_is_at_least_le...). Run 27 is the first "
-                  "Hall of Fame run that started on BULBASAUR, which the starter "
-                  "question now picks nearly every time. Bag ANTIDOTE x1, 2395 unspent."),
+             note="BROCK IS THE ONE ROOM THE ENTRY STATE GETS WRONG. Run 27 walked in "
+                  "at L12 and L12 and lost the gym FOUR TIMES over ten "
+                  "blackouts, five of them inside ninety seconds; it won at "
+                  "at L13 and L13, one level each above where it walked in, "
+                  "which is the least training that answers the room: "
+                  "BULBASAUR gains VINE_WHIP at 13, and at 12 its only "
+                  "attack is TACKLE at half damage against ROCK and GROUND "
+                  "(it took a GEODUDE from 33 hp to 28 over six turns). At "
+                  "L12 both arms of the status calibration wiped and the "
+                  "room measured persistence, not policy; at L15 both swept "
+                  "32 of 32 with no blackout at all (2026-09-21, 16 trials "
+                  "an arm). Its bag is still the "
+                  "entry bag: the two Potion orders it placed mid-fight were "
+                  "trimmed to one and four for want of money, and left it on "
+                  "107 both times."),
              # THREE UNDER, MEASURED FROM BOTH SIDES. At 10 the room was
              # calibrated under v12 and lost under v13 with the bag full:
              # a 20-power BUBBLE against ONIX is a long fight, and a solo
