@@ -17270,6 +17270,11 @@ class Executor:
         # those are journalled here and nowhere else.
         if kind == "blackout" or (kind == "heal_done" and kw.get("ok")):
             battle_policy.reset_run_budget()
+        # ...AND A WIPE IS COUNTED HERE, where every detector reports it, so
+        # a round can ask "did the party black out while I ran" of the
+        # run's own record instead of of its prose (see had_blackout).
+        if kind == "blackout":
+            self._wipes_logged = getattr(self, "_wipes_logged", 0) + 1
 
     # THE BALLS KEPT FOR THE GOAL IN HAND. A throw toward a later objective
     # never spends the bag down to nothing: the leg being played may need
@@ -21691,6 +21696,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # work is already in the world.
             self._stop_if_asked()
             rnd += 1
+            _wipes_at_start = getattr(self, "_wipes_logged", 0)
             start = self.settle()
             self._note_map(start)
             # NEVER ASK THE MODEL FROM INSIDE A FIGHT. settle() resolves
@@ -23448,7 +23454,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     f"reachable from HERE. Consider an UNTRIED map edge or "
                     f"door — or walked ground you left unfinished.")
             loop_note = ""
-            had_blackout = any("blackout" in t for t in trace)
+            # DID THE PARTY BLACK OUT THIS ROUND — asked of the journal, not
+            # of the trace's words. This was `any("blackout" in t for t in
+            # trace)`, and since 2026-09-06 the nurse's own feedback reads
+            # "this is now where you wake after a blackout": every round
+            # with a heal in it counted as a wipe. Run 28 never blacked out
+            # once and was told THIS STEP HAS BLACKED OUT on 94 pages, up to
+            # six times on one step, with "WHAT BEAT YOU: RATTATA L10"
+            # under it (2026-09-21). Every detector logs a "blackout" row,
+            # and log() counts them.
+            had_blackout = getattr(self, "_wipes_logged", 0) > _wipes_at_start
             # HOW MANY TIMES THIS STEP HAS WIPED, which decides whether the
             # round is pardoned (see below) and is said on the page.
             if had_blackout:
