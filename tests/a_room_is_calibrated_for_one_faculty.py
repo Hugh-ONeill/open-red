@@ -97,6 +97,8 @@ def verdict(w, n, trials=2, noun="medicine", doing="healing"):
     wf, nf = w[0] / max(1, w[1]), n[0] / max(1, n[1])
     swing, gap = n[2] - w[2], wf - nf
     decides = swing >= trials / 2 or gap >= 0.15
+    if gap <= -0.15 or swing <= -trials / 2:
+        return "HARMFUL"
     if w[2] >= trials and not decides:
         return "TOO HARD"
     if wf >= 0.85 and decides:
@@ -130,6 +132,24 @@ ck("...and THIN is for a room neither arm takes cleanly",
    verdict((13, 16, 0), (11, 16, 0)) == "THIN")
 ck("Celadon as it scored for every v15 candidate measures nothing",
    verdict((12, 16, 0), (12, 16, 0)) == "TOO EASY")
+# A FACULTY CAN COST A ROOM. Brock, four trials an arm, the run's own
+# status rules against the same spec with none (2026-09-21): 3 fights of 8
+# with them and 7 of 8 without, three blackouts against one. Read as TOO
+# EASY that is true and useless; the rules were spending two of the
+# fight's turns on GROWL and LEECH_SEED with a L12 BULBASAUR in front of a
+# L14 ONIX.
+ck("a faculty that costs the room is named as costing it",
+   verdict((3, 8, 3), (7, 8, 1), trials=4) == "HARMFUL")
+ck("...by blackouts alone as well",
+   verdict((8, 8, 3), (8, 8, 0), trials=4) == "HARMFUL")
+ck("...and a faculty that costs one fight in sixteen is not",
+   verdict((15, 16, 0), (16, 16, 0)) != "HARMFUL")
+SRC2 = (ROOT / "planner/calibrate_arenas.py").read_text()
+ck("the harmful verdict is tried before any other",
+   SRC2.index("HARMFUL — the {_noun} COSTS it")
+   < SRC2.index("TOO HARD — it wipes every trial"))
+ck("...and says how much of the room it cost",
+   '{-gap:.0%} of the room' in SRC2 and "{-swing} more blackout(s)" in SRC2)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:

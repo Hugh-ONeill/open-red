@@ -245,7 +245,18 @@ def main():
             # them outright (2026-09-15).
             _by = (f"{swing} fewer blackout(s)" if swing > 0
                    else f"{gap:.0%} more of the room")
-            if w[2] >= a.trials and not decides:
+            # A FACULTY CAN COST A ROOM, and the first version could not say
+            # so: at Brock the status arm took 3 fights of 8 to the stripped
+            # arm's 7, and it read "TOO EASY — it is won without a status
+            # move at all", which is true and hides the whole finding
+            # (2026-09-21). A turn that does no damage is a turn, and a
+            # L12 BULBASAUR against a L14 ONIX does not have two to give.
+            if gap <= -0.15 or swing <= -a.trials / 2:
+                verdict = (f"HARMFUL — the {_noun} COSTS it "
+                           f"{-gap:.0%} of the room"
+                           + (f" and {-swing} more blackout(s)"
+                              if swing < 0 else ""))
+            elif w[2] >= a.trials and not decides:
                 verdict = (f"TOO HARD — it wipes every trial, with {_noun} "
                            f"and without")
             elif wf >= 0.85 and decides:
