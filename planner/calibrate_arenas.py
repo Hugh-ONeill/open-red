@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Is each arena still a fight? Ask the medicine.
+"""Is each arena still a fight? Take one faculty away and see.
 
 AN ARENA THAT EVERYONE SWEEPS MEASURES NOTHING, and after the lead and
 switch orders landed, eight of the nine were swept by every candidate
@@ -16,9 +16,25 @@ Nothing else differs between the two — same move scoring, same lead,
 same switches, same party, same bag — so the gap between them is the
 medicine and only the medicine.
 
+...AND THE FACULTY IS AN ARGUMENT NOW (user, 2026-09-21: "we might have to
+recalibrate to seperate out policies, the previous calibration was to
+seperate item usage from no item usage, this might have to be calibrated
+differently"). The nine rooms were calibrated to separate a spec that heals
+from one that does not, and they do that well. They say nothing about a
+spec that uses STATUS MOVES, because a room whose every candidate sweeps it
+cannot: v15's four candidates tied at 8.24-8.41 of 9.00, six rooms cleared
+perfectly by all of them. Which faculty the twin loses is now `--strip`,
+and a room is calibrated FOR THAT FACULTY when losing it costs the room.
+
+A ROOM CAN BE DECIDED TWO WAYS. Medicine shows up as blackouts: take it
+away and the party dies. A status move need not — it can show up as fights
+won, or as nothing at all. So both are measured and either can decide a
+room, and both are printed whatever the answer.
+
   calibrate_arenas.py --spec plans/policy_model_v12.json
   calibrate_arenas.py --spec ... --path real
   calibrate_arenas.py --spec ... --only cerulean_ideal,e4_real --trials 2
+  calibrate_arenas.py --spec plans/policy_model_v15.json --strip setup
 """
 from __future__ import annotations
 
@@ -53,6 +69,52 @@ def strip_medicine(spec: dict) -> dict:
     out["field_cure"] = []
     out.pop("provenance", None)
     return out
+
+
+def strip_setup(spec: dict) -> dict:
+    """The same spec with no deliberate status-move rules.
+
+    A 0-power move is never picked by score while a damaging move has PP,
+    so emptying `setup` is the whole of taking status away: the twin can
+    still switch, still heal, still cure, and simply never spends a turn
+    putting something on a foe."""
+    out = dict(spec)
+    out["name"] = str(spec.get("name") or "spec") + "_nosetup"
+    out["setup"] = []
+    out.pop("provenance", None)
+    return out
+
+
+def strip_pp(spec: dict) -> dict:
+    """The same spec that will not switch out a Pokemon with nothing left
+    to throw. Only the out_of_pp rules go; every other switch stays."""
+    out = dict(spec)
+    out["name"] = str(spec.get("name") or "spec") + "_nopp"
+    out["switch"] = [r for r in (spec.get("switch") or [])
+                     if not (isinstance(r, dict) and r.get("out_of_pp"))]
+    out.pop("provenance", None)
+    return out
+
+
+def strip_switch(spec: dict) -> dict:
+    """The same spec that never switches mid-battle."""
+    out = dict(spec)
+    out["name"] = str(spec.get("name") or "spec") + "_noswitch"
+    out["switch"] = []
+    out.pop("provenance", None)
+    return out
+
+
+# what each faculty is called in the table, and what taking it away means
+# the spec key each faculty lives in, so an empty one can be refused
+_KEYS = {"medicine": "battle_items", "setup": "setup", "pp": "switch",
+         "switch": "switch"}
+FACULTIES = {
+    "medicine": (strip_medicine, "medicine", "healing"),
+    "setup": (strip_setup, "status moves", "a status move"),
+    "pp": (strip_pp, "the out-of-PP switch", "switching when dry"),
+    "switch": (strip_switch, "switching", "switching"),
+}
 
 
 def score(arena: str, spec_path: Path, trials: int, arm: str = "") -> tuple:
@@ -122,11 +184,20 @@ def main():
     ap.add_argument("--trials", type=int, default=2)
     ap.add_argument("--path", choices=["real", "ideal", "both"],
                     default="both", help="which path's rooms to score")
+    ap.add_argument("--strip", choices=sorted(FACULTIES), default="medicine",
+                    help="which faculty the twin loses; a room is "
+                         "calibrated for the faculty that decides it")
     a = ap.parse_args()
     full = json.loads(a.spec.read_text())
-    bare = strip_medicine(full)
+    _strip, _noun, _doing = FACULTIES[a.strip]
+    bare = _strip(full)
+    if json.dumps(bare.get(_KEYS[a.strip]), sort_keys=True) == json.dumps(
+            full.get(_KEYS[a.strip]), sort_keys=True):
+        print(f"{a.spec.name} has no {_noun} to take away — the two arms "
+              f"would be the same spec, and every room would read TOO EASY.")
+        return 2
     with tempfile.TemporaryDirectory() as td:
-        bare_p = Path(td) / "nomeds.json"
+        bare_p = Path(td) / "stripped.json"
         bare_p.write_text(json.dumps(bare, indent=1))
         # SAY WHAT THE DENOMINATOR IS. A room that scores one flag over
         # four trials printed "4/4", which reads as four fights — and
@@ -134,8 +205,9 @@ def main():
         # scores (user, 2026-09-15: "i was misreading the 4/4 as having
         # only 4 fights"). Rooms that score one flag are reported as
         # trials won; rooms that score many are reported as fights.
-        print(f"{'arena':16s} {'with medicine':>18s} {'without':>14s}   "
-              f"verdict")
+        print(f"spec {a.spec.name}: {_noun} against no {_noun}, "
+              f"{a.trials} trial(s) a room")
+        print(f"{'arena':16s} {'with':>18s} {'without':>14s}   verdict")
         want = {r.strip() for r in a.only.split(",") if r.strip()}
         paths = ("real", "ideal") if a.path == "both" else (a.path,)
         for room in [r for pth in paths for r in rooms(pth)]:
@@ -157,29 +229,40 @@ def main():
             # room, and cost real blackouts when the medicine is taken
             # away.
             swing = n[2] - w[2]
+            # ...AND THE FIGHTS, BESIDE THE BLACKOUTS. Medicine decides a
+            # room by keeping the party alive, so blackouts were the whole
+            # test. A status move can decide one without saving a life —
+            # it wins fights that would otherwise be lost — and a room
+            # where the stripped arm wipes no more often but clears two
+            # fewer fights is still a room that measures it.
+            gap = wf - nf
+            decides = swing >= a.trials / 2 or gap >= 0.15
             # A ROOM THAT WIPES YOU EVERY TRIAL IS NOT EASY. The rule
             # fell through to "won without healing at all" whenever the
             # blackout swing was zero, so Cerulean — which blacked the
             # party out in ALL FOUR trials with medicine and all four
             # without — was reported as too easy when it was beating
             # them outright (2026-09-15).
-            if w[2] >= a.trials and swing <= 0:
-                verdict = ("TOO HARD — it wipes every trial, with medicine "
-                           "and without")
-            elif wf >= 0.85 and swing >= a.trials / 2:
-                verdict = "CALIBRATED — the medicine is what wins it"
-            elif nf >= 0.85 and swing <= 0:
-                verdict = "TOO EASY — it is won without healing at all"
-            elif swing >= a.trials / 2:
-                verdict = (f"HARD — medicine decides it ({swing} fewer "
-                           f"blackouts) but only wins {wf:.0%}")
+            _by = (f"{swing} fewer blackout(s)" if swing > 0
+                   else f"{gap:.0%} more of the room")
+            if w[2] >= a.trials and not decides:
+                verdict = (f"TOO HARD — it wipes every trial, with {_noun} "
+                           f"and without")
+            elif wf >= 0.85 and decides:
+                verdict = f"CALIBRATED — the {_noun} is what wins it ({_by})"
+            elif nf >= 0.85 and not decides:
+                verdict = f"TOO EASY — it is won without {_doing} at all"
+            elif decides:
+                verdict = (f"HARD — the {_noun} decides it ({_by}) but only "
+                           f"wins {wf:.0%}")
             elif wf < 0.5:
-                verdict = "TOO HARD — healing does not save it"
-            elif swing <= 0:
-                verdict = "TOO EASY — healing costs it nothing"
+                verdict = f"TOO HARD — the {_noun} does not save it"
+            elif swing <= 0 and gap <= 0:
+                verdict = f"TOO EASY — the {_noun} costs it nothing"
             else:
-                verdict = (f"THIN — medicine is worth only {swing} "
-                           f"blackout(s) across {a.trials} trials")
+                verdict = (f"THIN — the {_noun} is worth {swing} blackout(s) "
+                           f"and {gap:+.0%} of the room over {a.trials} "
+                           f"trial(s)")
             unit = "trials won" if w[1] == a.trials else "fights"
             print(f"{room:16s} {w[0]:>3d}/{w[1]:<3d} b{w[2]:<2d} "
                   f"{n[0]:>4d}/{n[1]:<3d} b{n[2]:<2d} "
