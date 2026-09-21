@@ -15447,7 +15447,20 @@ class Executor:
         for reg, ex in (self.explored or {}).items():
             if reg.split("|")[0] == mid:
                 ever |= set(ex.keys())
-        allw = {f"{w.get('x')},{w.get('y')}" for w in (m.get("warps") or [])}
+        # ONLY THE DOORS THAT HAVE BEEN ON SCREEN. This read every warp in
+        # the map table, so the page named a doorway by its cell on ground
+        # the player had never laid eyes on: run 30 was told "ROUTE_2 has 3
+        # doorway(s) in total and 1 of them (12,9) are on part of it you
+        # have never stood on" having never seen (12,9) (2026-09-21). The
+        # footprint closed this everywhere else — the terrain picture draws
+        # unseen ground blank, the healing and shop walks gate on the same
+        # flag — and this line was the last reader of the raw table. The
+        # shim already says of each warp whether its cell has been seen.
+        # A floor is still known to be unfinished by its UNSEEN GROUND,
+        # which the footprint gives honestly; a door nobody has seen is not
+        # a door the run knows about.
+        allw = {f"{w.get('x')},{w.get('y')}" for w in (m.get("warps") or [])
+                if w.get("seen")}
         # DOORS YOU HAVE STOOD BESIDE BUT NEVER OPENED ARE NOT "PARTS YOU
         # HAVE NEVER STOOD ON". A region's frontier holds the doors seen
         # from ground actually walked, so the Route 16 gate's upper
@@ -15498,7 +15511,7 @@ class Executor:
         if unseen:
             floor_note += (
                 f"\nTHIS FLOOR IS NOT FINISHED. {mid} has {_n_doors} "
-                f"doorway(s) in total and {len(unseen)} of them "
+                f"doorway(s) you have SEEN and {len(unseen)} of them "
                 f"({', '.join(sorted(unseen))}) are on part of it you have "
                 f"never stood on — not reachable on foot from any spot "
                 f"you have stood in SO FAR. How to get there is not known: "

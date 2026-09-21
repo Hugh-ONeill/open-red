@@ -32,8 +32,15 @@ MANSION = {
 OBS = {"mode": "overworld", "player": {"x": 5, "y": 11}, "party": [],
        "map": {"id": "POKEMON_MANSION_1F", "region": "1,1", "objects": [],
                "connections": {},
-               "warps": [{"x": 5, "y": 10}, {"x": 5, "y": 27},
-                         {"x": 21, "y": 23}, {"x": 26, "y": 27}]}}
+               # seen: the shim marks every warp with whether its cell has
+               # been on screen, and the door count now reads that flag —
+               # a door nobody has laid eyes on is not named (2026-09-21).
+               # This floor's doors are ones the run has seen; the point
+               # being made here is about the HOLES.
+               "warps": [{"x": 5, "y": 10, "seen": True},
+                         {"x": 5, "y": 27, "seen": True},
+                         {"x": 21, "y": 23, "seen": True},
+                         {"x": 26, "y": 27, "seen": True}]}}
 
 
 def page(holes):
