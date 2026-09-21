@@ -1,64 +1,64 @@
 {
   "party": [
     {
-      "species": "PIDGEOT",
-      "level": 45,
+      "species": "KADABRA",
+      "level": 49,
       "moves": [
+        "PSYBEAM",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
+      ],
+      "nickname": "KADABRA"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 37,
+      "moves": [
+        "RAZOR_WIND",
         "QUICK_ATTACK",
-        "FLY",
-        "WING_ATTACK",
-        "AGILITY"
+        "WHIRLWIND",
+        "WING_ATTACK"
       ],
       "nickname": "PIDGEOT"
     },
     {
-      "species": "VILEPLUME",
-      "level": 43,
-      "moves": [
-        "MEGA_DRAIN",
-        "ACID",
-        "PETAL_DANCE",
-        "POISONPOWDER"
-      ],
-      "nickname": "VILEPLUME"
-    },
-    {
-      "species": "DUGTRIO",
-      "level": 44,
-      "moves": [
-        "EARTHQUAKE",
-        "DIG",
-        "SAND_ATTACK",
-        "SLASH"
-      ],
-      "nickname": "DUGTRIO"
-    },
-    {
-      "species": "CHARIZARD",
-      "level": 46,
+      "species": "VENUSAUR",
+      "level": 41,
       "moves": [
         "BODY_SLAM",
-        "RAGE",
-        "SLASH",
-        "FLAMETHROWER"
+        "VINE_WHIP",
+        "POISONPOWDER",
+        "RAZOR_LEAF"
       ],
-      "nickname": "CHARIZARD"
+      "nickname": "VENUSAUR"
     },
     {
-      "species": "HITMONLEE",
-      "level": 35,
+      "species": "GRAVELER",
+      "level": 32,
       "moves": [
-        "DOUBLE_KICK",
-        "MEDITATE",
-        "ROLLING_KICK"
+        "MEGA_PUNCH",
+        "ROCK_THROW",
+        "SELFDESTRUCT",
+        "EARTHQUAKE"
       ],
-      "nickname": "HITMONLEE"
+      "nickname": "GRAVELER"
+    },
+    {
+      "species": "LAPRAS",
+      "level": 15,
+      "moves": [
+        "WATER_GUN",
+        "GROWL"
+      ],
+      "nickname": "LAPRAS"
     }
   ],
   "bag": {
-    "HYPER_POTION": 5
+    "FRESH_WATER": 2,
+    "FULL_HEAL": 3
   },
-  "money": 34500,
+  "money": 23056,
   "start": {
     "map": "SAFFRON_GYM",
     "x": 8,

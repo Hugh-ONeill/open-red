@@ -1,54 +1,58 @@
 {
   "party": [
     {
-      "species": "GLOOM",
-      "level": 36,
+      "species": "KADABRA",
+      "level": 39,
       "moves": [
-        "POISONPOWDER",
-        "STUN_SPORE",
-        "SLEEP_POWDER",
-        "CUT"
+        "THUNDER_WAVE",
+        "PSYBEAM",
+        "RECOVER",
+        "PSYCHIC_M"
       ],
-      "nickname": "GLOOM"
+      "nickname": "KADABRA"
     },
     {
-      "species": "CHARIZARD",
-      "level": 40,
-      "moves": [
-        "EMBER",
-        "BODY_SLAM",
-        "RAGE",
-        "SLASH"
-      ],
-      "nickname": "CHARIZARD"
-    },
-    {
-      "species": "PIDGEOT",
-      "level": 41,
+      "species": "PIDGEOTTO",
+      "level": 32,
       "moves": [
         "SAND_ATTACK",
         "QUICK_ATTACK",
         "WHIRLWIND",
         "WING_ATTACK"
       ],
-      "nickname": "PIDGEOT"
+      "nickname": "PIDGEOTTO"
     },
     {
-      "species": "DUGTRIO",
-      "level": 34,
+      "species": "GRAVELER",
+      "level": 30,
       "moves": [
-        "SCRATCH",
-        "GROWL",
-        "DIG",
-        "SAND_ATTACK"
+        "MEGA_PUNCH",
+        "ROCK_THROW",
+        "SELFDESTRUCT",
+        "DIG"
       ],
-      "nickname": "DUGTRIO"
+      "nickname": "GRAVELER"
+    },
+    {
+      "species": "IVYSAUR",
+      "level": 31,
+      "moves": [
+        "BODY_SLAM",
+        "VINE_WHIP",
+        "POISONPOWDER",
+        "CUT"
+      ],
+      "nickname": "IVYSAUR"
     }
   ],
   "bag": {
-    "SUPER_POTION": 3
+    "ANTIDOTE": 1,
+    "BURN_HEAL": 5,
+    "FRESH_WATER": 3,
+    "PARLYZ_HEAL": 4,
+    "SUPER_POTION": 7
   },
-  "money": 13800,
+  "money": 18659,
   "start": {
     "map": "CELADON_GYM",
     "x": 4,

@@ -1,76 +1,63 @@
 {
   "party": [
     {
-      "species": "DUGTRIO",
-      "level": 47,
+      "species": "LAPRAS",
+      "level": 45,
       "moves": [
-        "DIG",
-        "SAND_ATTACK",
-        "SLASH",
-        "EARTHQUAKE"
+        "MIST",
+        "BODY_SLAM",
+        "CONFUSE_RAY",
+        "SURF"
       ],
-      "nickname": "DUGTRIO"
-    },
-    {
-      "species": "VILEPLUME",
-      "level": 48,
-      "moves": [
-        "MEGA_DRAIN",
-        "ACID",
-        "PETAL_DANCE",
-        "POISONPOWDER"
-      ],
-      "nickname": "VILEPLUME"
+      "nickname": "LAPRAS"
     },
     {
       "species": "PIDGEOT",
-      "level": 50,
+      "level": 48,
       "moves": [
         "QUICK_ATTACK",
-        "FLY",
+        "RAZOR_WIND",
         "WING_ATTACK",
-        "AGILITY"
+        "DOUBLE_TEAM"
       ],
       "nickname": "PIDGEOT"
     },
     {
-      "species": "GYARADOS",
-      "level": 30,
+      "species": "GRAVELER",
+      "level": 44,
       "moves": [
-        "BITE",
-        "DRAGON_RAGE",
-        "THUNDERBOLT",
-        "SURF"
+        "SELFDESTRUCT",
+        "HARDEN",
+        "EARTHQUAKE",
+        "EXPLOSION"
       ],
-      "nickname": "GYARADOS"
+      "nickname": "GRAVELER"
     },
     {
-      "species": "HITMONLEE",
-      "level": 46,
-      "moves": [
-        "MEDITATE",
-        "ROLLING_KICK",
-        "JUMP_KICK",
-        "FOCUS_ENERGY"
-      ],
-      "nickname": "HITMONLEE"
-    },
-    {
-      "species": "CHARIZARD",
+      "species": "VENUSAUR",
       "level": 47,
       "moves": [
-        "BODY_SLAM",
-        "RAGE",
-        "SLASH",
-        "FLAMETHROWER"
+        "VINE_WHIP",
+        "TOXIC",
+        "RAZOR_LEAF",
+        "GROWTH"
       ],
-      "nickname": "CHARIZARD"
+      "nickname": "VENUSAUR"
+    },
+    {
+      "species": "KADABRA",
+      "level": 53,
+      "moves": [
+        "PSYBEAM",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
+      ],
+      "nickname": "KADABRA"
     }
   ],
-  "bag": {
-    "HYPER_POTION": 5
-  },
-  "money": 57000,
+  "bag": {},
+  "money": 71861,
   "start": {
     "map": "CINNABAR_GYM",
     "x": 16,

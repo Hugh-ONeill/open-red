@@ -1,76 +1,63 @@
 {
   "party": [
     {
-      "species": "DUGTRIO",
-      "level": 52,
+      "species": "KADABRA",
+      "level": 55,
       "moves": [
-        "DIG",
-        "SAND_ATTACK",
-        "SLASH",
-        "EARTHQUAKE"
+        "PSYBEAM",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
       ],
-      "nickname": "DUGTRIO"
-    },
-    {
-      "species": "VILEPLUME",
-      "level": 46,
-      "moves": [
-        "MEGA_DRAIN",
-        "ACID",
-        "PETAL_DANCE",
-        "POISONPOWDER"
-      ],
-      "nickname": "VILEPLUME"
+      "nickname": "KADABRA"
     },
     {
       "species": "PIDGEOT",
-      "level": 50,
+      "level": 48,
       "moves": [
         "QUICK_ATTACK",
-        "FLY",
+        "RAZOR_WIND",
         "WING_ATTACK",
-        "AGILITY"
+        "DOUBLE_TEAM"
       ],
       "nickname": "PIDGEOT"
     },
     {
-      "species": "GYARADOS",
-      "level": 36,
+      "species": "GRAVELER",
+      "level": 44,
       "moves": [
-        "BITE",
-        "DRAGON_RAGE",
-        "THUNDERBOLT",
-        "SURF"
+        "SELFDESTRUCT",
+        "HARDEN",
+        "EARTHQUAKE",
+        "EXPLOSION"
       ],
-      "nickname": "GYARADOS"
+      "nickname": "GRAVELER"
     },
     {
-      "species": "HITMONLEE",
-      "level": 48,
-      "moves": [
-        "ROLLING_KICK",
-        "JUMP_KICK",
-        "FOCUS_ENERGY",
-        "HI_JUMP_KICK"
-      ],
-      "nickname": "HITMONLEE"
-    },
-    {
-      "species": "CHARIZARD",
+      "species": "LAPRAS",
       "level": 47,
       "moves": [
         "BODY_SLAM",
-        "RAGE",
-        "SLASH",
-        "FLAMETHROWER"
+        "CONFUSE_RAY",
+        "ICE_BEAM",
+        "SURF"
       ],
-      "nickname": "CHARIZARD"
+      "nickname": "LAPRAS"
+    },
+    {
+      "species": "VENUSAUR",
+      "level": 49,
+      "moves": [
+        "VINE_WHIP",
+        "TOXIC",
+        "RAZOR_LEAF",
+        "GROWTH"
+      ],
+      "nickname": "VENUSAUR"
     }
   ],
-  "bag": {
-    "HYPER_POTION": 5
-  },
-  "money": 69000,
+  "bag": {},
+  "money": 88801,
   "start": {
     "map": "VIRIDIAN_GYM",
     "x": 16,

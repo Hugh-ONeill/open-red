@@ -1,14 +1,14 @@
 {
   "party": [
     {
-      "species": "SQUIRTLE",
+      "species": "BULBASAUR",
       "level": 10,
       "moves": [
         "TACKLE",
-        "TAIL_WHIP",
-        "BUBBLE"
+        "GROWL",
+        "LEECH_SEED"
       ],
-      "nickname": "SQUIRTLE"
+      "nickname": "BULBASAUR"
     },
     {
       "species": "NIDORAN_M",

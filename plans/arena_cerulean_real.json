@@ -1,43 +1,49 @@
 {
   "party": [
     {
-      "species": "ODDISH",
-      "level": 19,
-      "moves": [
-        "ABSORB",
-        "POISONPOWDER",
-        "STUN_SPORE",
-        "SLEEP_POWDER"
-      ],
-      "nickname": "ODDISH"
-    },
-    {
-      "species": "CHARMELEON",
+      "species": "IVYSAUR",
       "level": 26,
       "moves": [
         "GROWL",
-        "EMBER",
-        "LEER",
-        "RAGE"
+        "LEECH_SEED",
+        "VINE_WHIP",
+        "POISONPOWDER"
       ],
-      "nickname": "CHARMELEON"
+      "nickname": "IVYSAUR"
+    },
+    {
+      "species": "ABRA",
+      "level": 13,
+      "moves": [
+        "TELEPORT"
+      ],
+      "nickname": "ABRA"
     },
     {
       "species": "PIDGEOTTO",
-      "level": 18,
+      "level": 21,
       "moves": [
         "GUST",
         "SAND_ATTACK",
-        "QUICK_ATTACK"
+        "QUICK_ATTACK",
+        "WHIRLWIND"
       ],
       "nickname": "PIDGEOTTO"
+    },
+    {
+      "species": "GEODUDE",
+      "level": 20,
+      "moves": [
+        "TACKLE",
+        "DEFENSE_CURL",
+        "ROCK_THROW",
+        "MEGA_PUNCH"
+      ],
+      "nickname": "GEODUDE"
     }
   ],
-  "bag": {
-    "POTION": 5,
-    "ANTIDOTE": 1
-  },
-  "money": 2400,
+  "bag": {},
+  "money": 2756,
   "start": {
     "map": "CERULEAN_GYM",
     "x": 4,

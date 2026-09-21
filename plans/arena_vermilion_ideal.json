@@ -11,15 +11,15 @@
       "nickname": "DIGLETT"
     },
     {
-      "species": "CHARMELEON",
+      "species": "IVYSAUR",
       "level": 20,
       "moves": [
-        "SCRATCH",
+        "TACKLE",
         "BODY_SLAM",
-        "EMBER",
-        "LEER"
+        "LEECH_SEED",
+        "VINE_WHIP"
       ],
-      "nickname": "CHARMELEON"
+      "nickname": "IVYSAUR"
     },
     {
       "species": "PIDGEOTTO",

@@ -266,6 +266,21 @@ def pick_base(want_badges: int) -> Path | None:
 # work: three SUPER_POTIONs in the bag, a CHARIZARD blacking out to Erika
 # (07:18, 2026-09-15, the rule naming an item the bag did not hold).
 #
+# ...AND THE STARTER IS BULBASAUR'S LINE NOW (user, 2026-09-21: "revamp
+# with pref bulba for ideal and def bulba for realistic"). Both paths were
+# built around CHARMANDER because the runs on record carried one and the
+# ideal path preferred its line. The starter question was decided by which
+# ball was listed first until 2026-09-21, and BULBASAUR won 1 draw in 3 by
+# the shuffle; asked to say what each ball answers before it names one, it
+# takes BULBASAUR or SQUIRTLE 40 times out of 40. So the party a run brings
+# to these rooms has changed, and the rooms had not. WHICH ROOMS ARE HARD
+# MOVES WITH IT: CHARMANDER could not answer Brock or Misty, and those two
+# borrowed a starter; BULBASAUR answers both and is answered itself by
+# Sabrina and Blaine, where the borrowed answer now stands. Every level is
+# the level the room was calibrated at — only the species moved — so the
+# calibration has to be taken again (calibrate_arenas.py), and where a room
+# comes back too easy it is the level or the bodies that want changing.
+#
 # THE IDEAL PATH HAS AS MANY BODIES AS THE LEADER, at a reasonable level
 # — five under the ace — so that nothing but the medicine and the play
 # decides it (user, 2026-09-15: "ideal should use the least amount of
@@ -304,12 +319,12 @@ GYMS = [
     dict(name="pewter", map="PEWTER_GYM", leader="BROCK", ace=14,
          badges=0, door=(4, 13), puzzle=False,
          paths=dict(
-             real=dict(party=[("CHARMANDER", 14), ("PIDGEY", 10)],
-                       bag={"POTION": 5}, money=1600,
-                       note="Both model-authored runs walked in with the "
-                            "starter alone, L13-14, and blacked out four "
-                            "times (Aug 28) and once (Sep 6) before the "
-                            "badge; the bird is the user's call."),
+             real=dict(party=[("BULBASAUR", 15), ("PIDGEY", 13)],
+             bag={"ANTIDOTE": 1}, money=1439,
+             note="Run 27's own party at BROCK, read from its save (2026-09-21): the "
+                  "first Hall of Fame run that started on BULBASAUR, which the starter "
+                  "question now picks nearly every time. Its medicine and money are the "
+                  "save's too — ANTIDOTE x1, 1439 unspent."),
              # THREE UNDER, MEASURED FROM BOTH SIDES. At 10 the room was
              # calibrated under v12 and lost under v13 with the bag full:
              # a 20-power BUBBLE against ONIX is a long fight, and a solo
@@ -320,7 +335,7 @@ GYMS = [
              # above it, because BUBBLE and ONIX's chip are both slow. So
              # ten, the one level that separated v12 from v13 on their
              # per-fight caps (user, 2026-09-15: "put squirt back to 10").
-             ideal=dict(party=[("SQUIRTLE", 10), ("NIDORAN_M", 10)],
+             ideal=dict(party=[("BULBASAUR", 10), ("NIDORAN_M", 10)],
                         bag={"POTION": 8}, money=2000,
                         note="SQUIRTLE's BUBBLE is the answer, four under "
                              "the ace, and alone: the starter IS the "
@@ -330,14 +345,13 @@ GYMS = [
     dict(name="cerulean", map="CERULEAN_GYM", leader="MISTY", ace=21,
          badges=1, door=(4, 13), puzzle=False,
          paths=dict(
-             real=dict(party=[("ODDISH", 19), ("CHARMELEON", 26),
-                              ("PIDGEOTTO", 18)],
-                       bag={"POTION": 5, "ANTIDOTE": 1}, money=2400,
-                       note="The ODDISH led in both runs, caught for the "
-                            "'WATER or GRASS' leg and sent out at 16-19 "
-                            "against a L21 STARMIE. Five POTIONs is what "
-                            "the counter question bought here, on "
-                            "record."),
+             real=dict(party=[("IVYSAUR", 26), ("ABRA", 13), ("PIDGEOTTO", 21),
+                   ("GEODUDE", 20, ["MEGA_PUNCH"])],
+             bag={}, money=2756,
+             note="Run 27's own party at MISTY, read from its save (2026-09-21): the "
+                  "first Hall of Fame run that started on BULBASAUR, which the starter "
+                  "question now picks nearly every time. Its medicine and money are the "
+                  "save's too — nothing at all, 2756 unspent."),
              # FIVE UNDER WAS NOT REASONABLE ALONE. At 16 the room wiped
              # both arms, ten POTIONs and all: 4/6 with medicine, 4/6
              # without, STARMIE taking it every trial (2026-09-15). A
@@ -366,18 +380,16 @@ GYMS = [
          badges=2, door=(4, 17), puzzle=False,
          open_flags=["EVENT_1ST_LOCK_OPENED", "EVENT_2ND_LOCK_OPENED"],
          paths=dict(
-             real=dict(party=[("CHARIZARD", 37, ["BODY_SLAM"]),
-                              ("PIDGEOTTO", 29), ("GLOOM", 25)],
-                       bag={"POTION": 3, "SUPER_POTION": 5}, money=8000,
-                       note="The Sep 6 run's room less its GYARADOS: that "
-                            "run had one at 24 here, but a run gets its "
-                            "water from an Old Rod MAGIKARP when it is "
-                            "forced to find a SURF member for Cinnabar, "
-                            "not before (user, 2026-09-15). The starter "
-                            "thirteen over the ace. The bag is run 17's "
-                            "at this door, on record."),
+             real=dict(party=[("GEODUDE", 21, ["MEGA_PUNCH", "DIG"]),
+                   ("KADABRA", 25, ["THUNDER_WAVE"]), ("PIDGEOTTO", 22),
+                   ("IVYSAUR", 29, ["BODY_SLAM"])],
+             bag={}, money=9342,
+             note="Run 27's own party at LT_SURGE, read from its save (2026-09-21): the "
+                  "first Hall of Fame run that started on BULBASAUR, which the starter "
+                  "question now picks nearly every time. Its medicine and money are the "
+                  "save's too — nothing at all, 9342 unspent."),
              ideal=dict(party=[("DIGLETT", 19),
-                               ("CHARMELEON", 20, ["BODY_SLAM"]),
+                               ("IVYSAUR", 20, ["BODY_SLAM"]),
                                ("PIDGEOTTO", 19)],
                         bag={"POTION": 5, "SUPER_POTION": 6,
                              "PARLYZ_HEAL": 3}, money=5000,
@@ -388,17 +400,17 @@ GYMS = [
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
          badges=3, needs_cut=True, door=(4, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("GLOOM", 36), ("CHARIZARD", 40, ["BODY_SLAM"]),
-                              ("PIDGEOT", 41), ("DUGTRIO", 34)],
-                       bag={"SUPER_POTION": 3}, money=13800,
-                       note="GLOOM led (Aug 28), a PIDGEOTTO on Sep 6, so "
-                            "the GLOOM stands first and carries CUT in "
-                            "place of ACID (DUGTRIO cannot learn it, and "
-                            "on the CHARIZARD it cost SLASH). Three "
-                            "SUPER_POTIONs is the bag run 17 blacked out "
-                            "with here."),
+             real=dict(party=[("KADABRA", 39, ["THUNDER_WAVE"]), ("PIDGEOTTO", 32),
+                   ("GRAVELER", 30, ["MEGA_PUNCH", "DIG"]),
+                   ("IVYSAUR", 31, ["BODY_SLAM"])],
+             bag={"ANTIDOTE": 1, "BURN_HEAL": 5, "FRESH_WATER": 3, "PARLYZ_HEAL": 4, "SUPER_POTION": 7}, money=18659,
+             note="Run 27's own party at ERIKA, read from its save (2026-09-21): the "
+                  "first Hall of Fame run that started on BULBASAUR, which the starter "
+                  "question now picks nearly every time. Its medicine and money are the "
+                  "save's too — ANTIDOTE x1, BURN_HEAL x5, FRESH_WATER x3, PARLYZ_HEAL "
+                  "x4, SUPER_POTION x7, 18659 unspent."),
              ideal=dict(party=[("FEAROW", 24),
-                               ("CHARMELEON", 25, ["BODY_SLAM"]),
+                               ("IVYSAUR", 25, ["BODY_SLAM"]),
                                ("KADABRA", 25)],
                         hms=["FLY"],
                         bag={"SUPER_POTION": 8, "FULL_HEAL": 3,
@@ -410,18 +422,18 @@ GYMS = [
     dict(name="fuchsia", map="FUCHSIA_GYM", leader="KOGA", ace=43,
          badges=4, door=(4, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("PIDGEOT", 47, ["FLY"]),
-                              ("VILEPLUME", 44, ["MEGA_DRAIN"]),
-                              ("DUGTRIO", 46, ["EARTHQUAKE"]),
-                              ("CHARIZARD", 46, ["BODY_SLAM"]),
-                              ("HITMONLEE", 40)],
-                       bag={"SUPER_POTION": 5}, money=12800,
-                       note="PIDGEOT led (Aug 28), DUGTRIO on Sep 6. Both "
-                            "outlines did Sabrina before Koga, so this "
-                            "party is the Saffron one a few levels on, "
-                            "and Silph's EARTHQUAKE is already had."),
+             real=dict(party=[("GRAVELER", 41),
+                   ("PIDGEOT", 47, ["RAZOR_WIND", "TAKE_DOWN"]),
+                   ("VENUSAUR", 45, ["BODY_SLAM"]),
+                   ("KADABRA", 52, ["THUNDER_WAVE"]), ("LAPRAS", 44)],
+             bag={"FRESH_WATER": 2, "MAX_REVIVE": 1, "REVIVE": 2, "SUPER_POTION": 4}, money=22798,
+             note="Run 27's own party at KOGA, read from its save (2026-09-21): the first "
+                  "Hall of Fame run that started on BULBASAUR, which the starter question "
+                  "now picks nearly every time. Its medicine and money are the save's too "
+                  "— FRESH_WATER x2, MAX_REVIVE x1, REVIVE x2, SUPER_POTION x4, 22798 "
+                  "unspent."),
              ideal=dict(party=[("KADABRA", 38),
-                               ("CHARIZARD", 38, ["BODY_SLAM"]),
+                               ("VENUSAUR", 38, ["BODY_SLAM"]),
                                ("DUGTRIO", 38), ("FEAROW", 37, ["FLY"])],
                         bag={"SUPER_POTION": 10, "ANTIDOTE": 4,
                              "FULL_HEAL": 2, "REVIVE": 3}, money=20000,
@@ -436,18 +448,18 @@ GYMS = [
          badges=5, door=(8, 17), puzzle=False,
          score_only=["EVENT_BEAT_SABRINA"], fights=5,
          paths=dict(
-             real=dict(party=[("PIDGEOT", 45, ["FLY"]),
-                              ("VILEPLUME", 43, ["MEGA_DRAIN"]),
-                              ("DUGTRIO", 44, ["EARTHQUAKE"]),
-                              ("CHARIZARD", 46, ["BODY_SLAM"]),
-                              ("HITMONLEE", 35)],
-                       bag={"HYPER_POTION": 5}, money=34500,
-                       note="PIDGEOT led (Aug 28), DUGTRIO on Sep 6; the "
-                            "HITMONLEE is fresh from the Dojo at 35, "
-                            "since both outlines did this gym before "
-                            "Koga."),
+             real=dict(party=[("KADABRA", 49, ["THUNDER_WAVE"]),
+                   ("PIDGEOT", 37, ["RAZOR_WIND"]),
+                   ("VENUSAUR", 41, ["BODY_SLAM"]),
+                   ("GRAVELER", 32, ["MEGA_PUNCH", "EARTHQUAKE"]),
+                   ("LAPRAS", 15)],
+             bag={"FRESH_WATER": 2, "FULL_HEAL": 3}, money=23056,
+             note="Run 27's own party at SABRINA, read from its save (2026-09-21): the "
+                  "first Hall of Fame run that started on BULBASAUR, which the starter "
+                  "question now picks nearly every time. Its medicine and money are the "
+                  "save's too — FRESH_WATER x2, FULL_HEAL x3, 23056 unspent."),
              ideal=dict(party=[("SNORLAX", 38, ["EARTHQUAKE"]),
-                               ("CHARIZARD", 38, ["BODY_SLAM"]),
+                               ("VENUSAUR", 38, ["BODY_SLAM"]),
                                ("DUGTRIO", 38, ["EARTHQUAKE"]),
                                ("KADABRA", 38)],
                         bag={"HYPER_POTION": 8, "FULL_HEAL": 3,
@@ -464,18 +476,17 @@ GYMS = [
     dict(name="cinnabar", map="CINNABAR_GYM", hms=["SURF"], leader="BLAINE",
          ace=47, badges=6, door=(16, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("DUGTRIO", 47), ("VILEPLUME", 48, ["MEGA_DRAIN"]),
-                              ("PIDGEOT", 50, ["FLY"]),
-                              ("GYARADOS", 30, ["THUNDERBOLT"]),
-                              ("HITMONLEE", 46),
-                              ("CHARIZARD", 47, ["BODY_SLAM"])],
-                       bag={"HYPER_POTION": 5}, money=57000,
-                       note="DUGTRIO led (Aug 28), GLOOM on Sep 6. The "
-                            "GYARADOS is the Old Rod MAGIKARP raised to "
-                            "evolve and carry SURF for the crossing, so "
-                            "it arrives low (user, 2026-09-15)."),
+             real=dict(party=[("LAPRAS", 45),
+                   ("PIDGEOT", 48, ["RAZOR_WIND", "DOUBLE_TEAM"]),
+                   ("GRAVELER", 44), ("VENUSAUR", 47, ["TOXIC"]),
+                   ("KADABRA", 53, ["THUNDER_WAVE"])],
+             bag={}, money=71861,
+             note="Run 27's own party at BLAINE, read from its save (2026-09-21): the "
+                  "first Hall of Fame run that started on BULBASAUR, which the starter "
+                  "question now picks nearly every time. Its medicine and money are the "
+                  "save's too — nothing at all, 71861 unspent."),
              ideal=dict(party=[("STARMIE", 42, ["BUBBLEBEAM", "THUNDERBOLT", "ICE_BEAM"]),
-                               ("CHARIZARD", 42, ["BODY_SLAM"]),
+                               ("VENUSAUR", 42, ["BODY_SLAM"]),
                                ("DUGTRIO", 42),
                                ("SNORLAX", 42, ["EARTHQUAKE"])],
                         bag={"HYPER_POTION": 8, "BURN_HEAL": 3,
@@ -491,18 +502,17 @@ GYMS = [
     dict(name="viridian", map="VIRIDIAN_GYM", hms=["SURF"], leader="GIOVANNI",
          ace=50, badges=7, door=(16, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("DUGTRIO", 52), ("VILEPLUME", 46, ["MEGA_DRAIN"]),
-                              ("PIDGEOT", 50, ["FLY"]),
-                              ("GYARADOS", 36, ["THUNDERBOLT"]),
-                              ("HITMONLEE", 48),
-                              ("CHARIZARD", 47, ["BODY_SLAM"])],
-                       bag={"HYPER_POTION": 5}, money=69000,
-                       note="DUGTRIO led (Aug 28), HITMONLEE on Sep 6; the "
-                            "Sep 6 roster at Giovanni with the late "
-                            "GYARADOS six levels on. RHYDON L50 against "
-                            "a L36 GYARADOS's SURF is the fight."),
+             real=dict(party=[("KADABRA", 55, ["THUNDER_WAVE"]),
+                   ("PIDGEOT", 48, ["RAZOR_WIND", "DOUBLE_TEAM"]),
+                   ("GRAVELER", 44), ("LAPRAS", 47),
+                   ("VENUSAUR", 49, ["TOXIC"])],
+             bag={}, money=88801,
+             note="Run 27's own party at GIOVANNI, read from its save (2026-09-21): the "
+                  "first Hall of Fame run that started on BULBASAUR, which the starter "
+                  "question now picks nearly every time. Its medicine and money are the "
+                  "save's too — nothing at all, 88801 unspent."),
              ideal=dict(party=[("STARMIE", 45, ["BUBBLEBEAM", "THUNDERBOLT", "ICE_BEAM"]),
-                               ("CHARIZARD", 45, ["BODY_SLAM"]),
+                               ("VENUSAUR", 45, ["BODY_SLAM"]),
                                ("LAPRAS", 45), ("KADABRA", 45),
                                ("SNORLAX", 45, ["EARTHQUAKE"])],
                         bag={"HYPER_POTION": 8, "FULL_HEAL": 3,
@@ -519,17 +529,17 @@ GYMS = [
          league=True, base=REPO / "run/arena_e4.lua", door=(4, 11),
          puzzle=False, hms=["SURF"],
          paths=dict(
-             real=dict(party=[("VILEPLUME", 54, ["MEGA_DRAIN"]),
-                              ("HITMONLEE", 57),
-                              ("PIDGEOT", 54, ["FLY"]),
-                              ("CHARIZARD", 55, ["BODY_SLAM"]),
-                              ("GYARADOS", 54, ["THUNDERBOLT"]),
-                              ("DUGTRIO", 54)],
-                       bag={"FULL_RESTORE": 5}, money=48500,
-                       note="The Sep 6 run's first league attempt, with "
-                            "the stone: GLOOM led, six at 54-57 against "
-                            "a Lance at 58-62, and it fell to the "
-                            "Champion. Four attempts in all."))),
+             real=dict(party=[("LAPRAS", 63), ("MACHOKE", 50),
+                   ("VENUSAUR", 55, ["TOXIC"]), ("GRAVELER", 50),
+                   ("KADABRA", 61, ["THUNDER_WAVE"]),
+                   ("PIDGEOT", 50, ["RAZOR_WIND", "DOUBLE_TEAM"])],
+             bag={"FULL_RESTORE": 2, "MAX_POTION": 2}, money=31859,
+             note="Run 27's own party at the league, read from its save (2026-09-21): the "
+                  "first Hall of Fame run that started on BULBASAUR, which the starter "
+                  "question now picks nearly every time. Its medicine and money are the "
+                  "save's too — FULL_RESTORE x2, MAX_POTION x2, 31859 unspent. The MACHOP "
+                  "it carried at L24 among a party in the fifties was a dead slot; it "
+                  "stands here as the MACHOKE it would have been (user, 2026-09-21)."))),
 ]
 
 

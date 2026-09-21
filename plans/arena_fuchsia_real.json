@@ -1,65 +1,68 @@
 {
   "party": [
     {
+      "species": "GRAVELER",
+      "level": 41,
+      "moves": [
+        "ROCK_THROW",
+        "SELFDESTRUCT",
+        "HARDEN",
+        "EARTHQUAKE"
+      ],
+      "nickname": "GRAVELER"
+    },
+    {
       "species": "PIDGEOT",
       "level": 47,
       "moves": [
         "QUICK_ATTACK",
-        "FLY",
+        "RAZOR_WIND",
         "WING_ATTACK",
-        "AGILITY"
+        "TAKE_DOWN"
       ],
       "nickname": "PIDGEOT"
     },
     {
-      "species": "VILEPLUME",
+      "species": "VENUSAUR",
+      "level": 45,
+      "moves": [
+        "VINE_WHIP",
+        "BODY_SLAM",
+        "RAZOR_LEAF",
+        "GROWTH"
+      ],
+      "nickname": "VENUSAUR"
+    },
+    {
+      "species": "KADABRA",
+      "level": 52,
+      "moves": [
+        "PSYBEAM",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
+      ],
+      "nickname": "KADABRA"
+    },
+    {
+      "species": "LAPRAS",
       "level": 44,
       "moves": [
-        "MEGA_DRAIN",
-        "ACID",
-        "PETAL_DANCE",
-        "POISONPOWDER"
-      ],
-      "nickname": "VILEPLUME"
-    },
-    {
-      "species": "DUGTRIO",
-      "level": 46,
-      "moves": [
-        "EARTHQUAKE",
-        "DIG",
-        "SAND_ATTACK",
-        "SLASH"
-      ],
-      "nickname": "DUGTRIO"
-    },
-    {
-      "species": "CHARIZARD",
-      "level": 46,
-      "moves": [
+        "MIST",
         "BODY_SLAM",
-        "RAGE",
-        "SLASH",
-        "FLAMETHROWER"
+        "CONFUSE_RAY",
+        "ICE_BEAM"
       ],
-      "nickname": "CHARIZARD"
-    },
-    {
-      "species": "HITMONLEE",
-      "level": 40,
-      "moves": [
-        "DOUBLE_KICK",
-        "MEDITATE",
-        "ROLLING_KICK",
-        "JUMP_KICK"
-      ],
-      "nickname": "HITMONLEE"
+      "nickname": "LAPRAS"
     }
   ],
   "bag": {
-    "SUPER_POTION": 5
+    "FRESH_WATER": 2,
+    "MAX_REVIVE": 1,
+    "REVIVE": 2,
+    "SUPER_POTION": 4
   },
-  "money": 12800,
+  "money": 22798,
   "start": {
     "map": "FUCHSIA_GYM",
     "x": 4,

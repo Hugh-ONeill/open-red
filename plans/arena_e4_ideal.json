@@ -1,113 +1,113 @@
 {
-  "party": [
-    {
-      "species": "CHARIZARD",
-      "level": 50,
-      "nickname": "CHARIZARD",
-      "moves": [
-        "FLAMETHROWER",
-        "SLASH",
-        "EARTHQUAKE",
-        "FIRE_BLAST"
-      ]
-    },
-    {
-      "species": "STARMIE",
-      "level": 50,
-      "nickname": "STARMIE",
-      "moves": [
-        "SURF",
-        "PSYCHIC_M",
-        "THUNDERBOLT",
-        "RECOVER"
-      ]
-    },
-    {
-      "species": "ALAKAZAM",
-      "level": 50,
-      "nickname": "ALAKAZAM",
-      "moves": [
-        "PSYCHIC_M",
-        "RECOVER",
-        "THUNDER_WAVE",
-        "SEISMIC_TOSS"
-      ]
-    },
-    {
-      "species": "SNORLAX",
-      "level": 50,
-      "nickname": "SNORLAX",
-      "moves": [
-        "BODY_SLAM",
-        "EARTHQUAKE",
-        "REST",
-        "HYPER_BEAM"
-      ]
-    },
-    {
-      "species": "JOLTEON",
-      "level": 50,
-      "nickname": "JOLTEON",
-      "moves": [
-        "THUNDERBOLT",
-        "THUNDER_WAVE",
-        "DOUBLE_KICK",
-        "PIN_MISSILE"
-      ]
-    },
-    {
-      "species": "LAPRAS",
-      "level": 50,
-      "nickname": "LAPRAS",
-      "moves": [
-        "ICE_BEAM",
-        "SURF",
-        "THUNDERBOLT",
-        "BODY_SLAM"
-      ]
-    }
-  ],
-  "bag": {
-    "FULL_RESTORE": 10,
-    "MAX_POTION": 6,
-    "REVIVE": 10,
-    "FULL_HEAL": 6,
-    "ULTRA_BALL": 3
+ "party": [
+  {
+   "species": "VENUSAUR",
+   "level": 50,
+   "nickname": "VENUSAUR",
+   "moves": [
+    "RAZOR_LEAF",
+    "BODY_SLAM",
+    "SOLARBEAM",
+    "SLEEP_POWDER"
+   ]
   },
-  "money": 50000,
-  "start": {
-    "map": "LORELEIS_ROOM",
-    "x": 4,
-    "y": 11,
-    "facing": "up"
+  {
+   "species": "STARMIE",
+   "level": 50,
+   "nickname": "STARMIE",
+   "moves": [
+    "SURF",
+    "PSYCHIC_M",
+    "THUNDERBOLT",
+    "RECOVER"
+   ]
   },
-  "clear_flags": [
-    "EVENT_BEAT_LORELEIS_ROOM_TRAINER_0",
-    "EVENT_BEAT_BRUNOS_ROOM_TRAINER_0",
-    "EVENT_BEAT_AGATHAS_ROOM_TRAINER_0",
-    "EVENT_BEAT_LANCE",
-    "EVENT_BEAT_CHAMPION_RIVAL",
-    "EVENT_BEAT_LORELEI",
-    "EVENT_BEAT_BRUNO",
-    "EVENT_BEAT_AGATHA",
-    "EVENT_BEAT_CHAMPION_RIVAL_THIS_RUN",
-    "EVENT_LANCES_ROOM_LOCK_DOOR",
-    "EVENT_AUTOWALKED_INTO_LORELEIS_ROOM",
-    "EVENT_AUTOWALKED_INTO_BRUNOS_ROOM",
-    "EVENT_AUTOWALKED_INTO_AGATHAS_ROOM",
-    "EVENT_BEAT_LANCES_ROOM_TRAINER_0",
-    "EVENT_STARTED_ELITE_4"
-  ],
-  "clear_trainers": [
-    "AGATHAS_ROOM_obj_1",
-    "AGATHAS_ROOM_obj_2",
-    "BRUNOS_ROOM_obj_1",
-    "BRUNOS_ROOM_obj_2",
-    "CHAMPIONS_ROOM_obj_1",
-    "CHAMPIONS_ROOM_obj_2",
-    "LANCES_ROOM_obj_1",
-    "LANCES_ROOM_obj_2",
-    "LORELEIS_ROOM_obj_1",
-    "LORELEIS_ROOM_obj_2"
-  ]
+  {
+   "species": "ALAKAZAM",
+   "level": 50,
+   "nickname": "ALAKAZAM",
+   "moves": [
+    "PSYCHIC_M",
+    "RECOVER",
+    "THUNDER_WAVE",
+    "SEISMIC_TOSS"
+   ]
+  },
+  {
+   "species": "SNORLAX",
+   "level": 50,
+   "nickname": "SNORLAX",
+   "moves": [
+    "BODY_SLAM",
+    "EARTHQUAKE",
+    "REST",
+    "HYPER_BEAM"
+   ]
+  },
+  {
+   "species": "JOLTEON",
+   "level": 50,
+   "nickname": "JOLTEON",
+   "moves": [
+    "THUNDERBOLT",
+    "THUNDER_WAVE",
+    "DOUBLE_KICK",
+    "PIN_MISSILE"
+   ]
+  },
+  {
+   "species": "LAPRAS",
+   "level": 50,
+   "nickname": "LAPRAS",
+   "moves": [
+    "ICE_BEAM",
+    "SURF",
+    "THUNDERBOLT",
+    "BODY_SLAM"
+   ]
+  }
+ ],
+ "bag": {
+  "FULL_RESTORE": 10,
+  "MAX_POTION": 6,
+  "REVIVE": 10,
+  "FULL_HEAL": 6,
+  "ULTRA_BALL": 3
+ },
+ "money": 50000,
+ "start": {
+  "map": "LORELEIS_ROOM",
+  "x": 4,
+  "y": 11,
+  "facing": "up"
+ },
+ "clear_flags": [
+  "EVENT_BEAT_LORELEIS_ROOM_TRAINER_0",
+  "EVENT_BEAT_BRUNOS_ROOM_TRAINER_0",
+  "EVENT_BEAT_AGATHAS_ROOM_TRAINER_0",
+  "EVENT_BEAT_LANCE",
+  "EVENT_BEAT_CHAMPION_RIVAL",
+  "EVENT_BEAT_LORELEI",
+  "EVENT_BEAT_BRUNO",
+  "EVENT_BEAT_AGATHA",
+  "EVENT_BEAT_CHAMPION_RIVAL_THIS_RUN",
+  "EVENT_LANCES_ROOM_LOCK_DOOR",
+  "EVENT_AUTOWALKED_INTO_LORELEIS_ROOM",
+  "EVENT_AUTOWALKED_INTO_BRUNOS_ROOM",
+  "EVENT_AUTOWALKED_INTO_AGATHAS_ROOM",
+  "EVENT_BEAT_LANCES_ROOM_TRAINER_0",
+  "EVENT_STARTED_ELITE_4"
+ ],
+ "clear_trainers": [
+  "AGATHAS_ROOM_obj_1",
+  "AGATHAS_ROOM_obj_2",
+  "BRUNOS_ROOM_obj_1",
+  "BRUNOS_ROOM_obj_2",
+  "CHAMPIONS_ROOM_obj_1",
+  "CHAMPIONS_ROOM_obj_2",
+  "LANCES_ROOM_obj_1",
+  "LANCES_ROOM_obj_2",
+  "LORELEIS_ROOM_obj_1",
+  "LORELEIS_ROOM_obj_2"
+ ]
 }

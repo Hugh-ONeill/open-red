@@ -12,15 +12,15 @@
       "nickname": "STARMIE"
     },
     {
-      "species": "CHARIZARD",
+      "species": "VENUSAUR",
       "level": 45,
       "moves": [
-        "EMBER",
+        "VINE_WHIP",
         "BODY_SLAM",
-        "RAGE",
-        "SLASH"
+        "RAZOR_LEAF",
+        "GROWTH"
       ],
-      "nickname": "CHARIZARD"
+      "nickname": "VENUSAUR"
     },
     {
       "species": "LAPRAS",

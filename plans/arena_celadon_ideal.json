@@ -12,15 +12,15 @@
       "nickname": "FEAROW"
     },
     {
-      "species": "CHARMELEON",
+      "species": "IVYSAUR",
       "level": 25,
       "moves": [
         "BODY_SLAM",
-        "EMBER",
-        "LEER",
+        "LEECH_SEED",
+        "VINE_WHIP",
         "CUT"
       ],
-      "nickname": "CHARMELEON"
+      "nickname": "IVYSAUR"
     },
     {
       "species": "KADABRA",

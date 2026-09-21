@@ -1,19 +1,30 @@
 {
   "party": [
     {
-      "species": "CHARIZARD",
-      "level": 37,
+      "species": "GEODUDE",
+      "level": 21,
       "moves": [
-        "EMBER",
-        "BODY_SLAM",
-        "RAGE",
-        "SLASH"
+        "DIG",
+        "MEGA_PUNCH",
+        "ROCK_THROW",
+        "SELFDESTRUCT"
       ],
-      "nickname": "CHARIZARD"
+      "nickname": "GEODUDE"
+    },
+    {
+      "species": "KADABRA",
+      "level": 25,
+      "moves": [
+        "TELEPORT",
+        "CONFUSION",
+        "DISABLE",
+        "THUNDER_WAVE"
+      ],
+      "nickname": "KADABRA"
     },
     {
       "species": "PIDGEOTTO",
-      "level": 29,
+      "level": 22,
       "moves": [
         "GUST",
         "SAND_ATTACK",
@@ -23,22 +34,19 @@
       "nickname": "PIDGEOTTO"
     },
     {
-      "species": "GLOOM",
-      "level": 25,
+      "species": "IVYSAUR",
+      "level": 29,
       "moves": [
-        "ABSORB",
-        "POISONPOWDER",
-        "STUN_SPORE",
-        "SLEEP_POWDER"
+        "BODY_SLAM",
+        "LEECH_SEED",
+        "VINE_WHIP",
+        "POISONPOWDER"
       ],
-      "nickname": "GLOOM"
+      "nickname": "IVYSAUR"
     }
   ],
-  "bag": {
-    "POTION": 3,
-    "SUPER_POTION": 5
-  },
-  "money": 8000,
+  "bag": {},
+  "money": 9342,
   "start": {
     "map": "VERMILION_GYM",
     "x": 4,

@@ -1,29 +1,31 @@
 {
   "party": [
     {
-      "species": "CHARMANDER",
-      "level": 14,
+      "species": "BULBASAUR",
+      "level": 15,
       "moves": [
-        "SCRATCH",
+        "TACKLE",
         "GROWL",
-        "EMBER"
+        "LEECH_SEED",
+        "VINE_WHIP"
       ],
-      "nickname": "CHARMANDER"
+      "nickname": "BULBASAUR"
     },
     {
       "species": "PIDGEY",
-      "level": 10,
+      "level": 13,
       "moves": [
         "GUST",
-        "SAND_ATTACK"
+        "SAND_ATTACK",
+        "QUICK_ATTACK"
       ],
       "nickname": "PIDGEY"
     }
   ],
   "bag": {
-    "POTION": 5
+    "ANTIDOTE": 1
   },
-  "money": 1600,
+  "money": 1439,
   "start": {
     "map": "PEWTER_GYM",
     "x": 4,

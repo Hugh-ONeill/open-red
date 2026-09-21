@@ -1,76 +1,77 @@
 {
   "party": [
     {
-      "species": "VILEPLUME",
-      "level": 54,
+      "species": "LAPRAS",
+      "level": 63,
       "moves": [
-        "MEGA_DRAIN",
-        "ACID",
-        "PETAL_DANCE",
-        "POISONPOWDER"
+        "BODY_SLAM",
+        "CONFUSE_RAY",
+        "ICE_BEAM",
+        "SURF"
       ],
-      "nickname": "VILEPLUME"
+      "nickname": "LAPRAS"
     },
     {
-      "species": "HITMONLEE",
-      "level": 57,
+      "species": "MACHOKE",
+      "level": 50,
       "moves": [
-        "JUMP_KICK",
+        "LOW_KICK",
+        "LEER",
         "FOCUS_ENERGY",
-        "HI_JUMP_KICK",
-        "MEGA_KICK"
+        "SEISMIC_TOSS"
       ],
-      "nickname": "HITMONLEE"
+      "nickname": "MACHOKE"
+    },
+    {
+      "species": "VENUSAUR",
+      "level": 55,
+      "moves": [
+        "TOXIC",
+        "RAZOR_LEAF",
+        "GROWTH",
+        "SLEEP_POWDER"
+      ],
+      "nickname": "VENUSAUR"
+    },
+    {
+      "species": "GRAVELER",
+      "level": 50,
+      "moves": [
+        "SELFDESTRUCT",
+        "HARDEN",
+        "EARTHQUAKE",
+        "EXPLOSION"
+      ],
+      "nickname": "GRAVELER"
+    },
+    {
+      "species": "KADABRA",
+      "level": 61,
+      "moves": [
+        "PSYBEAM",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
+      ],
+      "nickname": "KADABRA"
     },
     {
       "species": "PIDGEOT",
-      "level": 54,
+      "level": 50,
       "moves": [
-        "FLY",
+        "QUICK_ATTACK",
+        "RAZOR_WIND",
         "WING_ATTACK",
-        "AGILITY",
-        "MIRROR_MOVE"
+        "DOUBLE_TEAM"
       ],
       "nickname": "PIDGEOT"
-    },
-    {
-      "species": "CHARIZARD",
-      "level": 55,
-      "moves": [
-        "RAGE",
-        "SLASH",
-        "FLAMETHROWER",
-        "BODY_SLAM"
-      ],
-      "nickname": "CHARIZARD"
-    },
-    {
-      "species": "GYARADOS",
-      "level": 54,
-      "moves": [
-        "DRAGON_RAGE",
-        "THUNDERBOLT",
-        "HYDRO_PUMP",
-        "SURF"
-      ],
-      "nickname": "GYARADOS"
-    },
-    {
-      "species": "DUGTRIO",
-      "level": 54,
-      "moves": [
-        "DIG",
-        "SAND_ATTACK",
-        "SLASH",
-        "EARTHQUAKE"
-      ],
-      "nickname": "DUGTRIO"
     }
   ],
   "bag": {
-    "FULL_RESTORE": 5
+    "FULL_RESTORE": 2,
+    "MAX_POTION": 2
   },
-  "money": 48500,
+  "money": 31859,
   "start": {
     "map": "LORELEIS_ROOM",
     "x": 4,
