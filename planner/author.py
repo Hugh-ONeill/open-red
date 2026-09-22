@@ -990,6 +990,41 @@ def read_counters_text() -> str:
                         for m, (items, moved) in sorted(sh.items())))
 
 
+def false_fact_problems(plan) -> list:
+    """A PLAN MAY NOT DRESS A LEG UP WITH SOMETHING THAT IS NOT THERE.
+
+    The guard screened rewrites and inserts — the two places the chain
+    edits its OUTLINE — and nothing screened what the plan author writes on
+    top of a leg. Run 32's leg 2 is "Retrieve the Poké Ball from the Pallet
+    Town resident", already one of the outline's own false facts, and the
+    plan turned it into "Obtain Poke Balls from the Pallet Town resident
+    (MARTY) to enable catching Pokemon" — an errand boy who is not in the
+    game. Seven proposals went looking for him, through Blue's house, the
+    town centre and Oak's lab (2026-09-22, user: "never seen this
+    hallucination before").
+
+    The refusal is a form refusal like every other: it says the claim will
+    not be written down, never which part of it is wrong. Only what the
+    PLAN added is judged — a leg whose own wording the outline already
+    carries is the outline's business, not this pass's, or every plan for
+    such a leg would be unwritable."""
+    out = []
+    for s in (plan or {}).get("subgoals") or []:
+        if not isinstance(s, dict):
+            continue
+        for key in ("goal_text", "goal"):
+            said = str(s.get(key) or "")
+            if not said:
+                continue
+            why = says_a_false_fact(said)
+            if why and not says_a_false_fact(str((plan or {}).get("goal") or "")):
+                out.append(f"subgoal[{s.get('id') or '?'}] {key} states "
+                           f"something this game does not bear out; say what "
+                           f"the step DOES and name only what you have seen")
+                break
+    return out
+
+
 def says_a_false_fact(text: str) -> str:
     """Why this sentence is false, or "" — CHECK-SIDE, never quoted back.
 
@@ -2862,7 +2897,8 @@ def author(goal: str, model: str, rounds: int = 5,
         _last = plan
         probs = (validate(plan) or witness_already_true_problems(plan)
                  or held_step_problems(plan) or machine_slot_problems(plan)
-                 or through_a_place_problems(plan))
+                 or through_a_place_problems(plan)
+                 or false_fact_problems(plan))
         if not probs:
             # tag each subgoal so escalation/distillation runs it macro-less
             for s in plan["subgoals"]:

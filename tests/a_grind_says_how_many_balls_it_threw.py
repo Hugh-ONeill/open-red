@@ -27,7 +27,10 @@ def ck(name, cond):
 
 
 i = src.index('if op == "grind":\n                def _pexp(_o):')
-g = src[i:i + 4000]
+# 4000 was enough until the money clause and its comment landed between
+# the throw count and the empty-bag sentence (2026-09-21/22); the window
+# is the grind block, not a guess at its length.
+g = src[i:src.index("# WHO EARNED IT.", i)]
 ck("the grind summary counts the balls the bag lost", "_thrown = sum(max(0, int(_b0.get(k) or 0) - int(_b1.get(k) or 0))" in g)
 ck("...over every kind of ball", '"POKE_BALL", "GREAT_BALL", "ULTRA_BALL",' in g and '"SAFARI_BALL", "MASTER_BALL"' in g)
 ck("...and says whether one landed", '"one of them landed" if _caught else "none of them landed"' in g)

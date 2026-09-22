@@ -59,7 +59,10 @@ ck("a plan with no subgoals at all is left to the other checks",
    len(A.through_a_place_problems(observed=None, plan={"goal": "Travel through Rock Tunnel", "subgoals": []})) == 1)
 
 src = (ROOT / "planner" / "author.py").read_text()
-ck("the author's rounds ask it", "or through_a_place_problems(plan))" in src)
+# the false-fact check joined the same chain on 2026-09-22, so this is no
+# longer the last line of it
+ck("the author's rounds ask it", "or through_a_place_problems(plan)" in src
+   and "probs = (validate(plan)" in src)
 ck("the review asks it", "or through_a_place_problems(revised))" in src)
 ck("the draws filter asks it", "or through_a_place_problems(p2))]" in src)
 

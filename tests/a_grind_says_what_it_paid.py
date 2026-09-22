@@ -41,6 +41,11 @@ _g = SRC[SRC.index('note += f" earned {_gain} exp"'):]
 _g = _g[:_g.index("# WHO EARNED IT.")]
 
 
+# the comment above the block quotes the wording it replaced, so the
+# negative checks read CODE only
+_gc = "\n".join(l for l in _g.splitlines() if not l.lstrip().startswith("#"))
+
+
 def has(*bits):
     return all(b in _g for b in bits)
 
@@ -49,17 +54,18 @@ ck("the purse is read before and after the op, off the observation",
    has('_m0, _m1 = (pre_obs or {}).get("money"), (obs or {}).get("money")'))
 ck("...and only when wilds were actually met",
    has("if _nb and isinstance(_m0, int) and isinstance(_m1, int):"))
-ck("what this grind paid is said, and nothing is said of nothing",
-   has('note += (f" and {_paid:+d} money"', "if _paid else \" and no money\""))
+ck("what this grind paid is said ONLY when the purse moved",
+   has("if _paid:", 'note += f" and {_paid:+d} money"')
+   and "and no money" not in _gc)
 ck("the run's own total is kept, encounters and money together",
    has("_tally[0] += _nb", "_tally[1] += max(0, _paid)",
        "self._wild_pay = _tally"))
 ck("...and money LOST is never counted as money earned",
    "max(0, _paid)" in _g)
-ck("...and the total waits until there is enough of it to mean anything",
-   has("if _tally[0] >= 12:"))
-ck("the total says both numbers plainly",
-   has("wild \"\n                                 f\"encounter(s) have paid"))
+ck("the count is still kept every grind, for the plan-words answer",
+   has("_tally[0] += _nb", "self._wild_pay = _tally"))
+ck("...but the running total is not recited on the page",
+   "over this whole run" not in _gc)
 # the money block alone: the comment above it may explain the bug to a
 # reader, but what reaches the MODEL must be arithmetic and nothing else
 _note = _g[_g.index("_m0, _m1"):_g.index("# THE BALLS IT THREW")]
@@ -83,24 +89,22 @@ def grind(before, after, n, tally):
         paid = after - before
         t[0] += n
         t[1] += max(0, paid)
-        out = f" and {paid:+d} money" if paid else " and no money"
-        if t[0] >= 12:
-            out += (f" (over this whole run, {t[0]} wild encounter(s) have "
-                    f"paid {t[1]} in total)")
+        if paid:
+            out = f" and {paid:+d} money"
     return out, t
 
 
 w, t = grind(93, 93, 12, [0, 0])
-ck("twelve wilds that paid nothing say so, with the run's total beside it",
-   w == " and no money (over this whole run, 12 wild encounter(s) have paid "
-        "0 in total)", w)
-w, t = grind(93, 93, 11, [0, 0])
-ck("...and eleven is too few to total yet", w == " and no money", w)
+ck("a grind that paid nothing says nothing about money", w == "", w)
+ck("...but its encounters are still counted for the plan-words answer",
+   t == [12, 0], t)
 w2, t2 = grind(93, 93, 11, t)
-ck("...but the next grind carries the first one's count", "22 wild" in w2, w2)
+ck("...and the next grind carries the first one's count", t2 == [23, 0], t2)
 w, _ = grind(1175, 1100, 6, [20, 0])
-ck("a grind that cost money says it cost money",
-   " and -75 money" in w and "paid 0 in total" in w, w)
+ck("a grind that cost money says it cost money", w == " and -75 money", w)
+w, t3 = grind(1000, 1240, 4, [20, 0])
+ck("a grind that PAID says so, which is what PAY_DAY looks like",
+   w == " and +240 money" and t3 == [24, 240], (w, t3))
 w, _ = grind(None, 1100, 6, [20, 0])
 ck("no reading, no claim", w == "")
 w, _ = grind(93, 93, 0, [20, 0])

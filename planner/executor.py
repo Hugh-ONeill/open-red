@@ -3427,8 +3427,28 @@ class Executor:
         # first new thing in view (or whatever `until` the model set).
         _m = (obs or {}).get("map") or {}
         _params = getattr(self, "_explore_params", None) or {}
+        # A SWEEP THAT KEEPS BEING TURNED BACK STOPS BEING THE FIRST MOVE.
+        # The sweep aims at the nearest ground never on screen; if the way
+        # there crosses a script — Viridian's "You can't go through here!
+        # This is private property!" — the walk is interrupted one step in,
+        # the cell is never seen, so it is still the nearest unseen ground
+        # and still the aim. Run 32 swept five times running for 1 step and
+        # 0 cells each time (user, 2026-09-22: "sweeps are repeating the
+        # same direction, after a sweep fails it should sweep in a
+        # different direction or something"). The dry-walk ledger already
+        # counted these, but it only demotes a region as a REMOTE
+        # destination; nothing stopped the LOCAL sweep being taken again.
+        # Two dry sweeps in a row here and explore goes to its other steps
+        # — the doors on this floor, then ground elsewhere. The count is
+        # CONSECUTIVE and resets the moment a sweep here shows something,
+        # so a floor with more to see is never starved.
+        _reg_here = self._where(obs)
+        _dry_here = int((getattr(self, "_sweep_dry", None) or {}).get(
+            str(_reg_here), 0) or 0)
         if (_m.get("frontier") and not _params.get("no_sweep")
-                and _params.get("until") != "doors_only"):
+                and _params.get("until") != "doors_only"
+                and (_dry_here < self.SWEEPS_DRY_BEFORE_OTHER
+                     or _params.get("until") is not None)):
             self.log("explore_step", subgoal=sg.get("id"), step="sweep",
                      frontier=int((_m.get("seen") or {}).get("frontier_n")
                                   or len(_m.get("frontier") or [])))
@@ -3523,6 +3543,24 @@ class Executor:
             # (2026-09-13, user: "otherwise itll go to the blocker and not
             # explore anywhere else").
             self._count_dry_walk(self._where(obs), tr)
+            # ...and the consecutive count this gate reads, kept here
+            # because this is the only place a LOCAL sweep's own result is
+            # in hand: it showed something, or it did not.
+            try:
+                _new = _re.search(r"(\d+) cell\(s\) newly on screen",
+                                  " ".join(str(t) for t in tr))
+                _sd = getattr(self, "_sweep_dry", None)
+                if _sd is None:
+                    _sd = self._sweep_dry = {}
+                _k = str(_reg_here)
+                if _new and int(_new.group(1)) == 0:
+                    _sd[_k] = int(_sd.get(_k, 0) or 0) + 1
+                    self.log("sweep_dry", region=_k, n=_sd[_k],
+                             before_other=self.SWEEPS_DRY_BEFORE_OTHER)
+                else:
+                    _sd.pop(_k, None)
+            except Exception:
+                pass            # a tally is never worth the round
             _how = ("seeing this place out, because it is the first sweep "
                     "here" if _st.get("until") == "map_change"
                     and _params.get("until") is None else
@@ -4661,6 +4699,11 @@ class Executor:
         # needs a fully built Executor
         self._swept.add(str(region))
 
+    # How many sweeps of the SAME region may find nothing before explore
+    # stops opening with one. Two: the first can be bad luck, the second
+    # says the way to that ground is not walkable from here.
+    SWEEPS_DRY_BEFORE_OTHER = 2
+
     def _count_dry_walk(self, region: str, trace=None) -> list:
         """Count an explore walk that put nothing new on screen, and say so
         once it has earned the bottom of the ranking. Returns lines to add
@@ -5438,6 +5481,7 @@ class Executor:
             self._through = dict(data.get("through") or {})
             self._went_in = dict(data.get("went_in") or {})
             self._last_region_seen = data.get("last_region_seen")
+            self._sweep_dry = dict(data.get("sweep_dry") or {})
             self._map_trail = [list(e) for e in (data.get("map_trail", []) or [])
                                if isinstance(e, (list, tuple)) and len(e) == 2]
             self._map_seq = int(data.get("map_seq", 0) or 0)
@@ -6123,6 +6167,7 @@ class Executor:
                  "through": dict(getattr(self, "_through", None) or {}),
                  "went_in": dict(getattr(self, "_went_in", None) or {}),
                  "last_region_seen": getattr(self, "_last_region_seen", None),
+                 "sweep_dry": dict(getattr(self, "_sweep_dry", None) or {}),
                  "map_seq": int(getattr(self, "_map_seq", 0) or 0),
                  "no_cross": {r: sorted(s)
                               for r, s in self._no_cross.items()},
@@ -20798,6 +20843,17 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # is the proof: it is measured here, said for THIS grind and
                 # totalled over every grind of the run. Whether to keep
                 # grinding is the model's; it has the arithmetic now.
+                # ...AND ONLY WHEN THE PURSE MOVED. Said every grind, this
+                # became "and no money (over this whole run, 195 wild
+                # encounter(s) have paid 0 in total)" on page after page,
+                # forever (user, 2026-09-22: "i dont think it needs to be
+                # reminded every time it grinds that grinding doesnt raise
+                # money"). The COUNT is still kept every grind, because the
+                # plan-words answer spends it — that one fires only when a
+                # plan actually says it will earn money from wilds, which
+                # is where the belief is and where the arithmetic belongs.
+                # PAY_DAY and a trainer met mid-grind still speak, because
+                # those are real changes.
                 _m0, _m1 = (pre_obs or {}).get("money"), (obs or {}).get("money")
                 if _nb and isinstance(_m0, int) and isinstance(_m1, int):
                     _paid = _m1 - _m0
@@ -20805,12 +20861,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     _tally[0] += _nb
                     _tally[1] += max(0, _paid)
                     self._wild_pay = _tally
-                    note += (f" and {_paid:+d} money"
-                             if _paid else " and no money")
-                    if _tally[0] >= 12:
-                        note += (f" (over this whole run, {_tally[0]} wild "
-                                 f"encounter(s) have paid {_tally[1]} in "
-                                 f"total)")
+                    if _paid:
+                        note += f" and {_paid:+d} money"
                 # THE BALLS IT THREW ARE PART OF THE STORY. Five Poke Balls
                 # went at a Doduo inside one grind, and the summary said only
                 # "NO POKé BALLS of any kind in the bag, so nothing could be
