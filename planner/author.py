@@ -7122,9 +7122,26 @@ def _through_by_record(goal: str, observed=None) -> str | None:
     if not got:
         return None
     fam, out = got
-    if len(out) < 2:
-        return None
-    return f"{fam}: {', '.join(sorted(out))}"
+    if len(out) >= 2:
+        return f"{fam}: {', '.join(sorted(out))}"
+    # ...AND THE RUN'S OWN PATH, WHICH DOES NOT NEED THE GRAPH. An edge is
+    # recorded by whichever op walked it, and the op that CARRIES a run into
+    # a cave is often the one that satisfies the step, which returns early:
+    # run 32 walked into Mt. Moon from ROUTE_4's west pocket on a sweep, came
+    # out at ROUTE_4|36,2 in the east, and the graph held only the mouth it
+    # came out of. One mouth, so this said no, and the chain stopped dead at
+    # leg 11 with the cave behind it (2026-09-22). The executor now writes
+    # the deed down as it happens — the map it was on going in, the map it
+    # was on coming out — and that is the same two ends by a witness the
+    # recorder cannot lose.
+    try:
+        d = json.loads(Path(observed).read_text() or "{}") if observed else {}
+    except (OSError, ValueError, TypeError):
+        d = {}
+    ends = (d.get("through") or {}).get(fam)
+    if isinstance(ends, list) and len(ends) >= 2:
+        return f"{fam}: {', '.join(sorted(str(e) for e in ends))}"
+    return None
 
 
 def _not_through_yet(goal: str, observed=None) -> str | None:

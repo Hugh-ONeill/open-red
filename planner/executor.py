@@ -4940,6 +4940,70 @@ class Executor:
         self._map_seq = int(getattr(self, "_map_seq", 0) or 0) + 1
         tr.append([self._map_seq, mid])
         del tr[:-40]
+        try:
+            self._note_through(obs, mid)
+        except Exception:
+            pass            # a deed written down is never worth the round
+
+    # A WAY THROUGH IS REMEMBERED WHEN IT IS WALKED, not reconstructed from
+    # the graph afterwards. "Traverse Mt. Moon" stopped run 32's chain dead
+    # at leg 11 with the cave behind it: the run went in from ROUTE_4's west
+    # pocket and came out on ROUTE_4|36,2 to the east, which is the whole
+    # deed — but the edge for the way IN was never recorded, so the only
+    # mouth the graph held was the one it came out of, and a traverse needs
+    # two. Every rung then ran out (the author could not write a plan, the
+    # leg had been pushed twice, and the wording rung would not void a leg
+    # the model rightly believed it had done), and the chain stopped
+    # (2026-09-22; user: "there is no way around mt moon, it sits in the
+    # middle of rt4 with a west entrance and east exit").
+    #
+    # This does not read the graph at all. The party's own path is the
+    # witness: the map it was on before it went in, and the map it is on
+    # when it comes out. Different maps mean it went through. The map
+    # TRAIL cannot answer it — that is the last 40 entries and a traversal
+    # falls off it within the hour — so the fact is written down once, when
+    # it happens, and kept.
+    @staticmethod
+    def _map_family(mid) -> str:
+        return _re.sub(r"_(B?\d+F|ROOF|ELEVATOR)$", "", str(mid or ""))
+
+    def _note_through(self, obs, mid) -> None:
+        """BOTH ENDS ARE REGIONS, NOT MAPS. Mt. Moon's two mouths are both
+        on ROUTE_4 — the west pocket the run walks up to from Route 3, and
+        the eastern stretch that runs on to Cerulean — so comparing map
+        names calls them the same place and the deed vanishes. The regions
+        differ (ROUTE_4|4,4 and ROUTE_4|36,2) because no walk joins them,
+        which is exactly what makes the cave a way THROUGH."""
+        here = self._where(obs)
+        if not here or "None" in str(here):
+            return
+        fam_now = self._map_family(str(here).split("|")[0])
+        prev = getattr(self, "_last_region_seen", None)
+        self._last_region_seen = here
+        if not prev or "None" in str(prev):
+            return
+        fam_was = self._map_family(str(prev).split("|")[0])
+        if fam_now == fam_was:
+            return
+        if getattr(self, "_through", None) is None:
+            self._through = {}
+        if getattr(self, "_went_in", None) is None:
+            self._went_in = {}
+        # coming OUT of somewhere: was that a way through it?
+        # THE TWO ENDS MAY SHARE A MAP. An earlier draft of this also
+        # demanded that the way in be on a different MAP from the way out,
+        # which is true of most places and false of the one that set it
+        # off: Mt. Moon's mouths are ROUTE_4|4,4 and ROUTE_4|36,2. Two
+        # regions that no walk joins are two ends; the map name is not the
+        # test.
+        came = self._went_in.pop(fam_was, None)
+        if came and str(came) != str(here) \
+                and not self._through.get(fam_was):
+            self._through[fam_was] = sorted({str(came), str(here)})
+            self.log("went_through", place=fam_was,
+                     came_from=came, came_out=here)
+        # ...and going IN: remember the ground it was standing on
+        self._went_in[fam_now] = str(prev)
 
     def _note_switches(self, obs) -> None:
         """WHAT WAS UNSET SINCE YOU WERE HERE. Victory Road's barriers live
@@ -5371,6 +5435,9 @@ class Executor:
             self.unreached_at = data.get("unreached_at", {}) or {}
             self.switch_seen = data.get("switch_seen", {}) or {}
             self.warp_looks = data.get("warp_looks", {}) or {}
+            self._through = dict(data.get("through") or {})
+            self._went_in = dict(data.get("went_in") or {})
+            self._last_region_seen = data.get("last_region_seen")
             self._map_trail = [list(e) for e in (data.get("map_trail", []) or [])
                                if isinstance(e, (list, tuple)) and len(e) == 2]
             self._map_seq = int(data.get("map_seq", 0) or 0)
@@ -6053,6 +6120,9 @@ class Executor:
                  "switch_seen": getattr(self, "switch_seen", {}),
                  "warp_looks": getattr(self, "warp_looks", {}),
                  "map_trail": list(getattr(self, "_map_trail", []) or [])[-40:],
+                 "through": dict(getattr(self, "_through", None) or {}),
+                 "went_in": dict(getattr(self, "_went_in", None) or {}),
+                 "last_region_seen": getattr(self, "_last_region_seen", None),
                  "map_seq": int(getattr(self, "_map_seq", 0) or 0),
                  "no_cross": {r: sorted(s)
                               for r, s in self._no_cross.items()},
