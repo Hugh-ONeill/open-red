@@ -428,6 +428,26 @@ while :; do
     return 1
   }
 
+  # A PAUSE BETWEEN LEGS LEAVES NO MARK. stop_all.sh asks the executor to
+  # stop and save, and it does — but it stops MID-ATTEMPT, so the attempt
+  # that was in flight is lost and the next launch re-authors the leg's
+  # plan from wherever the party now stands ("was written from
+  # POKEMON_FAN_CLUB (the run stands on ROUTE_11) — asking for it again
+  # from here", 2026-09-22). Nothing is lost from the WORLD, which is saved
+  # every round, and the re-plan does not help the run — but it is a
+  # visible discontinuity, and a run meant to be claimed as untouched
+  # should not have to explain one (user: "id rather it didnt do that? id
+  # prefer it had clean pauses/resumes so we can claim no interference").
+  # Here the chain is between legs: nothing is in flight, the next leg has
+  # not been chosen, and stopping is indistinguishable from the moment
+  # before it started. `touch run/pause` and the chain stops HERE, at the
+  # next leg boundary, and the relaunch carries on as though it had never
+  # been away.
+  if [ -e run/pause ]; then
+    rm -f run/pause
+    echo "=== PAUSED at a leg boundary $(date '+%F %T'): $(cat "$PROGRESS" 2>/dev/null || echo 0) leg(s) done, nothing in flight ==="
+    exit 0
+  fi
   mapfile -t LEGS < plans/outline.txt
   done_legs=$(cat "$PROGRESS" 2>/dev/null || echo 0)
   i=$((done_legs + 1))
