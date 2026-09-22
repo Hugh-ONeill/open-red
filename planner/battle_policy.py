@@ -1398,11 +1398,38 @@ def choose(obs: dict, spec: dict | None = None,
     moves = [m for m in (me.get("moves") or [])
              if (m.get("pp") or 0) > 0 and m.get("index") != dis]
     if not moves:
-        # nothing legal left: Struggle, but never by re-picking the
-        # disabled slot, which would deadlock again
-        alt = next((m.get("index") for m in (me.get("moves") or [])
-                    if m.get("index") != dis), 1)
-        return {"op": "battle_move", "index": alt}
+        # AN EMPTY MOVE LIST IS NOT ALWAYS "NOTHING IS LEGAL". With DISABLE
+        # it is: every entry is dry or disabled, and Struggle is the
+        # answer. But the list is also empty when the OBSERVATION could not
+        # be read — the faint-and-replace screen, a mid-animation frame, a
+        # two-turn move's underground turn — and then the moves are all
+        # there with full PP and this branch fires blind. Run 33: 52 moves
+        # played with no reason recorded, every one of them slot 1, all 52
+        # on an observation with no battle state at all (foe and own HP
+        # both null) against 0 of 1,126 scored moves. One of them was a
+        # GEODUDE at full HP in Surge's gym, and slot 1 on a GEODUDE past
+        # L21 is SELFDESTRUCT (user, 2026-09-22: "it chose selfdestruct
+        # after just one dig"; and, on the PP being full, "it cant be
+        # because of pp alone").
+        #
+        # So: say which case this is, and NEVER open with a move the run
+        # has watched faint its own user while another slot exists. The
+        # self_ko demotion below is in the SCORING path and this return
+        # skips it entirely — a guard that lives on the happy path is not
+        # a guard.
+        _all = list(me.get("moves") or [])
+        _blind = not _all          # no list at all: the read failed
+        _ko = (ctx or {}).get("self_ko") or {}
+        _order = [m.get("index") for m in _all if m.get("index") != dis
+                  and str(m.get("id")) not in _ko] or \
+                 [m.get("index") for m in _all if m.get("index") != dis]
+        alt = next((i for i in _order if i), 1)
+        return {"op": "battle_move", "index": alt,
+                "_why": ("no move list on this screen — the observation "
+                         "could not be read, so this is a blind press"
+                         if _blind else
+                         f"nothing legal left (slot {dis} is disabled): "
+                         f"Struggle")}
     # in-battle item rules come first: spending the turn to heal beats
     # fainting (the model's rule decides the threshold and budget)
     bag = spendable(obs.get("bag") or {})

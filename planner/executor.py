@@ -1727,6 +1727,32 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
             if r.get("ok") is False:
                 log("battle_run_failed", turn=turns, detail=r.get("detail"))
             continue
+        # DO NOT PRESS A MOVE AT A SCREEN YOU CANNOT READ. When the
+        # observation carries no battle sides — the faint-and-replace
+        # screen, a mid-animation frame, a two-turn move's underground
+        # turn — the policy is handed an empty move list, reads it as
+        # "nothing is legal" and presses slot 1 blind. Run 33: 52 such
+        # presses, every one slot 1, all 52 on an observation with no
+        # battle state at all, against 0 of 1,126 scored moves; slot 1 on a
+        # GEODUDE past L21 is SELFDESTRUCT and one of them killed it in
+        # Surge's gym (2026-09-22). Settle and look again first — the
+        # screen is usually mid-something and comes back — and only go on
+        # once it has had its chances.
+        _sides = ((obs or {}).get("battle") or {})
+        if not (_sides.get("me") or {}).get("moves"):
+            for _try in range(3):
+                bridge.send("wait", frames=12)
+                obs = bridge.obs() or obs
+                _sides = ((obs or {}).get("battle") or {})
+                if (_sides.get("me") or {}).get("moves"):
+                    break
+                if (obs or {}).get("mode") != "battle":
+                    break           # the fight ended while we looked
+            log("battle_unreadable", turn=turns,
+                readable=bool((_sides.get("me") or {}).get("moves")),
+                mode=(obs or {}).get("mode"))
+            if (obs or {}).get("mode") != "battle":
+                continue
         op = battle_policy.choose(obs, spec, ctx)
         why = op.pop("_why", None)
         name = op.pop("op")
@@ -3531,7 +3557,27 @@ class Executor:
                              f"taken that no walk from here reaches,")
             except Exception:
                 _near = ""
+            _pre_sweep = obs
             ok, tr, cl = self._run_traced(sg, [_st], ignore_done=ignore_done)
+            # A DOOR IS A DOOR WHOEVER OPENED IT — and a sweep opens them.
+            # A sweep walks toward the nearest ground never on screen, and
+            # if that walk crosses a cave mouth the MAP CHANGES on a step
+            # nobody called a door. Run 32 entered MT_MOON that way, the
+            # edge was never written, and the walked graph held only the
+            # mouth it came OUT of; "Traverse Mt. Moon" then could not be
+            # judged done and the chain stopped dead at leg 11 with the
+            # cave behind it (2026-09-22). The same belt-and-braces the
+            # replayed macro got (run_subgoal, "A door is a door whoever
+            # opened it"): if the map changed under the sweep, record it.
+            # note_transition is idempotent on an edge it already holds.
+            try:
+                _after_sweep = self.settle() or obs
+                if (((_pre_sweep or {}).get("map") or {}).get("id")
+                        != ((_after_sweep or {}).get("map") or {}).get("id")):
+                    self.note_transition(_pre_sweep, dict(_st, op="sweep"),
+                                         _after_sweep)
+            except Exception:
+                pass            # an edge is never worth the round
             # A DRY WALK COUNTS WHEREVER IT HAPPENS. The remote branch has
             # counted these since 2026-08-29 and the LOCAL sweep never did
             # — so a region the party is standing in could be swept for its
@@ -4983,10 +5029,6 @@ class Executor:
         self._map_seq = int(getattr(self, "_map_seq", 0) or 0) + 1
         tr.append([self._map_seq, mid])
         del tr[:-40]
-        try:
-            self._note_through(obs, mid)
-        except Exception:
-            pass            # a deed written down is never worth the round
 
     # A WAY THROUGH IS REMEMBERED WHEN IT IS WALKED, not reconstructed from
     # the graph afterwards. "Traverse Mt. Moon" stopped run 32's chain dead
@@ -5010,24 +5052,37 @@ class Executor:
     def _map_family(mid) -> str:
         return _re.sub(r"_(B?\d+F|ROOF|ELEVATOR)$", "", str(mid or ""))
 
-    def _note_through(self, obs, mid) -> None:
-        """BOTH ENDS ARE REGIONS, NOT MAPS. Mt. Moon's two mouths are both
-        on ROUTE_4 — the west pocket the run walks up to from Route 3, and
-        the eastern stretch that runs on to Cerulean — so comparing map
-        names calls them the same place and the deed vanishes. The regions
-        differ (ROUTE_4|4,4 and ROUTE_4|36,2) because no walk joins them,
-        which is exactly what makes the cave a way THROUGH."""
-        here = self._where(obs)
-        if not here or "None" in str(here):
+    def _note_through(self, src, dst) -> None:
+        """Record a way through a place, from ONE OBSERVED CROSSING to the
+        next. Called only from note_transition, which is handed a real
+        before/after pair by the op that walked it.
+
+        BOTH ENDS ARE REGIONS, NOT MAPS. Mt. Moon's two mouths are both on
+        ROUTE_4 — the west pocket reached from Route 3, and the eastern
+        stretch that runs on to Cerulean — so comparing map names calls
+        them the same place and the deed vanishes. The regions differ
+        because no walk joins them, which is what makes the cave a way
+        through.
+
+        AND IT MUST NEVER INVENT ONE. The first version of this read the
+        party's own path out of _note_map: the last region OBSERVED, paired
+        with the next family seen. A walk that crosses a map inside one op
+        is never observed, so the pair skipped a step and the ledger filled
+        with crossings that cannot be walked — MT_MOON entered from its own
+        POKECENTER, ROCK_TUNNEL left into one, PEWTER_MART entered from the
+        PEWTER_POKECENTER (run 33, 2026-09-22, found by the user asking how
+        far into Rock Tunnel it had got). A false way-through is worse than
+        a missing one: it lets a Traverse leg pass without the deed, in
+        silence. An observed crossing can MISS — that is the recorder's
+        business, and the sweep's missing edge is fixed above — but it
+        cannot make one up."""
+        if not src or not dst or "None" in str(src) or "None" in str(dst):
             return
-        fam_now = self._map_family(str(here).split("|")[0])
-        prev = getattr(self, "_last_region_seen", None)
-        self._last_region_seen = here
-        if not prev or "None" in str(prev):
+        fam_was = self._map_family(str(src).split("|")[0])
+        fam_now = self._map_family(str(dst).split("|")[0])
+        if not fam_now or not fam_was or fam_now == fam_was:
             return
-        fam_was = self._map_family(str(prev).split("|")[0])
-        if fam_now == fam_was:
-            return
+        here, prev = str(dst), str(src)
         if getattr(self, "_through", None) is None:
             self._through = {}
         if getattr(self, "_went_in", None) is None:
@@ -7909,6 +7964,13 @@ class Executor:
                          str((step or {}).get("y", "")),
                      arrived=_arr.group(1), settled=dst)
             return
+        # A WAY THROUGH IS TWO OBSERVED CROSSINGS. Every guard above has
+        # passed, so this is a real crossing with both ends named: hand it
+        # to the ledger that answers "have I been through this place".
+        try:
+            self._note_through(src, dst)
+        except Exception:
+            pass            # a deed written down is never worth the round
         # HOW WE GOT IN IS HOW WE GET BACK OUT AND TRY AGAIN. A seam is a
         # row of cells and the one you cross at decides which part of the
         # far map you land on — Route 16's house sits on a band the run

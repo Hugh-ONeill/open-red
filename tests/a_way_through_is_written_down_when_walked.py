@@ -47,13 +47,13 @@ def ck(name, cond, detail=""):
 
 
 def walk(regions):
-    """Walk the party through these regions in order; return its record."""
+    """Walk the party through these regions, ONE OBSERVED CROSSING AT A
+    TIME — which is all the recorder is ever handed now."""
     ex = E.Executor.__new__(E.Executor)
     ex.logf = io.StringIO()
     ex.t0 = time.time()
-    ex._where = lambda obs: obs["r"]
-    for r in regions:
-        ex._note_through({"r": r}, r.split("|")[0])
+    for a, b in zip(regions, regions[1:]):
+        ex._note_through(a, b)
     return getattr(ex, "_through", {}) or {}
 
 
@@ -87,19 +87,38 @@ ck("a gate walked straight through IS one",
    == ["ROUTE_6|5,5", "SAFFRON_CITY|9,9"])
 
 ck("a region with no name is ignored, never guessed at",
-   walk(["ROUTE_4|4,4", "None|None", "MT_MOON_1F|3,2", "ROUTE_4|36,2"])
-   .get("MT_MOON") is None
-   or walk(["ROUTE_4|4,4", "MT_MOON_1F|3,2", "None|None",
-            "ROUTE_4|36,2"]).get("MT_MOON") is not None)
+   "None" not in json.dumps(walk(["ROUTE_4|4,4", "None|None",
+                                  "MT_MOON_1F|3,2", "ROUTE_4|36,2"])))
+
+# ---- AND IT NEVER INVENTS ONE -----------------------------------------
+# The first version read the party's own path out of _note_map: the last
+# region OBSERVED against the next family seen. A walk that crosses a map
+# inside one op is never observed, so the pair skipped a step and the
+# ledger filled with crossings nobody can walk (run 33, 2026-09-22). Now
+# the recorder is handed one OBSERVED crossing at a time by
+# note_transition, so a missed hop can only lose a record, never fake one.
+ck("a hop the run never observed cannot become a way through",
+   walk(["ROCK_TUNNEL_POKECENTER|0,3", "ROCK_TUNNEL_1F|14,2",
+         "ROCK_TUNNEL_POKECENTER|0,3"]).get("ROCK_TUNNEL") is None)
+ck("...and the real crossing beside it still is",
+   walk(["ROUTE_10|0,4", "ROCK_TUNNEL_1F|14,2", "ROCK_TUNNEL_B1F|26,2",
+         "ROUTE_10|14,52"]).get("ROCK_TUNNEL")
+   == ["ROUTE_10|0,4", "ROUTE_10|14,52"])
+SRC0 = (ROOT / "planner/executor.py").read_text()
+ck("the recorder is driven by observed crossings, not by the map trail",
+   "self._note_through(src, dst)" in SRC0
+   and "self._note_through(obs, mid)" not in SRC0)
+ck("...and a sweep that changes the map now records its edge",
+   "A DOOR IS A DOOR WHOEVER OPENED IT — and a sweep opens them." in SRC0
+   and 'self.note_transition(_pre_sweep, dict(_st, op="sweep"),' in SRC0)
 
 twice = walk(MT_MOON + ["ROUTE_4|63,10", "MT_MOON_B1F|20,2", "ROUTE_4|36,2"])
 ck("the first crossing is what is kept",
    twice.get("MT_MOON") == ["ROUTE_4|36,2", "ROUTE_4|4,4"], twice)
 
 SRC = (ROOT / "planner/executor.py").read_text()
-ck("it is written on every observation of a new map, not by an op",
-   "self._note_through(obs, mid)" in SRC
-   and SRC.index("def _note_map") < SRC.index("self._note_through(obs, mid)"))
+ck("it is written where a crossing is recorded, after every guard",
+   SRC.index("def note_transition") < SRC.index("self._note_through(src, dst)"))
 ck("...and survives a relaunch with the rest of the memory",
    '"through": dict(getattr(self, "_through", None) or {}),' in SRC
    and 'self._through = dict(data.get("through") or {})' in SRC
