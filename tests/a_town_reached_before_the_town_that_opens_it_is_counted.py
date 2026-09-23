@@ -79,6 +79,19 @@ ck("the stages are still drawn, and each still asked what it is missing",
 for f in ("author.py", "executor.py", "ledger.py", "state_text.py"):
     _c = "\n".join(l for l in (ROOT / "planner" / f).read_text().splitlines()
                    if not l.lstrip().startswith("#"))
+    if f == "author.py":
+        # Since 2026-09-23 the author asks the judge ONCE, to choose among
+        # its own compositions (_outline_judged); the verdict is printed
+        # and never spoken. That is the only place the judge is named.
+        _j = _c[_c.index("def _outline_judged("):]
+        _j = _j[:_j.index("\ndef ")] if "\ndef " in _j else _j
+        _rest = _c.replace(_j, "")
+        ck("the judge's town order cannot reach a prompt from author.py: "
+           "it is asked only where a composition is chosen, and answers "
+           "to the log",
+           "REACH_ORDER" not in _c and "compare_outlines" not in _rest
+           and "chat(" not in _j)
+        continue
     ck(f"the judge's town order cannot reach a prompt from {f}",
        "REACH_ORDER" not in _c and "import compare_outlines" not in _c
        and "from compare_outlines" not in _c)

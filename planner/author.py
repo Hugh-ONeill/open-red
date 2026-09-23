@@ -5672,6 +5672,82 @@ def _outline_draw(goal: str, model: str, rounds: int = 3) -> list | None:
     return None
 
 
+
+def _outline_compose(goal: str, drafts: list, model: str) -> tuple:
+    """One composition of the outline from the drafts: the merge, then
+    every pass that can add to or reorder it. Returns (legs, stages)."""
+    if len(drafts) == 1:
+        legs = drafts[0]
+    else:
+        legs = _outline_merge(goal, drafts, model)
+        if not legs:
+            print("[outline] merge unusable, keeping draft 1")
+            legs = drafts[0]
+    # ...then ask the finished list what it assumes it already has. Before
+    # the review, so anything added is ordered with everything else.
+    legs = _check_badges(legs)
+    legs = _outline_upkeep(goal, legs, model)
+    # LAST, after every pass that can add: the review inserts too, and one
+    # outline reached the end holding Surf three times.
+    legs = _dedupe_outline(_outline_review(goal, legs, model) or legs)
+    stages = _stage_outline(legs, model)
+    if stages:
+        # ...and now that the outline has chapters, ask each of them what
+        # it is missing. Last pass of all: everything before it has had its
+        # say, so what is still absent here is absent on purpose or by
+        # oversight, and this is the question that tells them apart.
+        legs = _dedupe_outline(_stage_missing(goal, legs, stages, model))
+    # ...AND ONE THING GOT TWICE IS ONE QUESTION, on the final list, so a
+    # twin the stage pass just added is asked about too (_twin_check).
+    legs = _twin_check(goal, legs, model)
+    return legs, stages
+
+
+# how many times the drafts may be composed before the best is kept
+OUTLINE_COMPOSITIONS = 3
+
+
+def _outline_judged(goal: str, drafts: list, model: str) -> tuple:
+    """Compose, then JUDGE the composition; a faulty one is composed again
+    from the same drafts, and the best of at most OUTLINE_COMPOSITIONS is
+    kept.
+
+    THE JUDGE IS OURS AND NOTHING OF IT REACHES THE MODEL. compare_outlines
+    reads an outline for a fact the game does not bear out and for towns
+    arrived at in an order the run cannot walk (Lavender gates Celadon: the
+    Saffron guards want a drink that is sold only in Celadon, so Celadon
+    is reached through Rock Tunnel and Lavender, or not at all). That is a
+    check-side table, and it stays on the check side: it never says a word
+    to the model, it only chooses among what the model wrote, exactly as
+    validate() refuses a plan. Run 34 (2026-09-23) played an outline with
+    "Reach Celadon City" at 16, "Reach Lavender Town" at 24 and "Navigate
+    through the Rock Tunnel" at 30 — the very pair the judge flags — and
+    spent two hours and fourteen plan versions on leg 14 hunting a drink
+    for a store it could not reach. The judge had existed for four days as
+    a tool for a hand pick; the chain never asked it."""
+    from compare_outlines import judge, rank
+    best = None
+    for k in range(max(1, OUTLINE_COMPOSITIONS)):
+        OUTLINE_NOTES.clear()          # each composition writes its own
+        legs, stages = _outline_compose(goal, drafts, model)
+        j = judge(list(legs or []))
+        faults = [f for f in (j.get("flags") or [])
+                  if f.startswith("FALSE FACT") or f.startswith("reach order")]
+        print(f"[outline judge] composition {k + 1}: "
+              f"{len(faults)} fault(s)" + (":" if faults else ""))
+        for f in faults:
+            print(f"[outline judge]   {f}")
+        cand = (rank(j), k, legs, stages, list(OUTLINE_NOTES))
+        if best is None or cand[0] < best[0]:
+            best = cand
+        if not faults:
+            break
+    _, k, legs, stages, notes = best
+    OUTLINE_NOTES[:] = notes
+    print(f"[outline judge] keeping composition {k + 1}")
+    return legs, stages
+
+
 def outline(goal: str, model: str, rounds: int = 3,
             draws: int = 3, max_draws: int = 6,
             eras: bool = True) -> list | None:
@@ -5756,30 +5832,7 @@ def outline(goal: str, model: str, rounds: int = 3,
             break
     if not drafts:
         return None
-    if len(drafts) == 1:
-        legs = drafts[0]
-    else:
-        legs = _outline_merge(goal, drafts, model)
-        if not legs:
-            print("[outline] merge unusable, keeping draft 1")
-            legs = drafts[0]
-    # ...then ask the finished list what it assumes it already has. Before
-    # the review, so anything added is ordered with everything else.
-    legs = _check_badges(legs)
-    legs = _outline_upkeep(goal, legs, model)
-    # LAST, after every pass that can add: the review inserts too, and one
-    # outline reached the end holding Surf three times.
-    legs = _dedupe_outline(_outline_review(goal, legs, model) or legs)
-    stages = _stage_outline(legs, model)
-    if stages:
-        # ...and now that the outline has chapters, ask each of them what
-        # it is missing. Last pass of all: everything before it has had its
-        # say, so what is still absent here is absent on purpose or by
-        # oversight, and this is the question that tells them apart.
-        legs = _dedupe_outline(_stage_missing(goal, legs, stages, model))
-    # ...AND ONE THING GOT TWICE IS ONE QUESTION, on the final list, so a
-    # twin the stage pass just added is asked about too (_twin_check).
-    legs = _twin_check(goal, legs, model)
+    legs, stages = _outline_judged(goal, drafts, model)
     if stages:
         try:
             STAGES_PATH.write_text("".join(
