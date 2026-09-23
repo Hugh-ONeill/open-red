@@ -12821,8 +12821,9 @@ class Executor:
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.FORGET_SYS},
                  {"role": "user", "content": user}], self.model)
-            m = _re.search(r"\{.*\}", reply or "", _re.S)
-            d = json.loads(m.group(0)) if m else {}
+            d = Executor._first_object(reply or "")
+            if d is None:
+                d = {}
             why = str(d.get("why") or "")[:200]
             f = d.get("forget")
             if f is not None:
@@ -13052,14 +13053,8 @@ class Executor:
         except Exception as e:
             self.log("question_chat_error", subgoal=sg.get("id"), err=str(e))
             return None
-        m = _re.search(r"\{.*\}", reply or "", _re.S)
-        if not m:
-            self.log("question_unparsed", subgoal=sg.get("id"),
-                     reply=str(reply)[:300])
-            return None
-        try:
-            d = json.loads(m.group(0))
-        except json.JSONDecodeError:
+        d = Executor._first_object(reply or "")
+        if d is None:
             self.log("question_unparsed", subgoal=sg.get("id"),
                      reply=str(reply)[:300])
             return None
@@ -14142,8 +14137,9 @@ class Executor:
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.STONE_SYS},
                  {"role": "user", "content": user}], self.model)
-            mm = _re.search(r"\{.*\}", reply or "", _re.S)
-            d = json.loads(mm.group(0)) if mm else {}
+            d = Executor._first_object(reply or "")
+            if d is None:
+                d = {}
             why = str(d.get("why") or "")[:200]
             u = d.get("use")
             if u is not None:
@@ -14344,8 +14340,9 @@ class Executor:
                 reply = brock_probe.chat(
                     [{"role": "system", "content": self.TEACH_SYS},
                      {"role": "user", "content": user}], self.model)
-                mm = _re.search(r"\{.*\}", reply or "", _re.S)
-                d = json.loads(mm.group(0)) if mm else {}
+                d = Executor._first_object(reply or "")
+                if d is None:
+                    d = {}
                 why = str(d.get("why") or "")[:200]
                 t = d.get("teach")
                 if t is not None:
@@ -14497,8 +14494,9 @@ class Executor:
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.STORE_FOR_ROOM_SYS},
                  {"role": "user", "content": user}], self.model)
-            mm = _re.search(r"\{.*\}", reply or "", _re.S)
-            dd = json.loads(mm.group(0)) if mm else {}
+            dd = Executor._first_object(reply or "")
+            if dd is None:
+                dd = {}
             items = [str(x).upper().replace(" ", "_") for x in (dd.get("store") or [])
                      if str(x).upper().replace(" ", "_") in bag]
             why = str(dd.get("why") or "")[:200]
@@ -14613,8 +14611,9 @@ class Executor:
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.HEAL_SYS},
                  {"role": "user", "content": user}], self.model)
-            mm = _re.search(r"\{.*\}", reply or "", _re.S)
-            d = json.loads(mm.group(0)) if mm else {}
+            d = Executor._first_object(reply or "")
+            if d is None:
+                d = {}
             why = str(d.get("why") or "")[:200]
             if d.get("heal") is not None:
                 choice = bool(d.get("heal"))
@@ -14752,8 +14751,9 @@ class Executor:
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.HEAL_STREET_SYS},
                  {"role": "user", "content": user}], self.model)
-            mm = _re.search(r"\{.*\}", reply or "", _re.S)
-            dd = json.loads(mm.group(0)) if mm else {}
+            dd = Executor._first_object(reply or "")
+            if dd is None:
+                dd = {}
             yes = dd.get("heal") is True or str(dd.get("heal")).lower() == "true"
             why = str(dd.get("why") or "")[:200]
         except Exception as e:
@@ -14889,8 +14889,9 @@ class Executor:
                 [{"role": "system", "content": (self.BUY_STREET_SYS
                                                  if street else self.BUY_SYS)},
                  {"role": "user", "content": user}], self.model)
-            mm = _re.search(r"\{.*\}", reply or "", _re.S)
-            d = json.loads(mm.group(0)) if mm else {}
+            d = Executor._first_object(reply or "")
+            if d is None:
+                d = {}
             why = str(d.get("why") or "")[:200]
             readable = "buy" in d
             for e in (d.get("buy") or [])[:self.BUY_MAX_ENTRIES]:
@@ -17618,8 +17619,9 @@ class Executor:
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.NEW_SPECIES_SYS},
                  {"role": "user", "content": user}], self.model)
-            mm = _re.search(r"\{.*\}", reply or "", _re.S)
-            dd = json.loads(mm.group(0)) if mm else {}
+            dd = Executor._first_object(reply or "")
+            if dd is None:
+                dd = {}
             yes = dd.get("catch") is True or str(dd.get("catch")).lower() == "true"
             why = str(dd.get("why") or "")[:200]
         except Exception as e:
@@ -18963,6 +18965,24 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
 (a bare JSON array of ops is also accepted)."""
 
     _last_decls: list = []
+
+    @staticmethod
+    def _first_object(text: str):
+        """The first JSON object a reply carries, from any '{', or None.
+        What follows the object — a second one, a sentence, a stray brace
+        — is not the answer and does not spoil it."""
+        dec = json.JSONDecoder()
+        idx = str(text or "").find("{")
+        while idx != -1:
+            try:
+                obj, _ = dec.raw_decode(text, idx)
+            except json.JSONDecodeError:
+                idx = text.find("{", idx + 1)
+                continue
+            if isinstance(obj, dict):
+                return obj
+            idx = text.find("{", idx + 1)
+        return None
 
     @staticmethod
     def _parse_macro(text: str):
@@ -21886,8 +21906,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.SETUP_ECHO_SYS},
                  {"role": "user", "content": user}], self.model)
-            g = _re.search(r"\{.*\}", reply or "", _re.S)
-            d = json.loads(g.group(0)) if g else {}
+            d = Executor._first_object(reply or "")
+            if d is None:
+                d = {}
         except Exception as e:
             self.log("setup_rule_error", err=str(e)[:160])
             return False
@@ -21965,8 +21986,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 reply = brock_probe.chat(
                     [{"role": "system", "content": self.SETUP_RULE_SYS},
                      {"role": "user", "content": user}], self.model)
-                g = _re.search(r"\{.*\}", reply or "", _re.S)
-                d = json.loads(g.group(0)) if g else None
+                # THE FIRST OBJECT, WHATEVER FOLLOWS IT. A greedy brace
+                # match ran from the first "{" to the last "}", so a reply
+                # that said its rule and then said one more thing in
+                # braces or a sentence was "Extra data" and KADABRA's
+                # RECOVER got no rule at all (run 34, 2026-09-23).
+                d = Executor._first_object(reply or "")
             except Exception as e:
                 self.log("setup_rule_error", move=mid, err=str(e)[:160])
                 continue
@@ -22073,11 +22098,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         except Exception as e:
             self.log("offer_choice_error", subgoal=sg.get("id"), err=str(e))
             return None
-        m = _re.search(r"\{.*\}", reply or "", _re.S)
-        try:
-            d = json.loads(m.group(0)) if m else {}
-        except json.JSONDecodeError:
-            d = {}
+        d = Executor._first_object(reply or "") or {}
         take = str(d.get("take") or "").strip()
         names = {n for n, _w in order}
         if take.lower() == "none":
@@ -26180,13 +26201,8 @@ def ask_name(obs: dict, model, log=None) -> str:
             if log:
                 log("name_chat_error", err=str(e)[:200])
             return ""
-        m = _re.search(r"\{.*\}", reply or "", _re.S)
-        name = ""
-        if m:
-            try:
-                name = str(json.loads(m.group(0)).get("name") or "")
-            except (json.JSONDecodeError, AttributeError):
-                name = ""
+        _obj = Executor._first_object(reply or "")
+        name = str((_obj or {}).get("name") or "")
         name = "".join(ch for ch in name.strip()
                        if ch.isalnum() or ch in " -?!.,():;")[:cap]
         # ...AND THE PROMPT SAYS NOTHING ABOUT IT. Asking for capitals in
