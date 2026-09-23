@@ -74,6 +74,11 @@ pol=()
 if [ -n "$POLICY" ] && [ -s "$POLICY" ]; then
   pol=(--policy-spec "$POLICY")
   echo "[policy] $POLICY"
+  # ...AND HOW OLD IT IS. A policy is frozen when it is authored and the
+  # DSL keeps growing; v13 was pinned a day before `probe_hit` existed and
+  # a week before the status words, and nothing ever said so (2026-09-22).
+  # A count and a list, never a refusal.
+  python planner/spec_age.py "$POLICY" 2>/dev/null || true
 fi
 # ...AND THE TRAIN RULE LAID OVER IT. How a weak member is raised is its
 # own artifact (plans/train_model_v*.json), authored over the fight policy
