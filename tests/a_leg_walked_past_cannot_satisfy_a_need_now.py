@@ -39,8 +39,14 @@ rc, out = guard("Defeat Koga for the Soul Badge", LINES[3], done=3)
 ck("a leg still ahead is refused", rc == 3, out)
 rc, out = guard("Enter the Secret House of the Safari Zone", LINES[3], done=3)
 ck("restating the leg it would precede is still refused", rc == 3, out)
-rc, out = guard("Teach SURF to a party member", LINES[3], done=3)
+rc, out = guard("Buy a Poke Ball", LINES[3], done=3)
 ck("a genuinely new step is allowed", rc == 0, out)
+# (until 2026-09-23 this step was "Teach SURF to a party member"; the judge
+# now refuses an insert that fetches a gate item before the town it is got
+# in, and SURF is got in the Safari Zone this insert would precede)
+rc, out = guard("Teach SURF to a party member", LINES[3], done=3)
+ck("...but a step that wants a gate item before the town it is got in is refused",
+   rc == 3 and "insertion refused" in out and "comes BEFORE" in out, out)
 rc, out = guard("Clear space in the bag", LINES[3], done=0)
 ck("with no progress recorded, nothing is treated as behind", rc == 3, out)
 # the author's missing rung holds a second copy of the same rule

@@ -153,11 +153,20 @@ def main(argv):
     after = min(after, n)
     _riders.sort()
     _texts = [lines[frm - 1]] + [t for _, t in _riders]
+    _before = list(lines)
     for t in _texts:
         lines.remove(t)
     _at = after - len(_texts)          # the removals shifted the target down
     for k, t in enumerate(_texts):
         lines.insert(_at + k, t)
+    # JUDGED LIKE THE DRAW (see outline_gate): a push that would arrive at
+    # a town before the town that opens it, or fetch a gate item before
+    # its town, is refused and the caller goes on to its next rung.
+    from outline_gate import added_faults, refusal
+    _bad = added_faults(_before, lines)
+    if _bad:
+        print(refusal("push", _bad))
+        sys.exit(3)
     OUT.write_text("\n".join(lines) + "\n")
     with PUSHES.open("a") as f:
         for t in _texts:

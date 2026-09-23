@@ -42,8 +42,18 @@ def do_pull(to: int, frm: int):
     lines = read_outline()
     if not (1 <= to <= len(lines)) or not (1 <= frm <= len(lines)):
         sys.exit(f"pull_leg: {to} or {frm} is off the list of {len(lines)}")
+    _before = list(lines)
     text = lines.pop(frm - 1)
     lines.insert(to - 1, text)
+    # JUDGED LIKE THE DRAW (see outline_gate): the HM01 leg pulled in
+    # front of "Reach Vermilion City" (2026-09-23) is a gate item before
+    # the town it is got in, and the judge says so. Refused, and the chain
+    # goes on to its next rung. An undo is never judged: it puts back.
+    from outline_gate import added_faults, refusal
+    _bad = added_faults(_before, lines)
+    if _bad:
+        print(refusal("pull", _bad))
+        sys.exit(3)
     write_outline(lines)
     with PULLS.open("a") as fh:
         fh.write(f"{to}\t{frm}\t{text}\n")

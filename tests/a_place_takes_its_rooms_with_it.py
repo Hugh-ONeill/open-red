@@ -34,8 +34,12 @@ OUTLINE = ["Defeat Lt. Surge for the Thunder Badge",
            "Reach Lavender Town",
            "Cleanse the Pokemon Tower",
            "Retrieve the Pokemon Flute from Mr. Fuji",
-           "Reach Celadon City",
+           "Defeat Erika for the Rainbow Badge",
            "Obtain Fresh Water"]
+# (the leg at 6 was "Reach Celadon City" until 2026-09-23: a push of
+# Lavender behind an ARRIVAL at Celadon is now refused by the judge, since
+# Celadon is reached through Lavender — tests/a_reorder_that_adds_a_fault_
+# is_refused.py — so the leg somewhere else is a deed, not an arrival)
 
 
 def push(frm, after, outline=OUTLINE, inserts=()):
@@ -64,7 +68,7 @@ ck("the rooms keep their order among themselves",
    at("Cleanse the Pokemon Tower")
    < at("Retrieve the Pokemon Flute from Mr. Fuji"))
 ck("a leg somewhere else is not dragged along",
-   at("Reach Celadon City") < at("Reach Lavender Town"))
+   at("Defeat Erika for the Rainbow Badge") < at("Reach Lavender Town"))
 ck("...and the run is told they moved together",
    "and with it" in said and "Pokemon Tower" in said)
 ck("nothing is lost", sorted(lines) == sorted(OUTLINE))
@@ -82,9 +86,9 @@ ck("...and the walk through it does not swallow the far side",
 ck("a cave between two routes does not leak into the other one",
    "ROUTE_2" not in author.rooms_of(["ROUTE_11"]))
 
-lines2, _ = push(6, 7)            # Reach Celadon City, nothing of its own here
+lines2, _ = push(6, 7)            # Erika, nothing of her own here
 ck("a push with no rooms in the way is left alone",
-   lines2.index("Reach Celadon City") > lines2.index("Obtain Fresh Water"))
+   lines2.index("Defeat Erika for the Rainbow Badge") > lines2.index("Obtain Fresh Water"))
 
 # ---- a rider's rooms ride too (run 34, 2026-09-23) ---------------------
 # "Obtain FRESH WATER" had been inserted before "Reach Celadon City"; when

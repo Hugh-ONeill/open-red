@@ -836,14 +836,19 @@ while :; do
                "later and still holds — pulling it back ONCE: if leg $i" \
                "fails again in front of it, the pull goes home and is not" \
                "made again ==="
-          printf '%s\n' "$_btext" >> run/outline_pullbacks
         else
           echo "=== leg $i stuck behind leg $blocker: pulling it forward ==="
         fi
-        python planner/pull_leg.py pull "$i" "$blocker"
-        disposed "leg $blocker was pulled ahead of it"
-        echo "$i<-$blocker" >> run/outline_reorders
-        continue
+        # THE PULL IS JUDGED (planner/outline_gate.py): a gate item pulled
+        # in front of the town it is got in is refused, and the rung falls
+        # through to the next one instead of the chain dying under set -e.
+        if python planner/pull_leg.py pull "$i" "$blocker"; then
+          [ "${_bpushed:-0}" -gt 0 ] && printf '%s\n' "$_btext" >> run/outline_pullbacks
+          disposed "leg $blocker was pulled ahead of it"
+          echo "$i<-$blocker" >> run/outline_reorders
+          continue
+        fi
+        echo "    (the pull was refused by the judge; on to the next rung)"
       fi
     fi
     # NOTHING ELSE WORKED: IS THE PLAN MISSING A STEP? A leg can be
