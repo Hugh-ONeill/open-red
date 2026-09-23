@@ -99,8 +99,13 @@ def main(argv=None):
     if not missing:
         print(f"[policy] {name} uses every word the DSL offers")
         return 0
-    print(f"[policy] {name} was authored before {len(missing)} word(s) it "
-          f"could be using: {', '.join(sorted(missing))}")
+    # A COUNT OF WORDS NOT USED, NOT A DATE. This tool cannot see when a
+    # word was added or when the spec was written; it sees only what the
+    # spec carries. "was authored before six words" was said of v16 on
+    # 2026-09-23, a spec written after every one of them (it simply chose
+    # not to use them), so the line now says what is measured.
+    print(f"[policy] {name} does not use {len(missing)} word(s) the DSL "
+          f"offers: {', '.join(sorted(missing))}")
     return 0
 
 
