@@ -38,10 +38,13 @@ OUTLINE = ["Defeat Lt. Surge for the Thunder Badge",
            "Obtain Fresh Water"]
 
 
-def push(frm, after, outline=OUTLINE):
+def push(frm, after, outline=OUTLINE, inserts=()):
     d = Path(tempfile.mkdtemp())
     (d / "plans").mkdir(); (d / "run").mkdir()
     (d / "plans/outline.txt").write_text("\n".join(outline) + "\n")
+    if inserts:
+        (d / "run/outline_inserts").write_text(
+            "".join(f"LEG={dep}|{pre}\n" for dep, pre in inserts))
     r = subprocess.run([sys.executable, str(REPO / "planner/push_leg.py"),
                         str(frm), str(after)],
                        cwd=d, capture_output=True, text=True)
@@ -82,6 +85,36 @@ ck("a cave between two routes does not leak into the other one",
 lines2, _ = push(6, 7)            # Reach Celadon City, nothing of its own here
 ck("a push with no rooms in the way is left alone",
    lines2.index("Reach Celadon City") > lines2.index("Obtain Fresh Water"))
+
+# ---- a rider's rooms ride too (run 34, 2026-09-23) ---------------------
+# "Obtain FRESH WATER" had been inserted before "Reach Celadon City"; when
+# authoring it failed it was pushed later "and with it 'Reach Celadon
+# City'", and "Visit the Celadon Department Store" — a deed inside the city
+# — stayed in front of the city. The places were read from the pushed leg
+# alone, and the store names no map the engine has.
+CEL = ["Defeat Lt. Surge for the Thunder Badge",
+       "Obtain FRESH WATER",
+       "Reach Celadon City",
+       "Visit the Celadon Department Store",
+       "Clear Rock Tunnel",
+       "Reach Lavender Town"]
+lines3, said3 = push(2, 5, outline=CEL,
+                     inserts=[("Reach Celadon City", "Obtain FRESH WATER")])
+def at3(t): return lines3.index(t) + 1
+ck("the leg the insert was for rides with the pushed leg",
+   at3("Reach Celadon City") > at3("Obtain FRESH WATER"))
+ck("...and a deed in that rider's town rides with the rider",
+   at3("Visit the Celadon Department Store") > at3("Reach Celadon City"))
+ck("...named by the town's own word, which names no map to the engine",
+   not author.maps_named("Visit the Celadon Department Store",
+                         set(author._map_dims()) | set(author._map_warps())))
+ck("the pushed leg lands where it was sent",
+   at3("Clear Rock Tunnel") < at3("Obtain FRESH WATER"))
+ck("a leg about somewhere else stays where it was",
+   at3("Reach Lavender Town") == 6 and at3("Defeat Lt. Surge for the Thunder Badge") == 1)
+ck("nothing is lost", sorted(lines3) == sorted(CEL))
+ck("...and the run is told all three moved together",
+   "Reach Celadon City" in said3 and "Department Store" in said3)
 
 src = Path("planner/push_leg.py").read_text()
 ck("a failure to read the map never blocks a push",

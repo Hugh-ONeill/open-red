@@ -18,6 +18,7 @@ survives.
 
 Usage: push_leg.py <from> <after>     # move leg <from> to sit after <after>
 """
+import re as _re
 import sys
 from pathlib import Path
 
@@ -107,18 +108,44 @@ def main(argv):
     # with it. Nothing new is decided here — the outline already said these
     # legs happen in that place, and the engine's own warp table says the
     # place has those rooms.
+    #
+    # ...AND A RIDER'S ROOMS RIDE TOO. The places were read from the pushed
+    # leg alone, so when "Obtain FRESH WATER" was pushed 14 -> 16 "and with
+    # it 'Reach Celadon City'" (the inserts ledger said the city waits on
+    # the drink), "Visit the Celadon Department Store" stayed at 14 — in
+    # front of the city it is in — and the run spent two hours and
+    # fourteen plan versions hunting a drink for a store it could not
+    # reach (run 34, 2026-09-23). A rider that is an arrival is an arrival;
+    # the rule above is applied until nothing more rides.
     try:
         import author as _a
         _ids = set(_a._map_dims()) | set(_a._map_warps())
-        _places = set(_a.maps_named(_text, _ids))
-        _here = (_places | _a.rooms_of(_places)) if _places else set()
-        if _here:
-            _have = {t for _, t in _riders} | {_text}
+        _have = {t for _, t in _riders} | {_text}
+        _seen_places: set = set()
+        while True:
+            _places = set()
+            for _t0 in _have:
+                _places |= set(_a.maps_named(_t0, _ids))
+            _places -= _seen_places
+            if not _places:
+                break
+            _seen_places |= _places
+            _here = _places | _a.rooms_of(_places)
+            # A TOWN'S NAME IS THE TOWN. "Visit the Celadon Department
+            # Store" names no map the engine has (the store is CELADON_MART
+            # to the engine), so maps_named finds nothing in it and the
+            # leg stayed in front of "Reach Celadon City" (run 34). The
+            # word a town is named by, standing in a leg, puts the leg in
+            # that town.
+            _towns = [p.split("_")[0] for p in _places
+                      if p.endswith(("_CITY", "_TOWN", "_ISLAND"))]
             for _k in range(frm, min(after, n)):
                 _t2 = lines[_k]
                 if _t2 in _have:
                     continue
-                if set(_a.maps_named(_t2, _ids)) & _here:
+                if (set(_a.maps_named(_t2, _ids)) & _here
+                        or any(_re.search(rf"\b{_w}\b", _t2, _re.I)
+                               for _w in _towns)):
                     _riders.append((_k + 1, _t2))
                     _have.add(_t2)
     except Exception:
