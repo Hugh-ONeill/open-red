@@ -10763,8 +10763,19 @@ class Executor:
                   # gym's power (run 27, 2026-09-18; user: "the author keeps
                   # writing goals that dont make sense in light of that fact
                   # given we are keyless").
-                  ("LOCKED", ("locked", "lock", "door", "gym", "enter",
-                              "open")))
+                  # ...AND NOT IN EVERY OTHER DOOR'S WORDS. "enter" and
+                  # "open" are in half the sentences a plan writes, so
+                  # "I need FRESH WATER to pass the Route 6 gate" was
+                  # counted against the VIRIDIAN GYM's locked door four
+                  # times, and the page told the model its own plans had
+                  # named the drink as what the gym needs — a sentence it
+                  # never said — while both thirsty guards read "nothing
+                  # named yet" (run 34, 2026-09-23).
+                  ("LOCKED", ("locked", "lock", "door", "gym")),
+                  # A GUARD WHO WANTS SOMETHING, in his own words ("I'm on
+                  # guard duty. Gee, I'm thirsty, though!"): the need a
+                  # plan names for a gate lands on the gate.
+                  ("GUARD", ("guard", "gate", "thirsty", "drink")))
     _ITEM_WORDS = None
 
     @classmethod
