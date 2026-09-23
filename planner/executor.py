@@ -10822,6 +10822,38 @@ class Executor:
                     rest = pat.sub(" ", rest)
         return out
 
+    # how many plan sentences in a row must name the same lacking thing
+    # before a hunt that travels counts as stuck (see the think gate)
+    THINK_ON_NEED = 5
+
+    def _need_streak(self, obs) -> tuple:
+        """(ITEM, n): the thing the bag lacks that the last n plan sentences
+        for the current target ALL named as a need, reading back from the
+        latest; (None, 0) when the latest names none or the bag holds it.
+        A sentence naming two things counts for each; a sentence naming
+        none ends the streak."""
+        hist = (getattr(self, "_plan_hist", {}) or {}).get(
+            getattr(self, "_cur_target", "") or "?") or []
+        bag = (obs or {}).get("bag") or {}
+        streak: dict = {}
+        alive = None
+        for row in reversed(hist):
+            said = row[2] if isinstance(row, (list, tuple)) and len(row) > 2 \
+                else str(row)
+            want = set(self._words_want_items(said, bag))
+            if alive is None:
+                alive = want
+            else:
+                alive = alive & want
+            if not alive:
+                break
+            for nm in alive:
+                streak[nm] = streak.get(nm, 0) + 1
+        if not streak:
+            return None, 0
+        nm = max(streak, key=lambda k: (streak[k], k))
+        return nm, streak[nm]
+
     def _tally_named_needs(self, plan_said, obs) -> list:
         """Tally, on each live un-lifted blocker the plan's WORDS concern,
         the item those words say it needs. Returns the (blocker key, ITEM)
@@ -22849,15 +22881,35 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # spent per DRY STRETCH, and refills the moment the world moves
             # (see where _stale_rounds resets: _thought_dry resets with it).
             _cap = brock_probe.THINK_DRY_CAP
+            # ...OR WHERE THE ROUND KEEPS ASKING FOR THE SAME THING. A hunt
+            # that walks Cerulean -> Viridian -> Route 5 -> back is never
+            # stale by the meter above, so run 34's drink hunt and the run
+            # of record's (2026-09-23: 43 rounds, think_on 0) never got a
+            # deliberating round while every plan sentence said "I need
+            # FRESH WATER". The sentences are kept (_plan_hist); when the
+            # last THINK_ON_NEED of them name the same thing the bag lacks,
+            # the step is stuck in the sense that matters, and the same
+            # capped budget applies per NEED rather than per dry stretch.
+            _need, _streak = self._need_streak(obs)
+            if _need != getattr(self, "_need_key", None):
+                self._need_key, self._thought_need = _need, 0
+            _by_need = (_streak >= self.THINK_ON_NEED
+                        and (_cap <= 0 or self._thought_need < _cap))
             _think = (brock_probe.THINK_ON_STUCK > 0
-                      and self._stale_rounds >= brock_probe.THINK_ON_STUCK
-                      and (_cap <= 0 or self._thought_dry < _cap))
+                      and ((self._stale_rounds >= brock_probe.THINK_ON_STUCK
+                            and (_cap <= 0 or self._thought_dry < _cap))
+                           or _by_need))
             if _think:
-                self._thought_dry += 1
+                if self._stale_rounds >= brock_probe.THINK_ON_STUCK \
+                        and (_cap <= 0 or self._thought_dry < _cap):
+                    self._thought_dry += 1
+                else:
+                    self._thought_need += 1
                 self.log("think_on", subgoal=sg["id"], round=rnd,
                          stale=self._stale_rounds,
                          threshold=brock_probe.THINK_ON_STUCK,
                          dry=self._thought_dry, cap=_cap,
+                         need=_need, need_streak=_streak,
                          at=self._where(obs))
             elif (brock_probe.THINK_ON_STUCK > 0
                   and self._stale_rounds >= brock_probe.THINK_ON_STUCK
