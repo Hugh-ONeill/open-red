@@ -1,44 +1,45 @@
 #!/usr/bin/env python3
-"""Going THROUGH a place is recorded as it happens, by the party's own
-path, and both ends are regions.
+"""A sweep that walks into a place records the mouth it came in by — which
+is what a "go THROUGH here" objective is judged on.
 
 Run 32's chain stopped dead at leg 11, "Traverse Mt. Moon", with the cave
-behind it. It had walked in from Route 4's western pocket, crossed 1F, B1F
-and B2F, taken the Dome Fossil and come out at ROUTE_4|36,2 to the east,
-then gone on to Cerulean, Bill, the S.S. Ticket and Vermilion. The deed was
-done. But the WAY IN was never written to the walked graph — the op that
-carries a run into a cave is often the one that satisfies the step, and
-that returns early — so the only mouth the graph held was the one it came
-out of. A traverse needs two, so the done check said no; the author could
-not write a plan (every draft brought it out somewhere Mt. Moon does not
-open onto), the leg had been pushed twice, and the wording rung would not
-void a leg the model rightly believed it had done. Every rung ran out
-(2026-09-22; user: "there is no way around mt moon, it sits in the middle
-of rt4 with a west entrance and east exit").
+behind it: in from Route 4's western pocket, across 1F, B1F and B2F, out at
+ROUTE_4|36,2 to the east, then Cerulean, Bill, the S.S. Ticket, Vermilion.
+The deed was done. But the way IN was walked by an `explore` sweep, and no
+edge was written for it — the op that carries a run into a cave is often
+the one that satisfies the step — so the walked graph held only the mouth
+it came OUT of. A traverse needs two mouths, the done-check said no, the
+author could not write a plan, the leg had been pushed twice, and the
+wording rung would not void a leg the model rightly believed it had done.
 
-So the deed is written down when it is walked, from the party's own path,
-which no recorder can lose. BOTH ENDS ARE REGIONS: Mt. Moon's two mouths
-are both ON ROUTE_4, and comparing map names calls them one place and
-throws the deed away. The regions differ because no walk joins them, which
-is the whole of what makes the cave a way through.
+A LEDGER OF WAYS-THROUGH WAS TRIED HERE AND WITHDRAWN. It kept the party's
+own path instead of reading the graph, and rested on two different REGION
+NAMES meaning two separate ends. A region name is an ANCHOR and anchors
+drift as parts are joined, so one walkable component wears several over a
+run: ROUTE_5 had six, and ROUTE_5|6,12 and ROUTE_5|6,16 both reach the DAY
+CARE through the same cell. It filed that one-door building as a way
+through (user, 2026-09-23), having already filed crossings nobody can walk.
+A false way-through passes a Traverse leg in silence, which is worse than
+the deadlock it was meant to prevent.
 
-Pinned: in one side and out the other is recorded; in and back out the same
-side is not; a region with no name is ignored rather than guessed at; the
-first crossing is kept and a later one does not overwrite it; it survives a
-relaunch; and the author reads it when the graph holds only one mouth.
-Synthetic."""
+So the fix is where the loss was: the sweep records its own mouth, and the
+two-mouth test on the walked graph answers as it always should have.
+
+Pinned: the sweep records a map change it caused; it does so from the
+observation before against the one after; a failure there never costs the
+round; the two-mouth test is the only judge again, and reads both mouths
+when the graph has them; and no parallel ledger remains. Synthetic."""
 from __future__ import annotations
 
-import io
-import json
 import sys
-import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "planner"))
-import executor as E  # noqa: E402
+import author as A  # noqa: E402
 
+SRC = (ROOT / "planner/executor.py").read_text()
+AU = (ROOT / "planner/author.py").read_text()
 checks = []
 
 
@@ -46,92 +47,54 @@ def ck(name, cond, detail=""):
     checks.append((name, bool(cond), detail))
 
 
-def walk(regions):
-    """Walk the party through these regions, ONE OBSERVED CROSSING AT A
-    TIME — which is all the recorder is ever handed now."""
-    ex = E.Executor.__new__(E.Executor)
-    ex.logf = io.StringIO()
-    ex.t0 = time.time()
-    for a, b in zip(regions, regions[1:]):
-        ex._note_through(a, b)
-    return getattr(ex, "_through", {}) or {}
+ck("a sweep that changes the map records the edge it walked",
+   "A DOOR IS A DOOR WHOEVER OPENED IT — and a sweep opens them." in SRC
+   and 'self.note_transition(_pre_sweep, dict(_st, op="sweep"),' in SRC)
+ck("...from the observation before it against the one after",
+   "_pre_sweep = obs" in SRC and "_after_sweep = self.settle() or obs" in SRC
+   and SRC.index("_pre_sweep = obs") < SRC.index("_after_sweep"))
+ck("...only when the map actually changed",
+   '(((_pre_sweep or {}).get("map") or {}).get("id")\n'
+   '                        != ((_after_sweep or {}).get("map") or {}).get("id")):'
+   in SRC)
+ck("...and a failure to record never costs the round",
+   "pass            # an edge is never worth the round" in SRC)
+
+ck("the withdrawn ledger is gone, not merely unused",
+   "_note_through" not in SRC and "_went_in" not in SRC
+   and '"through": dict(' not in SRC)
+ck("...and why it went is written where it stood",
+   "A WAY-THROUGH LEDGER LIVED HERE AND IS GONE" in SRC
+   and "anchors drift as parts are joined" in SRC
+   and "DAY CARE" in SRC)
+ck("...and the author no longer reaches for it",
+   "A PARALLEL WITNESS LIVED HERE AND IS GONE" in AU
+   and 'd.get("through")' not in AU)
+
+# ---- the two-mouth test, which is the judge again ----------------------
+import json, tempfile  # noqa: E402
+tmp = Path(tempfile.mkdtemp()) / "obs.json"
 
 
-MT_MOON = ["ROUTE_3|57,0", "ROUTE_4|4,4", "MT_MOON_1F|3,2",
-           "MT_MOON_B1F|20,2", "MT_MOON_B2F|20,5", "MT_MOON_B1F|20,2",
-           "ROUTE_4|36,2", "ROUTE_4|63,10", "CERULEAN_CITY|20,0"]
-got = walk(MT_MOON)
-ck("run 32's own path is a way through Mt. Moon",
-   got.get("MT_MOON") == ["ROUTE_4|36,2", "ROUTE_4|4,4"], got)
-ck("...even though both mouths are on the same MAP",
-   all(e.startswith("ROUTE_4|") for e in got.get("MT_MOON", [])))
-ck("...and the three floors of it are one place",
-   [k for k in got if k.startswith("MT_MOON")] == ["MT_MOON"], list(got))
-ck("...and walking up Route 4's west pocket to reach it is its own way "
-   "through, which is true and harmless",
-   got.get("ROUTE_4") == ["MT_MOON_1F|3,2", "ROUTE_3|57,0"], got.get("ROUTE_4"))
+def through(edges):
+    tmp.write_text(json.dumps({"explored": edges, "visits": {}}))
+    return A._through_by_record("Traverse Mt. Moon", tmp)
 
-back = walk(["ROUTE_4|36,2", "MT_MOON_B1F|20,2", "MT_MOON_B2F|20,5",
-             "MT_MOON_B1F|20,2", "ROUTE_4|36,2"])
-ck("in and back out the same side is not a way through", back == {}, back)
-ck("...nor is standing outside it", walk(["ROUTE_4|4,4", "ROUTE_3|57,0"]) == {})
-ck("...nor one floor to the next inside it",
-   walk(["MT_MOON_1F|3,2", "MT_MOON_B1F|20,2"]) == {})
 
-ck("a building entered and left by its one door is not a way through",
-   walk(["CERULEAN_CITY|20,0", "CERULEAN_MART|0,2",
-         "CERULEAN_CITY|20,0"]) == {})
-ck("a gate walked straight through IS one",
-   walk(["ROUTE_6|5,5", "ROUTE_6_GATE|2,0",
-         "SAFFRON_CITY|9,9"]).get("ROUTE_6_GATE")
-   == ["ROUTE_6|5,5", "SAFFRON_CITY|9,9"])
-
-ck("a region with no name is ignored, never guessed at",
-   "None" not in json.dumps(walk(["ROUTE_4|4,4", "None|None",
-                                  "MT_MOON_1F|3,2", "ROUTE_4|36,2"])))
-
-# ---- AND IT NEVER INVENTS ONE -----------------------------------------
-# The first version read the party's own path out of _note_map: the last
-# region OBSERVED against the next family seen. A walk that crosses a map
-# inside one op is never observed, so the pair skipped a step and the
-# ledger filled with crossings nobody can walk (run 33, 2026-09-22). Now
-# the recorder is handed one OBSERVED crossing at a time by
-# note_transition, so a missed hop can only lose a record, never fake one.
-ck("a hop the run never observed cannot become a way through",
-   walk(["ROCK_TUNNEL_POKECENTER|0,3", "ROCK_TUNNEL_1F|14,2",
-         "ROCK_TUNNEL_POKECENTER|0,3"]).get("ROCK_TUNNEL") is None)
-ck("...and the real crossing beside it still is",
-   walk(["ROUTE_10|0,4", "ROCK_TUNNEL_1F|14,2", "ROCK_TUNNEL_B1F|26,2",
-         "ROUTE_10|14,52"]).get("ROCK_TUNNEL")
-   == ["ROUTE_10|0,4", "ROUTE_10|14,52"])
-SRC0 = (ROOT / "planner/executor.py").read_text()
-ck("the recorder is driven by observed crossings, not by the map trail",
-   "self._note_through(src, dst)" in SRC0
-   and "self._note_through(obs, mid)" not in SRC0)
-ck("...and a sweep that changes the map now records its edge",
-   "A DOOR IS A DOOR WHOEVER OPENED IT — and a sweep opens them." in SRC0
-   and 'self.note_transition(_pre_sweep, dict(_st, op="sweep"),' in SRC0)
-
-twice = walk(MT_MOON + ["ROUTE_4|63,10", "MT_MOON_B1F|20,2", "ROUTE_4|36,2"])
-ck("the first crossing is what is kept",
-   twice.get("MT_MOON") == ["ROUTE_4|36,2", "ROUTE_4|4,4"], twice)
-
-SRC = (ROOT / "planner/executor.py").read_text()
-ck("it is written where a crossing is recorded, after every guard",
-   SRC.index("def note_transition") < SRC.index("self._note_through(src, dst)"))
-ck("...and survives a relaunch with the rest of the memory",
-   '"through": dict(getattr(self, "_through", None) or {}),' in SRC
-   and 'self._through = dict(data.get("through") or {})' in SRC
-   and '"went_in":' in SRC and '"last_region_seen":' in SRC)
-ck("the floors of a place are folded by one named rule",
-   "def _map_family" in SRC)
-
-AU = (ROOT / "planner/author.py").read_text()
-ck("the author falls back to it when the graph holds one mouth",
-   'ends = (d.get("through") or {}).get(fam)' in AU
-   and AU.index("if len(out) >= 2:") < AU.index('d.get("through")'))
-ck("...and still prefers the graph when the graph can answer",
-   'return f"{fam}: {\', \'.join(sorted(out))}"' in AU)
+BOTH = {"MT_MOON_B1F|20,2": {"27,3": {"to": "ROUTE_4|36,2"}},
+        "MT_MOON_1F|3,2": {"5,3": {"to": "ROUTE_4|4,4"}}}
+ONE = {"MT_MOON_B1F|20,2": {"27,3": {"to": "ROUTE_4|36,2"}}}
+got = through(BOTH)
+ck("with both mouths walked, the deed is found",
+   got and "ROUTE_4|36,2" in got and "ROUTE_4|4,4" in got, got)
+ck("...even though both mouths are on the SAME map",
+   got and got.count("ROUTE_4|") == 2, got)
+ck("with only the mouth it came out of, it is not",
+   through(ONE) is None, through(ONE))
+ck("...which is exactly what run 32 had, and why it stopped",
+   through(ONE) is None)
+ck("an objective that does not say through is left alone",
+   A._through_by_record("Reach Cerulean City", tmp) is None)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
