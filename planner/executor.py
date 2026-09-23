@@ -22090,6 +22090,29 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         p = (obs or {}).get("player") or {}
         return (p.get("x"), p.get("y"))
 
+    # what a step ASKS FOR, by the keys of its done_when: a thing in the
+    # bag, or a place to stand
+    _THING_KEYS = {"has_item", "item"}
+    _PLACE_KEYS = {"map", "area", "not_area", "new_part"}
+
+    def _hunt_still_finding(self, sg: dict, nxt: dict | None) -> bool:
+        """True when a THING step ran out of rounds with its last round or
+        the one before it still finding something new (a way taken for the
+        first time, ground never on screen, a first press), and the step
+        after it asks for a PLACE. The walk to that place would leave the
+        new ground; the plan is ended instead and rewritten from here.
+        Nothing is pointed at: what the rewrite does with the ground is
+        the model's."""
+        keys = pred_keys((sg or {}).get("done_when") or {})
+        if not keys or not keys <= self._THING_KEYS:
+            return False
+        nk = pred_keys((nxt or {}).get("done_when") or {}) if nxt else set()
+        if not nk or not nk <= self._PLACE_KEYS:
+            return False
+        at = int(getattr(self, "_esc_news_at", 0) or 0)
+        rounds = int(getattr(self, "_esc_rounds", 0) or 0)
+        return at > 0 and rounds - at <= 1
+
     def escalate(self, sg: dict, redo: bool = False, blocked_by: str = "",
                  avoid_region: str = "",
                  blocked_target: str = "") -> tuple[bool, list]:
@@ -22202,6 +22225,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         # The absolute cap bounds oscillation (A<->B crossings are each "a
         # map change" yet go nowhere).
         spent, rnd, chat_fails = 0, 0, 0
+        # WHEN THIS STEP LAST FOUND SOMETHING, read after it ends: a hunt
+        # that was still finding new ground when its budget ran out is not
+        # handed to the next step's walk back (see _hunt_still_finding).
+        self._esc_news_at = 0
+        self._esc_rounds = 0
         redo_from = self._pos(self.settle()) if redo else None
         pardon = False        # one free revisit after a blackout (recovery)
         _fresh_bonus = 0      # rounds the cap moves out for new ground (see below)
@@ -22229,6 +22257,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             self._stop_if_asked()
             rnd += 1
             _wipes_at_start = getattr(self, "_wipes_logged", 0)
+            self._esc_rounds = rnd
             start = self.settle()
             self._note_map(start)
             # NEVER ASK THE MODEL FROM INSIDE A FIGHT. settle() resolves
@@ -24243,6 +24272,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 if _news:
                     if _news_bonus < rounds:
                         _news_bonus += 1
+                    self._esc_news_at = rnd
                     self.log("round_for_news", subgoal=sg["id"], round=rnd,
                              news=_news, bonus=_news_bonus)
                     trace.append(f"(this round found something new — {_news} — "
@@ -24304,6 +24334,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         and (getattr(self, "visits", {}) or {})
                         .get(here_now, 0) <= 1):
                     _fresh_bonus += 1
+                    self._esc_news_at = rnd
                     self.log("round_for_new_ground", subgoal=sg["id"],
                              round=rnd, at=here_now)
                     trace.append(
@@ -24316,6 +24347,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     # not what counts as circling
                     if _news_bonus < rounds:
                         _news_bonus += 1
+                    self._esc_news_at = rnd
                     self.log("round_for_news", subgoal=sg["id"], round=rnd,
                              news=_news_c, bonus=_news_bonus)
                     trace.append(f"(back on {sig1[0]}, but this round found something new — "
@@ -25897,6 +25929,19 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                           f"missed hop into the hop that needed it")
                     self.log("chain_subgoal_failed", subgoal=sg["id"],
                              next=_nxt.get("id"), wants=_nxt_map)
+                elif self._hunt_still_finding(sg, _nxt) and not last:
+                    # A HUNT STILL FINDING GROUND IS NOT WALKED BACK (run
+                    # 34, 2026-09-23: two rounds into ROCK_TUNNEL, the next
+                    # step walked it out to a gate that had refused it six
+                    # times). See _hunt_still_finding. Ends like the
+                    # missed-hop case: the plan fails where the party stands.
+                    print(f"   !! {sg['id']} failed while still finding "
+                          f"something new — the plan ends here, not with "
+                          f"{_nxt.get('id')}'s walk to {_nxt_map or '?'}")
+                    self.log("hunt_ends_in_new_ground", subgoal=sg["id"],
+                             next=_nxt.get("id"), wants=_nxt_map,
+                             news_at=getattr(self, "_esc_news_at", 0),
+                             rounds=getattr(self, "_esc_rounds", 0))
                 elif fails < 3 and not last:
                     print(f"   !! {sg['id']} failed — continuing")
                     self.log("subgoal_failed_continuing", subgoal=sg["id"],
