@@ -1742,7 +1742,24 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
 
     # ---- rank ---------------------------------------------------------
     _goal_kinds = _goal_kinds_of(target)
+    _said_dir = plan_direction(ex)
     for c in out:
+        # THE DIRECTION THE PLAN NAMED COMES FIRST AMONG EQUALLY FRESH
+        # WAYS. On Route 6 (2026-09-23) the plan said "to reach Vermilion
+        # City, I need to continue south"; among the fresh, reachable
+        # ways the tie fell to kind and key, "door" before "seam", so the
+        # Saffron gate's door led the page and "walk south" sat third. It
+        # took the door, heard "the road's closed", and hunted a drink for
+        # an hour. The model's own sentence is what steers this, nothing
+        # of ours: a fresh, reachable seam on the side its plan named
+        # ranks above a fresh door, and says why. Which to take is still
+        # its call.
+        _plan_way = 1
+        if (_said_dir and c.kind == "seam" and c.status == "untried"
+                and c.reachable and not _refused(c)
+                and str(c.key).split("#", 1)[0] == _said_dir):
+            _plan_way = 0
+            c.note = _join(c.note, "the direction your own plan named")
         # untried before taken; among untried, an exit into a map never
         # SEEN before one back into a seen map (unopened before known);
         # among taken, fewest takes first; then key for determinism
@@ -1796,7 +1813,7 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
             c.note = _join(c.note, "this gym's LEADER, and a walk from where "
                                    "you stand reaches them")
         c.rank = (_bucket, not c.reachable, STATUS_RANK.get(c.status, 9),
-                  1 if _refused(c) else 0,
+                  1 if _refused(c) else 0, _plan_way,
                   0 if (c.kind in _goal_kinds or _leader) else 1,
                   0 if c.kind == "frontier" else 1, into_seen,
                   c.n, c.kind, c.key)
@@ -1822,6 +1839,19 @@ def _asking(c) -> bool:
     """
     return "is ASKING something and the box is STILL OPEN" in str(
         getattr(c, "note", "") or "")
+
+
+_DIR_WORD = _re.compile(r"\b(north|south|east|west)(?:ern|wards?)?\b", _re.I)
+
+
+def plan_direction(ex) -> str | None:
+    """The one compass direction the model's latest plan sentence names
+    ("continue south", "the southern exit", "head north"), or None when it
+    names none or more than one. Its own words, read back; a sentence
+    that says "north, then east" is not one direction."""
+    said = str(getattr(ex, "_plan_said", "") or "")
+    found = {m.group(1).lower() for m in _DIR_WORD.finditer(said)}
+    return next(iter(found)) if len(found) == 1 else None
 
 
 def _refused(c) -> bool:
@@ -1936,6 +1966,10 @@ def _plan_explore_words(ex, obs: dict, cands: list[Candidate] | None = None,
     still has an exit never taken and take it, else say so."""
     here = ex._where(obs)
     cands = cands if cands is not None else build(ex, obs, want_explore=False)
+    try:
+        ex._explore_lead_key = None      # set by _way_line when it names one
+    except Exception:
+        pass
     # ...AND A LIFT CAR IS NEVER "FULLY WORKED" HERE EITHER. The header
     # says so now; this line is item 1, the most prominent thing on the
     # page, and it was still telling the model to leave a car whose panel
@@ -2071,7 +2105,24 @@ def _plan_explore_words(ex, obs: dict, cands: list[Candidate] | None = None,
                  and c.kind in ("door", "seam")]
         _fresh = [c for c in exits if not _refused(c)]
         if _fresh:
-            return f"take {_fresh[0].label()} — untried from here"
+            # ONE ENTRY PER WAY. This line names the way the ranked list
+            # puts first, and the list then named it again on its own
+            # row, so on Route 6 (2026-09-23) the Saffron gate's door took
+            # lines 1 and 2 and "walk south" came third. The way's own
+            # row is folded into this one (render reads _explore_lead_key
+            # and skips it), so the line carries what the row said: where
+            # it leads, if walked, and why it leads the page.
+            _w = _fresh[0]
+            try:
+                ex._explore_lead_key = (_w.kind, _w.key)
+            except Exception:
+                pass
+            _lead = (f"take {_w.label()}"
+                     + (f" -> {_w.dest}" if _w.dest else "")
+                     + " — untried from here")
+            if "the direction your own plan named" in str(_w.note or ""):
+                _lead += ", the direction your own plan named"
+            return _lead
         # WHEN EVERY WAY OUT HAS BEEN TAKEN, TAKE THE LEAST-TAKEN ONE. A
         # door walked twice has had less of a look than one walked fifty
         # times, and where a run circles it is usually circling the SAME
@@ -3577,6 +3628,7 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
     # any of that name has been pressed here — what each pressed one
     # said, which is the fact the puzzle turns on.
     i = 0
+    _op_idx = None          # the explore line, for a folded way's arrow
     for c in shown:
         _herd = (_mob.get(_stem(c.key))
                  if (c.kind == "fixture" and c.status == "untouched")
@@ -3625,6 +3677,7 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
         i += 1
         if c.kind == "op":
             lines.append(f" {i}. explore — {c.note}")
+            _op_idx = len(lines) - 1
             continue
         _st = c.status
         if _st == "sealed" and not c.n:
@@ -3925,6 +3978,26 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
         # what lies beyond is never cut: it is the fact the ideal turns on
         if c.beyond:
             note += f" — {c.beyond}"
+        # ONE ENTRY PER WAY. The way the explore line names (see
+        # _way_line) is that line — when its own row would say nothing
+        # more than the bare label, where it leads and "never taken from
+        # here". A row with a quote, a refusal, a sighting or what lies
+        # past it keeps its line; the explore line does not carry those.
+        _rest = note.replace("the direction your own plan named", "") \
+            .strip(" —;,.")
+        if (c.kind in ("door", "seam")
+                and getattr(ex, "_explore_lead_key", None) == (c.kind, c.key)
+                and any(x.kind == "op" for x in shown)
+                and words == _STATUS_WORDS.get("untried")
+                and not _rest):
+            # the explore line now stands for the row, so it says where
+            # the way leads, as the row would have ("-> UNKNOWN")
+            if (_op_idx is not None and arrow
+                    and " — untried from here" in lines[_op_idx]):
+                lines[_op_idx] = lines[_op_idx].replace(
+                    " — untried from here", f"{arrow} — untried from here", 1)
+            i -= 1
+            continue
         lines.append(f" {i}. {c.label()}{kind}{arrow} — {words}{note}")
     # a crowd folded into one line is SHOWN, not cut — counting its
     # members here would contradict the line that just named them
