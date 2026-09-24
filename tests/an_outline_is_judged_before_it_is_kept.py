@@ -97,6 +97,14 @@ legs, out = judged([FALSE, CLEAN])
 ck("a composition stating what the game does not bear out is composed again",
    legs == CLEAN and len(calls) == 2 and "FALSE FACT" in out, out)
 
+EARLY_KEY = ["Choose a starter Pokemon", "Defeat Brock for the Boulder Badge",
+             "Obtain the Secret Key", "Reach Lavender Town", "Reach Celadon City",
+             "Reach Cinnabar Island"]
+legs, out = judged([EARLY_KEY, CLEAN])
+ck("a composition fetching a gate item before the town it is got in is composed again "
+   "(the rungs' definition of a fault, one with the draw's; 2026-09-24)",
+   legs == CLEAN and len(calls) == 2 and "comes BEFORE" in out, out)
+
 legs, out = judged([BOTH, INVERTED, FALSE])
 ck("three faulty compositions keep the fewest-faulted, false facts first",
    len(calls) == 3 and legs == INVERTED, (len(calls), legs))

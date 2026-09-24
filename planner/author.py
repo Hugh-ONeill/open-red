@@ -5726,13 +5726,18 @@ def _outline_judged(goal: str, drafts: list, model: str) -> tuple:
     for a store it could not reach. The judge had existed for four days as
     a tool for a hand pick; the chain never asked it."""
     from compare_outlines import judge, rank
+    from outline_gate import faults as _faults
     best = None
     for k in range(max(1, OUTLINE_COMPOSITIONS)):
         OUTLINE_NOTES.clear()          # each composition writes its own
         legs, stages = _outline_compose(goal, drafts, model)
         j = judge(list(legs or []))
-        faults = [f for f in (j.get("flags") or [])
-                  if f.startswith("FALSE FACT") or f.startswith("reach order")]
+        # ONE DEFINITION OF A FAULT, the rungs' and the draw's (outline_gate):
+        # a false fact, a town before the town that opens it, a gate item
+        # before its town. The draw counted only the first two, so a draw
+        # on 2026-09-24 was kept "0 fault(s)" with "Obtain the Secret Key"
+        # eight legs before Cinnabar, which the rungs would have refused.
+        faults = sorted(_faults(list(legs or [])))
         print(f"[outline judge] composition {k + 1}: "
               f"{len(faults)} fault(s)" + (":" if faults else ""))
         for f in faults:
