@@ -49,13 +49,14 @@ def ck(name, cond, detail=""):
 
 ck("a sweep that changes the map records the edge it walked",
    "A DOOR IS A DOOR WHOEVER OPENED IT — and a sweep opens them." in SRC
-   and 'self.note_transition(_pre_sweep, dict(_st, op="sweep"),' in SRC)
+   and '_sd = dict(_st, op="sweep")' in SRC
+   and "self.note_transition(_pre_sweep, _sd, _after_sweep)" in SRC)
 ck("...from the observation before it against the one after",
    "_pre_sweep = obs" in SRC and "_after_sweep = self.settle() or obs" in SRC
    and SRC.index("_pre_sweep = obs") < SRC.index("_after_sweep"))
 ck("...only when the map actually changed",
-   '(((_pre_sweep or {}).get("map") or {}).get("id")\n'
-   '                        != ((_after_sweep or {}).get("map") or {}).get("id")):'
+   '_amap = ((_after_sweep or {}).get("map") or {}).get("id")\n'
+   '                if ((_pre_sweep or {}).get("map") or {}).get("id") != _amap:'
    in SRC)
 ck("...and a failure to record never costs the round",
    "pass            # an edge is never worth the round" in SRC)

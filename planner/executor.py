@@ -3631,10 +3631,26 @@ class Executor:
             # note_transition is idempotent on an edge it already holds.
             try:
                 _after_sweep = self.settle() or obs
-                if (((_pre_sweep or {}).get("map") or {}).get("id")
-                        != ((_after_sweep or {}).get("map") or {}).get("id")):
-                    self.note_transition(_pre_sweep, dict(_st, op="sweep"),
-                                         _after_sweep)
+                _amap = ((_after_sweep or {}).get("map") or {}).get("id")
+                if ((_pre_sweep or {}).get("map") or {}).get("id") != _amap:
+                    # THE DOORWAY IT WAS WALKING TOWARD, when that is what
+                    # fired. The shim reads a door's fade as "interrupted
+                    # ... on the way to (3,43)"; if (3,43) is a doorway on
+                    # the floor it left and the game's own table sends it
+                    # to the map it landed on, that door is the one it
+                    # went through (Route 2 into the forest's south gate,
+                    # 2026-09-24). Anything less certain files no edge.
+                    _sd = dict(_st, op="sweep")
+                    _tw = _re.search(r"on the way to \((\d+),(\d+)\)",
+                                     " ".join(str(t) for t in tr))
+                    if _tw:
+                        _tx, _ty = int(_tw.group(1)), int(_tw.group(2))
+                        if any(w.get("x") == _tx and w.get("y") == _ty
+                               and str(w.get("dest") or "") == str(_amap)
+                               for w in (((_pre_sweep or {}).get("map") or {})
+                                         .get("warps") or [])):
+                            _sd["x"], _sd["y"] = _tx, _ty
+                    self.note_transition(_pre_sweep, _sd, _after_sweep)
             except Exception:
                 pass            # an edge is never worth the round
             # A DRY WALK COUNTS WHEREVER IT HAPPENS. The remote branch has
@@ -7915,6 +7931,93 @@ class Executor:
                     added += 1
         return added
 
+    def _note_arrival(self, src, dst, before_obs, after_obs):
+        """The facts an ARRIVAL sets: the visit, the door you came in by,
+        where you came from, and the far side of that door as a way back.
+        None of it needs the door you LEFT by, so a crossing whose own
+        door cannot be named still sets them (see note_transition)."""
+        self._count_visit(dst)
+        dmap = dst.split("|")[0]
+        if dmap != src.split("|")[0] and self._cur_target:
+            k = f"{self._cur_target}|{dmap}"
+            self._entered_map[k] = self._entered_map.get(k, 0) + 1
+        ap = (after_obs or {}).get("player") or {}
+        if ap.get("x") is not None:
+            self._arrived = (dst, (ap["x"], ap["y"]))
+            self._came_from = src
+            self._reversals = 0
+            # THE FAR SIDE OF A DOOR IS A DOOR YOU HAVE OPENED. An edge is
+            # keyed on the tile you DEPARTED from, so walking city -> house
+            # writes 27,11 on the city and house -> city writes 3,0 on the
+            # house. The city-side tile of the house's back door never gets
+            # an entry at all, because you only ever ARRIVE on it — so
+            # Cerulean's (27,9) was still being reported as a doorway never
+            # opened after the run had come out through it THIRTY-TWO times,
+            # and it is the way south. Compare (9,9) at the badge house,
+            # which IS recorded, purely because the run once happened to
+            # leave through it.
+            # Only when the tile you landed on IS a doorway AND that doorway
+            # leads back where you came from: then there is no ambiguity
+            # about which door you just used.
+            _ak = f"{ap['x']},{ap['y']}"
+            _smap = src.split("|")[0]
+            # ...AND A CAVE EXIT LANDS YOU BESIDE THE DOOR, NOT ON IT.
+            # Coming out of Seafoam's west door put the party at ROUTE_20
+            # (58,10) with the door at (58,9), so the tile-equality test
+            # above never matched, the outdoor side of every cave and
+            # tunnel exit stayed unrecorded, and `go FUCHSIA_CITY` from
+            # Cinnabar said "no walked way" over a chain the run had
+            # walked an hour before (2026-08-28). Landing OUTDOORS from an
+            # indoor map, a doorway one step away that leads back to the
+            # map you left is the door you came out of.
+            _out_now = ((after_obs or {}).get("map") or {}).get("outdoor")
+            _from_in = (((before_obs or {}).get("map") or {})
+                        .get("outdoor") is False)
+            for _w in ((after_obs or {}).get("map") or {}).get("warps") or []:
+                _wk = f"{_w.get('x')},{_w.get('y')}"
+                try:
+                    _adj = (_out_now is True and _from_in
+                            and abs(int(_w.get("x")) - int(ap["x"]))
+                            + abs(int(_w.get("y")) - int(ap["y"])) == 1)
+                except (TypeError, ValueError):
+                    _adj = False
+                if _wk != _ak and not _adj:
+                    continue
+                if str(_w.get("dest") or "") != _smap:
+                    continue
+                _ak = _wk                    # the door itself
+                _back = self.explored.setdefault(dst, {})
+                # ...AND ARRIVING THROUGH A DOOR OUTRANKS A SELF-LOOP.
+                # A door stepped through that fires nothing is recorded
+                # "back here", which is honest about that moment and then
+                # permanent: this writer only ever filled an ABSENT entry,
+                # so once the no-fire record existed the ledger went on
+                # calling the door a loop after the run had come out
+                # through it. Seafoam B2F's (25,11) — the one ladder
+                # joining the island's two halves — read
+                # "-> SEAFOAM_ISLANDS_B2F|23,10", itself, while the walk
+                # up it was in this very ledger from the other side.
+                # Coming out of a door proves where it goes; a step that
+                # did nothing proves only that it did nothing.
+                _ex = _back.get(_ak)
+                if _ex is not None and _ex.get("to") == dst:
+                    _ex["to"] = src
+                    self.log("reverse_edge", frm=dst, via=_ak, to=src,
+                             fixed="self-loop")
+                    self._save_memory()
+                if _ak not in _back:
+                    # n=0, NOT 1. This edge is learned by ARRIVING
+                    # through it, which proves where it goes but is not a
+                    # traversal in this direction — and the count is
+                    # printed to the model as "taken Nx". Seeding it at 1
+                    # and then adding 1 per real departure made a room
+                    # entered once report its door as taken twice, which
+                    # is not a thing that can happen.
+                    _back[_ak] = {"to": src, "n": 0}
+                    self.log("reverse_edge", frm=dst, via=_ak, to=src)
+                    self._save_memory()
+                break
+
     def note_transition(self, before_obs, step, after_obs, reason="",
                         op_detail=""):
         """Record: from this area, that exit led there."""
@@ -8021,8 +8124,16 @@ class Executor:
         # ...or straight from the op, because a caller that settles after
         # sending has already replaced result with the settle's own.
         _d += " " + str(op_detail or "")
+        # NO DOOR TO FILE IS NOT NO ARRIVAL. Both returns below write no
+        # edge, rightly, and used to skip the arrival facts too. A sweep on
+        # Route 2 walked into the forest's south gate, the shim called it
+        # "interrupted on the way to (3,43)", nothing named a door, and the
+        # gate's own south door read "-> UNKNOWN — never taken from here";
+        # the model called it "the north exit" and walked back out, ending
+        # the attempt (2026-09-24, user watching). Where you landed and
+        # where from are true whichever door fired.
         if "door unknown" in _d:
-            self._count_visit(dst)
+            self._note_arrival(src, dst, before_obs, after_obs)
             self.log("crossed_door_unknown", frm=src, to=dst)
             return
         key = (f"{step.get('x')},{step.get('y')}"
@@ -8057,6 +8168,10 @@ class Executor:
                     key = f"{_grp[0][1]},{_grp[0][0]}"
                 self.log("transition_by_fall", frm=src, to=dst, via=key)
         if key is None:
+            if src.split("|")[0] != dst.split("|")[0]:
+                self._note_arrival(src, dst, before_obs, after_obs)
+                self.log("crossed_door_unnamed", frm=src, to=dst,
+                         op=str((step or {}).get("op") or ""))
             return
         # A LANDING THE DOOR'S OWN TABLE CONTRADICTS IS NOT THIS DOOR'S. The
         # shim now refuses the op when another door fired, but a table
@@ -8231,87 +8346,7 @@ class Executor:
                      twins=len(self._twin_keys(before_obs, step)))
             self._save_memory()
             return
-        self._count_visit(dst)
-        dmap = dst.split("|")[0]
-        if dmap != src.split("|")[0] and self._cur_target:
-            k = f"{self._cur_target}|{dmap}"
-            self._entered_map[k] = self._entered_map.get(k, 0) + 1
-        ap = (after_obs or {}).get("player") or {}
-        if ap.get("x") is not None:
-            self._arrived = (dst, (ap["x"], ap["y"]))
-            self._came_from = src
-            self._reversals = 0
-            # THE FAR SIDE OF A DOOR IS A DOOR YOU HAVE OPENED. An edge is
-            # keyed on the tile you DEPARTED from, so walking city -> house
-            # writes 27,11 on the city and house -> city writes 3,0 on the
-            # house. The city-side tile of the house's back door never gets
-            # an entry at all, because you only ever ARRIVE on it — so
-            # Cerulean's (27,9) was still being reported as a doorway never
-            # opened after the run had come out through it THIRTY-TWO times,
-            # and it is the way south. Compare (9,9) at the badge house,
-            # which IS recorded, purely because the run once happened to
-            # leave through it.
-            # Only when the tile you landed on IS a doorway AND that doorway
-            # leads back where you came from: then there is no ambiguity
-            # about which door you just used.
-            _ak = f"{ap['x']},{ap['y']}"
-            _smap = src.split("|")[0]
-            # ...AND A CAVE EXIT LANDS YOU BESIDE THE DOOR, NOT ON IT.
-            # Coming out of Seafoam's west door put the party at ROUTE_20
-            # (58,10) with the door at (58,9), so the tile-equality test
-            # above never matched, the outdoor side of every cave and
-            # tunnel exit stayed unrecorded, and `go FUCHSIA_CITY` from
-            # Cinnabar said "no walked way" over a chain the run had
-            # walked an hour before (2026-08-28). Landing OUTDOORS from an
-            # indoor map, a doorway one step away that leads back to the
-            # map you left is the door you came out of.
-            _out_now = ((after_obs or {}).get("map") or {}).get("outdoor")
-            _from_in = (((before_obs or {}).get("map") or {})
-                        .get("outdoor") is False)
-            for _w in ((after_obs or {}).get("map") or {}).get("warps") or []:
-                _wk = f"{_w.get('x')},{_w.get('y')}"
-                try:
-                    _adj = (_out_now is True and _from_in
-                            and abs(int(_w.get("x")) - int(ap["x"]))
-                            + abs(int(_w.get("y")) - int(ap["y"])) == 1)
-                except (TypeError, ValueError):
-                    _adj = False
-                if _wk != _ak and not _adj:
-                    continue
-                if str(_w.get("dest") or "") != _smap:
-                    continue
-                _ak = _wk                    # the door itself
-                _back = self.explored.setdefault(dst, {})
-                # ...AND ARRIVING THROUGH A DOOR OUTRANKS A SELF-LOOP.
-                # A door stepped through that fires nothing is recorded
-                # "back here", which is honest about that moment and then
-                # permanent: this writer only ever filled an ABSENT entry,
-                # so once the no-fire record existed the ledger went on
-                # calling the door a loop after the run had come out
-                # through it. Seafoam B2F's (25,11) — the one ladder
-                # joining the island's two halves — read
-                # "-> SEAFOAM_ISLANDS_B2F|23,10", itself, while the walk
-                # up it was in this very ledger from the other side.
-                # Coming out of a door proves where it goes; a step that
-                # did nothing proves only that it did nothing.
-                _ex = _back.get(_ak)
-                if _ex is not None and _ex.get("to") == dst:
-                    _ex["to"] = src
-                    self.log("reverse_edge", frm=dst, via=_ak, to=src,
-                             fixed="self-loop")
-                    self._save_memory()
-                if _ak not in _back:
-                    # n=0, NOT 1. This edge is learned by ARRIVING
-                    # through it, which proves where it goes but is not a
-                    # traversal in this direction — and the count is
-                    # printed to the model as "taken Nx". Seeding it at 1
-                    # and then adding 1 per real departure made a room
-                    # entered once report its door as taken twice, which
-                    # is not a thing that can happen.
-                    _back[_ak] = {"to": src, "n": 0}
-                    self.log("reverse_edge", frm=dst, via=_ak, to=src)
-                    self._save_memory()
-                break
+        self._note_arrival(src, dst, before_obs, after_obs)
         # A DOOR THIS ROOM DOES NOT HAVE. The edge is keyed on the tile the
         # op AIMED at, and once — leaving the Mt Moon Pokemon Center — that
         # was 18,5, which is a ROUTE_4 tile: the Center's own two door tiles
