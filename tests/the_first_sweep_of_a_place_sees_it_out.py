@@ -52,7 +52,7 @@ ck("...and why it is the cheapest way to meet a new place",
    "every door and person on it is then on the page" in ex)
 
 # ---- explore's first sweep ---------------------------------------------------
-i = ex.index('            _st = {"op": "sweep"}')
+i = ex.index('            _st = self._sweep_step(_reg_here)')   # a sweep carries the floor's refused spots (2026-09-24)
 blk = ex[i:i + 3000]
 ck("the first sweep of a place is told to stop for nothing",
    '_st["until"] = "map_change"' in blk)

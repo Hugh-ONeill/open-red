@@ -12960,6 +12960,19 @@ function OPS.sweep(G, c)
   -- own unfinished way out, not the objective (user, 2026-08-29: "if
   -- something is unreachable it should still try to explore near there").
   local tx, ty = tonumber(c.toward_x), tonumber(c.toward_y)
+  -- SPOTS A SCRIPT HAS TURNED YOU BACK FROM ARE NOT AIMED AT AGAIN. The
+  -- `tried` set below lives for one call, so five sweeps in a row in
+  -- Viridian each re-picked the same nearest spot, walked one step into
+  -- the sleeping old man, and stopped with his line (run 32, 2026-09-22;
+  -- again 2026-09-24). The executor keeps those spots as ways that turned
+  -- the run back and passes them as `skip`; the sweep aims at the next
+  -- spot instead, and says which spot it was walking toward when a script
+  -- stops it, so there is something to write down.
+  local skip = {}
+  for _, k in ipairs(type(c.skip) == "table" and c.skip or {}) do
+    skip[tostring(k)] = true
+  end
+  local last_target
   while true do
     if G.stack:top() ~= ow then
       -- WHO STOPPED YOU. "interrupted (battle or script)" plus a quoted
@@ -12990,6 +13003,7 @@ function OPS.sweep(G, c)
       end
       why = "interrupted (battle or script)"
         .. (_who and (" by " .. _who) or "")
+        .. (last_target and ((" on the way to (%d,%d)"):format(last_target.x, last_target.y)) or "")
       break
     end
     if (ow.map and ow.map.id) ~= map0 then
@@ -13010,11 +13024,12 @@ function OPS.sweep(G, c)
     local target
     for _, f in ipairs(front) do
       local k = f.x .. "," .. f.y
-      if not tried[k] and not (f.x == p.cellX and f.y == p.cellY) then
+      if not tried[k] and not skip[k] and not (f.x == p.cellX and f.y == p.cellY) then
         target = f; tried[k] = true; break
       end
     end
     if not target then why = "nothing more to see from ground you can reach"; break end
+    last_target = target
     local avoid = {}
     for k, v in pairs(warp_block(G, target.x, target.y)) do avoid[k] = v end
     for y = 0, H - 1 do

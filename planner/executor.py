@@ -2735,6 +2735,63 @@ class Executor:
             self._blackout_lead[target] = (mons[0] or {}).get("level")
         return True
 
+    def _sweep_skip(self, region: str) -> list:
+        """The spots on this floor a script has turned a sweep back from
+        (blockers of kind "cell" here, not cleared), as the shim's sweep
+        takes them: "x,y" strings it will not aim at again."""
+        out = []
+        for bk, b in (getattr(self, "blockers", None) or {}).items():
+            if (isinstance(b, dict) and b.get("kind") == "cell"
+                    and not b.get("cleared") and str(b.get("where")) == str(region)):
+                out.append(str(b.get("key")))
+        return sorted(out)
+
+    def _sweep_step(self, region: str, **kw) -> dict:
+        """A sweep op for this floor, carrying the spots to skip."""
+        st = {"op": "sweep"}
+        st.update({k: v for k, v in kw.items() if v is not None})
+        skip = self._sweep_skip(region)
+        if skip:
+            st["skip"] = skip
+        return st
+
+    _SWEEP_STOPPED = _re.compile(
+        r"interrupted \(battle or script\)(?: by ([A-Z][A-Z0-9_]+))? on the way to "
+        r"\((-?\d+),(-?\d+)\)")
+
+    def _note_sweep_refusal(self, region: str, trace) -> str:
+        """A SWEEP A SCRIPT TURNED BACK IS A WAY THAT TURNED YOU BACK. The
+        sweep aims at the nearest spot where seen ground ends; a script
+        that stops the walk one step in leaves the spot unseen, so it is
+        still the nearest, and the next sweep aims at it again: five in a
+        row into Viridian's old man, each "swept 1 step(s), 0 cell(s)
+        newly on screen" with his line quoted (run 32, 2026-09-22, and the
+        run of record, 2026-09-24). The crossing that a script turns back
+        already becomes a blocker row; a sweep's did not. Now the spot the
+        sweep was walking toward is written down the same way, with the
+        words that stopped it, and every sweep here afterwards skips it.
+        Returns the key written, or ""."""
+        text = " ".join(str(t) for t in (trace or []))
+        m = self._SWEEP_STOPPED.search(text)
+        if not m:
+            return ""
+        new = _re.search(r"(\d+) cell\(s\) newly on screen", text)
+        if new and int(new.group(1)) > 0:
+            return ""            # it saw something; the spot was worth it
+        key = f"{m.group(2)},{m.group(3)}"
+        said = ""
+        ms = _re.search(r'it said: "([^"]{1,160})', text)
+        if ms:
+            said = ms.group(1)
+        who = m.group(1) or ""
+        what = ("a script turned you back on the way there"
+                + (f" — {who}" if who else "")
+                + (f' said "{said}"' if said else ""))
+        self._note_blocker(region, key, "cell", what)
+        self.log("sweep_refused", region=str(region), cell=key, who=who,
+                 said=said[:120])
+        return key
+
     def _note_blocker(self, area: str, key: str, kind: str, what: str):
         """Write (or bump) a way that turned the run back. Evidence only:
         WHERE, WHICH exit, WHAT was seen or said. Never what lifts it."""
@@ -2879,9 +2936,11 @@ class Executor:
         for i, (dist, bk, b) in enumerate(rows[:cap], 1):
             k = b.get("key") or "way"
             what = ("a door" if b.get("kind") == "door"
-                    else "the way" if b.get("kind") == "seam" else "a way")
+                    else "the way" if b.get("kind") == "seam"
+                    else "the ground" if b.get("kind") == "cell" else "a way")
             spot = (f"{what} ({k})" if b.get("kind") == "door"
                     else f"the way {k}" if b.get("kind") == "seam"
+                    else f"the walk toward ({k})" if b.get("kind") == "cell"
                     else f"{k}")
             far = ("here" if dist == 0 else
                    f"{dist} leg(s) away" if dist < 99 else
@@ -3478,7 +3537,7 @@ class Executor:
             self.log("explore_step", subgoal=sg.get("id"), step="sweep",
                      frontier=int((_m.get("seen") or {}).get("frontier_n")
                                   or len(_m.get("frontier") or [])))
-            _st = {"op": "sweep"}
+            _st = self._sweep_step(_reg_here)
             for _k in ("until", "steps"):
                 if _params.get(_k) is not None:
                     _st[_k] = _params[_k]
@@ -3607,6 +3666,10 @@ class Executor:
                     _sd.pop(_k, None)
             except Exception:
                 pass            # a tally is never worth the round
+            try:
+                self._note_sweep_refusal(_reg_here, tr)
+            except Exception:
+                pass            # nor is a row
             _how = ("seeing this place out, because it is the first sweep "
                     "here" if _st.get("until") == "map_change"
                     and _params.get("until") is None else
@@ -3651,7 +3714,7 @@ class Executor:
                      frontier_water=len(_fw))
             _steps = [{"op": "walk_to", "x": int(_f0.get("x")),
                        "y": int(_f0.get("y")), "surf": True},
-                      {"op": "sweep"}]
+                      self._sweep_step(_reg_here)]
             for _k in ("until", "steps"):
                 if _params.get(_k) is not None:
                     _steps[1][_k] = _params[_k]
@@ -3715,7 +3778,7 @@ class Executor:
                                   or len(_m2.get("frontier") or []))
                         self.log("explore_step", subgoal=sg.get("id"),
                                  step="stale_then_sweep", frontier=_n2)
-                        _st2 = {"op": "sweep"}
+                        _st2 = self._sweep_step(self._where(o2))
                         for _k in ("until", "steps"):
                             if _params.get(_k) is not None:
                                 _st2[_k] = _params[_k]
@@ -4380,7 +4443,7 @@ class Executor:
         # coverage first there, as at home: what that floor has not shown
         # is found by walking to where its seen ground ends
         if ((cur or {}).get("map") or {}).get("frontier"):
-            ok, t2, cl = _run({"op": "sweep"},
+            ok, t2, cl = _run(self._sweep_step(region),
                               "sweeping the ground there never on screen")
             self._note_swept(region)
             # count the walk that saw nothing (see the picker's _dry rule)

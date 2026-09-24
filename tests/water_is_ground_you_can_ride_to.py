@@ -33,7 +33,7 @@ src = (ROOT / "planner/executor.py").read_text()
 i = src.index('_fw = _m.get("frontier_water") or []')
 blk = src[i:i + 2200]
 ck("explore rides to the nearest water-frontier spot and sweeps before leaving the map",
-   '"surf": True' in blk and '{"op": "sweep"}' in blk and 'step="ride"' in blk)
+   '"surf": True' in blk and 'self._sweep_step(_reg_here)]' in blk and 'step="ride"' in blk)   # the sweep carries the floor's refused spots (2026-09-24)
 ck("...and only when SURF is known", 'self._knows_move(obs, "SURF")' in blk)
 ck("...and before the fully-worked walk-elsewhere branch", i < src.index("this area is fully worked, so you were walked"))
 
