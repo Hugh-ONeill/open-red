@@ -126,6 +126,15 @@ rc, out, _, _ = tool(["insert_guard.py", "Reach Celadon City first",
 ck("an insert that arrives before the town that opens it is refused",
    rc == 3 and "insertion refused" in out, out[:300])
 
+SURF = ["Choose a starter Pokemon", "Defeat Koga for the Soul Badge",
+        "a party Pokemon knows SURF", "Reach Cinnabar Island",
+        "Defeat Blaine for the Volcano Badge"]
+rc, out, lines, _ = tool(["push_leg.py", 3, 4], outline=SURF)   # Surf behind Cinnabar
+ck("a gate item pushed behind the thing that needs it is refused too "
+   "(Surf after Cinnabar: the run arrives and cannot go on; 2026-09-24)",
+   rc == 3 and "comes AFTER" in out, out[:300])
+ck("...and the file is untouched", lines == SURF)
+
 ck("Flash from Bill is a false fact the table now knows (inserted in the run of record, 2026-09-24)",
    any("FALSE FACT" in f for f in G.faults(OUTLINE + ["Obtain HM05 (FLASH) from Bill in his house on Route 25"])))
 ck("...while Flash from the aide on Route 2 is not",

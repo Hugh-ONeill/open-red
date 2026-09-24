@@ -30,12 +30,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 def faults(legs: list) -> set:
     """The judge's flags that are faults, in its own words: a false fact,
-    a reach-order pair, a gate item placed before the town it is got in."""
+    a reach-order pair, a gate item placed before the town it is got in,
+    or AFTER the thing that needs it (Surf after Cinnabar, the Flute after
+    Fuchsia: the run arrives and cannot go on — the same shape as Celadon
+    before Lavender, and the draws of 2026-09-24 carried four of them
+    while counting zero)."""
     from compare_outlines import judge
     j = judge([str(l).strip() for l in legs if str(l).strip()])
     return {f for f in (j.get("flags") or [])
             if f.startswith("FALSE FACT") or f.startswith("reach order")
-            or "comes BEFORE" in f}
+            or "comes BEFORE" in f or "comes AFTER" in f}
 
 
 def added_faults(before: list, after: list) -> list:
