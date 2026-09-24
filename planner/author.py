@@ -990,71 +990,6 @@ def read_counters_text() -> str:
                         for m, (items, moved) in sorted(sh.items())))
 
 
-def false_fact_problems(plan) -> list:
-    """A PLAN MAY NOT DRESS A LEG UP WITH SOMETHING THAT IS NOT THERE.
-
-    The guard screened rewrites and inserts — the two places the chain
-    edits its OUTLINE — and nothing screened what the plan author writes on
-    top of a leg. Run 32's leg 2 is "Retrieve the Poké Ball from the Pallet
-    Town resident", already one of the outline's own false facts, and the
-    plan turned it into "Obtain Poke Balls from the Pallet Town resident
-    (MARTY) to enable catching Pokemon" — an errand boy who is not in the
-    game. Seven proposals went looking for him, through Blue's house, the
-    town centre and Oak's lab (2026-09-22, user: "never seen this
-    hallucination before").
-
-    The refusal is a form refusal like every other: it says the claim will
-    not be written down, never which part of it is wrong. Only what the
-    PLAN added is judged — a leg whose own wording the outline already
-    carries is the outline's business, not this pass's, or every plan for
-    such a leg would be unwritable."""
-    out = []
-    for s in (plan or {}).get("subgoals") or []:
-        if not isinstance(s, dict):
-            continue
-        for key in ("goal_text", "goal"):
-            said = str(s.get(key) or "")
-            if not said:
-                continue
-            why = says_a_false_fact(said)
-            if why and not says_a_false_fact(str((plan or {}).get("goal") or "")):
-                out.append(f"subgoal[{s.get('id') or '?'}] {key} states "
-                           f"something this game does not bear out; say what "
-                           f"the step DOES and name only what you have seen")
-                break
-    return out
-
-
-def says_a_false_fact(text: str) -> str:
-    """Why this sentence is false, or "" — CHECK-SIDE, never quoted back.
-
-    A GAP IS A LEG THE RUN WILL WRITE; A FALSE FACT IS ROUNDS SPENT
-    SOMEWHERE WRONG, and the chain writes them into its own list. Run 28
-    rewrote leg 13 from "Retrieve the S.S. Ticket from Bill" to "...from
-    Bill on the S.S. Anne" — the ship the ticket is FOR — and then wrote
-    four plans to board it, each needing the ticket it was fetching (user,
-    2026-09-19: "it should have been caught and guarded against in the
-    first place"). The tables are planner/outline_facts.py, the same ones
-    the hand-pick judge counts. What comes back to the model is a form
-    refusal and never the fact: the harness does not hand over answers
-    (the pamphlet standard), it only declines to write the claim down."""
-    try:
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from outline_facts import false_facts
-    except Exception:
-        return ""
-    for _kind, _leg, why in false_facts([str(text or "")]):
-        return why
-    return ""
-
-
-# What the model is told instead — the shape of the sentence, not the fact.
-FALSE_FACT_FEEDBACK = ("say the deed WITHOUT claiming where the thing is "
-                       "kept or who hands it over, unless the run has been "
-                       "told or has seen it; name what to do, not where the "
-                       "game keeps it")
-
-
 def names_a_counter_without(text: str) -> str | None:
     """A sentence that puts a thing on a counter this run has read, where
     the run saw it was not — the fact validate() refuses a plan on, asked
@@ -2897,8 +2832,7 @@ def author(goal: str, model: str, rounds: int = 5,
         _last = plan
         probs = (validate(plan) or witness_already_true_problems(plan)
                  or held_step_problems(plan) or machine_slot_problems(plan)
-                 or through_a_place_problems(plan)
-                 or false_fact_problems(plan))
+                 or through_a_place_problems(plan))
         if not probs:
             # tag each subgoal so escalation/distillation runs it macro-less
             for s in plan["subgoals"]:
@@ -5703,56 +5637,6 @@ def _outline_compose(goal: str, drafts: list, model: str) -> tuple:
     return legs, stages
 
 
-# how many times the drafts may be composed before the best is kept
-OUTLINE_COMPOSITIONS = 3
-
-
-def _outline_judged(goal: str, drafts: list, model: str) -> tuple:
-    """Compose, then JUDGE the composition; a faulty one is composed again
-    from the same drafts, and the best of at most OUTLINE_COMPOSITIONS is
-    kept.
-
-    THE JUDGE IS OURS AND NOTHING OF IT REACHES THE MODEL. compare_outlines
-    reads an outline for a fact the game does not bear out and for towns
-    arrived at in an order the run cannot walk (Lavender gates Celadon: the
-    Saffron guards want a drink that is sold only in Celadon, so Celadon
-    is reached through Rock Tunnel and Lavender, or not at all). That is a
-    check-side table, and it stays on the check side: it never says a word
-    to the model, it only chooses among what the model wrote, exactly as
-    validate() refuses a plan. Run 34 (2026-09-23) played an outline with
-    "Reach Celadon City" at 16, "Reach Lavender Town" at 24 and "Navigate
-    through the Rock Tunnel" at 30 — the very pair the judge flags — and
-    spent two hours and fourteen plan versions on leg 14 hunting a drink
-    for a store it could not reach. The judge had existed for four days as
-    a tool for a hand pick; the chain never asked it."""
-    from compare_outlines import judge, rank
-    from outline_gate import faults as _faults
-    best = None
-    for k in range(max(1, OUTLINE_COMPOSITIONS)):
-        OUTLINE_NOTES.clear()          # each composition writes its own
-        legs, stages = _outline_compose(goal, drafts, model)
-        j = judge(list(legs or []))
-        # ONE DEFINITION OF A FAULT, the rungs' and the draw's (outline_gate):
-        # a false fact, a town before the town that opens it, a gate item
-        # before its town. The draw counted only the first two, so a draw
-        # on 2026-09-24 was kept "0 fault(s)" with "Obtain the Secret Key"
-        # eight legs before Cinnabar, which the rungs would have refused.
-        faults = sorted(_faults(list(legs or [])))
-        print(f"[outline judge] composition {k + 1}: "
-              f"{len(faults)} fault(s)" + (":" if faults else ""))
-        for f in faults:
-            print(f"[outline judge]   {f}")
-        cand = (rank(j), k, legs, stages, list(OUTLINE_NOTES))
-        if best is None or cand[0] < best[0]:
-            best = cand
-        if not faults:
-            break
-    _, k, legs, stages, notes = best
-    OUTLINE_NOTES[:] = notes
-    print(f"[outline judge] keeping composition {k + 1}")
-    return legs, stages
-
-
 def outline(goal: str, model: str, rounds: int = 3,
             draws: int = 3, max_draws: int = 6,
             eras: bool = True) -> list | None:
@@ -5837,7 +5721,7 @@ def outline(goal: str, model: str, rounds: int = 3,
             break
     if not drafts:
         return None
-    legs, stages = _outline_judged(goal, drafts, model)
+    legs, stages = _outline_compose(goal, drafts, model)
     if stages:
         try:
             STAGES_PATH.write_text("".join(
@@ -5885,8 +5769,12 @@ def outline_reupkeep(path: Path, out: Path, goal: str, model: str) -> list:
     if src_stages.exists():
         out.with_suffix(".stages").write_text(src_stages.read_text())
     try:
-        from outline_gate import faults
-        _f = sorted(faults(new))
+        # the hand-pick judge's reading, printed for the person who picks;
+        # nothing here refuses or selects
+        from compare_outlines import judge
+        _f = sorted(x for x in (judge(new).get("flags") or [])
+                    if x.startswith("FALSE FACT") or x.startswith("reach order")
+                    or "comes " in x)
         print(f"[reupkeep] judge: {len(_f)} fault(s)" + (":" if _f else ""))
         for x in _f:
             print(f"[reupkeep]   {x}")
@@ -6873,26 +6761,6 @@ def _held_doors_text(observed) -> str:
             "stood by them):\n" + "\n".join(rows[:10]) + "\n")
 
 
-def far_pull_mends(leg: int, n: int, outline: Path | None = None) -> list:
-    """What pulling leg `n` in front of leg `leg` would PUT RIGHT, in the
-    judge's words, when it adds no fault; [] otherwise. Read off the
-    outline as it stands, the same move pull_leg.py would make."""
-    try:
-        from outline_gate import added_faults, mended_faults
-        p = outline or Path("plans/outline.txt")
-        lines = [l for l in p.read_text().splitlines() if l.strip()]
-        if not (1 <= leg <= len(lines) and 1 <= n <= len(lines)) or n <= leg:
-            return []
-        after = list(lines)
-        text = after.pop(n - 1)
-        after.insert(leg - 1, text)
-        if added_faults(lines, after):
-            return []
-        return mended_faults(lines, after)
-    except Exception:
-        return []
-
-
 def _blocker_once(goal, body, ahead, start, journal, model, leg, observed,
                   refused, held, plan):
     """One question. (n, None) is a pick that stands; (n, reason) a pick
@@ -6944,21 +6812,10 @@ def _blocker_once(goal, body, ahead, start, journal, model, leg, observed,
         return no(f"leg {n} is already done")
     gap = n - leg if leg else 0
     if gap > PULL_MAX:
-        # ...UNLESS THE JUDGE SAYS THE PULL PUTS THE LIST RIGHT. The cap
-        # bounds a guess; a pull that removes a fault the judge names —
-        # Lavender ahead of the Celadon it opens — and adds none is not a
-        # guess, whatever its distance (run of record, 2026-09-24: the
-        # right answer was refused here and the chain stopped).
-        _mend = far_pull_mends(leg, n)
-        if _mend:
-            print(f"[blocker] a {gap}-leg pull, further than {PULL_MAX}, "
-                  f"allowed: it puts the list right — {'; '.join(_mend)}",
-                  file=sys.stderr)
-        else:
-            return no(f"a {gap}-leg pull: further than {PULL_MAX} — the "
-                      f"list is not rearranged that far on one answer; if "
-                      f"leg {n} truly comes first, the legs between are "
-                      f"where the stuck one belongs")
+        return no(f"a {gap}-leg pull: further than {PULL_MAX} — the list is "
+                  f"not rearranged that far on one answer; if leg {n} truly "
+                  f"comes first, the legs between are where the stuck one "
+                  f"belongs")
     # EVERY PULL IS CONFIRMED, NEAR OR FAR. This ran only for pulls further
     # than PULL_NEAR, on the reasoning that a long reach is the suspicious
     # one — true, and it left the CIRCULAR pull entirely unguarded, because
@@ -8081,12 +7938,6 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             turned_down.append((ins, f"{_unknown} is not an item, Pokemon, machine, "
                                      f"badge or place this game has; name a deed "
                                      f"about something that exists here, or none"))
-            continue
-        _ff = says_a_false_fact(ins)
-        if _ff:
-            print(f"[missing] turned down {ins!r}: {_ff} — {_why}",
-                  file=sys.stderr)
-            turned_down.append((ins, FALSE_FACT_FEEDBACK))
             continue
         _sh = names_a_counter_without(ins)
         if _sh:
@@ -9679,13 +9530,6 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
               f"proved it cannot get to is not evidence for moving the "
               f"objective towards it; the wording stands",
               file=sys.stderr)
-        return ""
-    _ff = says_a_false_fact(new)
-    if _ff:
-        # the reason is ours; the model is told the wording stands
-        print(f"[wording] refused: {new!r} — {_ff}; a rewrite may not put a "
-              f"thing somewhere the game does not keep it, and the wording "
-              f"stands", file=sys.stderr)
         return ""
     _sh = names_a_counter_without(new)
     if _sh:

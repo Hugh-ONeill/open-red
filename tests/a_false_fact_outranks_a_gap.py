@@ -128,14 +128,15 @@ ck("the trends tool reads the same tables",
 for f in ("executor.py", "ledger.py", "state_text.py", "policy_author.py"):
     ck(f"nothing in {f} can put these tables in a prompt",
        "outline_facts" not in (ROOT / "planner" / f).read_text())
-# author.py reads them in ONE place, to refuse writing a false source into
-# the outline (2026-09-20); what goes back to the model carries no fact,
-# which a_false_fact_is_not_written_into_the_outline pins.
+# author.py does not read them at all any more. From 2026-09-20 it refused
+# a rewrite or an insert on them, then a plan, then a reorder, and on
+# 2026-09-24 the garbled-parcel row refused the one answer that would have
+# unstuck a run (user: "strip everything automatic, hand-pick judge only").
+# The tables are read where a person reads them: compare_outlines.py.
 _au = (ROOT / "planner/author.py").read_text()
-ck("the author reads them only in the check that refuses one",
-   _au.count("from outline_facts import") == 1
-   and _au.count("false_facts(") == 1
-   and "def says_a_false_fact" in _au)
+ck("the author neither refuses nor selects on them",
+   "outline_facts" not in _au and "says_a_false_fact" not in _au
+   and "false_fact_problems" not in _au)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:

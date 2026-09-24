@@ -108,18 +108,6 @@ def main():
             print(f"insertion refused: '{proposed}' restates '{other}' "
                   f"(similarity {ratio:.2f}), which is still ahead of you")
             sys.exit(3)
-    # JUDGED LIKE THE DRAW (see outline_gate): an insert that states what
-    # the game does not bear out, or arrives somewhere before the town
-    # that opens it, is refused here as it would be at the draw.
-    try:
-        from outline_gate import added_faults, refusal
-        _at = lines.index(leg) if leg in lines else max(0, _done)
-        _bad = added_faults(lines, lines[:_at] + [proposed] + lines[_at:])
-    except Exception:
-        _bad = []
-    if _bad:
-        print(refusal("insertion", _bad))
-        sys.exit(3)
     sys.exit(0)
 
 

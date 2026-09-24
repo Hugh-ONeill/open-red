@@ -874,9 +874,8 @@ while :; do
         else
           echo "=== leg $i stuck behind leg $blocker: pulling it forward ==="
         fi
-        # THE PULL IS JUDGED (planner/outline_gate.py): a gate item pulled
-        # in front of the town it is got in is refused, and the rung falls
-        # through to the next one instead of the chain dying under set -e.
+        # THE PULL'S EXIT CODE IS READ, so a pull that cannot happen falls
+        # through to the next rung instead of the chain dying under set -e.
         if python planner/pull_leg.py pull "$i" "$blocker"; then
           [ "${_bpushed:-0}" -gt 0 ] && printf '%s\n' "$_btext" >> run/outline_pullbacks
           disposed "leg $blocker was pulled ahead of it"

@@ -80,17 +80,18 @@ for f in ("author.py", "executor.py", "ledger.py", "state_text.py"):
     _c = "\n".join(l for l in (ROOT / "planner" / f).read_text().splitlines()
                    if not l.lstrip().startswith("#"))
     if f == "author.py":
-        # Since 2026-09-23 the author asks the judge ONCE, to choose among
-        # its own compositions (_outline_judged); the verdict is printed
-        # and never spoken. That is the only place the judge is named.
-        _j = _c[_c.index("def _outline_judged("):]
-        _j = _j[:_j.index("\ndef ")] if "\ndef " in _j else _j
-        _rest = _c.replace(_j, "")
-        ck("the judge's town order cannot reach a prompt from author.py: "
-           "it is asked only where a composition is chosen, and answers "
-           "to the log",
+        # The judge is the HAND-PICK judge and nothing else (user,
+        # 2026-09-24: "strip everything automatic, hand-pick judge only"):
+        # the author names it in one place, --outline-reupkeep, where its
+        # reading is PRINTED for the person who picks and refuses nothing.
+        _r = _c[_c.index("def outline_reupkeep("):]
+        _r = _r[:_r.index("\ndef ")] if "\ndef " in _r else _r
+        _rest = _c.replace(_r, "")
+        ck("the judge's town order cannot reach a prompt from author.py: it is "
+           "read only where a candidate is printed for a person, and never "
+           "refuses or selects",
            "REACH_ORDER" not in _c and "compare_outlines" not in _rest
-           and "chat(" not in _j)
+           and "chat(" not in _r and "sys.exit" not in _r)
         continue
     ck(f"the judge's town order cannot reach a prompt from {f}",
        "REACH_ORDER" not in _c and "import compare_outlines" not in _c
