@@ -10188,6 +10188,21 @@ def main():
         if _ph:
             print(_ph)
         sys.exit(0 if _ph else 3)
+    # THE OTHER HALF OF AN "OR" IS ASKED FOR BEFORE IT IS PLANNED. The
+    # chain writes that plan as leg_NN_bonus_*.json; before writing it the
+    # model is asked whether the try still serves anything ahead
+    # (planner/or_leg.py). No plan on a no, and the chain says the leg
+    # stands done, which it does either way.
+    if (args.out and "_bonus_" in args.out.name and args.goal
+            and not args.check_done):
+        import or_leg
+        _leg = or_leg.last_bonus_leg(args.goal)
+        if _leg:
+            _go, _why = or_leg.ask(_leg, args.goal, args.start or "", args.model)
+            or_leg.record_ask(_leg, args.goal, _go, _why)
+            print(f"[or-ask] {'try it' if _go else 'not now'}: {_why}")
+            if not _go:
+                sys.exit(3)
     if args.check_done:
         done = check_done(args.goal, args.start or "a brand new game",
                           args.model, observed=args.observed,
