@@ -302,8 +302,21 @@ sweep_ahead() {
           --goal "$leg" --outline-path plans/outline.txt --leg "$at" \
           --start "$st" --observed run/explored.json --model "$AUTHOR_MODEL") \
       && [ -n "$got" ]; then
+    # AN "OR" TYPE LEG WITH A HALF STILL MISSING IS NOT SWEPT. Swept here
+    # the moment the starter satisfied one half, it never reached its own
+    # boundary, where the other half gets its one try (planner/or_leg.py).
+    _kept=""
+    while IFS=$'\t' read -r _sn _st; do
+      [ -n "$_sn" ] || continue
+      if [ -n "$_st" ] && python planner/or_leg.py "$_st" >/dev/null 2>&1; then
+        echo "    (not swept: $_st — one half held; the other half gets a try at its own turn)"
+      else
+        _kept+="$_sn"$'\t'"$_st"$'\n'
+      fi
+    done <<< "$got"
+    got="${_kept%$'\n'}"
     nums=$(printf '%s\n' "$got" | cut -f1 | tr '\n' ' ')
-    if python planner/skip_legs.py $nums; then
+    if [ -n "$got" ] && python planner/skip_legs.py $nums; then
       printf '%s\n' "$got" >> run/outline_skips
     fi
   fi
@@ -501,6 +514,28 @@ while :; do
           --observed run/explored.json --model "$AUTHOR_MODEL"; then
     echo "=== leg $i/${#LEGS[@]} judged already accomplished before running: $leg ==="
     echo "$i" > "$PROGRESS"
+    # AN "OR" HELD ON ARRIVAL STILL GETS ONE TRY AT ITS OTHER HALF. "the
+    # party holds a WATER or GRASS type" is true the moment either is held,
+    # so a Squirtle start crossed off every "X or WATER" leg untouched and
+    # nothing was caught (user, 2026-09-24). One non-fatal attempt at the
+    # half it lacks, the model's own words minus the half it has, and the
+    # leg is done either way (planner/or_leg.py). Not for the ladder: a
+    # failure here is nothing, the leg was already true.
+    if _bonus=$(python planner/or_leg.py "$leg" 2>/dev/null) && [ -n "$_bonus" ]; then
+      _bp="plans/leg_$(printf '%02d' "$i")_bonus_$(printf '%s' "$_bonus" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9]\+/_/g' | cut -c1-40).json"
+      echo "=== leg $i: an 'or' already held on arrival — one attempt at the other half, then it is done either way: $_bonus ==="
+      python planner/or_leg.py --record "$leg" "$_bonus" || true
+      _bargs=(--goal "$_bonus" --out "$_bp" --model "$AUTHOR_MODEL"
+              --start "$(python planner/state_text.py)")
+      [ -s run/explored.json ] && _bargs+=(--observed run/explored.json)
+      [ -s run/executor_log.jsonl ] && _bargs+=(--journal run/executor_log.jsonl)
+      if python planner/author.py "${_bargs[@]}"; then
+        env RED_HEADED="${RED_HEADED:-1}" RED_SPEED="${RED_SPEED:-200}" \
+            RED_CONTINUE=1 ./campaign.sh 1 "$_bp" -- --escalate || true
+      else
+        echo "    (no plan could be written for the other half; the leg stands done)"
+      fi
+    fi
     sweep_ahead "$i"
     continue
   fi
