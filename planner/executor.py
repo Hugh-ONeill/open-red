@@ -22334,6 +22334,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # for a normal subgoal is far too small (thin5 ran out inside
             # the mountain, mid-journey, and reported failure)
             rounds = max(rounds, 20)
+        # THE OTHER HALF OF AN "OR" GETS HALF A BUDGET. The chain runs
+        # one attempt at the half the party lacks when an "or" type leg is
+        # already held (planner/or_leg.py) and names that plan
+        # leg_NN_bonus_*.json. It is a chance, not a leg: the leg is done
+        # either way. It ran on a full budget, and run of record 3 spent
+        # it hunting a Mankey on Route 2, where there are none, after the
+        # Brock fight it was for (user, 2026-09-24: "half budget").
+        if "_bonus_" in Path(str(getattr(self, "plan_path", "") or "")).name:
+            rounds = max(1, (rounds + 1) // 2)
         feedback = "This is the first attempt."
         inert = []          # targets that ran but did nothing / failed
         backward = []       # ops that moved us to an already-visited map
