@@ -86,9 +86,19 @@ BADGES = ["boulder", "cascade", "thunder", "rainbow", "soul", "marsh",
 
 # things that are not in this game, or garbled past use
 NONSENSE = [
-    ("Pokemon/ball 'retrieved' from the Poke Mart (the parcel, garbled)",
+    # A POKE BALL FROM THE MART IS WHERE POKE BALLS COME FROM. This row
+    # read "(pokemon|poke balls?) from the (mart|...)" and refused the
+    # wording rung's "Obtain the Poké Ball from the Poké Mart in Viridian
+    # City and reach Pewter City" twice, on the run of record's leg 4
+    # (2026-09-24) — the one answer that would have walked the run into
+    # the clerk who hands over the parcel — and the chain stopped. What is
+    # false is a POKEMON from the mart (the parcel, garbled) and a ball
+    # from a resident who does not exist, or from a Center that sells none.
+    ("a Pokemon 'retrieved' from the Poke Mart (the parcel, garbled)",
+     r"(retrieve|get|obtain).*\bpokemon from the (poke ?mart|pokemon center|mart)"),
+    ("a Poke Ball from the Pokemon Center, or from a resident who does not exist",
      r"(retrieve|get|obtain).*(pokemon|poke ?balls?) from the "
-     r"(poke ?mart|pokemon center|mart|[a-z ]*(resident|villager|neighbou?r))"),
+     r"(pokemon center|[a-z ]*(resident|villager|neighbou?r))"),
     ("an 'MT' fetched from somewhere", r"\bthe mt\b"),
     ("the Safari Zone entered by a trade", r"trade for the safari"),
     ("a Pikachu from the S.S. Anne", r"pikachu.*anne|anne.*pikachu"),
