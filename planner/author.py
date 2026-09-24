@@ -6804,6 +6804,26 @@ def _held_doors_text(observed) -> str:
             "stood by them):\n" + "\n".join(rows[:10]) + "\n")
 
 
+def far_pull_mends(leg: int, n: int, outline: Path | None = None) -> list:
+    """What pulling leg `n` in front of leg `leg` would PUT RIGHT, in the
+    judge's words, when it adds no fault; [] otherwise. Read off the
+    outline as it stands, the same move pull_leg.py would make."""
+    try:
+        from outline_gate import added_faults, mended_faults
+        p = outline or Path("plans/outline.txt")
+        lines = [l for l in p.read_text().splitlines() if l.strip()]
+        if not (1 <= leg <= len(lines) and 1 <= n <= len(lines)) or n <= leg:
+            return []
+        after = list(lines)
+        text = after.pop(n - 1)
+        after.insert(leg - 1, text)
+        if added_faults(lines, after):
+            return []
+        return mended_faults(lines, after)
+    except Exception:
+        return []
+
+
 def _blocker_once(goal, body, ahead, start, journal, model, leg, observed,
                   refused, held, plan):
     """One question. (n, None) is a pick that stands; (n, reason) a pick
@@ -6855,10 +6875,21 @@ def _blocker_once(goal, body, ahead, start, journal, model, leg, observed,
         return no(f"leg {n} is already done")
     gap = n - leg if leg else 0
     if gap > PULL_MAX:
-        return no(f"a {gap}-leg pull: further than {PULL_MAX} — the list is "
-                  f"not rearranged that far on one answer; if leg {n} truly "
-                  f"comes first, the legs between are where the stuck one "
-                  f"belongs")
+        # ...UNLESS THE JUDGE SAYS THE PULL PUTS THE LIST RIGHT. The cap
+        # bounds a guess; a pull that removes a fault the judge names —
+        # Lavender ahead of the Celadon it opens — and adds none is not a
+        # guess, whatever its distance (run of record, 2026-09-24: the
+        # right answer was refused here and the chain stopped).
+        _mend = far_pull_mends(leg, n)
+        if _mend:
+            print(f"[blocker] a {gap}-leg pull, further than {PULL_MAX}, "
+                  f"allowed: it puts the list right — {'; '.join(_mend)}",
+                  file=sys.stderr)
+        else:
+            return no(f"a {gap}-leg pull: further than {PULL_MAX} — the "
+                      f"list is not rearranged that far on one answer; if "
+                      f"leg {n} truly comes first, the legs between are "
+                      f"where the stuck one belongs")
     # EVERY PULL IS CONFIRMED, NEAR OR FAR. This ran only for pulls further
     # than PULL_NEAR, on the reasoning that a long reach is the suspicious
     # one — true, and it left the CIRCULAR pull entirely unguarded, because

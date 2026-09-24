@@ -48,6 +48,19 @@ def added_faults(before: list, after: list) -> list:
         return []
 
 
+def mended_faults(before: list, after: list) -> list:
+    """Faults `before` has that `after` does not — what a change PUTS
+    RIGHT, in the judge's words. A pull the blocker rung would refuse for
+    its distance is let through when it mends one and adds none: the run
+    of record (2026-09-24) named the Lavender stretch as what comes before
+    Celadon — the judge's own reach order — and was refused as "a 17-leg
+    pull: further than 8", after which no rung had a legal move."""
+    try:
+        return sorted(faults(before) - faults(after))
+    except Exception:
+        return []
+
+
 def refusal(what: str, bad: list) -> str:
     return (f"{what} refused: it would put the list in an order the run "
             f"cannot walk, or state what the game does not bear out — "
