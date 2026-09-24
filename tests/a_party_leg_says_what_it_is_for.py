@@ -72,6 +72,13 @@ ck("a purpose given rides in the notes beside its leg",
 ck("...whitespace folded", notes.get("every party member is at least level 12")
    == "for: Brock's Onix is level 14", notes)
 ck("none given is nothing", "the party has at least 2 Pokemon" not in notes)
+# a twin re-proposed in a later round adds no second purpose
+brock_probe.chat = lambda msgs, model, **kw: json.dumps(
+    [{"item": "the party holds a FIGHTING or GRASS type", "after": 1, "for": "the rock gym"}])
+out2 = A._outline_upkeep_once("Become the Champion", list(out), "m")
+ck("a leg re-proposed as a twin keeps its one purpose",
+   [k for k, _ in A.OUTLINE_NOTES].count("the party holds a FIGHTING or GRASS type") == 1
+   and out2.count("the party holds a FIGHTING or GRASS type") == 1, A.OUTLINE_NOTES)
 ck("the notes are the sidecar the leg's plan author reads",
    "OUTLINE_NOTES" in (ROOT / "planner/author.py").read_text()
    and "notes.write_text" in (ROOT / "planner/author.py").read_text())

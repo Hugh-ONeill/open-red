@@ -6355,15 +6355,7 @@ def _outline_upkeep_once(goal: str, legs: list, model: str,
         item = str(a.get("item") or "").strip()
         if not item:
             continue
-        # WHAT IT IS FOR, in the model's own words, rides with the leg:
-        # to the log, and to the notes the leg's plan author reads. Asked
-        # for since 2026-09-24 (the each-ball method, applied here): a
-        # type leg written without a purpose was a hedge as often as a
-        # counter — 25 of 44 "or" pairs carried a half that did nothing
-        # for the gym they stood before.
         _for = " ".join(str(a.get("for") or "").split())[:160]
-        if _for:
-            OUTLINE_NOTES.append((item, f"for: {_for}"))
         # ALREADY THERE IN OTHER WORDS. The same test the done-ledger uses
         # against still-listed objectives: a new entry whose significant
         # words are contained in one already on the list is that one.
@@ -6382,6 +6374,16 @@ def _outline_upkeep_once(goal: str, legs: list, model: str,
                 if l not in UPKEEP_TWINS:
                     UPKEEP_TWINS.append(l)
             continue
+        # WHAT IT IS FOR, in the model's own words, rides with the leg:
+        # to the log, and to the notes the leg's plan author reads. Asked
+        # for since 2026-09-24 (the each-ball method, applied here): a
+        # type leg written without a purpose was a hedge as often as a
+        # counter — 25 of 44 "or" pairs carried a half that did nothing
+        # for the gym they stood before. Kept only for a leg that is
+        # actually added: a twin re-proposed in a later round gave one leg
+        # two purposes.
+        if _for and not any(k == item for k, _ in OUTLINE_NOTES):
+            OUTLINE_NOTES.append((item, f"for: {_for}"))
         try:
             after = int(a.get("after") or 0)
         except (TypeError, ValueError):
