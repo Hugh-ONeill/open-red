@@ -5848,6 +5848,53 @@ def outline(goal: str, model: str, rounds: int = 3,
     return legs
 
 
+def outline_reupkeep(path: Path, out: Path, goal: str, model: str) -> list:
+    """Keep an outline's story legs and ask the party question again over
+    them, writing the result beside `out` with its upkeep and notes
+    sidecars (the stages sidecar is copied from beside `path` when there
+    is one: the story legs it names are unchanged).
+
+    WHY A PASS ON ITS OWN. The party legs come from one question; the rest
+    of the outline from several others. On 2026-09-24 the question was
+    found to name WATER as its example and to never ask what a leg was
+    for, and both were fixed — after the outline the judge had picked was
+    drawn. Its story legs were sound; its party legs read "WATER or GRASS",
+    "GROUND or WATER", "PSYCHIC or WATER", and the starter question took
+    Squirtle thirty times in thirty asks on that count. Redrawing the whole
+    list rolls the story dice again for a fault that sits in one pass, so
+    that pass alone is rerun. Nothing is decided here that the model did
+    not: the story is its own, and so are the new party legs."""
+    legs = [l.strip() for l in path.read_text().splitlines() if l.strip()]
+    story = [l for l in legs if not _UPKEEP_SHAPE.match(l)]
+    dropped = [l for l in legs if _UPKEEP_SHAPE.match(l)]
+    print(f"[reupkeep] {len(story)} story legs kept, {len(dropped)} party "
+          f"leg(s) set aside: " + "; ".join(dropped))
+    global UPKEEP_PATH
+    UPKEEP_PATH = out.with_suffix(".upkeep")
+    OUTLINE_NOTES.clear()
+    new = _outline_upkeep(goal, story, model)
+    _reconcile_upkeep(new)
+    out.write_text("\n".join(new) + "\n")
+    notes = out.with_suffix(".notes")
+    if OUTLINE_NOTES:
+        notes.write_text("".join(f"{leg}\t{' '.join(note.split())}\n"
+                                 for leg, note in OUTLINE_NOTES))
+    else:
+        notes.unlink(missing_ok=True)
+    src_stages = path.with_suffix(".stages")
+    if src_stages.exists():
+        out.with_suffix(".stages").write_text(src_stages.read_text())
+    try:
+        from outline_gate import faults
+        _f = sorted(faults(new))
+        print(f"[reupkeep] judge: {len(_f)} fault(s)" + (":" if _f else ""))
+        for x in _f:
+            print(f"[reupkeep]   {x}")
+    except Exception:
+        pass
+    return new
+
+
 def outline_repass(path: Path) -> list:
     """Re-run the outline's MECHANICAL passes on a drawn candidate, in
     place: the dedupe (with whatever it has learned since the draw) and
@@ -10208,6 +10255,10 @@ def main():
                          "come before the stuck --goal; prints the leg "
                          "number and exits 0, or exits 3")
     ap.add_argument("--outline-path", type=Path, default=None)
+    ap.add_argument("--outline-reupkeep", action="store_true",
+                    help="keep the story legs of the outline at "
+                         "--outline-path and ask the party question again "
+                         "over them; write to --out with its sidecars")
     ap.add_argument("--outline-repass", action="store_true",
                     help="re-run the dedupe and upkeep reconcile on the "
                          "outline at --outline-path, in place (no model)")
@@ -10254,6 +10305,13 @@ def main():
     _AUTHORING_GOAL = args.goal
     if not args.goal and not (args.validate or args.outline_repass):
         ap.error("--goal is required")
+    if args.outline_reupkeep:
+        if not args.outline_path or not args.out:
+            ap.error("--outline-reupkeep needs --outline-path and --out")
+        for i, l in enumerate(outline_reupkeep(args.outline_path, args.out,
+                                               args.goal, args.model), 1):
+            print(f"  {i}. {l}")
+        return
     if args.outline_repass:
         if not args.outline_path:
             ap.error("--outline-repass needs --outline-path")
