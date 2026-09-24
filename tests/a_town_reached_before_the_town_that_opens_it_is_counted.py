@@ -96,6 +96,23 @@ for f in ("author.py", "executor.py", "ledger.py", "state_text.py"):
        "REACH_ORDER" not in _c and "import compare_outlines" not in _c
        and "from compare_outlines" not in _c)
 
+# ---- an arrival worded as a departure (2026-09-24) -------------------------
+# A draw put "Reach Celadon City" at 22 and "Exit Rock Tunnel into Lavender
+# Town" at 34, and the judge, reading only the opening verb, counted no
+# reach fault: the knot that ended two runs, invisible.
+_j2 = C.judge(["Choose a starter Pokemon", "Reach Celadon City",
+               "Exit Rock Tunnel into Lavender Town", "Reach Saffron City"])
+ck("'Exit Rock Tunnel into Lavender Town' arrives at Lavender, so Celadon before it is a reach fault",
+   any("Celadon is reached before Lavender" in f for f in _j2["flags"]), _j2["flags"])
+_j3 = C.judge(["Choose a starter Pokemon", "Exit Rock Tunnel into Lavender Town",
+               "Reach Celadon City", "Reach Saffron City"])
+ck("...and the right way round, worded the same, is not",
+   _j3["reach_bad"] == [], _j3["reach_bad"])
+ck("...while a leg that merely mentions a town does not arrive there",
+   not C._arrives("Retrieve the Pokemon Flute from Mr. Fuji in Lavender", "lavender")
+   and C._arrives("Head west to Lavender Town", "lavender")
+   and C._arrives("Reach Lavender Town", "lavender"))
+
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not d else f"  {str(d)[:300]}"))

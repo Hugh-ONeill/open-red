@@ -94,6 +94,24 @@ ARRIVE = re.compile(r"(reach|arrive|travel|go|sail|enter|walk|fly|ride|"
 ACQUIRE = re.compile(r"(obtain|retrieve|get|receive|collect|find|acquire|"
                      r"pick up|take|grab)\b", re.I)
 
+# AN ARRIVAL CAN BE WORDED AS A DEPARTURE. "Exit Rock Tunnel into Lavender
+# Town" arrives at Lavender as surely as "Reach Lavender Town", and a draw
+# of 2026-09-24 put Celadon at 22 and that leg at 34 — the knot that ended
+# two runs — while this judge, reading only its opening verb, counted no
+# reach fault at all. A leg that goes INTO or TO a town arrives there.
+INTO = re.compile(r"\b(into|to|towards?)\s+(the\s+)?", re.I)
+
+
+def _arrives(leg: str, town: str) -> bool:
+    """Does this leg arrive at `town`: an arrival verb up front, or the
+    town named as what the leg goes into or to."""
+    if not re.search(town, leg, re.I):
+        return False
+    if ARRIVE.match(leg):
+        return True
+    return bool(re.search(r"\b(into|to|towards?)\s+(the\s+)?(\w+\s+){0,2}"
+                          + town, leg, re.I))
+
 TOWNS = ["pallet", "viridian", "pewter", "cerulean", "vermilion",
          "lavender", "celadon", "saffron", "fuchsia", "cinnabar"]
 
@@ -158,7 +176,8 @@ def judge(legs: list) -> dict:
         # there); a deed that merely names the town is not an arrival
         k = next((n for n, l in enumerate(legs)
                   if n != i and re.search(after, l, re.I)
-                  and (ARRIVE.match(l) or "badge" in l.lower())), None)
+                  and (ARRIVE.match(l) or "badge" in l.lower()
+                       or INTO.search(l))), None)
         if wrong and re.search(wrong, legs[i], re.I):
             gates[name] = "?"
             flags.append(f"{name}: named at a wrong source — {legs[i]!r}")
@@ -236,7 +255,7 @@ def judge(legs: list) -> dict:
     firsts = []
     for town in REACH_ORDER:
         i = next((n for n, l in enumerate(legs)
-                  if ARRIVE.match(l) and re.search(town, l, re.I)), None)
+                  if _arrives(l, town)), None)
         if i is not None:
             firsts.append((i, town))
     out["reach_bad"] = []
