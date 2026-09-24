@@ -80,7 +80,8 @@ ck("the new ones are where the answer put them, both after leg 2",
 ck("the upkeep sidecar names them, beside the output",
    set((out.with_suffix(".upkeep")).read_text().splitlines())
    == {"the party holds a FIGHTING or GRASS type", "every party member is at least level 12"})
-ck("a purpose rides in the notes", "for: 3" in out.with_suffix(".notes").read_text())
+ck("a purpose rides in the notes, a number as the story leg it names",
+   "for: Defeat Brock for the Boulder Badge" in out.with_suffix(".notes").read_text())
 ck("the stages sidecar is carried over",
    out.with_suffix(".stages").read_text().startswith("Early\tChoose a starter Pokemon"))
 ck("the live upkeep list is not touched",

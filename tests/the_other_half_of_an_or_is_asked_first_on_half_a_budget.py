@@ -63,7 +63,7 @@ ck("what a leg was for is read against the banked list the pass numbered",
 ck("...a purpose in words is passed through as said",
    O.purpose("the party has at least 2 Pokemon") == "getting through the forest")
 ck("...and a number the list does not have is left as said",
-   O.purpose("the party holds a FLYING type") == "for: 99")
+   O.purpose("the party holds a FLYING type") == "99")
 
 seen = {}
 

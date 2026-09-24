@@ -67,8 +67,9 @@ ck("the legs are added as before",
    "the party holds a FIGHTING or GRASS type" in out
    and "every party member is at least level 12" in out
    and "the party has at least 2 Pokemon" in out, out)
-ck("a purpose given rides in the notes beside its leg",
-   notes.get("the party holds a FIGHTING or GRASS type") == "for: 3", notes)
+ck("a purpose given rides in the notes beside its leg, a number as its leg",
+   notes.get("the party holds a FIGHTING or GRASS type")
+   == "for: Defeat Brock for the Boulder Badge", notes)
 ck("...whitespace folded", notes.get("every party member is at least level 12")
    == "for: Brock's Onix is level 14", notes)
 ck("none given is nothing", "the party has at least 2 Pokemon" not in notes)

@@ -6270,6 +6270,12 @@ def _outline_upkeep_once(goal: str, legs: list, model: str,
         # for the gym they stood before. Kept only for a leg that is
         # actually added: a twin re-proposed in a later round gave one leg
         # two purposes.
+        # ...AS THE LEG, NOT ITS NUMBER: "5" is an index into the list
+        # this pass was shown, and nobody who reads the note has seen that
+        # list (planner/notes_for.py).
+        if _for:
+            import notes_for
+            _for = notes_for.resolve(_for, legs)
         if _for and not any(k == item for k, _ in OUTLINE_NOTES):
             OUTLINE_NOTES.append((item, f"for: {_for}"))
         try:

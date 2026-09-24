@@ -94,13 +94,9 @@ def purpose(leg: str) -> str:
         if k.strip() == leg.strip():
             note = v.strip()
             break
-    m = re.fullmatch(r"for:\s*(?:leg\s*)?(\d+)\.?", note, re.I)
-    if not m:
-        return note[4:].strip() if note.lower().startswith("for:") else note
-    up = set(_lines(UPKEEP))
-    story = [l for l in _lines(AUTHORED) if l not in up]
-    n = int(m.group(1))
-    return story[n - 1] if 1 <= n <= len(story) else note
+    import notes_for
+    body = note[4:].strip() if note.lower().startswith("for:") else note
+    return notes_for.resolve(body, notes_for.story_legs(AUTHORED, UPKEEP))
 
 
 ASK_SYS = """You are playing Pokemon Red, working down an outline you wrote.
