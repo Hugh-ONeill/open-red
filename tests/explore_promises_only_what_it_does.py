@@ -40,14 +40,14 @@ ck("...and both say it is conditional on there being ground to bring into view",
 
 # the promise now matches the code: the sweep branch needs a frontier, and
 # aims at the nearest way out no walk reaches
-i = ex.index("_st = {\"op\": \"sweep\"}")
+i = ex.index("_st = self._sweep_step(_reg_here)")
 blk = ex[i - 1400:i + 4200]
 ck("explore sweeps only when the floor has a reachable frontier",
    '_m.get("frontier") and not _params.get("no_sweep")' in blk)
 ck("...and aims that sweep at a way out no walk reaches",
    "unreached_ways" in blk and '_st["toward_x"], _st["toward_y"]' in blk)
 ck("...and a floor with nothing reachable left falls through to what is here",
-   ex.index('_st = {"op": "sweep"}') < ex.index("def _thing_op", ex.index('_st = {"op": "sweep"}') - 4000)
+   ex.index('_st = self._sweep_step(_reg_here)') < ex.index("def _thing_op", ex.index('_st = self._sweep_step(_reg_here)') - 4000)
    if "def _thing_op" in ex else True)
 
 # the honest parts of the message are untouched

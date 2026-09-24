@@ -31,7 +31,7 @@ ck("...only when someone knows SURF and the party is not already on the water",
    "if seen_reach and _knows and _p and not _p.surfing then" in lua)
 src = (ROOT / "planner/executor.py").read_text()
 i = src.index('_fw = _m.get("frontier_water") or []')
-blk = src[i:i + 2200]
+blk = src[i:i + 2600]
 ck("explore rides to the nearest water-frontier spot and sweeps before leaving the map",
    '"surf": True' in blk and 'self._sweep_step(_reg_here)]' in blk and 'step="ride"' in blk)   # the sweep carries the floor's refused spots (2026-09-24)
 ck("...and only when SURF is known", 'self._knows_move(obs, "SURF")' in blk)
