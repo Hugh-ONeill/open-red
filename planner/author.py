@@ -6193,8 +6193,11 @@ Rules:
   an empty array. That is a real answer.
 
 Reply with ONLY a JSON array; each element is
-{"item": "<the objective>", "after": N} where N is the outline position it
-must come after (0 = before everything)."""
+{"item": "<the objective>", "after": N, "for": "<what this one is for, in
+a few words: the objective it serves by number, or what the party needs
+it to do>"} where N is the outline position it must come after (0 =
+before everything). Say what each is for before you keep it: a party
+objective that serves nothing you can name is not missing."""
 
 
 def _outline_upkeep(goal: str, legs: list, model: str,
@@ -6305,6 +6308,15 @@ def _outline_upkeep_once(goal: str, legs: list, model: str,
         item = str(a.get("item") or "").strip()
         if not item:
             continue
+        # WHAT IT IS FOR, in the model's own words, rides with the leg:
+        # to the log, and to the notes the leg's plan author reads. Asked
+        # for since 2026-09-24 (the each-ball method, applied here): a
+        # type leg written without a purpose was a hedge as often as a
+        # counter — 25 of 44 "or" pairs carried a half that did nothing
+        # for the gym they stood before.
+        _for = " ".join(str(a.get("for") or "").split())[:160]
+        if _for:
+            OUTLINE_NOTES.append((item, f"for: {_for}"))
         # ALREADY THERE IN OTHER WORDS. The same test the done-ledger uses
         # against still-listed objectives: a new entry whose significant
         # words are contained in one already on the list is that one.
