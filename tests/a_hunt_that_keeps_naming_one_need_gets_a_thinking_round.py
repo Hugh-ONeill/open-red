@@ -75,6 +75,9 @@ ck("...and the thinking it buys is capped per need, with its own counter",
    "self._thought_need < _cap" in gate
    and "self._need_key, self._thought_need = _need, 0" in gate
    and "self._thought_need += 1" in _code[i:j + 400])
+ck("...which moves on only to a DIFFERENT need, never on a sentence naming none "
+   "(108 rounds where 45 was the ceiling, 2026-09-24)",
+   'if _need is not None and _need != getattr(self, "_need_key", None):' in gate)
 ck("the row says the need and the streak",
    "need=_need, need_streak=_streak" in _code[j:j + 400])
 ck("the stale gate is untouched: RED_THINK_ON_STUCK still turns the whole thing on and off",

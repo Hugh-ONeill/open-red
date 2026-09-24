@@ -22891,7 +22891,14 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # the step is stuck in the sense that matters, and the same
             # capped budget applies per NEED rather than per dry stretch.
             _need, _streak = self._need_streak(obs)
-            if _need != getattr(self, "_need_key", None):
+            # THE CAP IS PER NEED, NOT PER STREAK. Resetting the counter
+            # whenever the need read as None — one sentence that named
+            # nothing — handed every re-formed FRESH_WATER streak three
+            # more deliberations: 108 thinking rounds where 45 was the
+            # ceiling, 4.1 h of the run of record at 126 s a call, and the
+            # plans they wrote said Fresh Water like the rest (2026-09-24).
+            # The counter moves on only to a DIFFERENT need.
+            if _need is not None and _need != getattr(self, "_need_key", None):
                 self._need_key, self._thought_need = _need, 0
             _by_need = (_streak >= self.THINK_ON_NEED
                         and (_cap <= 0 or self._thought_need < _cap))
