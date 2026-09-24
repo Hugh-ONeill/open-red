@@ -6166,16 +6166,19 @@ kinds of thing a plan can be held to, and they are the only kinds:
   - a NAMED species is in the party (or any one of several) — including
     the EVOLVED form of one you already have; evolution is a state change,
     by level or by a stone used on it
-  - the party holds a TYPE: WATER, FLYING, GHOST, GROUND and the rest
+  - the party holds a TYPE — any one of the game's fifteen: BUG, DRAGON,
+    ELECTRIC, FIGHTING, FIRE, FLYING, GHOST, GRASS, GROUND, ICE, NORMAL,
+    POISON, PSYCHIC, ROCK, WATER. One type, or two joined by "or" when
+    either would do — and an "or" counts as done the moment EITHER is
+    held, so it asks for less than one type does
   - N species are owned in the Pokedex
   - a party Pokemon knows a particular MOVE
   - every party member is fully evolved (a state for late in the run)
 
 "Obtain a Pokemon capable of defeating Brock" is not one of these. Nobody
 can tell whether it has been done, so nothing can act on it. "Every party
-member at least level 12", "a WATER type in the party", "catch a PIDGEY or
-a RATTATA" all say the same kind of thing in a way that is either true or
-not.
+member at least level 12" and "catch a PIDGEY or a RATTATA" say the same
+kind of thing in a way that is either true or not.
 
 Rules:
 - You may only ADD. Nothing already on the list may be reworded, moved or
