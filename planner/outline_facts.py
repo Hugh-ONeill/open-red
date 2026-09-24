@@ -49,8 +49,12 @@ SOURCES = [
      r"viridian|pewter|forest|mt\.? moon|cerulean|bill|celadon|game corner"),
     ("HM02 FLY", r"hm02|\bfly\b", r"route 16|celadon|cycling",
      r"vermilion|saffron|fuchsia|cinnabar|s\.?\s?s\.?\s?anne|lavender"),
+    # ...AND NOT FROM BILL. "Obtain HM05 (FLASH) from Bill in his house on
+    # Route 25" was inserted before Celadon and authored four times (run of
+    # record, 2026-09-24); the aide who hands it over is on Route 2.
     ("HM05 FLASH", r"hm05|flash", r"route 2|oak's aide|aide|viridian forest",
-     r"rock tunnel|celadon|lavender|vermilion|s\.?\s?s\.?\s?anne"),
+     r"rock tunnel|celadon|lavender|vermilion|s\.?\s?s\.?\s?anne|bill|"
+     r"route 25|cerulean|sea cottage"),
     ("Silph Scope", r"silph scope|\bscope\b", r"hideout|game corner|giovanni|rocket",
      r"silph co|saffron|lavender|tower|fuji|cinnabar"),
     ("Poke Flute", r"flute", r"fuji|tower|lavender",
