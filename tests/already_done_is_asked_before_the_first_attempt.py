@@ -25,7 +25,7 @@ ck("...and after the leg's wording and doubt are settled", sh.index('goal="$leg 
 ck("...before the dry gate and the first campaign call",
    i < sh.index("--dry-tail --goal") and i < sh.index('run_campaign "$cont" 1'))
 ck("...not for a leg that could not be written (that goes to the ladder)", '[ "${_no_plan:-0}" = 0 ]' in blk)
-ck("a yes crosses the leg off and sweeps ahead", 'echo "$i" > "$PROGRESS"' in sh[i:i + 300] and 'sweep_ahead "$i"' in sh[i:i + 300])
+ck("a yes crosses the leg off and sweeps ahead", 'echo "$i" > "$PROGRESS"' in sh[i:i + 300] and 'sweep_ahead "$i"' in sh[i:i + 2400])   # the or-leg try sits between (2026-09-24)
 bad = [n for n, ok in checks if not ok]
 for n, ok in checks: print(("ok  " if ok else "FAIL"), n)
 sys.exit(1 if bad else 0)
