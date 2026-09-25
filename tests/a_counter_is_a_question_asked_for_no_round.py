@@ -74,6 +74,12 @@ def fake(answer='{"why":"Ignis is hurt and the policy reaches for a Potion I do 
     o._shelf_reads = {"CERULEAN_MART": {"n": reads, "moved": False}} if shelf else {}
     o._cant_afford = dict(prices or {})
     o._ask_buy = types.MethodType(E.Executor._ask_buy, o)
+    # the catch and heal-upgrade facts (2026-09-25): no catches ahead here,
+    # so the live outline on disk never reaches this fixture
+    o._ball_need = lambda obs, shop_map="": None
+    o._ball_lines = types.MethodType(E.Executor._ball_lines, o)
+    o._heal_upgrade = types.MethodType(E.Executor._heal_upgrade, o)
+    o._heal_lines = types.MethodType(E.Executor._heal_lines, o)
     brock_probe.chat = lambda msgs, model, **kw: (asked.append(msgs) or answer)
     return o
 

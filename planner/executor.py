@@ -14822,7 +14822,9 @@ class Executor:
         "{\"why\":\"<one short sentence>\",\"buy\":[{\"item\":\"POTION\","
         "\"count\":2}]} with item spelled as the shelf spells it and count "
         "the number to buy, at most 3 entries; or {\"why\":\"...\","
-        "\"buy\":[]} to buy nothing.")
+        "\"buy\":[]} to buy nothing. You may also sell from your bag at "
+        "this counter, for half what an item cost: add \"sell\":[{\"item\":"
+        "\"...\",\"count\":1}], at most 3 entries; sales are made first.")
 
     BUY_MAX_ENTRIES = 3
 
@@ -14834,16 +14836,19 @@ class Executor:
 
     BUY_STREET_SYS = (
         "You are playing Pokemon Red. You are in a town, a short walk from "
-        "a shop whose door you have seen, and your bag holds nothing that "
-        "restores HP. Decide whether to go in and buy anything now, and if "
-        "so what and how many; buying walks you to the counter. Buying "
-        "spends money. A kind of item you do not already carry takes one "
-        "of the bag's twenty slots, and a full bag refuses every gift and "
-        "pickup until a slot goes. Saying no is a real answer. Reply with a "
-        "JSON object and nothing else: {\"why\":\"<one short sentence>\","
-        "\"buy\":[{\"item\":\"POTION\",\"count\":2}]} with item spelled "
-        "as the shelf spells it and count the number to buy, at most 3 "
-        "entries; or {\"why\":\"...\",\"buy\":[]} to buy nothing.")
+        "a shop whose door you have seen; the note below says why you are "
+        "being asked. Decide whether to go in and buy or sell anything now, "
+        "and if so what and how many; either walks you to the counter. "
+        "Buying spends money; selling pays half what an item cost. A kind "
+        "of item you do not already carry takes one of the bag's twenty "
+        "slots, and a full bag refuses every gift and pickup until a slot "
+        "goes. Saying no is a real answer. Reply with a JSON object and "
+        "nothing else: {\"why\":\"<one short sentence>\","
+        "\"buy\":[{\"item\":\"POTION\",\"count\":2}],"
+        "\"sell\":[{\"item\":\"...\",\"count\":1}]} with item spelled "
+        "as the shelf or your bag spells it, at most 3 entries each (sales "
+        "are made first); or {\"why\":\"...\",\"buy\":[],\"sell\":[]} "
+        "to do nothing.")
 
     def _shop_street(self, obs):
         """The shop door the buy question may point at from the street, or
@@ -14858,16 +14863,111 @@ class Executor:
         m = (obs or {}).get("map") or {}
         if not m.get("outdoor"):
             return None
-        bag = (obs or {}).get("bag") or {}
-        if any(int(bag.get(i) or 0) > 0 for i in battle_policy.HEAL_LADDER):
-            return None
         doors = [w for w in (m.get("warps") or [])
                  if isinstance(w, dict) and "MART" in str(w.get("dest") or "")
                  and w.get("seen") and w.get("reachable")]
         if not doors:
             return None
         via = [w for w in doors if w.get("dest") in self.SHOP_COUNTER_FLOOR]
-        return (via or doors)[0]
+        door = (via or doors)[0]
+        bag = (obs or {}).get("bag") or {}
+        if not any(int(bag.get(i) or 0) > 0 for i in battle_policy.HEAL_LADDER):
+            return door
+        # ...OR CATCHES STILL AHEAD AND NO BALLS TO MAKE THEM WITH (see
+        # _ball_need), OR A STRONGER HEAL ON THIS SHOP'S SHELF THAN ANY IN
+        # THE BAG (see _heal_upgrade)
+        _sm = self.SHOP_COUNTER_FLOOR.get(door.get("dest"),
+                                          str(door.get("dest") or ""))
+        if self._ball_need(obs, _sm) or self._heal_upgrade(obs, _sm):
+            return door
+        return None
+
+    def _heal_upgrade(self, obs, shop_map: str = "") -> dict | None:
+        """The heals in the bag and the stronger ones this shop's shelf was
+        seen to sell, or None. Same shape as _ball_need: the old can be
+        sold and the new bought, and whether is the model's (user,
+        2026-09-25: "we should do the same with potions/heals when better
+        is available, we can sell the old stuff and take the new"). Only a
+        shelf the run has read counts; the ladder is the manual's, by how
+        much each restores."""
+        bag = (obs or {}).get("bag") or {}
+        rank = {h: i for i, h in enumerate(battle_policy.HEAL_LADDER)}
+        held = {h: int(bag.get(h) or 0) for h in battle_policy.HEAL_LADDER
+                if int(bag.get(h) or 0) > 0}
+        if not held:
+            return None            # the no-medicine question already fires
+        best = max(rank[h] for h in held)
+        shelf = list((getattr(self, "_shelves", None) or {}).get(shop_map) or [])
+        better = [h for h in shelf if h in rank and rank[h] > best]
+        if not better:
+            return None
+        return {"held": held, "better": better}
+
+    def _heal_lines(self, up: dict | None) -> str:
+        """The heal-upgrade facts the shop question carries, or ""."""
+        if not up:
+            return ""
+        return ("\nHEALING IN YOUR BAG: "
+                + ", ".join(f"{h} x{c}" for h, c in up["held"].items())
+                + "\nON THIS SHELF, STRONGER THAN ANY HEAL YOU CARRY: "
+                + ", ".join(up["better"])
+                + "\nThe heals, weakest to strongest: "
+                + " < ".join(h for h in battle_policy.HEAL_LADDER
+                             if h in up["held"] or h in up["better"]
+                             or h in ("POTION", "SUPER_POTION",
+                                      "HYPER_POTION", "MAX_POTION",
+                                      "FULL_RESTORE"))
+                + " — a stronger one restores more HP.")
+
+    def _ball_need(self, obs, shop_map: str = "") -> dict | None:
+        """The catches still ahead and the balls in hand, when the bag
+        cannot make them: no more balls than the catch-ahead reserve, or a
+        stronger ball on this shop's shelf than any in the bag. None
+        otherwise.
+
+        Run of record 4 (2026-09-25) threw its last POKE_BALL at 09:19 and
+        then met twenty-one ABRA on Route 24/25 with a FIRE-or-PSYCHIC leg
+        ahead, a mart in Cerulean and money in hand; the shop question
+        fired only for a bag with no medicine, and nothing else ever put
+        balls and shops together (user: "i thought we just added prompts
+        for buying balls? ... buy best balls available when catch targets
+        still exist, maybe sell off older less effective balls"). The
+        ladder is the manual's: a GREAT BALL catches more easily than a
+        POKE BALL, an ULTRA BALL more easily still."""
+        try:
+            goals = outline_ahead.catch_goals_ahead(
+                PLANS, RUN, self._species_names(), (obs or {}).get("party"))
+        except Exception:
+            goals = []
+        if not goals:
+            return None
+        bag = (obs or {}).get("bag") or {}
+        held = {b: int(bag.get(b) or 0) for b in battle_policy.BALL_LADDER
+                if int(bag.get(b) or 0) > 0}
+        n = sum(held.values())
+        rank = {b: i for i, b in enumerate(battle_policy.BALL_LADDER)}
+        best_held = max((rank[b] for b in held), default=-1)
+        shelf = list((getattr(self, "_shelves", None) or {}).get(shop_map) or [])
+        better = [b for b in shelf if b in rank and rank[b] > best_held]
+        if n > self.CATCH_AHEAD_RESERVE and not better:
+            return None
+        return {"goals": goals, "held": held, "n": n, "better": better}
+
+    def _ball_lines(self, need: dict | None) -> str:
+        """The catch facts the shop question carries, or ""."""
+        if not need:
+            return ""
+        gl = "; ".join(f"leg {g['pos']}: {g['leg']}" for g in need["goals"][:4])
+        held = ", ".join(f"{b} x{c}" for b, c in need["held"].items()) or "none"
+        return ("\nCATCHES STILL AHEAD ON YOUR OUTLINE: " + gl
+                + ("" if len(need["goals"]) <= 4
+                   else f" (+{len(need['goals']) - 4} more)")
+                + f"\nBALLS IN YOUR BAG: {held}"
+                + "\nThe balls, weakest to strongest: "
+                + " < ".join(battle_policy.BALL_LADDER)
+                + " — a stronger ball catches more easily."
+                + (("\nON THIS SHELF, STRONGER THAN ANY BALL YOU CARRY: "
+                    + ", ".join(need["better"])) if need["better"] else ""))
 
     HEAL_STREET_SYS = (
         "You are playing Pokemon Red. Some of your Pokemon have fainted, and "
@@ -15052,6 +15152,13 @@ class Executor:
                    or "empty")
                 + ("\nYOUR PARTY: " + "; ".join(party) if party else "")
                 + self._policy_heal_line(obs)
+                + (("\nWHY YOU ARE ASKED: your bag holds nothing that restores HP."
+                    if not any(int(bag.get(i) or 0) > 0
+                               for i in battle_policy.HEAL_LADDER)
+                    else "\nWHY YOU ARE ASKED: what is below.")
+                   if street else "")
+                + self._ball_lines(self._ball_need(obs, mid))
+                + self._heal_lines(self._heal_upgrade(obs, mid))
                 + (("\nMore than one counter stands here; an entry may "
                     "carry \"clerk\":<name> to say which, else the first.")
                    if len(clerks) > 1 else "")
@@ -15059,7 +15166,7 @@ class Executor:
                 + str((sg or {}).get("goal_text") or (sg or {}).get("id")
                       or "make progress")
                 + "\nNo round is spent either way. Answer it.")
-        want, why, readable = [], "", False
+        want, sells, why, readable = [], [], "", False
         try:
             reply = brock_probe.chat(
                 [{"role": "system", "content": (self.BUY_STREET_SYS
@@ -15069,7 +15176,17 @@ class Executor:
             if d is None:
                 d = {}
             why = str(d.get("why") or "")[:200]
-            readable = "buy" in d
+            readable = "buy" in d or "sell" in d
+            for e in (d.get("sell") or [])[:self.BUY_MAX_ENTRIES]:
+                if not isinstance(e, dict) or not e.get("item"):
+                    continue
+                try:
+                    _sc = int(e.get("count") or 1)
+                except (TypeError, ValueError):
+                    _sc = 1
+                if _sc >= 1:
+                    sells.append({"item": str(e.get("item")).upper().strip()
+                                  .replace(" ", "_"), "count": _sc})
             for e in (d.get("buy") or [])[:self.BUY_MAX_ENTRIES]:
                 if not isinstance(e, dict) or not e.get("item"):
                     continue
@@ -15090,12 +15207,35 @@ class Executor:
                  where=("street" if street else "counter"),
                  shelf=",".join(shelf), money=money, bag_slots=len(bag),
                  dead=",".join(dead), readable=readable,
-                 buy=json.dumps(want), why=why)
-        if not want:
+                 buy=json.dumps(want), sell=json.dumps(sells), why=why)
+        if not want and not sells:
             print(f"   (buy here? no — {why or 'no usable answer'})")
             return obs
         # ---- the answer, checked against the facts it was asked on -------
         bought, refused = [], []
+        # SALES FIRST: what they pay is money the buys can spend, and a
+        # kind sold out of the bag is a slot a new kind can take. Only
+        # what the bag holds; the counter's own refusal (a key item, an
+        # HM) is reported as it said it.
+        sold = []
+        for e in sells:
+            item, cnt = e["item"], e["count"]
+            have = int(((obs or {}).get("bag") or {}).get(item) or 0)
+            if have < 1:
+                refused.append(f"sell {item}: not in your bag")
+                continue
+            cnt = min(cnt, have)
+            r = (self._send_safe("sell", item=item, count=cnt,
+                                 clerk=clerks[0]) or {})
+            res = r.get("result") or {}
+            obs = self.settle() or obs
+            self.log("sell_done", subgoal=(sg or {}).get("id"), item=item,
+                     count=cnt, ok=bool(res.get("ok")), why=why,
+                     detail=str(res.get("detail") or "")[:160])
+            if res.get("ok"):
+                sold.append(f"{item} x{cnt}")
+            else:
+                refused.append(f"sell {item}: {str(res.get('detail') or '')[:120]}")
         for e in want:
             item, cnt, clerk = e["item"], e["count"], e["clerk"]
             bag = dict((obs or {}).get("bag") or {})
@@ -15169,6 +15309,7 @@ class Executor:
         for r0 in refused:
             self.log("buy_refused", subgoal=(sg or {}).get("id"), what=r0)
         print(f"   (buy here? yes — {why}"
+              + (": sold " + ", ".join(sold) + ";" if sold else "")
               + (": bought " + ", ".join(bought) if bought else ": bought nothing")
               + ("; refused " + "; ".join(refused) if refused else "") + ")")
         return obs

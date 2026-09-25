@@ -60,6 +60,12 @@ def fake(answer='{"why":"no potions and Brock is next","buy":[{"item":"POTION","
         setattr(o, k, getattr(E.Executor, k))
     o._shop_street = types.MethodType(E.Executor._shop_street, o)
     o._ask_buy = types.MethodType(E.Executor._ask_buy, o)
+    # the catch and heal-upgrade facts (2026-09-25): no catches ahead here,
+    # so the live outline on disk never reaches this fixture
+    o._ball_need = lambda obs, shop_map="": None
+    o._ball_lines = types.MethodType(E.Executor._ball_lines, o)
+    o._heal_upgrade = types.MethodType(E.Executor._heal_upgrade, o)
+    o._heal_lines = types.MethodType(E.Executor._heal_lines, o)
     o.prompts = []
     def chat(msgs, model):
         o.prompts.append(msgs)
