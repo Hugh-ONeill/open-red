@@ -807,14 +807,18 @@ TRAINS = [
     # that reads types alone sends it out anyway: 161 times in that run,
     # 87 of them at twice the wild's level or more, and VENUSAUR took the
     # experience (L30 -> L54, the trainee stuck at 29). The room asks when
-    # levels outrank types. Started where that run stood 343 times, the
-    # route's south edge; the nurse is Vermilion's, the edge coming out at
-    # the city's (18,0) (north offset 5 blocks), 11 cells to the Center
-    # door at (11,3) and about 5 inside: 40 there and back.
-    dict(name="train_outleveled", map="ROUTE_6", badges=2, start=(8, 35),
+    # levels outrank types. Started ON the grass nearest the south edge,
+    # (12,31): a room starts with empty books and grind walks only ground
+    # it has seen, so from the edge itself, (8,35), a fenced lane, it found
+    # no reachable grass and every trial walked 0 steps (first scoring,
+    # 2026-09-25). The nurse is Vermilion's: the edge comes out at the
+    # city's (18,0) (north offset 5 blocks), 11 cells to the Center door at
+    # (11,3) and about 5 inside, plus about 8 from this grass to the edge:
+    # about 28 each way, 56 there and back (estimated, not walked).
+    dict(name="train_outleveled", map="ROUTE_6", badges=2, start=(12, 31),
          party=[("VENUSAUR", 34), ("RATICATE", 28), ("PIDGEOTTO", 28),
                 ("GEODUDE", 22)],
-         trainee=4, goal=30, steps=700, heal_walk=40,
+         trainee=4, goal=30, steps=700, heal_walk=56,
          bag={"POTION": 3, "SUPER_POTION": 3}, money=5000,
          note="GEODUDE L22 against L10-16 ODDISH (x4 on it), MANKEY (x2) "
               "and PIDGEY: out-levels all of it and is weak to most of it. "
