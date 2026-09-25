@@ -1,0 +1,83 @@
+{
+  "party": [
+    {
+      "species": "VENUSAUR",
+      "level": 34,
+      "moves": [
+        "LEECH_SEED",
+        "VINE_WHIP",
+        "POISONPOWDER",
+        "RAZOR_LEAF"
+      ],
+      "nickname": "VENUSAUR"
+    },
+    {
+      "species": "RATICATE",
+      "level": 28,
+      "moves": [
+        "TAIL_WHIP",
+        "QUICK_ATTACK",
+        "HYPER_FANG",
+        "FOCUS_ENERGY"
+      ],
+      "nickname": "RATICATE"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 28,
+      "moves": [
+        "GUST",
+        "SAND_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
+      ],
+      "nickname": "PIDGEOTTO"
+    },
+    {
+      "species": "GEODUDE",
+      "level": 22,
+      "moves": [
+        "TACKLE",
+        "DEFENSE_CURL",
+        "ROCK_THROW",
+        "SELFDESTRUCT"
+      ],
+      "nickname": "GEODUDE",
+      "dv": 8
+    }
+  ],
+  "bag": {
+    "POTION": 3,
+    "SUPER_POTION": 3
+  },
+  "money": 5000,
+  "start": {
+    "map": "ROUTE_6",
+    "x": 8,
+    "y": 35,
+    "facing": "down"
+  },
+  "set_flags": [
+    "EVENT_BEAT_ROUTE_6_TRAINER_0",
+    "EVENT_BEAT_ROUTE_6_TRAINER_1",
+    "EVENT_BEAT_ROUTE_6_TRAINER_2",
+    "EVENT_BEAT_ROUTE_6_TRAINER_3",
+    "EVENT_BEAT_ROUTE_6_TRAINER_4",
+    "EVENT_BEAT_ROUTE_6_TRAINER_5"
+  ],
+  "set_trainers": [
+    "ROUTE_6_obj_1",
+    "ROUTE_6_obj_2",
+    "ROUTE_6_obj_3",
+    "ROUTE_6_obj_4",
+    "ROUTE_6_obj_5",
+    "ROUTE_6_obj_6"
+  ],
+  "train": {
+    "trainee": 4,
+    "goal": 30,
+    "steps": 700,
+    "heal_walk": 40,
+    "need_exp": 14183
+  }
+}
