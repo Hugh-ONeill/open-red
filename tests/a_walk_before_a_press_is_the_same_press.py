@@ -66,7 +66,7 @@ ck("an empty macro keys empty", K([]) == ([], 0) and K(None) == ([], 0))
 src = (ROOT / "planner" / "executor.py").read_text()
 i = src.index("_key_ops, _decoy_walks = self._repeat_key_ops(macro)")
 ck("the repeat key is built from the deciding ops",
-   'json.dumps(_key_ops, sort_keys=True), str(_mk_now))' in src[i:i + 400])
+   'json.dumps(_key_ops, sort_keys=True), str(_mk_now),' in src[i:i + 1400])
 ck("the refusal says which walks were not counted",
    "walk_to step(s) you wrote" in src and "find their own way" in src
    and "different walk before them" in src and "the same set of ops." in src)

@@ -23252,8 +23252,17 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # ...AND A WALK BEFORE A PRESS THAT FINDS ITS OWN WAY IS NOT
             # A DIFFERENT SET OF OPS. See _repeat_key_ops.
             _key_ops, _decoy_walks = self._repeat_key_ops(macro)
+            # ...AND A RESET THE GAME ANNOUNCED IS A WORLD THAT MOVED. The
+            # mark counts flags, and Lt. Surge's locks closing again puts
+            # the count back where it was, so a can pressed before "The
+            # electric locks were reset!" read as "same ops, same world"
+            # after it, and 23 presses were refused in run of record 3's
+            # gym (2026-09-25) — in the one room where pressing the same
+            # thing again, after a reset, is the whole job. The count of
+            # resets the run has been told of is part of the key.
             _mac_key = (self._where(obs) or "?",
-                        json.dumps(_key_ops, sort_keys=True), str(_mk_now))
+                        json.dumps(_key_ops, sort_keys=True), str(_mk_now),
+                        int(getattr(self, "_resets_heard", 0) or 0))
             _seen = self._spent_macros.get(_mac_key)
             # A RUN THE SEA INTERRUPTED IS NOT A RUN THAT WAS ANSWERED.
             # This gate says "NOTHING ABOUT THE WORLD HAS CHANGED since —
@@ -23348,7 +23357,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if _seen:
                 _others = len({k for k in self._spent_macros
                                if k[0] == _mac_key[0]
-                               and k[2] == str(_mk_now)})
+                               and k[2:] == _mac_key[2:]})
                 # A REFUSAL IS ITSELF A THING THAT HAPPENED. Only actual
                 # runs bumped the count, so a fourth identical proposal
                 # still read "carried out 1x" and the page never showed
@@ -23449,6 +23458,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             _grinds = any(isinstance(st, dict) and st.get("op") == "grind"
                           for st in macro)
             _dry = any("earned 0 exp" in str(t) for t in trace)
+            # counted AFTER this round's key was taken: the round that
+            # caused a reset is recorded in the world before it
+            self._resets_heard = int(getattr(self, "_resets_heard", 0) or 0) \
+                + sum(str(t).lower().count("were reset") for t in trace)
             if not ok and (_why or not _did) and (not _grinds or _dry):
                 if _grinds and _dry:
                     _why = _why or next(
