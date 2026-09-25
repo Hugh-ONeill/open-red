@@ -439,7 +439,8 @@ TRAIN_TO = ("highest_level", "best_matchup", "resists", "healthiest",
             "first_alive")
 _TRAIN_FIGHT_KEYS = {"min_level_ratio": (0.0, 3.0), "min_hp_frac": (0.0, 1.0),
                      "min_matchup": (0.0, 4.0), "max_foe_matchup": (0.0, 4.0),
-                     "seen_ko_hits": (1, 6)}
+                     "seen_ko_hits": (1, 6),
+                     "types_ignored_at_level_ratio": (1.0, 5.0)}
 
 
 def _train_problems(tr) -> list:
@@ -1186,9 +1187,18 @@ def train_fights(trainee: dict, foe: dict, fight_if: dict | None,
         return False, "your rule never has it fight for itself"
     fi = fight_if or {}
     foe_types = [str(t).upper() for t in (foe.get("types") or [])]
+    ratio = (trainee.get("level") or 0) / max(1, foe.get("level") or 1)
+    # FAR ENOUGH ABOVE IT, TYPES STOP DECIDING. The type conditions are
+    # read before a single hit, so a trainee swapped out for them never
+    # learns it would have won: run of record 3's GRAVELER L29 went out on
+    # turn one against L13 ODDISH, 87 times at twice the wild's level or
+    # more, and VENUSAUR took the fights (L30 -> L54; user, 2026-09-25: "it
+    # shouldnt be doing that after the point at which graveler could train
+    # itself"). The ratio at which that point comes is the rule's to say.
+    _ti = fi.get("types_ignored_at_level_ratio")
+    types_count = _ti is None or ratio < float(_ti)
     r = fi.get("min_level_ratio")
     if r is not None:
-        ratio = (trainee.get("level") or 0) / max(1, foe.get("level") or 1)
         if ratio < r:
             return False, (f"L{trainee.get('level')} against L"
                            f"{foe.get('level')} is under {r:g}")
@@ -1196,10 +1206,10 @@ def train_fights(trainee: dict, foe: dict, fight_if: dict | None,
     if h is not None and _hp_frac(trainee) < h:
         return False, f"its hp is under {h:.0%}"
     m = fi.get("min_matchup")
-    if m is not None and outgoing(trainee, foe_types) < m:
+    if m is not None and types_count and outgoing(trainee, foe_types) < m:
         return False, f"nothing it holds hits this for x{m:g}"
     fm = fi.get("max_foe_matchup")
-    if fm is not None and incoming(
+    if fm is not None and types_count and incoming(
             foe_types, [str(t).upper()
                         for t in (trainee.get("types") or [])]) > fm:
         return False, f"this wild's types hit it for more than x{fm:g}"

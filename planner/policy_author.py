@@ -219,7 +219,8 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
                                "min_hp_frac": 0.0-1.0,
                                "min_matchup": 0.0-4.0,
                                "max_foe_matchup": 0.0-4.0,
-                               "seen_ko_hits": 1-6},
+                               "seen_ko_hits": 1-6,
+                               "types_ignored_at_level_ratio": 1.0-5.0},
                   "else": "switch"|"flee",
                   "to": "highest_level"|"best_matchup"|"resists"|
                         "healthiest"|"first_alive"}
@@ -294,7 +295,7 @@ every key optional):
      fight_if, and the wild gets a free hit on it as it arrives.)
   fight_if: {"min_level_ratio": 0.0-3.0, "min_hp_frac": 0.0-1.0,
              "min_matchup": 0.0-4.0, "max_foe_matchup": 0.0-4.0,
-             "seen_ko_hits": 1-6}
+             "seen_ko_hits": 1-6, "types_ignored_at_level_ratio": 1.0-5.0}
     (when the trainee FIGHTS THE WILD ITSELF. Every condition you give must
      hold; give none and it fights everything; write false in place of the
      object and it never fights for itself. They are checked again on
@@ -311,7 +312,13 @@ every key optional):
        seen_ko_hits     this run has SEEN one of the trainee's moves do
                         enough to this species, at the trainee's level, to
                         take the wild down from its current HP in this many
-                        hits; a species never yet hit fails this)
+                        hits; a species never yet hit fails this
+       types_ignored_at_level_ratio
+                        when the trainee's level divided by the wild's is
+                        at least this, min_matchup and max_foe_matchup are
+                        not checked: both are read off types before any
+                        hit is thrown, and levels also decide a fight.
+                        Leave it out and the type conditions always count.)
   else: "switch"|"flee"
     (what happens to a wild the trainee should not fight.
      "switch": the trainee goes out on the spot and `to` comes in and
@@ -2142,7 +2149,7 @@ for _c in ("catch_weedle", "catch_abra", "catch_powerplant"):
 # reach inside a step budget, built by gin_gym_arenas.py (TRAINS). They
 # score the spec's `train` block and are ranked on their own, apart from
 # the fights (pick_policy --kind train).
-TRAIN_ROOMS = ("train_early", "train_mid", "train_late")
+TRAIN_ROOMS = ("train_early", "train_mid", "train_late", "train_outleveled")
 for _c in TRAIN_ROOMS:
     ARENAS[_c] = ("train", REPO / f"run/arena_{_c}.lua",
                   REPO / f"plans/arena_{_c}.json")
@@ -2282,7 +2289,21 @@ def author_train(args, names, build) -> None:
         return rows
 
     refs = []
-    for label, block in TRAIN_BASELINES:
+    # THE RULE IN PLAY NOW IS A REFERENCE TOO. The picker ranks a rule
+    # scored in more rooms above one scored in fewer, so a rule authored
+    # after a room is added would outrank the incumbent without ever being
+    # measured beside it there (2026-09-25, train_outleveled). Scored here
+    # in every room, it is what a new rule has to beat to be kept.
+    _baselines = list(TRAIN_BASELINES)
+    try:
+        import pick_policy
+        _cur, _ = pick_policy.rank_train(sorted((REPO / "plans").glob("train_model_v*.json")))
+        if _cur:
+            _baselines.append((f"the rule in play now ({Path(_cur).stem})",
+                               json.loads(Path(_cur).read_text())["train"]))
+    except Exception as e:          # noqa: BLE001 — a reference, not the run
+        print(f"[reference] the rule in play could not be read: {e}", flush=True)
+    for label, block in _baselines:
         print(f"\n[reference] {label}", flush=True)
         refs.append((label, block, score_all(block, label)))
 
