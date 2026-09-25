@@ -2689,6 +2689,16 @@ def _down_leg_words(ex, here: str | None, path) -> str:
     return ""
 
 
+def _since_reset(pl: list) -> tuple:
+    """(index of the last press whose answer said something "were reset",
+    that answer) in a room's press log, or (None, "")."""
+    for _i in range(len(pl or []) - 1, -1, -1):
+        _t = str((pl[_i] or ["", ""])[1] if len(pl[_i]) > 1 else "")
+        if "were reset" in _t.lower():
+            return _i, _t
+    return None, ""
+
+
 def render(cands: list[Candidate], ex, obs: dict, target: str = "",
            limit: int = 24) -> str:
     """The ledger as the model reads it: numbered, local, ranked, bounded.
@@ -3998,6 +4008,34 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                     " — untried from here", f"{arrow} — untried from here", 1)
             i -= 1
             continue
+        # WHAT IT HAS SAID SINCE THE LAST RESET, AND NOTHING OLDER. After
+        # the game says the room was reset, a press from before it says
+        # nothing about the room now; counted with everything since, it
+        # read as a trait of the thing. Run of record 3 stood in Lt.
+        # Surge's gym over "TRASH_CAN_12 ... pressed 54x ... 'The 1st
+        # electric lock opened!' (3x)" and pressed 12 first cycle after
+        # cycle, 257 presses and the leg lost (2026-09-25, user: "yeah do
+        # those too"). The row now counts from the last reset the game
+        # announced; the whole history stays in the run's own books.
+        _pl_r = (getattr(ex, "_press_log", None) or {}).get(here) or []
+        _ri, _rt = _since_reset(_pl_r)
+        # every fixture of the room: one pressed only before the log's
+        # window was pressed before the reset inside it
+        if _ri is not None and c.kind == "fixture":
+            _mine = [t for k, t, *_ in _pl_r[_ri + 1:] if k == c.key]
+            if _mine:
+                _cnt: dict = {}
+                for _t in _mine:
+                    _cnt[_t] = _cnt.get(_t, 0) + 1
+                words = (f"pressed {len(_mine)}x since the game last said "
+                         f"\"{_rt}\" — it said: "
+                         + "; ".join('"%s"' % t + (f" ({n}x)" if n > 1 else "")
+                                     for t, n in _cnt.items())
+                         + " — a fixture; it can be pressed again")
+            else:
+                words = (f"not pressed since the game last said \"{_rt}\" "
+                         "— a fixture; it can be pressed again")
+            note = ""
         lines.append(f" {i}. {c.label()}{kind}{arrow} — {words}{note}")
     # a crowd folded into one line is SHOWN, not cut — counting its
     # members here would contradict the line that just named them
@@ -4013,7 +4051,13 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
     _pl = (getattr(ex, "_press_log", None) or {}).get(here) or []
     _varied_here = any(len(((_book or {}).get(c.key) or {}).get("said") or {}) > 1
                        for c in cands if c.kind in ("fixture", "person"))
-    if _varied_here and len(_pl) >= 3:
+    # ...FROM THE LAST RESET THE GAME ANNOUNCED, when it has announced one
+    # (see the rows above); the reset itself opens the list.
+    _ri0, _rt0 = _since_reset(_pl)
+    _from_reset = _ri0 is not None
+    if _from_reset:
+        _pl = _pl[_ri0:]
+    if (_varied_here and len(_pl) >= 3) or _from_reset:
         # RUNS COLLAPSE, SO THE TURNS SURVIVE THE WINDOW. Vermilion's gym
         # has fifteen cans and the run pressed nearly all of them: twelve
         # entries of "Nope, there's only trash here." from twelve different
@@ -4038,12 +4082,52 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
             return '%s (%d presses, all the same answer): "%s"' % (
                 _nm, len(keys), txt)
 
-        lines.append("WHAT PRESSING THINGS HERE HAS SAID, IN ORDER (earliest "
+        lines.append(("SINCE THE GAME LAST SAID \"%s\", " % _rt0
+                      if _from_reset else "")
+                     + "WHAT PRESSING THINGS HERE HAS SAID, IN ORDER (earliest "
                      "first, the last %d press(es), presses in a row that "
                      "said the same thing shown as one): "
                      % sum(len(k) for k, _ in _shown)
                      + " → ".join(_run_words(k, t) for k, t in _shown)
                      + ". The order is the record; what it means is yours to read.")
+    # ...AND WHERE THEY STAND, AS THE SCREEN DRAWS THEM. Fifteen rows each
+    # carrying "(fixture at 5,9)" put the cans in the order of their
+    # records, and which one stands beside which was left to arithmetic
+    # over coordinates; a player sees three columns of five. A room with
+    # six or more fixtures of one kind lays them out in its own rows here,
+    # marked when pressed since the last reset the game announced (see
+    # the rows above). Where they stand only; nothing about what is under
+    # which (2026-09-25).
+    try:
+        _fx = [c for c in cands if c.kind == "fixture"
+               and getattr(c, "x", None) is not None]
+        _kinds: dict = {}
+        for c in _fx:
+            _kinds.setdefault(_stem(c.key), []).append(c)
+        _pl_all = (getattr(ex, "_press_log", None) or {}).get(here) or []
+        _ri1, _rt1 = _since_reset(_pl_all)
+        _pressed = ({k for k, *_ in _pl_all[_ri1 + 1:]}
+                    if _ri1 is not None else set())
+        for _kn, _group in _kinds.items():
+            # a folded crowd already says where each stands, and a hall of
+            # slot machines laid out is the room buried (tests/crowd.py)
+            if not 6 <= len(_group) <= 20 or _kn in _mob:
+                continue
+            _rows: dict = {}
+            for c in _group:
+                _rows.setdefault(int(c.y), []).append(c)
+            lines.append(
+                f"WHERE THE {len(_group)} {_kn.rstrip('_')}S STAND, row by row as the "
+                "room draws them (x across, y down"
+                + (f"; * = pressed since the game last said \"{_rt1}\""
+                   if _ri1 is not None else "") + "): "
+                + " | ".join(
+                    f"y={y}: " + ", ".join(
+                        f"{c.key} x={c.x}" + ("*" if c.key in _pressed else "")
+                        for c in sorted(_rows[y], key=lambda c: int(c.x)))
+                    for y in sorted(_rows)) + ".")
+    except Exception:
+        pass
     # A BUILDING YOU CAN SEE, WHOSE DOORWAY YOU HAVE NOT MADE OUT. The
     # shim keeps a building once ANY of its footprint has been on screen
     # and filters its doors one by one, on the reading that making out a

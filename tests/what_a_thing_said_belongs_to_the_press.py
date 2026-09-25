@@ -91,9 +91,11 @@ ck("the harness says nothing about WHY an answer changed",
    not any(w in p.lower() for w in ("random", "moves each", "re-roll", "reroll", "elsewhere now")))
 
 # ---- the ordered log ---------------------------------------------------------
-LOG = ([["TRASH_CAN_6", SWITCH]]
-       + [[f"TRASH_CAN_{i}", TRASH] for i in (1, 2, 3, 4, 5, 7, 9, 10, 11, 12, 13, 14)]
-       + [["TRASH_CAN_8", RESET]])
+# the reset first: since 2026-09-25 the list starts at the last reset the
+# game announced (tests/a_can_pressed_before_the_locks_reset_says_nothing_
+# about_now.py), so a history that ENDS in one would show only it
+LOG = ([["TRASH_CAN_8", RESET], ["TRASH_CAN_6", SWITCH]]
+       + [[f"TRASH_CAN_{i}", TRASH] for i in (1, 2, 3, 4, 5, 7, 9, 10, 11, 12, 13, 14)])
 p2 = page(BOOK, LOG)
 log = next(l for l in p2.splitlines() if "WHAT PRESSING THINGS HERE HAS SAID" in l)
 ck("both turns survive a window of twelve sames",
@@ -103,7 +105,7 @@ ck("...because a run of one answer folds into one entry",
 ck("...naming some of them and counting the rest",
    "TRASH_CAN_1, TRASH_CAN_2, TRASH_CAN_3, TRASH_CAN_4 +8 more" in log, log)
 ck("the switch press is still its own entry, in order",
-   log.index(SWITCH) < log.index("12 presses") < log.index(RESET), log[:400])
+   log.index(RESET) < log.index(SWITCH) < log.index("12 presses"), log[:400])
 ck("the header counts presses, not entries", "the last 14 press(es)" in log, log)
 ck("it still refuses to read the record for the model",
    "what it means is yours to read" in log)
