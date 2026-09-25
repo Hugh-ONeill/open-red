@@ -5341,6 +5341,30 @@ local function landing_ok(G, dir, x, y, swim)
   return res and true or false
 end
 
+-- A CELL OF A MAP'S EDGE THAT A STEP OFF WOULD CROSS ON. A connection spans
+-- only the neighbour's own width, placed at its offset: Cerulean's south
+-- edge meets Route 5 along twenty of its forty cells. landing_ok clamps a
+-- cell outside that stretch onto the neighbour's border before asking, so
+-- the stretch is checked here first. Used by the sweep's "this map's edge
+-- came into view": in run of record 4 (2026-09-25) it fired for Cerulean's
+-- south-east corner, the cross then failed, and the model took the city's
+-- CUT tree for the wall.
+local function seam_open(G, d, x, y)
+  local dirw = ({ north = "up", south = "down", west = "left", east = "right" })[d]
+  local ow = G.overworld
+  local md = ow and ow.map and ow.map.def
+  local conn = md and md.connections and md.connections[d]
+  if not (dirw and conn) then return false end
+  local dest = G.data and G.data.maps and G.data.maps[conn.map]
+  if not dest then return false end
+  local off = (conn.offset or 0) * 2
+  local ns = (d == "north" or d == "south")
+  local along = ns and (x - off) or (y - off)
+  local span = ns and (dest.width or 0) * 2 or (dest.height or 0) * 2
+  if along < 0 or along >= span then return false end
+  return landing_ok(G, dirw, x, y)
+end
+
 -- `skip` takes the Nth walkable cell of that seam instead of the nearest.
 -- A SEAM IS A ROW, NOT A DOOR. Route 13's west edge is 27 cells long and
 -- this BFS always returned the nearest one, so the crossing landed on the
@@ -12859,10 +12883,10 @@ function OPS.sweep(G, c)
             out[#out + 1] = { kind = "door", x = x, y = y, text = text }
           end
         end
-        if y == 0 then edge.north = true end
-        if y == H - 1 then edge.south = true end
-        if x == 0 then edge.west = true end
-        if x == W - 1 then edge.east = true end
+        if y == 0 and seam_open(G, "north", x, y) then edge.north = true end
+        if y == H - 1 and seam_open(G, "south", x, y) then edge.south = true end
+        if x == 0 and seam_open(G, "west", x, y) then edge.west = true end
+        if x == W - 1 and seam_open(G, "east", x, y) then edge.east = true end
       end
     end
     -- AN EDGE IS NEWS ONCE. `until:door` counts a map's edge as a way out
@@ -12878,10 +12902,10 @@ function OPS.sweep(G, c)
         local bx, by = k:match("^(-?%d+),(-?%d+)$")
         bx, by = tonumber(bx), tonumber(by)
         if bx and by then
-          if by == 0 then edge_before.north = true end
-          if by == H - 1 then edge_before.south = true end
-          if bx == 0 then edge_before.west = true end
-          if bx == W - 1 then edge_before.east = true end
+          if by == 0 and seam_open(G, "north", bx, by) then edge_before.north = true end
+          if by == H - 1 and seam_open(G, "south", bx, by) then edge_before.south = true end
+          if bx == 0 and seam_open(G, "west", bx, by) then edge_before.west = true end
+          if bx == W - 1 and seam_open(G, "east", bx, by) then edge_before.east = true end
         end
       end
     end
