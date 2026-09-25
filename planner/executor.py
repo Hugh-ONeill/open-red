@@ -3641,15 +3641,9 @@ class Executor:
                     # went through (Route 2 into the forest's south gate,
                     # 2026-09-24). Anything less certain files no edge.
                     _sd = dict(_st, op="sweep")
-                    _tw = _re.search(r"on the way to \((\d+),(\d+)\)",
-                                     " ".join(str(t) for t in tr))
-                    if _tw:
-                        _tx, _ty = int(_tw.group(1)), int(_tw.group(2))
-                        if any(w.get("x") == _tx and w.get("y") == _ty
-                               and str(w.get("dest") or "") == str(_amap)
-                               for w in (((_pre_sweep or {}).get("map") or {})
-                                         .get("warps") or [])):
-                            _sd["x"], _sd["y"] = _tx, _ty
+                    _dk, _pre_sweep = self._sweep_door(_pre_sweep, _after_sweep, tr)
+                    if _dk:
+                        _sd["x"], _sd["y"] = _dk
                     self.note_transition(_pre_sweep, _sd, _after_sweep)
             except Exception:
                 pass            # an edge is never worth the round
@@ -8017,6 +8011,58 @@ class Executor:
                     self.log("reverse_edge", frm=dst, via=_ak, to=src)
                     self._save_memory()
                 break
+
+    def _sweep_door(self, pre, after, tr):
+        """((x, y), before-observation) for the doorway a sweep went
+        through, or (None, pre) when it cannot be named for certain. The
+        before-observation comes back with that doorway on the floor's
+        list when the sweep itself turned it up (see below)."""
+        _amap = ((after or {}).get("map") or {}).get("id")
+        _pre_sweep, _after_sweep = pre, after
+        _sd = {}
+        _trs = " ".join(str(t) for t in tr)
+        _tw = _re.search(r"on the way to \((\d+),(\d+)\)", _trs)
+        if _tw:
+            _tx, _ty = int(_tw.group(1)), int(_tw.group(2))
+            _pmap = ((_pre_sweep or {}).get("map") or {}).get("id")
+            # ...OR A DOORWAY THE SWEEP ITSELF TURNED UP. The
+            # table check needs the door in the floor's list
+            # BEFORE the sweep, and a sweep usually walks toward
+            # a doorway because it has just come into view:
+            # Route 2's (3,43), run of record 4, 2026-09-25,
+            # "came into view: a doorway at (3,43) ... on the
+            # way to (3,43)", filed nowhere, and an hour later
+            # the north half of Route 2 called that door a way
+            # never taken and sent the run back south. The
+            # sweep routes round every doorway but the one it
+            # aims at (shim warp_block), so a doorway it named
+            # is the one that fired when the room it landed in
+            # has a door back to the floor it left.
+            _named = bool(_re.search(
+                r"a doorway at \(%d,%d\)" % (_tx, _ty), _trs))
+            _back = any(str(w.get("dest") or "") == str(_pmap)
+                        for w in (((_after_sweep or {}).get("map")
+                                   or {}).get("warps") or []))
+            if any(w.get("x") == _tx and w.get("y") == _ty
+                   and str(w.get("dest") or "") == str(_amap)
+                   for w in (((_pre_sweep or {}).get("map") or {})
+                             .get("warps") or [])) \
+                    or (_named and _back):
+                _sd["x"], _sd["y"] = _tx, _ty
+                # the floor as the sweep left it: with the
+                # doorway it turned up, which note_transition
+                # checks the door against ("A DOOR THIS ROOM
+                # DOES NOT HAVE")
+                _pm = dict((_pre_sweep or {}).get("map") or {})
+                _pw = list(_pm.get("warps") or [])
+                if not any(w.get("x") == _tx and w.get("y") == _ty
+                           for w in _pw):
+                    _pw.append({"x": _tx, "y": _ty, "dest": _amap})
+                    _pm["warps"] = _pw
+                    _pre_sweep = dict(_pre_sweep or {}, map=_pm)
+        if "x" in _sd:
+            return (_sd["x"], _sd["y"]), _pre_sweep
+        return None, pre
 
     def note_transition(self, before_obs, step, after_obs, reason="",
                         op_detail=""):

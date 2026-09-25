@@ -90,18 +90,39 @@ ck("...and the north door as not",
                       "VIRIDIAN_FOREST"))
 
 # ------------------------------------------------ the sweep's own target
-src = (ROOT / "planner/executor.py").read_text()
-hook = src[src.index("A DOOR IS A DOOR WHOEVER OPENED IT — and a sweep opens them."):]
-hook = hook[:hook.index("self._count_dry_walk(")]
-ck("the sweep names the doorway it was walking toward when that fired",
-   'r"on the way to \\((\\d+),(\\d+)\\)"' in hook
-   and 'str(w.get("dest") or "") == str(_amap)' in hook
-   and '_sd["x"], _sd["y"] = _tx, _ty' in hook, hook[-600:])
+TRACE = ["explore (sweeping unseen ground): sweep(until=map_change): ok "
+         "(map->VIRIDIAN_FOREST_SOUTH_GATE, moved, swept 13 step(s); came into "
+         "view: a doorway at (3,43) in a small flat-roofed building — stopped: "
+         "interrupted (battle or script) on the way to (3,43) -- ...)"]
 e = ex()
-e.note_transition(ROUTE_2, dict(SWEEP, x=3, y=43), GATE)
+k, pre = e._sweep_door(ROUTE_2, GATE, TRACE)
+ck("the sweep names the doorway it was walking toward when that fired",
+   k == (3, 43), k)
+# run of record 4, 2026-09-25: the doorway came into view DURING the sweep,
+# so the floor's list from before it did not have it
+R2_BEFORE = dict(ROUTE_2, map=dict(ROUTE_2["map"], warps=[
+    {"x": 3, "y": 11, "dest": "VIRIDIAN_FOREST_NORTH_GATE"}]))
+k2, pre2 = e._sweep_door(R2_BEFORE, GATE, TRACE)
+ck("...and a doorway the sweep itself turned up, when the room it landed "
+   "in has a door back", k2 == (3, 43)
+   and any(w.get("x") == 3 and w.get("y") == 43
+           for w in pre2["map"]["warps"]), (k2, pre2["map"]["warps"]))
+NOWAYBACK = dict(GATE, map=dict(GATE["map"], warps=[
+    {"x": 4, "y": 0, "dest": "VIRIDIAN_FOREST"}]))
+ck("...but not when that room has no door back to the floor it left",
+   e._sweep_door(R2_BEFORE, NOWAYBACK, TRACE)[0] is None)
+ck("...nor a target the trace never called a doorway",
+   e._sweep_door(R2_BEFORE, GATE, [TRACE[0].replace("a doorway at (3,43)",
+                                                    "a sign at (5,65)")])[0] is None)
+e = ex()
+e.note_transition(pre2, dict(SWEEP, x=3, y=43), GATE)
 ck("...and with the door named the edge is filed on the floor it left",
    (e.explored.get("ROUTE_2|3,43") or {}).get("3,43", {}).get("to")
    == "VIRIDIAN_FOREST_SOUTH_GATE|5,0", e.explored.get("ROUTE_2|3,43"))
+src = (ROOT / "planner/executor.py").read_text()
+ck("the explore step asks the method and files what it names",
+   "_dk, _pre_sweep = self._sweep_door(_pre_sweep, _after_sweep, tr)" in src
+   and "self.note_transition(_pre_sweep, _sd, _after_sweep)" in src)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
