@@ -20,6 +20,59 @@ from pathlib import Path
 OUT = Path("plans/outline.txt")
 PULLS = Path("run/outline_pulls")
 FAILED = Path("run/outline_pulls_failed")
+AUTHORED = Path("plans/outline.authored")
+UPKEEP = Path("plans/outline.upkeep")
+PROGRESS = Path("run/outline_leg")
+
+
+def _lines(p: Path) -> list:
+    try:
+        return [l.strip() for l in p.read_text().splitlines() if l.strip()]
+    except OSError:
+        return []
+
+
+def anchor_of(text: str) -> str:
+    """The story leg a party leg was placed after, in the model's own
+    outline, or "".
+
+    The party pass places each leg it adds directly after a story leg it
+    names ("a party Pokemon knows CUT" after "Retrieve the HM01 from the
+    S.S. Anne"), and the banked outline keeps that placement: the nearest
+    story leg above it there is the one it was placed after. It counts as
+    what the leg waits on only when the two share a name, read as the
+    author's guards read them (HM01 is CUT, by the game's own machine
+    table): "a party Pokemon knows CUT" after "Retrieve the HM01 from the
+    S.S. Anne" waits on it; "the party holds a FLYING type", placed after
+    the same leg, does not."""
+    up = set(_lines(UPKEEP))
+    if text not in up:
+        return ""
+    banked = _lines(AUTHORED)
+    if text not in banked:
+        return ""
+    for leg in reversed(banked[:banked.index(text)]):
+        if leg not in up:
+            try:
+                from author import _names
+            except Exception:
+                return ""
+            return leg if (_names(text) & _names(leg)) else ""
+    return ""
+
+
+def before_its_anchor(lines: list, to: int, text: str) -> str:
+    """The anchor this pull would put the leg ahead of, or "": the leg's
+    anchor is still on the list, not yet done, and at or after `to`."""
+    a = anchor_of(text)
+    if not a or a not in lines:
+        return ""
+    try:
+        done = int(PROGRESS.read_text().strip() or 0)
+    except (OSError, ValueError):
+        done = 0
+    pos = lines.index(a) + 1
+    return a if pos > done and pos >= to else ""
 
 
 def read_outline() -> list:
@@ -42,6 +95,23 @@ def do_pull(to: int, frm: int):
     lines = read_outline()
     if not (1 <= to <= len(lines)) or not (1 <= frm <= len(lines)):
         sys.exit(f"pull_leg: {to} or {frm} is off the list of {len(lines)}")
+    # A LEG IS NOT PULLED AHEAD OF WHAT IT WAS PLACED AFTER. Run of
+    # record 4 (2026-09-25): stuck on "Retrieve the S.S. Ticket", the
+    # blocker rung pulled "a party Pokemon knows CUT" five legs forward on
+    # the model's "the path ... is blocked by a CUT_TREE" — ahead of
+    # "Retrieve the HM01 from the S.S. Anne", the leg the party pass had
+    # placed it after, which needs the ticket. The run then had to teach
+    # CUT before it could reach the HM, decided Bill gives it, and went
+    # back to him for a quarter of an hour (user: "fix the pull so it
+    # can't jump ahead of its prerequisite"). The prerequisite is the
+    # model's own placement (anchor_of), not a table; refused, the chain
+    # goes on to its next rung.
+    _a = before_its_anchor(lines, to, lines[frm - 1])
+    if _a:
+        print(f"pull refused: {lines[frm - 1]!r} was placed after {_a!r}, "
+              f"which is still ahead at leg {lines.index(_a) + 1}; pulled to "
+              f"{to} it would come before what it waits on")
+        sys.exit(4)
     text = lines.pop(frm - 1)
     lines.insert(to - 1, text)
     write_outline(lines)
