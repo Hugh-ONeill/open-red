@@ -10,7 +10,9 @@ much does graveler choose selfdestruct?"; "keep the default last").
 Pinned: the executor reads the self-KO off the turn's own text ("X used
 SELFDESTRUCT!" then "X fainted!" with no enemy move between) and keeps the
 count across attempts; choose() puts such a move last unless the spec says
-self_ko: "free"; the knob is validated and documented. Synthetic.
+self_ko: "free"; SELFDESTRUCT and EXPLOSION are last with no record at all,
+and a catch never weakens or probes with them; the knob is validated and
+documented. Synthetic.
 """
 from __future__ import annotations
 
@@ -81,8 +83,31 @@ bp.reset_run_budget()
 r = bp.choose(obs(), spec, ctx)
 ck("with the record, the self-KO move is not the pick", r.get("index") != 1 and "SELFDESTRUCT" not in str(r.get("_why")), r)
 ck("...the best of the rest is", r.get("index") == 2, r)
+# WITH NO RECORD IT IS STILL LAST. The screen reading above never fired in
+# any run (battle lines do not reach last_text), so "chosen by power, as
+# before" was what every run played: run of record 3's GRAVELER used it 86
+# times in the level-30 grind and VENUSAUR took the experience (user,
+# 2026-09-25: "the only self-ko moves are selfdestruct and explosion").
 r0 = bp.choose(obs(), spec, {"turn": 1, "intent": "traversal"})
-ck("with no record it is chosen by power, as before", r0.get("index") == 1, r0)
+ck("with no record it is still not the pick: the two are named", r0.get("index") == 2, r0)
+o2 = obs()
+o2["battle"]["me"]["moves"][0] = dict(o2["battle"]["me"]["moves"][0], id="EXPLOSION", power=170)
+r2 = bp.choose(o2, spec, {"turn": 1, "intent": "traversal"})
+ck("...EXPLOSION the same", r2.get("index") == 2, r2)
+ck("...and only those two", bp.SELF_KO_MOVES == {"SELFDESTRUCT", "EXPLOSION"})
+oc = obs()
+oc["battle"]["me"]["moves"] = [{"index": 1, "id": "SELFDESTRUCT", "type": "NORMAL", "power": 130, "accuracy": 100, "pp": 5},
+                               {"index": 2, "id": "DEFENSE_CURL", "type": "NORMAL", "power": 0, "pp": 30}]
+oc["bag"] = {"POKE_BALL": 5}
+oc["battle"]["foe"].update(level=30, hp=80, maxhp=80)
+_cspec = dict(spec, catch={"ball": "POKE_BALL", "throw_at_hp_frac": 0.3,
+                           "max_balls": 5, "probe_hit": True})
+bp.reset_run_budget()
+# before: {'op': 'battle_move', 'index': 1, '_why': 'probe_hit: SELFDESTRUCT
+# once, to see what it does (foe at 100%)'}
+rc = bp.choose(oc, _cspec, {"turn": 1, "intent": "catch",
+                            "want": {"species": ["ZUBAT"]}, "journal": {}})
+ck("a catch never weakens or probes with one", rc.get("op") == "throw_ball", rc)
 rf = bp.choose(obs(), dict(spec, self_ko="free"), ctx)
 ck('self_ko "free" leaves the scoring alone', rf.get("index") == 1, rf)
 o = obs()

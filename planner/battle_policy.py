@@ -273,6 +273,22 @@ HOLD_LAST: set = set()
 DRINKS = ("FRESH_WATER", "SODA_POP", "LEMONADE")
 
 
+# THE TWO MOVES THAT FAINT THEIR USER, by name (user, 2026-09-25: "the
+# only self-ko moves are selfdestruct and explosion"). The run was meant to
+# learn this from the screen ("X used SELFDESTRUCT!" then "X fainted!"),
+# and that reading never fired once in any run: battle lines do not reach
+# the text it reads. Run of record 3's GRAVELER used SELFDESTRUCT 86 times
+# in the level-30 grind, fainting each time and handing every fight, and
+# its experience, to VENUSAUR (L30 -> L54, Graveler stuck at 29). Named
+# here, they are self-KO moves from the first turn of every run; what the
+# run records on top of them still counts.
+SELF_KO_MOVES = frozenset({"SELFDESTRUCT", "EXPLOSION"})
+
+
+def self_ko_moves(ctx) -> set:
+    return set(SELF_KO_MOVES) | {str(k) for k in ((ctx or {}).get("self_ko") or {})}
+
+
 def spendable(bag: dict) -> dict:
     """The bag as a heal rule may spend it: one of each HOLD_LAST item
     taken out."""
@@ -1419,7 +1435,7 @@ def choose(obs: dict, spec: dict | None = None,
         # a guard.
         _all = list(me.get("moves") or [])
         _blind = not _all          # no list at all: the read failed
-        _ko = (ctx or {}).get("self_ko") or {}
+        _ko = self_ko_moves(ctx)
         _order = [m.get("index") for m in _all if m.get("index") != dis
                   and str(m.get("id")) not in _ko] or \
                  [m.get("index") for m in _all if m.get("index") != dis]
@@ -1533,6 +1549,10 @@ def choose(obs: dict, spec: dict | None = None,
                          else f"heal with {item}")}
     scored = [score_move(m, me, foe, spec, ctx.get("journal")) for m in moves]
     damaging = [s for s in scored if (s["power"] or 0) > 0]
+    # ...AND A CATCH NEVER WEAKENS OR PROBES WITH A MOVE THAT FAINTS ITS USER.
+    if ctx.get("intent") == "catch":
+        damaging = [s for s in damaging
+                    if str(s.get("id")) not in self_ko_moves(ctx)]
     # CATCH intent on a wild foe: run from what is not wanted, sleep or
     # paralyse first, weaken only with a seen move under 45% of current hp,
     # then throw (gen1 catch odds scale with missing hp and with status).
@@ -1720,7 +1740,7 @@ def choose(obs: dict, spec: dict | None = None,
     # it behind every other move that can hit, whatever its power; it is
     # chosen only when nothing else can. self_ko: "free" leaves the
     # scoring alone (user, 2026-09-17: "keep the default last").
-    _sk = (ctx or {}).get("self_ko") or {}
+    _sk = self_ko_moves(ctx)
     if _sk and str(spec.get("self_ko", "last")) != "free":
         _keep = [s for s in pool if str(s.get("id")) not in _sk]
         if _keep:
