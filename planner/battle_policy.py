@@ -1623,6 +1623,24 @@ def choose(obs: dict, spec: dict | None = None,
             # single ball for runners then weaken/status before throwing
             # more balls"). Whether a runner is worth that ball is the
             # spec's call, so it is a rule the model writes, not a default.
+            # ...AND A BALL EVERY TURN AGAINST A SPECIES THIS RUN HAS SEEN
+            # LEAVE BY NOW. The spec's first_ball stays its call for a
+            # species never seen; one the run has watched end a battle on
+            # its own by this turn (executor WILD_LEFT: no ball, no flee of
+            # ours, no experience) gets nothing but balls until then, since
+            # a weakening turn is the turn it goes. Weakening a fresh wild
+            # became possible on 2026-09-25 (DAMAGE_FRAC below) with this as
+            # its condition (user: "fix the full-HP throwing too, as long as
+            # that wont prevent abra").
+            _left = [int(t) for t in ((ctx.get("wild_left") or {})
+                                      .get(str(foe.get("species") or "")) or [])
+                     if str(t).isdigit()]
+            if _left and int(ctx.get("turn") or 1) <= max(_left):
+                ctx["balls"] = balls + 1
+                return {"op": "throw_ball", "ball": have_ball,
+                        "_why": f"throw: {foe.get('species')} has been seen to "
+                                f"leave a battle on its own by turn "
+                                f"{max(_left)}"}
             if ca.get("first_ball") and balls == 0:
                 ctx["balls"] = 1
                 return {"op": "throw_ball", "ball": have_ball,
@@ -1635,6 +1653,26 @@ def choose(obs: dict, spec: dict | None = None,
                     return {"op": "battle_move", "index": st[0]["index"],
                             "_why": f"{st[0]['id']} first — a sleeping or "
                                     f"paralysed Pokemon is far easier to catch"}
+            # WHAT A HIT HAS BEEN SEEN TO TAKE OF THIS SPECIES' BAR, when
+            # our level's own record is silent: the most any hit of this
+            # move took when we stood at least as far above it as now
+            # (executor DAMAGE_FRAC). A standing that was higher then hit
+            # harder than it can now, so the fraction bounds this hit from
+            # above; a hit that ended a battle is 1.0 and bounds nothing.
+            _fj = ctx.get("frac_journal") or {}
+            try:
+                _ratio = float(me.get("level") or 0) / max(1, int(foe.get("level") or 1))
+            except (TypeError, ValueError):
+                _ratio = None
+            _mx = foe.get("maxhp") or hp0
+            for s in damaging:
+                if s.get("damage") is not None or _ratio is None:
+                    continue
+                _obs = [float(f) for r, f in (_fj.get(f"{s['id']}|{foe.get('species')}") or [])
+                        if float(r) >= _ratio]
+                if _obs:
+                    s["damage"] = max(_obs) * _mx
+                    s["damage_from"] = "bar"
             safe = [s for s in damaging
                     if not s["kos"] and s.get("damage") is not None
                     and s["damage"] <= 0.45 * max(1, cur_hp)]

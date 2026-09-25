@@ -1509,6 +1509,27 @@ def lay_train_rule(path) -> bool:
 # path (pamphlet standard).
 DAMAGE_JOURNAL: dict = {}
 
+# HOW MUCH OF THE FOE'S BAR A HIT TOOK, and the level gap it was taken at,
+# per "MOVE|SPECIES": [[our level / its level, fraction], ...]. The journal
+# above is keyed to our exact level, so one level-up made every record
+# silent, and a catch almost never had a seen damage to weaken with: run of
+# record 4 threw every ball at a wild at full HP (2026-09-25; user: "fix
+# the full-HP throwing too"). A player reads a hit off the HP bar and
+# remembers roughly how hard that attack lands on that Pokemon; seen when
+# we stood at least as far above it as now, the fraction bounds what the
+# same hit takes now. A hit that ended the battle took AT LEAST what was
+# left, so it is filed as 1.0: never a bound anything fits under. Kept with
+# the run's memory (explored.json), so it lives as long as the world.
+DAMAGE_FRAC: dict = {}
+
+# WILD SPECIES SEEN TO LEAVE A BATTLE ON THEIR OWN, and on which turn: {SP:
+# [turn, ...]}. ABRA teleports on its first turn, so a catch that spends
+# that turn weakening never gets a throw: twenty-one ABRA in run of record
+# 4, none caught. The run sees it happen — the battle ends with no ball, no
+# flee of ours, and no experience earned — and a catch against a species
+# seen to leave on turn one opens with a ball (battle_policy, catch).
+WILD_LEFT: dict = {}
+
 # A MOVE THAT FAINTED THE MON THAT USED IT, counted per move and kept
 # across attempts (run/self_ko.json). The scorer ranks by power, and
 # SELFDESTRUCT's 130 tops EARTHQUAKE's 100 whenever the effectiveness
@@ -1563,25 +1584,47 @@ def _journal_self_ko(before_b: dict, after_obs: dict, move_id: str) -> bool:
     return False
 
 
-def _journal_damage(before_b: dict, after_obs: dict, move_id: str):
+def _party_exp(obs) -> int:
+    return sum(int(m.get("exp") or 0) for m in ((obs or {}).get("party") or []))
+
+
+def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
+                    exp_before: int | None = None):
     me = before_b.get("me") or {}
     foe = before_b.get("foe") or {}
     key = battle_policy.journal_key(move_id, foe.get("species"),
                                     me.get("level"))
     hp0 = foe.get("hp") or 0
+    mx = foe.get("maxhp") or 0
+    fk = f"{move_id}|{foe.get('species')}"
+    try:
+        ratio = round(float(me.get("level") or 0) / max(1, int(foe.get("level") or 1)), 3)
+    except (TypeError, ValueError):
+        ratio = None
     ab = (after_obs or {}).get("battle") or {}
     if (after_obs or {}).get("mode") == "battle" \
             and (ab.get("foe") or {}).get("species") == foe.get("species"):
         d = hp0 - ((ab.get("foe") or {}).get("hp") or 0)
         if d > 0:
             DAMAGE_JOURNAL.setdefault(key, []).append(d)
+            if mx and ratio:
+                DAMAGE_FRAC.setdefault(fk, []).append([ratio, round(d / mx, 4)])
     elif (after_obs or {}).get("mode") != "battle" and hp0 > 0:
         # battle ended on our move: the foe fainted — damage at least hp0
         # (a lower bound; min() keeps the ledger conservative)
+        # ...IF IT FAINTED. A wild that LEFT ends the battle the same way —
+        # ABRA's teleport — and was filed here as "this move takes all it
+        # had": twenty-one ABRA in run of record 4, each one a record that
+        # the move knocks it out. Experience is the difference; a faint pays
+        # it and a departure does not.
         alive = any((m.get("hp") or 0) > 0
                     for m in (after_obs or {}).get("party") or [])
-        if alive:
+        gained = (exp_before is None
+                  or _party_exp(after_obs) > int(exp_before))
+        if alive and gained:
             DAMAGE_JOURNAL.setdefault(key, []).append(hp0)
+            if ratio:
+                DAMAGE_FRAC.setdefault(fk, []).append([ratio, 1.0])
 
 
 def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
@@ -1608,6 +1651,7 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
     op_fails = 0
     ctx = {"turn": 0, "used": {}, "intent": intent,
            "journal": DAMAGE_JOURNAL, "self_ko": SELF_KO, "want": want,
+           "frac_journal": DAMAGE_FRAC, "wild_left": WILD_LEFT,
            # how many balls this battle may spend, when the throw is toward
            # a LATER objective (Executor._catch_ahead); None = the spec's
            "ball_cap": ball_cap,
@@ -1777,6 +1821,8 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
             mv = next((m for m in ((before_b.get("me") or {}).get("moves")
                                    or []) if m.get("index") == idx), None)
             move_id = (mv or {}).get("id")
+        _exp0 = _party_exp(obs)
+        _n0 = len((obs or {}).get("party") or [])
         obs = bridge.send(name, **op)
         r = (obs or {}).get("result") or {}
         if r.get("ok") is False:
@@ -1800,8 +1846,23 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
                 break
             continue
         op_fails = 0
+        # A WILD THAT LEFT ON ITS OWN (see WILD_LEFT): the battle ended on
+        # a turn we neither ran nor threw, no experience came, nobody new
+        # joined — and our own move was not one that ends a wild battle.
+        _foe0 = before_b.get("foe") or {}
+        if ((obs or {}).get("mode") != "battle"
+                and str(before_b.get("kind") or "wild") == "wild"
+                and name not in ("battle_run", "throw_ball")
+                and str(move_id or "") not in ("WHIRLWIND", "ROAR", "TELEPORT")
+                and (_foe0.get("hp") or 0) > 0 and _foe0.get("species")
+                and _party_exp(obs) <= _exp0
+                and len((obs or {}).get("party") or []) == _n0
+                and any((m.get("hp") or 0) > 0
+                        for m in (obs or {}).get("party") or [])):
+            WILD_LEFT.setdefault(str(_foe0["species"]), []).append(turns)
+            log("wild_left", species=_foe0["species"], turn=turns, op=name)
         if move_id:
-            _journal_damage(before_b, obs, move_id)
+            _journal_damage(before_b, obs, move_id, exp_before=_exp0)
             if _journal_self_ko(before_b, obs, move_id):
                 log("self_ko", turn=turns, move=move_id,
                     times=SELF_KO.get(str(move_id)))
@@ -5783,6 +5844,11 @@ class Executor:
             # order is the whole fact is the one the run spends attempts in
             # (Vermilion's gym, 2026-09-14). Same ledger, same lifetime.
             self._press_log = data.get("press_log") or {}
+            # the world's battle record (see DAMAGE_FRAC, WILD_LEFT)
+            DAMAGE_FRAC.clear()
+            DAMAGE_FRAC.update(data.get("damage_frac") or {})
+            WILD_LEFT.clear()
+            WILD_LEFT.update(data.get("wild_left") or {})
             self._lever_presses = data.get("lever_presses") or {}
             if not self._lever_presses:
                 # BACKFILL ONCE from the outcome rows, which kept a count per
@@ -6287,6 +6353,7 @@ class Executor:
                  "explore_picks": getattr(self, "_explore_picks", {}),
                  "swept": sorted(getattr(self, "_swept", set())),
                  "press_log": getattr(self, "_press_log", {}),
+                 "damage_frac": DAMAGE_FRAC, "wild_left": WILD_LEFT,
                  "lever_presses": getattr(self, "_lever_presses", {}),
                  "plan_hist": getattr(self, "_plan_hist", {}),
                  "blackouts": self._blackouts,
