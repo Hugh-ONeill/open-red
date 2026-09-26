@@ -6530,6 +6530,24 @@ function OPS.use_warp(G, c)
       end
       table.insert(G.input.pressQueue, dir)
       G.input.state[dir] = true
+      -- ...BY A JUMP, NOT A WALK, AND ONLY FROM A PAD THAT LEADS HERE. The
+      -- test below read "more than one cell from the tile" as a teleport,
+      -- and a held direction walks: Mt. Moon B1F's ladder at (27,3), which
+      -- leads to ROUTE_4, did not fire, "down" held for forty frames walked
+      -- the party to (27,5), and the op said "warped — same map, you are
+      -- now at 27,5". The run took the way out for a pad back into the
+      -- cave and never tried it again (run of record 6, 2026-09-26; user:
+      -- "stop it, fix both"). A warp moves you more than one cell between
+      -- two frames, which walking never does; and a tile whose own warp
+      -- leads to another map cannot land you on this one.
+      local _tile_dest
+      local _mdw = startMap and G.data and G.data.maps and G.data.maps[startMap]
+      for _, _w in ipairs((_mdw and _mdw.warps) or {}) do
+        if _w.x == x and _w.y == y then _tile_dest = _w.destMap break end
+      end
+      local _same_ok = (_tile_dest == nil or _tile_dest == startMap)
+      local _lp = (G.overworld and G.overworld.player) or p
+      local _lx, _ly = _lp.cellX or 0, _lp.cellY or 0
       for _ = 1, 40 do
         coroutine.yield()
         if (G.overworld and G.overworld.map and G.overworld.map.id) ~= startMap then
@@ -6552,7 +6570,11 @@ function OPS.use_warp(G, c)
         -- fires, and a stale cellX/cellY never moves however far you were
         -- taken.
         local _pp = (G.overworld and G.overworld.player) or p
-        if math.abs((_pp.cellX or 0) - x) + math.abs((_pp.cellY or 0) - y) > 1
+        local _jump = math.abs((_pp.cellX or 0) - _lx)
+                      + math.abs((_pp.cellY or 0) - _ly) > 1
+        _lx, _ly = _pp.cellX or 0, _pp.cellY or 0
+        if _same_ok and _jump
+           and math.abs((_pp.cellX or 0) - x) + math.abs((_pp.cellY or 0) - y) > 1
            and not _pp.moving then
           G.input.state[dir] = false
           U.wait(20)
