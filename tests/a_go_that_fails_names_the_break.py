@@ -37,6 +37,7 @@ explored = {
 }
 fake = types.SimpleNamespace(explored=explored, _bad_seam=set())
 fake._edges_of = lambda r: E.Executor._edges_of(fake, r)
+fake._same_place = lambda a, b: E.Executor._same_place(fake, a, b)
 gap = E.Executor._route_gap(fake, "CELADON_CITY|2,1", "VERMILION_CITY")
 ck("the break is found on Route 9, between the middle part and the west end",
    gap == ("ROUTE_9", "ROUTE_9|6,2", "ROUTE_9|0,8"), gap)

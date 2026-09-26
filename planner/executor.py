@@ -8323,6 +8323,19 @@ class Executor:
         # that produced it, so _walk_route can reproduce it.
         if step.get("skip"):
             key = f"{key}#skip{int(step['skip'])}"
+        # A PAD THIS ROOM DOES NOT HAVE IS NOT A PAD PAIR EITHER. The
+        # foreign-door rule below ran only AFTER the same-map branch, so a
+        # same-map "warped" was filed without it: MT_MOON_1F|2,2 came to hold
+        # "27,3 -> MT_MOON_1F|2,2" and "21,17 -> ..." — B1F ladders, written
+        # under a 1F part as pads that go nowhere (run of record 6,
+        # 2026-09-26). The same test, first.
+        _mw0 = ((before_obs or {}).get("map") or {}).get("warps") or []
+        if (src == dst and step.get("x") is not None and _mw0
+                and not any(w.get("x") == step.get("x")
+                            and w.get("y") == step.get("y") for w in _mw0)):
+            self.log("edge_key_foreign", frm=src, via=str(key), to=dst,
+                     where="same-map")
+            return
         if src == dst:
             # A PAD PAIR INSIDE ONE ROOM IS STILL AN EXIT TAKEN. Silph 3F's
             # (23,11)<->(27,15) fired, landed in the same region, and
@@ -9502,6 +9515,13 @@ class Executor:
         for alias in AREA_ALIASES.get(region, ()):
             for k, v in (self.explored.get(alias) or {}).items():
                 out.setdefault(k, v)
+        # ...AND THE OTHER NAMES OF THIS SAME PLACE (see _same_place)
+        _map = str(region).split("|")[0]
+        for _r3 in list((self.explored or {}).keys()):
+            if (_r3 != region and str(_r3).split("|")[0] == _map
+                    and self._same_place(region, _r3)):
+                for k, v in (self.explored.get(_r3) or {}).items():
+                    out.setdefault(k, v)
         for _r2, _es in (self.explored or {}).items():
             for _k2, _e2 in (_es or {}).items():
                 # A SUFFIXED DIRECTION IS STILL A DIRECTION. A crossing made
@@ -9731,7 +9751,8 @@ class Executor:
                         and e.get("blocked_at") == _now):
                     continue
                 hop = path + [(key, nxt)]
-                if nxt == to or nxt in AREA_ALIASES.get(to, ()):
+                if (nxt == to or nxt in AREA_ALIASES.get(to, ())
+                        or self._same_place(nxt, to)):
                     return hop
                 seen.add(nxt)
                 q.append((nxt, hop))
@@ -12023,6 +12044,28 @@ class Executor:
             parts.append(f"{e1 - edges0} way(s) taken for the first time")
         return ", ".join(parts)
 
+    def _same_place(self, a, b) -> bool:
+        """Two region labels of one map are ONE place when both have an
+        exit recorded at the same door tile: a tile is left only from the
+        ground it stands on. The flood that names a region knows only the
+        ground seen when it ran, so one stretch of cave can carry two names
+        — Mt. Moon B2F was "20,5" and "3,2", both holding the (21,17)
+        ladder up — and a route that wanted one and landed in the other
+        called itself lost and gave up the only recorded way to the exit
+        (run of record 6, 2026-09-26; user: "stop it, fix both"). Seam keys
+        ("north") are not tiles: two parts of a map can each cross one."""
+        a, b = str(a or ""), str(b or "")
+        if a == b:
+            return True
+        if not a or not b or a.split("|")[0] != b.split("|")[0]:
+            return False
+        # a DOOR TILE only: "walk:ROUTE_9|6,2" and "lift:..." name where a
+        # walk or a ride goes, and two parts can both go there
+        _tile = _re.compile(r"^\d+,\d+$")
+        ka = {k for k in ((self.explored or {}).get(a) or {}) if _tile.match(str(k))}
+        kb = {k for k in ((self.explored or {}).get(b) or {}) if _tile.match(str(k))}
+        return bool(ka & kb)
+
     def _walk_route(self, sg, path, _replans=0):
         """Replay a fully-walked route hop by hop (the escort's pattern):
         send the edge, settle, fight through interruptions, record the
@@ -12272,7 +12315,7 @@ class Executor:
                 # blamed it in its own words, and did not cut (run 16,
                 # 2026-09-08; user: "go should just route through the bush
                 # no?"). Same rule, same blame test, once per hop.
-                if self._where(o) != nxt:
+                if not self._same_place(self._where(o), nxt):
                     _bx = self._blamed_bush(_wdet, o)
                     if _bx:
                         _cr = self._send_safe("field_move", move="CUT",
@@ -12294,7 +12337,7 @@ class Executor:
                                         _wrec.pop("blocked_at", None) is not None:
                                     self._save_memory()
                                 continue
-                if self._where(o) != nxt:
+                if not self._same_place(self._where(o), nxt):
                     # ...AND A WALK THAT DID NOT ARRIVE MUST STOP BEING
                     # THE SHORTEST ROUTE — the lift's own rule, never
                     # applied here. An intra edge recorded under an older
@@ -12406,7 +12449,7 @@ class Executor:
                 # run "abandons" a road it opened itself. Cutting it is
                 # re-opening a walked way — the same class as re-walking a
                 # walked door. An unwalked bush somewhere new is untouched.
-                if ("CUT_TREE" in _det and self._where(o) != nxt
+                if ("CUT_TREE" in _det and not self._same_place(self._where(o), nxt)
                         and self._knows_move(o or {}, "CUT")):
                     _mm = _re.search(r"CUT_TREE[^()]*\((\d+),(\d+)\)", _det)
                     if _mm:
