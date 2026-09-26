@@ -9848,6 +9848,11 @@ def crossings_text(goal: str, observed="run/explored.json") -> str:
             + ". Which of these is the far side is yours to judge.")
 
 
+# set by check_done when a party leg is skipped on its purpose (upkeep_ask);
+# the CLI then exits 5 so the chain can say so in its own words
+UPKEEP_SKIPPED = ""
+
+
 def check_done(goal: str, start: str, model: str,
                observed=None, gained: str = "") -> bool:
     """The model judges whether a failed leg's objective is already met.
@@ -9879,6 +9884,21 @@ def check_done(goal: str, start: str, model: str,
         print("[check-done] refused: no snapshot of this run's world (no "
               "party) — not judging")
         return False
+    # A PARTY LEG WHOSE PURPOSE IS DONE IS ASKED ABOUT FIRST (see
+    # planner/upkeep_ask.py): a no crosses it off as a party leg the run
+    # plays on past, and says so above the chain's own line.
+    try:
+        import upkeep_ask
+        _skip = upkeep_ask.maybe_skip(goal, start, model)
+    except Exception as e:      # noqa: BLE001 — the question, never the leg
+        print(f"[upkeep-ask] not asked: {e}")
+        _skip = ""
+    if _skip:
+        global UPKEEP_SKIPPED
+        UPKEEP_SKIPPED = _skip
+        print(f"[upkeep-ask] NOT PLAYED — what it was for is done, and asked, "
+              f"you judged it not worth an attempt: {_skip}")
+        return True
     bearing = _events_bearing(goal)
     never = _never_stood_in(goal, observed)
     if never:
@@ -10214,7 +10234,7 @@ def main():
                           args.model, observed=args.observed,
                           gained=args.gained or "")
         print("DONE" if done else "NOT_DONE")
-        sys.exit(0 if done else 3)
+        sys.exit(5 if (done and UPKEEP_SKIPPED) else 0 if done else 3)
     if args.check_wording:
         if not (args.outline_path and args.leg):
             ap.error("--check-wording needs --outline-path and --leg")
