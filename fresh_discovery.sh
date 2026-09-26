@@ -697,7 +697,21 @@ while :; do
   missing_rung() {
     _ins_leg=$(grep -Fc "LEG=$leg|" run/outline_inserts 2>/dev/null) || true
     [ "$(cat run/outline_inserts 2>/dev/null | wc -l)" -lt 12 ] || return 1
-    [ "${_ins_leg:-0}" -lt 1 ] || return 1
+    # AN INSERT THAT WAS FINISHED AND DID NOT UNBLOCK THIS LEG IS HANDED
+    # BACK, ONCE. Run 5 (2026-09-26): stuck on "Retrieve the S.S. Ticket",
+    # the rung inserted "Visit Bill's house on Route 25"; standing in the
+    # house met it, the errand never happened, the ticket leg failed again,
+    # and with its one insert spent nothing could send the run back to Bill
+    # (user: "do b and c"). A leg whose earlier insert now lies behind the
+    # run may be asked once more (at most two per leg); the question is told
+    # what that insert was (author.inserts_that_did_not_unblock).
+    _ins_allow=1
+    while IFS= read -r _row; do
+      _it=${_row#*|}
+      _ip=$(grep -nxF -- "$_it" plans/outline.txt | head -1 | cut -d: -f1)
+      if [ -n "$_ip" ] && [ "$_ip" -lt "$i" ]; then _ins_allow=2; fi
+    done < <(grep -F "LEG=$leg|" run/outline_inserts 2>/dev/null || true)
+    [ "${_ins_leg:-0}" -lt "$_ins_allow" ] || return 1
     set +e
     missing=$(python planner/author.py --check-missing \
         --goal "$goal" --outline-path plans/outline.txt --leg "$i" \
