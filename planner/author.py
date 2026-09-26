@@ -7683,9 +7683,44 @@ item a person demands before they move, a barrier that opens on a flag.
 heals; "Obtain the SILPH SCOPE" is a gate, because the tower's ghosts
 cannot be fought without it.
 
+A GATE IS A DEED, NOT A PLACE. Name what has to be DONE — a person
+helped or beaten, an item handed over or found, a thing pressed — with
+the place it happens in. An objective that says only to visit, reach or
+enter a place is met the moment you stand there, whatever happens inside,
+so it can never be the gate.
+
 Reply with ONLY a JSON object, the reason FIRST:
 {"why": "one sentence", "insert": "the objective"}   or
 {"why": "one sentence", "insert": null}"""
+
+# THE WORDS OF VISITING A SPOT: an objective opening with one is met the
+# moment you stand there (check-done's travel exemption). "Reach <town>"
+# is left alone — arriving somewhere new is progress, and the chain's
+# travel legs are made of it — and so is "go through", which check-done
+# only counts once two mouths of the place are used.
+_ARRIVAL_VERBS = ("visit", "enter", "go to", "return to", "head to",
+                  "walk to", "travel to", "get to")
+
+
+def inserts_that_did_not_unblock(goal: str, behind: list) -> list:
+    """Objectives the missing rung inserted for THIS objective that the run
+    has since finished, while this one still fails: they were not the gate,
+    or not all of it (run 5, 2026-09-26: "Visit Bill's house on Route 25"
+    was met by standing in the house, and the S.S. Ticket never came)."""
+    bare = re.sub(r"\s*\(a doubt you recorded when outlining:.*$", "", goal).strip()
+    try:
+        rows = Path("run/outline_inserts").read_text().splitlines()
+    except OSError:
+        return []
+    done = {t for _, t in behind}
+    out = []
+    for r in rows:
+        if not r.startswith("LEG=") or "|" not in r:
+            continue
+        leg, ins = r[4:].split("|", 1)
+        if leg == bare and ins in done and ins not in out:
+            out.append(ins)
+    return out
 
 
 def _norm_obj(t: str) -> str:
@@ -7903,6 +7938,12 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             + (departure_text(journal) if journal else "")
             + (words_text(journal) if journal else "")
             + (people_said_text(observed) if observed else ""))
+    _spent = inserts_that_did_not_unblock(goal, behind)
+    if _spent:
+        base += ("\n\nYOU INSERTED THESE FOR THIS OBJECTIVE BEFORE, AND FINISHED "
+                 "THEM, AND IT STILL FAILS — each was not the gate, or not all of "
+                 "it; what it asked for happened and what you are stuck on did "
+                 "not follow:\n" + "\n".join(f"  - {t}" for t in _spent))
     turned_down: list = []
     for _ in range(max(1, tries)):
         body = base + ("\n\nYOU ALREADY PROPOSED THESE AND THEY WERE TURNED "
@@ -7932,6 +7973,14 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             print(f"[missing] turned down {ins!r}: already on your own "
                   f"list — {_why}", file=sys.stderr)
             turned_down.append((ins, "already on your own list"))
+            continue
+        _first = _norm_obj(ins)
+        if any(_first == v or _first.startswith(v + " ") for v in _ARRIVAL_VERBS):
+            print(f"[missing] turned down {ins!r}: it is met by arriving — "
+                  f"{_why}", file=sys.stderr)
+            turned_down.append((ins, "it only says to get somewhere, which is "
+                                     "met the moment you stand there; name the "
+                                     "deed done there, or none"))
             continue
         # A DEED ABOUT A THING THIS GAME DOES NOT HAVE IS NOT A DEED. "Obtain
         # the Tea from the Celadon Mansion" — FireRed's item, in front of
