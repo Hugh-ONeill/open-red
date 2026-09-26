@@ -1776,6 +1776,43 @@ function note_text(txt, box)   -- forward-declared above the yield hook
   end
   last_text = text_run
 end
+-- WHAT THE BATTLE SAID. The battle prints its messages in its own box
+-- (BattleState:startMessage), never through the dialog pages note_text
+-- reads, so no battle line ever reached an observation: the self-KO reader
+-- ("X used SELFDESTRUCT!" then "X fainted!") never fired in any run, and
+-- run of record 4 threw ten balls at the Pokemon Tower's MAROWAK, every one
+-- answered "This POKeMON can't be caught!" unseen (2026-09-26; user: "mark
+-- down the battle text fix for next stop", then "battle text first"). Kept
+-- apart from last_text, which is the overworld's "it said", so a fight's
+-- lines do not become a door's words: the last BATTLE_LINES_MAX messages of
+-- the current battle, oldest first, joined " / ", with a counter that moves
+-- on every one; a new battle starts the list again.
+local BATTLE_LINES_MAX = 16
+local battle_lines, battle_seq, battle_owner = {}, 0, nil
+local battle_hooked = false
+local function hook_battle_text()
+  if battle_hooked then return true end
+  local okB, BS = pcall(require, "src.battle.BattleState")
+  if not (okB and type(BS) == "table" and type(BS.startMessage) == "function") then
+    return false
+  end
+  local orig = BS.startMessage
+  BS.startMessage = function(self, item)
+    local t = item and item.text
+    if t then
+      if self ~= battle_owner then
+        battle_owner = self
+        battle_lines = {}
+      end
+      battle_lines[#battle_lines + 1] = (tostring(t):gsub("[\n\v]", " "))
+      if #battle_lines > BATTLE_LINES_MAX then table.remove(battle_lines, 1) end
+      battle_seq = battle_seq + 1
+    end
+    return orig(self, item)
+  end
+  battle_hooked = true
+  return true
+end
 -- Oracle probe result (battle_probe), surfaced once in the next observation.
 local last_probe = nil
 
@@ -1838,6 +1875,10 @@ local function observe(G, seq, result)
     o.text_on_screen = false     -- overridden below when a box is really up
   end
   o.text_seq = text_seq        -- see note_text: printed-line count, not words
+  if hook_battle_text() and #battle_lines > 0 then
+    o.battle_text = table.concat(battle_lines, " / ")
+    o.battle_text_seq = battle_seq
+  end
   if G.overworld and top == G.overworld then
     recent_text = nil          -- free roam: stale prompt no longer applies
     o.recent_text = nil

@@ -1560,7 +1560,10 @@ def _journal_self_ko(before_b: dict, after_obs: dict, move_id: str) -> bool:
     # SELFDESTRUCT, and Graveler exploded on turn one against Victory Road's
     # Blackbelt and mid-fight against the rival (run 27, 2026-09-18).
     # last_text is the joined run ("... used EXPLOSION! / ... fainted!").
-    txt = str((after_obs or {}).get("last_text")
+    # ...AND THE BATTLE'S OWN LINES, which never reached last_text at all
+    # (shim battle_text, 2026-09-26); last_text stays the fallback.
+    txt = str((after_obs or {}).get("battle_text")
+              or (after_obs or {}).get("last_text")
               or (after_obs or {}).get("recent_text") or "")
     words = str(move_id).replace("_", " ").upper()
     up = txt.upper()
@@ -1846,6 +1849,16 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
                 break
             continue
         op_fails = 0
+        # A BALL THE GAME SAYS CANNOT CATCH IT ENDS THE CATCH. The Pokemon
+        # Tower's MAROWAK answers every ball "It dodged the thrown BALL! /
+        # This POKeMON can't be caught!", and run of record 4 threw ten at
+        # it unseen (2026-09-26). The screen says it; the battle goes on as
+        # a fight, which is also the only thing that moves that one.
+        if (name == "throw_ball" and ctx.get("intent") == "catch"
+                and "can't be caught" in str((obs or {}).get("battle_text") or "")):
+            ctx["intent"] = "fight"
+            log("uncatchable", turn=turns,
+                foe=(before_b.get("foe") or {}).get("species"))
         # A WILD THAT LEFT ON ITS OWN (see WILD_LEFT): the battle ended on
         # a turn we neither ran nor threw, no experience came, nobody new
         # joined — and our own move was not one that ends a wild battle.
