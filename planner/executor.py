@@ -22597,6 +22597,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         # Brock fight it was for (user, 2026-09-24: "half budget").
         if "_bonus_" in Path(str(getattr(self, "plan_path", "") or "")).name:
             rounds = max(1, (rounds + 1) // 2)
+        # ...AND SO DOES A PARTY LEG'S ONE ATTEMPT: the chain sets
+        # RED_BUDGET_SCALE=0.5 for a leg on plans/outline.upkeep (see
+        # fresh_discovery.sh, "A PARTY LEG IS PREPARATION, NOT STORY").
+        else:
+            try:
+                _bs = float(os.environ.get("RED_BUDGET_SCALE", "1") or 1)
+            except ValueError:
+                _bs = 1.0
+            if 0 < _bs < 1:
+                rounds = max(1, int(rounds * _bs + 0.5))
         feedback = "This is the first attempt."
         inert = []          # targets that ran but did nothing / failed
         backward = []       # ops that moved us to an already-visited map

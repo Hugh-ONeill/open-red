@@ -146,6 +146,7 @@ if [ "$done_legs" = 0 ]; then
         run/outline_pushes run/outline_pullbacks \
         run/outline_pulls run/outline_pulls_failed \
         run/outline_replays \
+        run/upkeep_purpose_asked \
         run/attempt_yield run/attempt_start.json
   # ...AND THE LEG PLANS, WHICH ARE WRITTEN AGAINST A WORLD. The outline
   # is banked luck — an expensive list of objectives, kept on purpose —
@@ -508,10 +509,26 @@ while :; do
   # in and lit end to end, and spent it hunting a key that is not there
   # (2026-08-28, user: "it's looking for the secret key in the safari zone
   # again"). One model call per leg; the ledger refusals still apply.
-  if [ "${_no_plan:-0}" = 0 ] \
-      && python planner/author.py --check-done --goal "$goal" \
-          --start "$(python planner/state_text.py)" --gained "" \
-          --observed run/explored.json --model "$AUTHOR_MODEL"; then
+  # EXIT 5: a party leg whose purpose is done, which the model, asked,
+  # judged not worth an attempt (planner/upkeep_ask.py) — skipped, and said
+  # as that, not as accomplished.
+  _cd_rc=3
+  if [ "${_no_plan:-0}" = 0 ]; then
+    set +e
+    python planner/author.py --check-done --goal "$goal" \
+        --start "$(python planner/state_text.py)" --gained "" \
+        --observed run/explored.json --model "$AUTHOR_MODEL"
+    _cd_rc=$?
+    set -e
+  fi
+  if [ "$_cd_rc" = 5 ]; then
+    echo "=== leg $i/${#LEGS[@]}: a party leg whose purpose is already met —" \
+         "skipped on the model's own answer: $leg ==="
+    echo "$i" > "$PROGRESS"
+    sweep_ahead "$i"
+    continue
+  fi
+  if [ "$_cd_rc" = 0 ]; then
     echo "=== leg $i/${#LEGS[@]} judged already accomplished before running: $leg ==="
     echo "$i" > "$PROGRESS"
     # AN "OR" HELD ON ARRIVAL STILL GETS ONE TRY AT ITS OTHER HALF. "the
@@ -703,6 +720,7 @@ while :; do
   run_campaign() {
     python planner/leg_delta.py snap run/attempt_start.json 2>/dev/null || true
     env RED_HEADED="${RED_HEADED:-1}" RED_SPEED="${RED_SPEED:-200}" \
+        RED_BUDGET_SCALE="${_budget_scale:-1}" \
         RED_CONTINUE="$1" ./campaign.sh "$2" "$plan" -- --escalate
     _rc=$?
     _y=$(python planner/leg_delta.py diff run/attempt_start.json 2>/dev/null || true)
@@ -730,6 +748,18 @@ while :; do
   }
   cont=0; [ "$i" -gt 1 ] && cont=1
   failed=0
+  # A PARTY LEG IS PREPARATION, NOT STORY: ONE SHORT ATTEMPT, THEN ON. The
+  # ladder's pulls, inserts and pushes are for legs the story waits on; spent
+  # on "a party Pokemon knows FLASH" in run of record 4 (2026-09-26) they
+  # sent it round five times, plan v18, 3.5 h and 275 rounds, for a purpose
+  # the flute had already met (user: "an unneccesary party leg shouldnt
+  # derail the entire run for hours"). A party leg (plans/outline.upkeep)
+  # gets one attempt on half the round budget; if that does not do it the
+  # chain plays on past it, as it always did at the end of the ladder.
+  _party=0
+  grep -Fxq "$leg" plans/outline.upkeep 2>/dev/null && _party=1
+  _budget_scale=1
+  [ "$_party" = 1 ] && _budget_scale=0.5
   # A DRY LEG IS NOT RUN AGAIN AS IT STANDS (author.py DRY_RUNS): two runs
   # in a row that gained nothing in the world, and no disposition since,
   # send it straight to the ladder — it moves, changes, or goes, or the
@@ -745,7 +775,9 @@ while :; do
     crc=$?
     set -e
   fi
-  if [ "$crc" = 1 ]; then
+  if [ "$crc" = 1 ] && [ "$_party" = 1 ]; then
+    failed=1
+  elif [ "$crc" = 1 ]; then
     # the first attempt failed on its own merits (not a boot failure).
     # If it ended on a departure the run made by its own decision, ask
     # first whether the list is missing the step it walked off to do;
@@ -784,6 +816,13 @@ while :; do
       continue
     fi
     sweep_ahead "$i"
+    if [ "$_party" = 1 ]; then
+      echo "=== leg $i/${#LEGS[@]} not achieved in its one attempt, and it is" \
+           "a party leg — playing on: $leg ===" >&2
+      echo "$leg" >> run/outline_upkeep_missed
+      echo "$i" > "$PROGRESS"
+      continue
+    fi
     # A PULL THAT DID NOT UNSTICK ANYTHING GOES HOME. This leg may itself
     # be one that was moved here, and it has now failed in its new slot
     # too — so the move bought nothing and cost the leg it displaced.
@@ -882,7 +921,7 @@ while :; do
           echo "$i<-$blocker" >> run/outline_reorders
           continue
         fi
-        echo "    (the pull was refused by the judge; on to the next rung)"
+        echo "    (the pull was refused; on to the next rung)"
       fi
     fi
     # NOTHING ELSE WORKED: IS THE PLAN MISSING A STEP? A leg can be
