@@ -1421,6 +1421,40 @@ local function seen_filter(G, o)
         end
       end
     end
+    -- ...EXCEPT GROUND NOTHING LEADS ONTO. Diglett's Cave is one winding
+    -- tunnel cut through a rectangle, and the rock around it is drawn with
+    -- tiles the collision table calls passable: 462 of its 726 seen cells,
+    -- walked end to end, were reported as ground "the way onto it is not
+    -- known", and the run wrote "a large section of the cave remains
+    -- unseen ... locate the eastern exit" three times (run of record 12,
+    -- 2026-09-27; user: "the shape preventing most of the square area from
+    -- being seen"). A pocket with no doorway in it, no water beside it, no
+    -- one standing between it and the ground you walk, and no map edge
+    -- that leads anywhere (an indoor floor's edge leads nowhere) is
+    -- counted apart and said for what it is. A pocket too big to finish
+    -- is never called sealed.
+    local sealed_n = 0
+    if un_n > 0 and pocket_of then
+      local indoor = not m.outdoor
+      local verdict, keep = {}, {}
+      for _, u in ipairs(unreached) do
+        local k = u.x .. "," .. u.y
+        if verdict[k] == nil then
+          local pk = pocket_of(G, u.x, u.y, dist, 2000)
+          local shut = pk and not pk.big and not pk.joins and not pk.wet
+                       and #pk.doors == 0 and (indoor or not pk.edge)
+          for ck in pairs((pk and pk.cells) or { [k] = true }) do
+            if verdict[ck] == nil then verdict[ck] = shut and true or false end
+          end
+          if verdict[k] == nil then verdict[k] = false end
+        end
+        if verdict[k] then sealed_n = sealed_n + 1 else keep[#keep + 1] = u end
+      end
+      unreached, un_n = keep, #keep
+    end
+    if un_n == 0 and sealed_n > 0 then
+      m.seen_unreached = { n = 0, sealed = sealed_n, near = {}, from = {} }
+    end
     if un_n > 0 then
       table.sort(unreached, function(a, b) return a.d < b.d end)
       local near = {}
@@ -1490,7 +1524,8 @@ local function seen_filter(G, o)
         end
       end
       table.sort(from, function(a, b) return a.n > b.n end)
-      m.seen_unreached = { n = un_n, near = near, from = from }
+      m.seen_unreached = { n = un_n, near = near, from = from,
+                           sealed = sealed_n }
     end
   end
 end
@@ -4814,6 +4849,7 @@ pocket_of = function(G, sx, sy, reach, cap)
       end
     end
   end
+  out.cells = seen
   return out
 end
 

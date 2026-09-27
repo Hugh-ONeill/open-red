@@ -2957,6 +2957,12 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
             head += (f"; {len(_shut_here)} CLOSED DOOR(s) stand on this floor ("
                      + ", ".join(str(c.key) for c in _shut_here[:3])
                      + ") — ground past a shut door is reached by opening it")
+    # ...AND GROUND NOTHING LEADS ONTO, said apart (the shim's `sealed`):
+    # Diglett's Cave's rock read as 462 cells whose way on was "not known".
+    if isinstance(_su, dict) and int(_su.get("sealed") or 0) > 0:
+        head += (f". {int(_su['sealed'])} cell(s) you have seen here lie in "
+                 f"pockets with no doorway, no water beside them and no edge "
+                 f"that leads anywhere: nothing on this floor leads onto them")
     _fr = m.get("frontier") or []
     if _fr:
         _fn = int(((m.get("seen") or {}).get("frontier_n")) or len(_fr))

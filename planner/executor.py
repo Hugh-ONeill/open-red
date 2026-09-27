@@ -20002,9 +20002,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         seen.n minus seen_unreached.n, both published by the shim."""
         m = ((obs or {}).get("map") or {})
         sn = (m.get("seen") or {}).get("n")
-        un = (m.get("seen_unreached") or {}).get("n")
+        _su = m.get("seen_unreached") or {}
+        un = _su.get("n")
         if isinstance(sn, int) and isinstance(un, int):
-            return max(sn - un, 0)
+            return max(sn - un - int(_su.get("sealed") or 0), 0)
         return None
 
     def _cut_aftermath(self, step, obs, pre_obs=None) -> str:
