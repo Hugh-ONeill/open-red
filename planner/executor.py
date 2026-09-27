@@ -4701,6 +4701,20 @@ class Executor:
         _routable = [e for e in _all if not e[0][0]]
         near = _all[:5]
         far = [e for e in reversed(_routable) if e not in near][:2]
+        # ...AND A WAY THE PARTY CAN NOW OPEN IS NEVER CUT. Two far slots
+        # were not enough either: run of record 11 learned CUT in Vermilion,
+        # and the one bush that led on — ROUTE_9|0,8, eight legs back,
+        # walked onto before CUT and turned back by it — sorted between the
+        # nearest five and the two farthest (Route 25's bush and a Cerulean
+        # pocket, nine legs). Vermilion's bush and Route 25's were on the
+        # page; Route 9's never was, and the run circled Route 11 looking for
+        # Route 10 (2026-09-27). A way that was held by something the party
+        # now has is new evidence about that place, whatever its distance,
+        # so every one is shown; which to open is still the model's.
+        _open = getattr(self, "_openable_here", None) or set()
+        opened = [e for e in _routable
+                  if e not in near and e not in far
+                  and e[1].split(" (", 1)[0] in _open]
         line = ("\nPlaces you have already been that still have ways "
                 "you have NEVER taken: "
                 + "; ".join(t for _r, t in near) + ".")
@@ -4709,6 +4723,9 @@ class Executor:
                      "to: " + "; ".join(t for _r, t in far)
                      + ". Nearest is not always most: which of these is "
                        "worth the walk is yours.")
+        if opened:
+            line += (" AND EVERY WAY THE PARTY CAN NOW OPEN, however far: "
+                     + "; ".join(t for _r, t in opened) + ".")
         return line + near_hint
 
     def _unwalked_ground_line(self, here: str) -> str:
@@ -16867,6 +16884,9 @@ class Executor:
                 for r, v in held.items()}
         held = {r: v for r, v in held.items() if v}
         bushes = self._bush_way_parts()
+        # which of these the party can open NOW; _elsewhere_line keeps them
+        # outside its near/far caps (see there)
+        self._openable_here = set(bushes)
         for region, exits in list(self.frontier.items()) + \
                 [(r, []) for r in dict.fromkeys(list(held) + list(bushes))
                  if r not in self.frontier]:
