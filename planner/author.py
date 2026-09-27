@@ -8103,6 +8103,20 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
                                      "way that turned you back, or where the "
                                      "thing comes from — or none"))
             continue
+        # ...AND NOT TOWARDS A PLACE THIS LEG HAS JUST FAILED TO REACH. The
+        # wording rung has refused that since 2026-09-14; this rung never
+        # did, and its REWORD: answers are the same rewrite by another door.
+        # Run 10 turned "Retrieve the S.S. Ticket" into "from the Captain in
+        # Vermilion City" right after failing to walk to Vermilion.
+        _failed_at = _reword_points_at_what_failed(ins, journal)
+        if _failed_at:
+            print(f"[missing] turned down {ins!r}: it names {_failed_at}, and "
+                  f"this leg's plan has just failed walking there — {_why}",
+                  file=sys.stderr)
+            turned_down.append((ins, f"{_failed_at}: this leg's plan has just "
+                                     f"failed walking there, so it is not "
+                                     f"where the next step is"))
+            continue
         _walked_in = _blocks_a_place_you_have_walked(_why, observed)
         if _walked_in:
             print(f"[missing] turned down {ins!r}: its reason says the way "
@@ -9519,7 +9533,7 @@ def _reword_points_at_what_failed(new_goal: str, journal) -> str | None:
 
 def check_wording(goal: str, ahead: list, behind: list, start: str,
                   journal: str, model: str, observed=None, asked=None,
-                  no_reword_reason: str = "") -> str:
+                  no_reword_reason: str = "", journal_path=None) -> str:
     """The last rung: is the objective itself wrong?
 
     The chain halted at "Obtain the Secret Key from the Rocket Hideout" —
@@ -9689,7 +9703,14 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
         print(f"[wording] refused: {new!r} is a wording this leg has "
               f"already failed in", file=sys.stderr)
         return ""
-    _at = _reword_points_at_what_failed(new, journal)
+    # THE PATH, NOT THE PAGE. `journal` here is journal_text()'s rendered
+    # account for the prompt; this check reads the journal's own rows, and
+    # handed the rendered text it raised on the file name, swallowed it, and
+    # never once refused live — run of record 11 reworded "Retrieve the S.S.
+    # Ticket" to "from Bill in Vermilion City" straight after its plan failed
+    # walking to VERMILION_CITY (2026-09-27), exactly the case it was built
+    # for on 2026-09-14.
+    _at = _reword_points_at_what_failed(new, journal_path)
     if _at:
         print(f"[wording] refused: {new!r} names {_at}, and this leg has "
               f"just failed trying to reach it — a place the attempt "
@@ -10409,7 +10430,8 @@ def main():
                             asked=None if args.asked is None else
                             tuple(a.strip() for a in args.asked.split(",")
                                   if a.strip()),
-                            no_reword_reason=args.no_reword or "")
+                            no_reword_reason=args.no_reword or "",
+                            journal_path=args.journal)
         if new:
             print(new)
             sys.exit(0)

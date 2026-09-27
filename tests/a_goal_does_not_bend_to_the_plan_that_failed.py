@@ -86,7 +86,9 @@ ck("a journal that is not there says nothing",
 
 src = (ROOT / "planner" / "author.py").read_text()
 ck("check_wording asks it before it asks anything of the model",
-   "_at = _reword_points_at_what_failed(new, journal)" in src
+   # the journal's PATH: handed the rendered text, it never fired live
+   # (2026-09-27, see a_leg_is_not_moved_to_where_its_plan_just_failed_to_walk)
+   "_at = _reword_points_at_what_failed(new, journal_path)" in src
    and src.index("_at = _reword_points_at_what_failed") < src.index("if check_already_done(new, start, model"))
 ck("...and says why, and that the wording stands",
    "just failed trying to reach it" in src and "the wording stands" in src)
