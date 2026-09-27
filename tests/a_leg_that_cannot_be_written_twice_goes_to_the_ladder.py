@@ -15,7 +15,7 @@ checks = []
 def ck(name, ok): checks.append((name, bool(ok)))
 sh = (ROOT / "fresh_discovery.sh").read_text()
 ck("the script parses", subprocess.run(["bash", "-n", str(ROOT / "fresh_discovery.sh")]).returncode == 0)
-i = sh.index('if ! python planner/author.py "${aargs[@]}"; then')
+i = sh.index('if [ "$_arc" != 0 ]; then')
 blk = sh[i:i + 1600]
 ck("an authoring failure writes a NOTHING row into the yield ledger",
    "no plan could even be written" in blk and ">> run/attempt_yield" in blk)

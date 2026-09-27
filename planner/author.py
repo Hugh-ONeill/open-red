@@ -1445,6 +1445,29 @@ def inserted_leg_note(goal: str) -> str:
             f"plan to write.")
 
 
+_OPPONENT = re.compile(
+    r"\b((?i:rival|leader|rocket|grunt|trainer|boss|champion|elite|executive|"
+    r"admin))\b|\b(?i:defeat|beat|battle|fight)\s+(?:the\s+)?[A-Z][a-z]+")
+
+
+def _names_an_opponent(text: str) -> bool:
+    """A step about one opponent, not about whatever walks out of the grass:
+    it names a trainer or a role, or defeats/battles someone by name, and
+    it is not about a wild Pokemon."""
+    t = str(text or "").replace("_", " ")
+    if re.search(r"\bwild\b|\bcatch\b|\bgrass\b.*\bencounter", t, re.I):
+        return False
+    m = _OPPONENT.search(t)
+    if not m:
+        return False
+    # "battle A wild..." / "fight any..." are not names
+    if m.group(1) is None:
+        word = m.group(0).split()[-1].lower()
+        if word in ("a", "an", "any", "some", "wild", "pokemon", "the"):
+            return False
+    return True
+
+
 def validate(plan: dict) -> list:
     """Return a list of problems (empty = ok).
 
@@ -1472,6 +1495,21 @@ def validate(plan: dict) -> list:
         if not isinstance(dw, dict) or not dw:
             probs.append(f"{tag} ({sid}) missing/empty done_when")
             continue
+        # A NAMED FIGHT DOES NOT END ON ANY FIGHT. {"mode": "battle"} is true
+        # of every wild encounter, so a step about one opponent that ends on
+        # it can be finished by the grass: run of record 9 (2026-09-26),
+        # "Walk along Route 1 until the rival initiates a battle", and the
+        # model, knowing the rival had already been fought, wrote "I will
+        # enter the tall grass on Route 1 to trigger a wild battle to
+        # satisfy the condition" (user: "put it on the next stop list").
+        if dw == {"mode": "battle"} and _names_an_opponent(
+                str(s.get("goal_text") or "") + " " + str(sid or "")):
+            probs.append(
+                f"{tag} ({sid}) ends on {{\"mode\": \"battle\"}}, which ANY "
+                f"wild encounter makes true, but it is about one opponent. End "
+                f"it on what only THAT fight makes true: a badge, an event "
+                f"flag the fight fires (spelled as this game spells it), or "
+                f"the map or item it leaves you with")
         _n0 = len(probs)
         _check_pred(dw, tag, sid, probs)
         # A DEED THE GAME KEEPS NO EVENT FOR GETS THE MECHANICAL REPAIR.
@@ -2758,6 +2796,12 @@ def witness_already_true_problems(plan: dict, obs: dict | None = None) -> list:
 DRAW_TEMP = float(os.environ.get("RED_DRAW_TEMP") or 0.8)
 
 
+# rounds refused, and rounds refused because the condition was ALREADY true
+# where the run stands — read when authoring fails altogether (main: exit 6)
+INVALID_ROUNDS = [0]
+ALREADY_ROUNDS = [0]
+
+
 def author(goal: str, model: str, rounds: int = 5,
            start: str | None = None, think: bool = False,
            temp: float | None = None) -> dict | None:
@@ -2863,6 +2907,9 @@ def author(goal: str, model: str, rounds: int = 5,
             return plan
         fb = "\n".join(f"- {p}" for p in probs)
         print(f"[author] round {rnd} invalid:\n{fb}")
+        INVALID_ROUNDS[0] += 1
+        if "ALREADY HOLDS" in fb or "ALREADY FIRED" in fb:
+            ALREADY_ROUNDS[0] += 1
     return None
 
 
@@ -9558,7 +9605,13 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
         else:
             print(f"[wording] VOID, by the model's own account: {why}",
                   file=sys.stderr)
-        WORDING_SAYS_VOID[0] = True
+        # A DONE VERDICT LEAVES AS DONE: the chain reads exit 4 as "done
+        # under another name" and 5 as VOID, and it announced every one of
+        # these as VOID (TODO 2026-09-07, checked 2026-09-26).
+        if _as_done:
+            WORDING_SAYS_DONE[0] = True
+        else:
+            WORDING_SAYS_VOID[0] = True
         try:
             with open("run/outline_void", "a") as fh:
                 fh.write(f"{goal}\t{'DONE: ' if _as_done else ''}{why}\n")
@@ -10460,6 +10513,13 @@ def main():
     plan = author_best_of(args.goal, args.model, draws=args.draws,
                           start=args.start, think=args.think)
     if not plan:
+        # A LEG EVERY DRAFT OF WHICH WAS REFUSED FOR ALREADY BEING TRUE is
+        # a leg that may be done: exit 6, and the chain asks check-done
+        # before pushing it anywhere (TODO 2026-09-07, done 2026-09-26).
+        if INVALID_ROUNDS[0] and ALREADY_ROUNDS[0] * 2 >= INVALID_ROUNDS[0]:
+            print(f"author failed: {ALREADY_ROUNDS[0]} of {INVALID_ROUNDS[0]} "
+                  f"refused rounds ended on a condition that ALREADY holds")
+            sys.exit(6)
         sys.exit("author failed to produce a valid plan")
     if not args.no_review:
         prior = load_drafts(args.goal)

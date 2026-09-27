@@ -605,7 +605,23 @@ while :; do
     # nobody can write a plan for is exactly what the later rung is for:
     # push it and carry on, the same answer the ladder gives for a leg that
     # is right but not yet.
-    if ! python planner/author.py "${aargs[@]}"; then
+    set +e
+    python planner/author.py "${aargs[@]}"
+    _arc=$?
+    set -e
+    # EXIT 6: most drafts were refused because their condition ALREADY
+    # holds where the run stands. The leg may be done; the judge is asked
+    # before it is pushed anywhere (TODO 2026-09-07, done 2026-09-26).
+    if [ "$_arc" = 6 ] && python planner/author.py --check-done --goal "$goal" \
+        --start "$(python planner/state_text.py)" --gained "" \
+        --observed run/explored.json --model "$AUTHOR_MODEL"; then
+      echo "=== leg $i/${#LEGS[@]}: no plan could be written because it" \
+           "already holds, and check-done agrees — crossing it off: $leg ==="
+      echo "$i" > "$PROGRESS"
+      sweep_ahead "$i"
+      continue
+    fi
+    if [ "$_arc" != 0 ]; then
       # A LEG THAT CANNOT BE WRITTEN IS A RUN THAT YIELDED NOTHING, and
       # the second time it is not pushed two legs on again — "Navigate
       # the Safari Zone" was pushed 34->36, 34->36, 35->37, 36->38 by
