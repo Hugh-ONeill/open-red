@@ -113,10 +113,13 @@ off and moves them.
 ## Tests
 
 ```
-for t in tests/*.py; do python3 "$t"; done
+tests/run_suite.sh      # every no-game test, in parallel
 ```
 
-394 of them, and they are named as sentences, because each one is a claim
+A few tests boot a second copy of the game (listed in the script); never run
+those beside a live chain.
+
+Over 550 of them, and they are named as sentences, because each one is a claim
 about what the harness owes the model:
 
 ```
