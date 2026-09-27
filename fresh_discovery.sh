@@ -1171,6 +1171,19 @@ while :; do
   python planner/author.py --check-done --goal "$goal" \
       --start "$(python planner/state_text.py)" --gained "$gained" \
       --observed run/explored.json --model "$AUTHOR_MODEL" || confirmed=0
+  # A PARTY LEG GETS ONE ATTEMPT HERE TOO. Its plan finishing without the
+  # judge's word is the same outcome as its plan failing: one short try,
+  # then the run plays on. The redo below was a second attempt by another
+  # door (run of record 11 leg 7, 2026-09-27, ran twice then was pushed).
+  if [ "$confirmed" = 0 ] && [ "${_party:-0}" = 1 ]; then
+    echo "=== leg $i/${#LEGS[@]}: its plan met its conditions but the" \
+         "objective is not confirmed, and it is a party leg — playing on:" \
+         "$leg ===" >&2
+    echo "$leg" >> run/outline_upkeep_missed
+    echo "$i" > "$PROGRESS"
+    sweep_ahead "$i"
+    continue
+  fi
   if [ "$redone" = 0 ] && [ "$confirmed" = 0 ]; then
     printf '%s\n' "$leg" >> run/leg_audit_redo
     echo "=== leg $i: the plan met its conditions but the objective is "

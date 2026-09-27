@@ -7548,6 +7548,9 @@ def _inferred(why) -> bool:
     return bool(_INFERRED.search(str(why or "")))
 
 
+_DOUBT_NOTE = re.compile(r"\s*\(a doubt you recorded when outlining:.*$")
+
+
 def check_already_done(deed: str, start: str, model: str,
                        observed=None) -> bool:
     """Has this objective ALREADY been accomplished, at any point in the run?
@@ -7562,6 +7565,7 @@ def check_already_done(deed: str, start: str, model: str,
     judgment. The harness asks; which facts satisfy which objective is the
     model's to say.
     """
+    deed = _DOUBT_NOTE.sub("", deed).strip() or deed   # see check_done
     never = _never_stood_in(deed, observed)
     if never:
         print(f"[already-done] refused: '{deed[:60]}' names {never} and the "
@@ -10080,6 +10084,17 @@ def check_done(goal: str, start: str, model: str,
         print(f"[upkeep-ask] NOT PLAYED — what it was for is done, and asked, "
               f"you judged it not worth an attempt: {_skip}")
         return True
+    # THE PURPOSE NOTE IS NOT THE OBJECTIVE. A leg the outline doubted
+    # carries "(a doubt you recorded when outlining: for: <the leg it
+    # serves>)", and every check below read the whole line: "the party
+    # holds a FIGHTING or GRASS type" with Bulbasaur in it was refused as
+    # "names BOULDERBADGE and the run is not wearing it" (its purpose was
+    # Brock), ran twice and was pushed; "every party member is at least
+    # level 20" with all four at 20 was refused as "names VERMILION_CITY"
+    # and pushed (run of record 11, 2026-09-27). The note was asked about
+    # just above, which is the one place it belongs; from here the
+    # objective is judged as itself.
+    goal = _DOUBT_NOTE.sub("", goal).strip() or goal
     bearing = _events_bearing(goal)
     never = _never_stood_in(goal, observed)
     if never:
