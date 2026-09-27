@@ -275,7 +275,54 @@ def _is_timeout(e) -> bool:
     return False
 
 
+# WARM THE SYSTEM PROMPT, BECAUSE THE SERVER ONLY SAVES THE END OF ONE.
+# Gemma's sliding-window attention makes llama.cpp keep its restore points
+# at the END of each prompt (~15-17k tokens into a round), and consecutive
+# rounds share only their first ~5k: the system prompt and the chat header.
+# So every round was read again from token 0. One call carrying the system
+# prompt alone leaves a restore point right where the shared part ends, and
+# every following round with that system prompt restored it — measured
+# 2026-09-27 on the live server: full re-read median 23.5 s (n=90), reused
+# 19.4 s (n=5), about 11% of a run's wall clock. Same tokens, same answer;
+# only the cached state differs.
+WARM_MIN_CHARS = int(os.environ.get("RED_WARM_MIN_CHARS") or 8000)
+# EVERY CALL, NOT ONLY A COLD ONE. The obvious design warms once and
+# re-warms when a round shows no reuse, but ollama's prompt_eval_count
+# counts restored tokens too, so "no reuse" cannot be read off a reply.
+# It does not need to be: a warm call whose prompt is already cached costs
+# 0.13 s (measured), and one whose prompt is not costs the ~6 s the round
+# would have spent reading those same tokens anyway.
+
+
+def _post(body: dict, timeout: int) -> dict:
+    req = urllib.request.Request(OLLAMA, json.dumps(body).encode(),
+                                 {"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read())
+
+
+def _warm(msgs, model, think, temp) -> bool:
+    """Send a long system prompt alone, so the round after it can restore
+    it. Never costs a round: any failure here is swallowed."""
+    sys_ = (msgs[0].get("content") if msgs and msgs[0].get("role") == "system"
+            else "") or ""
+    if (len(sys_) < WARM_MIN_CHARS or len(msgs) < 2
+            or os.environ.get("RED_WARM", "1") == "0"):
+        return False
+    try:
+        _post({"model": model, "stream": False, "think": bool(think),
+               "keep_alive": "30m",
+               "messages": [{"role": "system", "content": sys_}],
+               "options": {"temperature": (0.3 if temp is None
+                                           else float(temp)),
+                           "num_ctx": NUM_CTX, "num_predict": 1}}, 120)
+        return True
+    except Exception:
+        return False
+
+
 def _chat_once(msgs, model, think=False, temp=None):
+    _warm(msgs, model, think, temp)
     # A REPLY HAS A CEILING. Nothing capped the generation, so a reply that
     # fell into a repetition loop ran on at 22 tok/s until the client's
     # 300 s timeout, was retried once, and ran on again: run 16 sat on the
