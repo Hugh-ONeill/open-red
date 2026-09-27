@@ -1172,6 +1172,91 @@ def objective_history_text(goal: str) -> str:
             "you write the plan:" + out)
 
 
+def _sides_unseen_of(region: str, data: dict) -> list:
+    """planner/executor.py's _sides_unseen_of, over the saved ledger: the
+    sides of this region's map never on screen, each given to the part
+    whose anchor lies furthest that way."""
+    mid = str(region).split("|")[0]
+    sides = (data.get("sides_unseen") or {}).get(mid) or []
+    parts = {}
+    for r in list(data.get("frontier") or {}) + list(data.get("visits") or {}):
+        m = re.match(r"^(-?\d+),(-?\d+)$", r.split("|", 1)[-1])
+        if r.split("|")[0] == mid and m:
+            parts[r] = (int(m.group(1)), int(m.group(2)))
+    if region not in parts or len(parts) < 2:
+        return list(sides)
+    pick = {"north": lambda p: p[1], "south": lambda p: -p[1],
+            "west": lambda p: p[0], "east": lambda p: -p[0]}
+    return [d for d in sides if d in pick
+            and min(parts, key=lambda r: (pick[d](parts[r]), r)) == region]
+
+
+def last_leg_left_you(run: Path = Path("run"), plans: Path = Path("plans")) -> str:
+    """Where the party came in, from the run's own journal.
+
+    A FINISHED LEG IS A DIRECTION, NOT ONLY A CHECKBOX. "Reach Lavender
+    Town" was written standing at Rock Tunnel's south mouth, the ground
+    under the party new, its south side never on screen — and the author
+    was told only that "Exit Rock Tunnel" was done. It wrote Route 11, 12,
+    13, 14 and 15, the review put a heal in front, and the run walked back
+    through the tunnel and away from the one place it had just reached
+    (run of record 11, 2026-09-27; user: "i wish it remembered what it was
+    doing and went right back"). This is history, the journal's tier: the
+    last place the party walked into, what it came through, whether it had
+    ever stood there before, and what the ledger says is still unknown
+    there. It names no destination.
+    """
+    try:
+        cur = json.loads((run / "obs.json").read_text())
+        here_map = ((cur.get("map") or {}).get("id")) or ""
+    except (OSError, ValueError):
+        return ""
+    arrivals = []
+    try:
+        with open(run / "executor_log.jsonl") as fh:
+            for line in fh:
+                if '"kind": "explored"' not in line:
+                    continue
+                try:
+                    r = json.loads(line)
+                except ValueError:
+                    continue
+                if r.get("to") and r.get("frm"):
+                    arrivals.append(r)
+    except OSError:
+        return ""
+    if not arrivals or str(arrivals[-1]["to"]).split("|")[0] != here_map:
+        return ""
+    last = arrivals[-1]
+    to, frm = str(last["to"]), str(last["frm"])
+    first = sum(1 for r in arrivals if r["to"] == to) == 1
+    try:
+        data = json.loads((run / "explored.json").read_text())
+    except (OSError, ValueError):
+        data = {}
+    unseen = int(((data.get("region_seen") or {}).get(to)) or 0)
+    sides = _sides_unseen_of(to, data)
+    try:
+        n = int((run / "outline_leg").read_text().strip() or 0)
+        legs = [l.strip() for l in (plans / "outline.txt").read_text()
+                .splitlines() if l.strip()]
+        began = (run / "leg_start.leg").read_text().strip()
+    except (OSError, ValueError):
+        n, legs, began = 0, [], ""
+    fresh = began != str(n + 1)
+    prev = legs[n - 1] if fresh and 0 < n <= len(legs) else ""
+    head = (f"WHERE THE LAST LEG LEFT YOU: '{prev}' was finished when you "
+            if prev else "HOW YOU CAME TO BE WHERE YOU ARE: you last ")
+    out = (f"\n\n{head}came into {to} from {frm}"
+           + (" — the first time this run ever stood there" if first else "")
+           + (f"; {unseen} spot(s) there where the ground you have looked "
+              f"at ends and what lies past is not known" if unseen else "")
+           + "".join(f"; its {d} side has never been on screen (what lies "
+                     f"{d}ward is not known)" for d in sides)
+           + ".")
+    return out
+
+
 def build_prompt(goal: str, start: str | None = None) -> str:
     return (
         f"GOAL: {goal}\n\n"
@@ -1198,6 +1283,7 @@ def build_prompt(goal: str, start: str | None = None) -> str:
         + "\n".join(f"  {k}: {v}" for k, v in KEY_ITEMS.items())
         + recent_events()
         + outline_so_far()
+        + last_leg_left_you()
         + objective_history_text(goal)
         + f"\n\nBADGES: {', '.join(BADGES)}\n\n"
         "Author the ordered subgoal list now. Remember the granularity rule.")
