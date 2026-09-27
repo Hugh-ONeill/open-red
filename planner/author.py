@@ -1257,6 +1257,43 @@ def last_leg_left_you(run: Path = Path("run"), plans: Path = Path("plans")) -> s
     return out
 
 
+def openable_ways_text(run: Path = Path("run")) -> str:
+    """Bushes the run has stood beside with ground past them no walk
+    reaches, while a party Pokemon knows CUT: the escalation page's "every
+    way the party can now open", for the author.
+
+    THE PLAN IS WRITTEN WITHOUT THE PAGE. Run of record 12's escalation
+    page listed ROUTE_9|0,8's bush at (5,8) under that heading from the
+    first round, and "Reach Rock Tunnel" was still authored through
+    Diglett's Cave four times, each plan's first step starting the rounds
+    back in the cave (2026-09-27). Same record, same words; which way to
+    take stays the model's."""
+    try:
+        bw = json.loads((run / "explored.json").read_text()).get("bush_ways") or {}
+        party = json.loads((run / "obs.json").read_text()).get("party") or []
+    except (OSError, ValueError, AttributeError):
+        return ""
+    cutters = [str(m.get("nickname") or m.get("species")) for m in party
+               if "CUT" in [str(x.get("id") if isinstance(x, dict) else x).upper()
+                            for x in (m.get("moves") or [])]]
+    # every place, never cut to a count: a list cut alphabetically is the
+    # one that dropped ROUTE_9 behind ROUTE_2 and ROUTE_25
+    ways = [(r, [xy for xy in (v or [])]) for r, v in sorted(bw.items()) if v]
+    if not (cutters and ways):
+        return ""
+
+    def _one(r, xys):
+        known = [xy for xy in xys if xy != "?"]
+        if not known:
+            return f"{r}: a bush you could walk to (what lies past it was not recorded)"
+        return (f"{r}: {'a bush' if len(known) == 1 else 'bushes'} at "
+                + ", ".join(f"({xy})" for xy in known)
+                + " with ground past it that no walk there reaches")
+    return ("\n\nWAYS THE PARTY CAN NOW OPEN (" + ", ".join(cutters[:2])
+            + " knows CUT): " + "; ".join(_one(r, x) for r, x in ways)
+            + ". Which of them, if any, is the way on is yours to judge.")
+
+
 def detour_text(goal: str, run: Path = Path("run")) -> str:
     """The executor's open detour (see Executor._detour_line), for a leg
     rewritten after a heal or shop trip took the party away from the
@@ -1305,6 +1342,7 @@ def build_prompt(goal: str, start: str | None = None) -> str:
         + recent_events()
         + outline_so_far()
         + last_leg_left_you()
+        + openable_ways_text()
         + detour_text(goal)
         + objective_history_text(goal)
         + f"\n\nBADGES: {', '.join(BADGES)}\n\n"
