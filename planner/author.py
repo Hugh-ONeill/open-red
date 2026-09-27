@@ -1257,6 +1257,27 @@ def last_leg_left_you(run: Path = Path("run"), plans: Path = Path("plans")) -> s
     return out
 
 
+def detour_text(goal: str, run: Path = Path("run")) -> str:
+    """The executor's open detour (see Executor._detour_line), for a leg
+    rewritten after a heal or shop trip took the party away from the
+    ground it was working: where it left from, where the trip ended. Only
+    for this leg — a detour belongs to the leg it happened in."""
+    try:
+        d = json.loads((run / "explored.json").read_text()).get("detour")
+    except (OSError, ValueError, AttributeError):
+        return ""
+    if not isinstance(d, dict) or not d.get("from"):
+        return ""
+    bare = lambda t: _DOUBT_NOTE.sub("", str(t or "")).strip()
+    if bare(d.get("leg")) != bare(goal):
+        return ""
+    return (f"\n\nYOU LEFT {d['from']} TO "
+            f"{'HEAL' if d.get('why') == 'heal' else 'SHOP'} during this "
+            f"objective, and the trip finished at {d.get('to')}. Whether what "
+            f"you were doing at {d['from']} is still the way on is yours to "
+            f"judge.")
+
+
 def build_prompt(goal: str, start: str | None = None) -> str:
     return (
         f"GOAL: {goal}\n\n"
@@ -1284,6 +1305,7 @@ def build_prompt(goal: str, start: str | None = None) -> str:
         + recent_events()
         + outline_so_far()
         + last_leg_left_you()
+        + detour_text(goal)
         + objective_history_text(goal)
         + f"\n\nBADGES: {', '.join(BADGES)}\n\n"
         "Author the ordered subgoal list now. Remember the granularity rule.")

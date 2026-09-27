@@ -5854,6 +5854,7 @@ class Executor:
             else:
                 self._bush_ways = data.get("bush_ways") or {}
             self._sides_unseen = data.get("sides_unseen") or {}
+            self._detour = data.get("detour") or None
             self._door_over_water = data.get("door_over_water") or {}
             self._shelves = data.get("shelves") or {}
             self._shelf_reads = data.get("shelf_reads") or {}
@@ -6372,6 +6373,7 @@ class Executor:
                  "cut_bushes": getattr(self, "_cut_bushes", {}),
                  "bush_ways": getattr(self, "_bush_ways", {}),
                  "sides_unseen": getattr(self, "_sides_unseen", {}),
+                 "detour": getattr(self, "_detour", None),
                  "door_over_water": getattr(self, "_door_over_water", {}),
                  "shelves": getattr(self, "_shelves", {}),
                  "shelf_reads": getattr(self, "_shelf_reads", {}),
@@ -15543,6 +15545,73 @@ class Executor:
                 out.append(i)
         return out
 
+    # A DETOUR REMEMBERS WHERE IT LEFT FROM. Run of record 11 came out of
+    # Rock Tunnel's south mouth, and the next plan's first step was a heal:
+    # the one Center it knew was at the NORTH mouth, six legs back through
+    # the tunnel, and once healed nothing on the page said where it had
+    # been standing. It set off from the Center somewhere else entirely
+    # (2026-09-27; user: "i wish it remembered what it was doing and went
+    # right back ... trusting that it was doing the right thing when it
+    # was making progress"). A heal or a shop trip that ends away from
+    # where it began leaves one line until the party is back there or the
+    # leg changes. Going back stays the model's choice.
+    _TRIP_OPS = {"heal": "heal", "buy": "shop", "sell": "shop"}
+
+    def _detour_before(self, sg, done, macro, obs):
+        why = ("heal" if (done or {}) == {"party_healthy": True} else
+               next((self._TRIP_OPS[st.get("op")] for st in (macro or [])
+                     if isinstance(st, dict) and st.get("op") in self._TRIP_OPS),
+                    None))
+        if not why:
+            return
+        op = getattr(self, "_detour_open", None)
+        if op and op.get("sg") == (sg or {}).get("id"):
+            return                      # the same trip, a later round
+        here = self._where(obs)
+        if "None" not in here:
+            self._detour_open = {"from": here, "sg": (sg or {}).get("id"),
+                                 "why": why}
+
+    def _detour_after(self, sg, macro, obs):
+        op = getattr(self, "_detour_open", None)
+        if not op:
+            return
+        healed = pred_holds({"party_healthy": True}, obs)
+        shopped = any(isinstance(st, dict) and st.get("op") in ("buy", "sell")
+                      for st in (macro or []))
+        if not ((op["why"] == "heal" and healed)
+                or (op["why"] == "shop" and shopped)):
+            if op.get("sg") != (sg or {}).get("id"):
+                self._detour_open = None
+            return
+        self._detour_open = None
+        here = self._where(obs)
+        if "None" in here or here == op["from"]:
+            return
+        self._detour = {"from": op["from"], "to": here, "why": op["why"],
+                        "leg": getattr(self, "_leg_goal", None)}
+        self.log("detour", **self._detour)
+        self._save_memory()
+
+    def _detour_line(self, here: str) -> str:
+        d = getattr(self, "_detour", None)
+        if not d:
+            return ""
+        if (here == d.get("from")
+                or d.get("leg") != getattr(self, "_leg_goal", None)):
+            self._detour = None
+            self._save_memory()
+            return ""
+        path = self._route(here, d["from"])
+        return (f"\nYOU LEFT {d['from']} TO "
+                f"{'HEAL' if d.get('why') == 'heal' else 'SHOP'}, and "
+                f"finished at {d.get('to')}. "
+                + (f"{{\"op\":\"go\",\"to\":\"{d['from']}\"}} walks back "
+                   f"over ground you have walked ({len(path)} leg(s)). "
+                   if path else "")
+                + "Whether what you were doing there is still the way on "
+                  "is yours to judge.")
+
     def _respawn_line(self, obs) -> str:
         """WHERE you wake, and the RULE that moves it. The place was stated
         (training text, the author's start line) and the rule never was —
@@ -17474,6 +17543,7 @@ class Executor:
             # it is built from untried EXITS, and a floor whose doors have
             # all been taken has none. See _unwalked_ground_line.
             _elsewhere_str += self._unwalked_ground_line(here)
+            _elsewhere_str += self._detour_line(here)
             _rs_line = self._respawn_line(obs)
         # WHAT THE SHOPS YOU HAVE WALKED INTO SELL, FROM ANYWHERE. The
         # shelf store is complete and its RECALL was one hop deep: a
@@ -23842,8 +23912,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         phase=("REDO " if redo else "") + f"escalation {rnd}",
                         doing=json.dumps(macro)[:150])
             _spot_before = self._spot(self.settle() or obs)
+            self._detour_before(sg, done, macro, self.settle() or obs)
             ok, trace, clean = self._run_traced(sg, macro,
                                                 ignore_done=redo)
+            self._detour_after(sg, macro, self.settle() or obs)
             # `ok` MEANS THE SUBGOAL WAS SATISFIED, NOT THAT THE OPS
             # WORKED. Under REDO especially, a macro can do exactly what it
             # said and still return False: warping down to B1F does not
