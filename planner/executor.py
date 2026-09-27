@@ -23355,6 +23355,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                          stale=self._stale_rounds, spent=_cap,
                          at=self._where(obs))
             try:
+                # A MAP WALKED IN PARTS SAYS WHICH PART IS WHERE, on first
+                # mention (planner/part_names.py): Route 2's halves were
+                # "ROUTE_2|8,0" and "ROUTE_2|3,43", and the north gate
+                # "leads back to Route 2" (run 7, 2026-09-26)
+                import part_names
+                user = part_names.name_parts(
+                    user, list(self.explored or {}) + list(getattr(self, "visits", {}) or {}))
                 reply = brock_probe.chat(
                     [{"role": "system", "content": self.MACRO_AUTHOR_SYS},
                      {"role": "user", "content": user}], self.model,

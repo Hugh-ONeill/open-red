@@ -2811,9 +2811,12 @@ def author(goal: str, model: str, rounds: int = 5,
                                      or (_cut and _thought < 2))
         if _thinking:
             _thought += 1
+        # a map walked in parts says which part is where (part_names.py)
+        import part_names
         reply = brock_probe.chat(
             [{"role": "system", "content": SYS},
-             {"role": "user", "content": user}], model, think=_thinking,
+             {"role": "user", "content": part_names.name_parts(
+                 user, part_names.walked_regions())}], model, think=_thinking,
             temp=temp)
         # ...and keep what it deliberated about, same as the executor does.
         # An author trace is the more interesting of the two: it is the
