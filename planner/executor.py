@@ -1529,6 +1529,13 @@ DAMAGE_FRAC: dict = {}
 # flee of ours, and no experience earned — and a catch against a species
 # seen to leave on turn one opens with a ball (battle_policy, catch).
 WILD_LEFT: dict = {}
+# ...AND THE ONES THAT GOT AWAY WHILE WE WERE TRYING TO CATCH THEM, with
+# where: species -> {level, map, types}. Run of record 12 met one ABRA in
+# the whole ticket stretch, threw one ball, watched it teleport, and nothing
+# kept it — going back to look for another was never on the page
+# (2026-09-27; user: "it should do both"). Shown while a later leg of the
+# outline it would answer is still unmet (Executor._got_away_line).
+GOT_AWAY: dict = {}
 
 # A MOVE THAT FAINTED THE MON THAT USED IT, counted per move and kept
 # across attempts (run/self_ko.json). The scorer ranks by power, and
@@ -1826,6 +1833,7 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
             move_id = (mv or {}).get("id")
         _exp0 = _party_exp(obs)
         _n0 = len((obs or {}).get("party") or [])
+        _pc0 = len((obs or {}).get("pc_mons") or [])
         obs = bridge.send(name, **op)
         r = (obs or {}).get("result") or {}
         if r.get("ok") is False:
@@ -1863,9 +1871,16 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
         # a turn we neither ran nor threw, no experience came, nobody new
         # joined — and our own move was not one that ends a wild battle.
         _foe0 = before_b.get("foe") or {}
+        # ...A THROWN BALL THAT CAUGHT NOTHING INCLUDED. A battle ending on
+        # a throw was read as a catch, so run of record 12's ABRA, which took
+        # a ball and teleported, was never recorded as leaving; a catch is
+        # the party or the box growing, not the battle ending.
+        _caught = (len((obs or {}).get("party") or []) > _n0
+                   or len((obs or {}).get("pc_mons") or []) > _pc0)
         if ((obs or {}).get("mode") != "battle"
                 and str(before_b.get("kind") or "wild") == "wild"
-                and name not in ("battle_run", "throw_ball")
+                and name != "battle_run"
+                and not (name == "throw_ball" and _caught)
                 and str(move_id or "") not in ("WHIRLWIND", "ROAR", "TELEPORT")
                 and (_foe0.get("hp") or 0) > 0 and _foe0.get("species")
                 and _party_exp(obs) <= _exp0
@@ -1874,6 +1889,13 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
                         for m in (obs or {}).get("party") or [])):
             WILD_LEFT.setdefault(str(_foe0["species"]), []).append(turns)
             log("wild_left", species=_foe0["species"], turn=turns, op=name)
+            if ctx.get("intent") == "catch":
+                GOT_AWAY[str(_foe0["species"])] = {
+                    "level": _foe0.get("level"),
+                    "map": ((obs or {}).get("map") or {}).get("id"),
+                    "types": list(_foe0.get("types") or [])}
+                log("got_away", species=_foe0["species"],
+                    **GOT_AWAY[str(_foe0["species"])])
         if move_id:
             _journal_damage(before_b, obs, move_id, exp_before=_exp0)
             if _journal_self_ko(before_b, obs, move_id):
@@ -5884,6 +5906,8 @@ class Executor:
             DAMAGE_FRAC.update(data.get("damage_frac") or {})
             WILD_LEFT.clear()
             WILD_LEFT.update(data.get("wild_left") or {})
+            GOT_AWAY.clear()
+            GOT_AWAY.update(data.get("got_away") or {})
             self._lever_presses = data.get("lever_presses") or {}
             if not self._lever_presses:
                 # BACKFILL ONCE from the outcome rows, which kept a count per
@@ -6391,6 +6415,7 @@ class Executor:
                  "swept": sorted(getattr(self, "_swept", set())),
                  "press_log": getattr(self, "_press_log", {}),
                  "damage_frac": DAMAGE_FRAC, "wild_left": WILD_LEFT,
+                 "got_away": GOT_AWAY,
                  "lever_presses": getattr(self, "_lever_presses", {}),
                  "plan_hist": getattr(self, "_plan_hist", {}),
                  "blackouts": self._blackouts,
@@ -15593,6 +15618,36 @@ class Executor:
         self.log("detour", **self._detour)
         self._save_memory()
 
+    def _got_away_line(self, obs) -> str:
+        """Catch targets that got away, while a later leg they would answer
+        is still unmet; and once the party has one of that kind, nothing."""
+        if not GOT_AWAY:
+            return ""
+        party = (obs or {}).get("party") or []
+        owned = {str(m.get("species") or "").upper() for m in party}
+        owned |= {str(m.get("species") or "").upper()
+                  for m in ((obs or {}).get("pc_mons") or []) if isinstance(m, dict)}
+        try:
+            goals = outline_ahead.catch_goals_ahead(
+                PLANS, RUN, self._species_names(), party)
+        except Exception:
+            return ""
+        rows = []
+        for sp, rec in sorted(GOT_AWAY.items()):
+            if sp.upper() in owned:
+                continue
+            hit = outline_ahead.goals_met_by(goals, sp, rec.get("types"))
+            if hit:
+                rows.append(f"{sp} L{rec.get('level')} on {rec.get('map')} "
+                            f"(would answer "
+                            + ", ".join(f"leg {g['pos']} \"{g['leg']}\""
+                                        for g in hit[:2]) + ")")
+        if not rows:
+            return ""
+        return ("\nPOKEMON YOU TRIED TO CATCH THAT GOT AWAY, with where you met "
+                "them: " + "; ".join(rows) + ". Where a kind was met once, "
+                "more of it may live there; whether to look is yours.")
+
     def _detour_line(self, here: str) -> str:
         d = getattr(self, "_detour", None)
         if not d:
@@ -17544,6 +17599,7 @@ class Executor:
             # all been taken has none. See _unwalked_ground_line.
             _elsewhere_str += self._unwalked_ground_line(here)
             _elsewhere_str += self._detour_line(here)
+            _elsewhere_str += self._got_away_line(obs)
             _rs_line = self._respawn_line(obs)
         # WHAT THE SHOPS YOU HAVE WALKED INTO SELL, FROM ANYWHERE. The
         # shelf store is complete and its RECALL was one hop deep: a
@@ -18221,6 +18277,7 @@ class Executor:
                 f"{(subgoal or {}).get('goal_text') or (subgoal or {}).get('id') or 'make progress'}\n"
                 + self._party_level_legs_words(party).replace(
                     "{foe_level}", str(foe.get("level")))
+                + self._party_type_legs_words(party, sp, foe.get("types"))
                 + "Try to catch it?")
         yes, why = False, ""
         try:
@@ -18248,6 +18305,36 @@ class Executor:
         if _master_only:
             out["ball"] = "MASTER_BALL"
         return out
+
+    def _party_type_legs_words(self, party, species, types) -> str:
+        """The outline's type and species legs still unmet, and which of
+        them the Pokemon on screen would answer — the other side of the
+        level legs above.
+
+        ONLY THE COST WAS ON THE PAGE. Run of record 12 declined every new
+        species through the ticket stretch (Clefairy "rare ... useful, but
+        ... a significant grind to meet my level goal", Oddish, Mankey,
+        Ekans, Paras) with 22 Poke Balls in the bag, every answer weighing
+        the level legs, the only legs the question showed; the party went
+        into Lavender at three members (user, 2026-09-27: "its made this one
+        stretch easier at the cost of making the next much harder"). The
+        legs are the model's own sentences; which way it cuts is its call.
+        """
+        try:
+            goals = outline_ahead.catch_goals_ahead(
+                PLANS, RUN, self._species_names(), party)
+            hit = outline_ahead.goals_met_by(goals, species, types)
+        except Exception:
+            return ""
+        if not goals:
+            return ""
+        shown = goals[:6]
+        return ("YOUR OUTLINE AHEAD ALSO ASKS FOR MEMBERS YOU DO NOT HAVE YET: "
+                + "; ".join(f"leg {g['pos']}: \"{g['leg']}\"" for g in shown)
+                + ". THIS ONE would answer "
+                + (", ".join(f"leg {g['pos']}" for g in hit) if hit else "none of them")
+                + ". A Pokemon can also be left in the PC at any Pokemon Center; "
+                  "a level leg counts only the Pokemon in the party.\n")
 
     def _party_level_legs_words(self, party) -> str:
         """The outline's own "every party member is at least level N" legs
