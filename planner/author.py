@@ -8040,6 +8040,36 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
                   f"{_why}", file=sys.stderr)
             turned_down.append((ins, "you have already done this"))
             continue
+        # THE STUCK OBJECTIVE ITSELF, SAID MORE EXACTLY, IS A REWORDING. Run
+        # of record 7 (2026-09-26), stuck on "Retrieve the S.S. Ticket": the
+        # rung proposed "Retrieve the S.S. Ticket from Bill's house on Route
+        # 25" — right, and the same objective with its place said. Inserted
+        # as a leg of its own, no plan for it could pass: ending on the
+        # ticket is "the objective this leg was put in front of under
+        # another name", and the plan checks refused every draft; authoring
+        # failed, the leg was pushed, and the ticket leg went with it behind
+        # a Vermilion the run could not reach (user: "make the change").
+        # Everything the stuck sentence names, and more: the chain rewords
+        # the stuck leg to it instead (REWORD: on the first line).
+        _gbare = re.sub(r"\s*\(a doubt you recorded when outlining:.*$",
+                        "", goal)
+        _g = _names(_gbare)
+        # ...AND THE SAME KIND OF DEED: "Reach Cerulean City" is named
+        # inside "Defeat Misty in Cerulean City" and is not that. Both open
+        # on one verb, or both on getting a thing; a travel leg is never
+        # reworded this way.
+        _GET = {"obtain", "retrieve", "get", "receive", "collect", "find",
+                "acquire", "pick"}
+        _vg = (_norm_obj(_gbare).split() or [""])[0]
+        _vi = (_norm_obj(ins).split() or [""])[0]
+        _same_deed = (_vg == _vi or (_vg in _GET and _vi in _GET))
+        if (_g and _g < _names(ins) and _same_deed
+                and _vg not in ("reach", "go", "travel", "enter", "visit",
+                                "head", "walk", "return", "exit", "leave")):
+            print(f"[missing] {ins!r} is the objective you are stuck on, said "
+                  f"more exactly — it rewords that leg: {_why[:160]}",
+                  file=sys.stderr)
+            return "REWORD:" + ins
         print(f"[missing] {ins!r}: {_why[:160]}", file=sys.stderr)
         return ins
     print("[missing] every proposal was turned down; nothing inserted",

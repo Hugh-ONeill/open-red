@@ -86,7 +86,26 @@ for good in ("Reach Cinnabar Island", "Go through the Seafoam Islands"):
     ck(f"'{good}' is not turned down as a visit", "met by arriving" not in err.getvalue(),
        err.getvalue()[-300:])
 
+# ---- the stuck objective itself, said more exactly (run 7, 2026-09-26) ----
+replies[:] = ['{"why": "Bill gives it", "insert": "Retrieve the S.S. Ticket from Bill\'s house on Route 25"}']
+err = io.StringIO()
+with redirect_stderr(err):
+    out = A.check_missing(TICKET, ahead, "s", "m", behind=behind, tries=1)
+ck("the stuck objective said more exactly comes back as a rewording",
+   out == "REWORD:Retrieve the S.S. Ticket from Bill's house on Route 25"
+   and "said more exactly" in err.getvalue(), (out, err.getvalue()[-300:]))
+replies[:] = ['{"why": "x", "insert": "Defeat Misty in Cerulean City"}']
+err = io.StringIO()
+with redirect_stderr(err):
+    out = A.check_missing("Reach Cerulean City", [(9, "Reach Cerulean City")], "s", "m",
+                          behind=behind, tries=1)
+ck("...but a different deed naming the same place is an insert, as before",
+   out == "Defeat Misty in Cerulean City", out)
+
 sh = (ROOT / "fresh_discovery.sh").read_text()
+ck("the chain rewords the stuck leg in place on REWORD:",
+   'if [ "${missing#REWORD:}" != "$missing" ]; then' in sh
+   and 'python planner/reword_leg.py "$i" "$_rw"' in sh)
 ck("the chain hands a finished insert back once, two at most",
    "_ins_allow=1" in sh and '_ins_allow=2' in sh
    and '[ "$_ip" -lt "$i" ]' in sh

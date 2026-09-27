@@ -720,6 +720,17 @@ while :; do
     mrc=$?
     set -e
     [ $mrc = 0 ] && [ -n "$missing" ] || return 1
+    # THE STUCK LEG ITSELF, SAID MORE EXACTLY (author.check_missing,
+    # "REWORD:"): the leg is reworded in place, not given a twin in front
+    # of it that no plan can be written for. It spends this leg's insert.
+    if [ "${missing#REWORD:}" != "$missing" ]; then
+      _rw=${missing#REWORD:}
+      echo "=== leg $i said more exactly: $_rw ==="
+      python planner/reword_leg.py "$i" "$_rw"
+      echo "LEG=$leg|$_rw" >> run/outline_inserts
+      disposed "reworded to: $_rw"
+      return 0
+    fi
     python planner/insert_guard.py "$missing" "$leg" plans/outline.txt || return 1
     echo "=== leg $i needs something first: $missing ==="
     python planner/insert_leg.py "$i" "$missing"
