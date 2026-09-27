@@ -7527,6 +7527,12 @@ def _record_fact_named(why, obs_path="run/obs.json") -> str:
     return ""
 
 
+_GAME_RULE = re.compile(
+    r"\bthe game (?:requires|needs|wants|expects)\b|\bto trigger\b|"
+    r"\bin the original games?\b|\bis required to progress\b|\btypically\b|"
+    r"\busually\b", re.I)
+
+
 def _inferred(why) -> bool:
     """A DONE VERDICT THAT REASONS FROM ONE FACT TO ANOTHER IS NOT A
     VERDICT. check-done crossed "Chase the Team Rocket thief out of the
@@ -8077,6 +8083,25 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
                                      "wants first is one the game SAID it "
                                      "wants — a person's words, a door that "
                                      "turned you back — name that, or none"))
+            continue
+        # ...AND A RULE OF THE GAME IT CANNOT POINT AT IS LORE TOO. Run of
+        # record 9 (2026-09-26) inserted "Defeat the Team Rocket Leader in
+        # Mt. Moon" on "the game requires the defeat of the Team Rocket
+        # leader ... to trigger the exit" and "Obtain the MOON STONE in Mt.
+        # Moon" on "the game requires obtaining the Moon Stone ... to
+        # trigger the 'completion'", and the run spent legs on both (user:
+        # "do all three"). The good inserts said where a thing comes from
+        # ("the S.S. Ticket is obtained from Bill in his house"); these
+        # asserted an unseen rule. Only the rung's own reasons are read
+        # this way — check-done's verdicts are not.
+        if _GAME_RULE.search(_why):
+            print(f"[missing] turned down {ins!r}: its reason asserts a rule of "
+                  f"the game rather than something the game said or did — "
+                  f"{_why}", file=sys.stderr)
+            turned_down.append((ins, "your reason asserts what the game "
+                                     "requires; name what a person said, a "
+                                     "way that turned you back, or where the "
+                                     "thing comes from — or none"))
             continue
         _walked_in = _blocks_a_place_you_have_walked(_why, observed)
         if _walked_in:
