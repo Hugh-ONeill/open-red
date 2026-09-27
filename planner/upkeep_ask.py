@@ -80,6 +80,10 @@ def maybe_skip(goal: str, start: str, model: str) -> str:
     leg = _NOTE.sub("", str(goal or "")).strip()
     if leg not in set(_lines(UPKEEP)) or leg in set(_lines(ASKED)):
         return ""
+    # a LEVEL is never skipped on its purpose: levels serve everything after
+    # the leg that named them, and they are always within reach (2026-09-27)
+    if "at least level " in leg:
+        return ""
     why_for, met = purpose_done(leg)
     if not met:
         return ""

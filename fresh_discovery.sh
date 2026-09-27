@@ -495,6 +495,20 @@ while :; do
     plan=$(printf 'plans/leg_%02d_%s.json' "$i" "${slug%_}")
   fi
 
+  # A PARTY LEG (plans/outline.upkeep) THAT IS NOT A LEVEL. Level legs are
+  # always achievable — grinding raises levels every time — and cutting
+  # them to one short attempt left run 9 at 29-33 with an Abra at 11 going
+  # into Celadon (user, 2026-09-27: "i thought level legs got full attempts
+  # because theyre always achievable just possibly slow"). They run like any
+  # leg, with the still-moving replay; moves, items and types get the one
+  # short attempt below.
+  _is_party=0
+  if grep -Fxq "$leg" plans/outline.upkeep 2>/dev/null; then
+    case "$leg" in
+      *"at least level "*) ;;
+      *) _is_party=1 ;;
+    esac
+  fi
   # the outline's own doubt about this leg rides along in the goal string
   goal="$leg"
   note=$(awk -F'\t' -v L="$leg" '$1==L{print $2; exit}' \
@@ -619,6 +633,17 @@ while :; do
            "already holds, and check-done agrees — crossing it off: $leg ==="
       echo "$i" > "$PROGRESS"
       sweep_ahead "$i"
+      continue
+    fi
+    # A PARTY LEG THAT CANNOT BE WRITTEN IS PLAYED PAST, NOT PUSHED. It gets
+    # one short attempt and no ladder; a push sent run 9's "FIGHTING or
+    # GRASS", "GRASS or ELECTRIC" and "knows CUT" down the list to come round
+    # again (2026-09-27; user: "do all three").
+    if [ "$_arc" != 0 ] && [ "$_is_party" = 1 ]; then
+      echo "=== leg $i/${#LEGS[@]}: no plan could be written, and it is a party" \
+           "leg — playing on: $leg ===" >&2
+      echo "$leg" >> run/outline_upkeep_missed
+      echo "$i" > "$PROGRESS"
       continue
     fi
     if [ "$_arc" != 0 ]; then
@@ -797,8 +822,7 @@ while :; do
   # derail the entire run for hours"). A party leg (plans/outline.upkeep)
   # gets one attempt on half the round budget; if that does not do it the
   # chain plays on past it, as it always did at the end of the ladder.
-  _party=0
-  grep -Fxq "$leg" plans/outline.upkeep 2>/dev/null && _party=1
+  _party=$_is_party
   _budget_scale=1
   [ "$_party" = 1 ] && _budget_scale=0.5
   # A DRY LEG IS NOT RUN AGAIN AS IT STANDS (author.py DRY_RUNS): two runs
