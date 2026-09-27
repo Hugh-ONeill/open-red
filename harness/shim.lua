@@ -3074,15 +3074,34 @@ local function observe(G, seq, result)
       local _rc3 = reachable_cells()
       local _W3 = (((md and md.width) or (map and map.width) or 0)) * 2
       local _H3 = (((md and md.height) or (map and map.height) or 0)) * 2
+      -- ...AND ONLY ALONG THE STRETCH THE NEIGHBOUR ACTUALLY MEETS. A
+      -- connection spans the neighbour's own width at its offset (the
+      -- sweep's seam_open knows this; it is defined further down, so the
+      -- sum is repeated here). Route 10 is 72 cells tall and Route 9 meets
+      -- its west edge along the top 18; the tunnel's south mouth touches
+      -- that edge far below, and the south part was listed "west" -- a way
+      -- no step off it takes (run of record 11, 2026-09-27).
+      local function _in_span(d, x, y)
+        local cn = md.connections[d]
+        local dest = cn and G.data and G.data.maps and G.data.maps[cn.map]
+        if not dest then return true end     -- unknown: never hide a seam
+        local off = (cn.offset or 0) * 2
+        local ns = (d == "north" or d == "south")
+        local along = ns and (x - off) or (y - off)
+        local span = ns and (dest.width or 0) * 2 or (dest.height or 0) * 2
+        return along >= 0 and along < span
+      end
       for k, v in pairs(_rc3 or {}) do
         if v then
           local x, y = k:match("^(-?%d+),(-?%d+)$")
           x, y = tonumber(x), tonumber(y)
           if x and y then
-            if y == 0 then _cr.north = true end
-            if _H3 > 0 and y == _H3 - 1 then _cr.south = true end
-            if x == 0 then _cr.west = true end
-            if _W3 > 0 and x == _W3 - 1 then _cr.east = true end
+            if y == 0 and _in_span("north", x, y) then _cr.north = true end
+            if _H3 > 0 and y == _H3 - 1 and _in_span("south", x, y) then
+              _cr.south = true end
+            if x == 0 and _in_span("west", x, y) then _cr.west = true end
+            if _W3 > 0 and x == _W3 - 1 and _in_span("east", x, y) then
+              _cr.east = true end
           end
         end
       end

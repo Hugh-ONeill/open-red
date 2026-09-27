@@ -4780,7 +4780,10 @@ class Executor:
                        f"first: {leg} to {fd}"
                        + (" — none of it reachable from where you last "
                           "stood in it" if self._dry_from_within(region)
-                          else "") + ")")
+                          else "")
+                       + "".join(f"; {self._side_words(d)}"
+                                 for d in self._sides_unseen_of(region))
+                       + ")")
         return ("\nTHE MOST GROUND YOU HAVE SEEN THE EDGE OF AND NEVER "
                 "WALKED, wherever it is — these are spots where the ground "
                 "you looked at ends, and what lies past them is not known: "
@@ -5850,6 +5853,7 @@ class Executor:
                     and r.split("|")[0] not in self._cut_bushes}
             else:
                 self._bush_ways = data.get("bush_ways") or {}
+            self._sides_unseen = data.get("sides_unseen") or {}
             self._door_over_water = data.get("door_over_water") or {}
             self._shelves = data.get("shelves") or {}
             self._shelf_reads = data.get("shelf_reads") or {}
@@ -6367,6 +6371,7 @@ class Executor:
                  "boulder_start": getattr(self, "boulder_start", {}),
                  "cut_bushes": getattr(self, "_cut_bushes", {}),
                  "bush_ways": getattr(self, "_bush_ways", {}),
+                 "sides_unseen": getattr(self, "_sides_unseen", {}),
                  "door_over_water": getattr(self, "_door_over_water", {}),
                  "shelves": getattr(self, "_shelves", {}),
                  "shelf_reads": getattr(self, "_shelf_reads", {}),
@@ -6589,6 +6594,7 @@ class Executor:
         names = sorted({o.get("name") for o in (m.get("objects") or [])
                         if o.get("name") and o.get("reachable")})
         self._note_bush_ways(obs, here)
+        self._note_sides_unseen(obs)
         if not names:
             return
         was = set(self.sightings.get(here) or [])
@@ -6653,6 +6659,58 @@ class Executor:
             if _now_far != _was_far:
                 self.seen_far[here] = sorted(_now_far)
                 self._save_memory()
+
+    def _note_sides_unseen(self, obs):
+        """Which sides of this outdoor map have never had a cell on screen.
+
+        A SIDE NEVER LOOKED AT IS AN OPEN QUESTION WHEREVER THE PLACE IS
+        NAMED. The shim has said so for the map the party stands on since
+        2026-08; nothing kept it. Run of record 11 came out of Rock Tunnel's
+        south mouth onto Route 10, the exit leg ended on that step, and
+        Lavender's seam, eighteen rows further south, had never been on
+        screen. From anywhere else the page named that part with nothing
+        about south, and the next leg set off for Lavender by Route 11,
+        12, 13, 14 and 15 (2026-09-27). Map-level, as the shim computes it;
+        _sides_unseen_of gives each side to one part."""
+        m = (obs or {}).get("map") or {}
+        mid, su = m.get("id"), m.get("sides_unseen")
+        if not mid or not isinstance(su, list):
+            return                      # a room, or an older shim
+        su = sorted(str(d) for d in su)
+        book = self.__dict__.setdefault("_sides_unseen", {})
+        if (book.get(mid) or []) != su:
+            if su:
+                book[mid] = su
+            else:
+                book.pop(mid, None)
+            self._save_memory()
+
+    def _sides_unseen_of(self, region: str) -> list:
+        """The sides of this region's map never on screen, given to this
+        part: on a map walked in several parts, each side goes to the part
+        whose anchor lies furthest that way (the south mouth, not the north
+        one, holds Route 10's south)."""
+        mid = str(region or "").split("|")[0]
+        sides = (getattr(self, "_sides_unseen", None) or {}).get(mid) or []
+        if not sides:
+            return []
+        parts = {}
+        for r in list(self.frontier or {}) + list(self.visits or {}):
+            if r.split("|")[0] != mid:
+                continue
+            xy = _re.match(r"^(-?\d+),(-?\d+)$", r.split("|", 1)[-1])
+            if xy:
+                parts[r] = (int(xy.group(1)), int(xy.group(2)))
+        if region not in parts or len(parts) < 2:
+            return list(sides)
+        pick = {"north": lambda p: p[1], "south": lambda p: -p[1],
+                "west": lambda p: p[0], "east": lambda p: -p[0]}
+        return [d for d in sides if d in pick
+                and min(parts, key=lambda r: (pick[d](parts[r]), r)) == region]
+
+    @staticmethod
+    def _side_words(d: str) -> str:
+        return f"its {d} side never on screen (what lies {d}ward is not known)"
 
     def _note_bush_ways(self, obs, here: str):
         """Bushes this part can walk to with ground past them that no walk
@@ -7020,7 +7078,22 @@ class Executor:
             else:
                 self.unreached_at.pop(here, None)
             self._save_memory()
-        keys += list((m.get("connections") or {}).keys())
+        # ...ONLY THE SEAMS THIS PART CAN STEP OFF, once the map is split. A
+        # seam belongs to the MAP, and every part of it was handed every
+        # connection: the Rock Tunnel's south mouth on Route 10 was listed
+        # "west", but Route 9 meets that edge only along its top eighteen
+        # rows (run of record 11, 2026-09-27). connections_reach says which
+        # sides a walk from here touches inside the stretch the neighbour
+        # meets. A map known as ONE part keeps every connection as before,
+        # and a way once listed is never struck (see the union below).
+        _conns = list((m.get("connections") or {}).keys())
+        _cr = m.get("connections_reach")
+        _mid_c = here.split("|")[0]
+        _parts_c = {r for r in list(self.frontier) + list(self.visits or {})
+                    if r.split("|")[0] == _mid_c}
+        if isinstance(_cr, dict) and len(_parts_c | {here}) > 1:
+            _conns = [d for d in _conns if _cr.get(d)]
+        keys += _conns
         # THE OTHER CELLS OF A SEAM ARE WAYS OF THEIR OWN. The shim lists
         # each seen edge's reachable cells in the order `skip` counts them;
         # a plain cross uses the first, and the rest were invisible to the
@@ -16887,8 +16960,12 @@ class Executor:
         # which of these the party can open NOW; _elsewhere_line keeps them
         # outside its near/far caps (see there)
         self._openable_here = set(bushes)
+        _sided = {r: self._sides_unseen_of(r)
+                  for r in list(self.frontier) + list(self.visits or {})}
+        _sided = {r: v for r, v in _sided.items() if v}
         for region, exits in list(self.frontier.items()) + \
-                [(r, []) for r in dict.fromkeys(list(held) + list(bushes))
+                [(r, []) for r in dict.fromkeys(list(held) + list(bushes)
+                                                + list(_sided))
                  if r not in self.frontier]:
             if region == here:
                 continue
@@ -16899,6 +16976,7 @@ class Executor:
                       "a bush you could walk to (what lies past it was not "
                       "recorded)") + " — a party Pokemon knows CUT"
                      for xy in bushes.get(region, [])]
+            left += [self._side_words(d) for d in _sided.get(region, [])]
             if not left:
                 continue
             # Naming a destination without its first leg loses to local
