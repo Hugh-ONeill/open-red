@@ -7697,6 +7697,32 @@ def _inferred(why) -> bool:
 _DOUBT_NOTE = re.compile(r"\s*\(a doubt you recorded when outlining:.*$")
 
 
+def next_objective_text(goal: str, plans: Path = Path("plans")) -> str:
+    """The line after this one on the model's own list, so the judge does
+    not fold it into this one.
+
+    TWO LINES ARE TWO OBJECTIVES. "Navigate Mt. Moon and fight Team Rocket"
+    had its conditions met and was judged "not done: ... has not yet
+    exited the mountain on the far side" — which is the next line, "Exit
+    Mt. Moon". Its second plan's verdict was refused as hedged, and the
+    leg was pushed behind Cerulean with its successor (run of record 12,
+    2026-09-27). The list is the model's own; showing its neighbour decides
+    nothing about either."""
+    try:
+        legs = [l.strip() for l in (plans / "outline.txt").read_text()
+                .splitlines() if l.strip()]
+    except OSError:
+        return ""
+    bare = _DOUBT_NOTE.sub("", goal).strip()
+    idx = [i for i, l in enumerate(legs) if _DOUBT_NOTE.sub("", l).strip() == bare]
+    if not idx or idx[0] + 1 >= len(legs):
+        return ""
+    nxt = _DOUBT_NOTE.sub("", legs[idx[0] + 1]).strip()
+    return (f"\n\nTHE NEXT OBJECTIVE ON YOUR LIST is a separate line: "
+            f"\"{nxt}\". Judge this one on its own words; what the next "
+            f"line asks for is not part of it.")
+
+
 def check_already_done(deed: str, start: str, model: str,
                        observed=None) -> bool:
     """Has this objective ALREADY been accomplished, at any point in the run?
@@ -10367,6 +10393,7 @@ def check_done(goal: str, start: str, model: str,
     reply = brock_probe.chat(
         [{"role": "system", "content": CHECKDONE_SYS},
          {"role": "user", "content": f"THE OBJECTIVE: {goal}"
+          + next_objective_text(goal)
           + _wording_lineage(goal)
           + f"\n\nWHERE THE RUN STANDS: {start}"
           + walked_ground_text([(0, goal)], observed)
