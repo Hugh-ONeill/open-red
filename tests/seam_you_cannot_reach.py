@@ -25,7 +25,7 @@ def ck(name, cond): checks.append((name, bool(cond)))
 lua = Path("harness/shim.lua").read_text()
 i = lua.find("AND WHETHER A WALK FROM HERE EVEN REACHES THAT EDGE")
 ck("the shim publishes per-side reachability", i > 0)
-blk = lua[i:i + 2200]
+blk = lua[i:i + 4200]   # the span check grew it (2026-09-27)
 ck("...from the reached set, against each edge",
    "reachable_cells()" in blk
    and "_cr.north = true" in blk and "_cr.south = true" in blk

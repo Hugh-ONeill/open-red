@@ -29,7 +29,10 @@ def ck(name, cond, detail=""):
 
 src = (ROOT / "planner/executor.py").read_text()
 ck("the position is taken before the round's macro runs",
-   "_spot_before = self._spot(self.settle() or obs)\n            ok, trace, clean = self._run_traced(sg, macro," in src)
+   # (the detour record sits between them, 2026-09-27; it moves nothing)
+   "_spot_before = self._spot(self.settle() or obs)\n"
+   "            self._detour_before(sg, done, macro, self.settle() or obs)\n"
+   "            ok, trace, clean = self._run_traced(sg, macro," in src)
 ck("...and a changed position counts as the round having done something",
    "_did = _did or self._spot(self.settle() or obs) != _spot_before" in src)
 ck("...before the spent-macro record is written",

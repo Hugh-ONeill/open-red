@@ -42,8 +42,7 @@ import json, tempfile
 from pathlib import Path
 import bridge as B
 import author as A
-tmp = Path(tempfile.mkdtemp(dir="/tmp/claude-1000/-home-wiz/"
-                            "b5fe8565-91da-4233-b62f-8b773e98e750/scratchpad"))
+tmp = Path(tempfile.mkdtemp())
 (tmp / "obs.json").write_text(json.dumps({"seq": 1, "mode": "overworld",
                                           "bag": [], "pc_items": [],
                                           "key_items": [], "badges": []}))
