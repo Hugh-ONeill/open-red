@@ -9687,7 +9687,10 @@ class Executor:
                 _per = (int(_g.get("exp", 0)) // int(_g["n"])) if _g.get("n") \
                     else None
                 rows.append((_hop if _hop is not None else 99, _m, _wl, _per))
-            _unfought = self._wild_unknown_words(here_map, {r[1] for r in rows})
+            # through the class: a stand-in without the method must not
+            # lose the whole line
+            _unfought = Executor._wild_unknown_words(self, here_map,
+                                                     {r[1] for r in rows})
             if not rows:
                 return (". " + _unfought.lstrip("; ")) if _unfought else ""
             rows.sort()

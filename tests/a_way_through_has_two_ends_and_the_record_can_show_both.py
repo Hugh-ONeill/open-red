@@ -89,7 +89,7 @@ ck("a plan that is not about going through is left alone",
 src = (ROOT / "planner" / "author.py").read_text()
 cd = src[src.index("def check_done("):]
 i_ref = cd.index("_not_through_yet(goal, observed)"); i_acc = cd.index("_through_by_record(goal, observed)")
-i_gone = cd.index("_never_held(goal, start)"); i_model = cd.index("brock_probe.chat(")
+i_gone = cd.index("_never_held(goal, start)"); i_model = cd.index("chat_json(")
 ck("check-done accepts on two mouths after every refusal and before asking the model",
    i_ref < i_gone < i_acc < i_model and '[check-done] done: this objective says to go THROUGH' in cd)
 ad = src[src.index("def check_already_done("):src.index("def check_done(")]

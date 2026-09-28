@@ -20,7 +20,7 @@ i = src.index("    def status(self, **kw):")
 body = src[i:src.index("\n    def ", i + 10)]
 ck("status reads the carried steps", '_carried = [c for c in (getattr(self, "_carried_ids", None) or [])]' in body)
 ck("...and names each with the condition it asked for",
-   'f"{c} NOT achieved {json.dumps(_dws.get(c) or {})}"' in body)
+   'f"{c} NOT achieved {pred_text.dumps(_dws.get(c) or {})}"' in body)
 ck("...as a CARRIED line right under SUBGOAL", 'lines.insert(2, "CARRIED  "' in body
    and body.index('f"SUBGOAL  ') < body.index('lines.insert(2, "CARRIED  "'))
 ck("...saying the step now shown is tried anyway", "carried past, this step is tried anyway" in body)
