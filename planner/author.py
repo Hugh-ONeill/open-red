@@ -35,6 +35,7 @@ import sys
 from pathlib import Path
 
 import brock_probe   # reuse chat()
+import split_roads
 import pred_text
 
 # EVERY MODE THE SHIM CAN ACTUALLY REPORT, read out of the shim so the two
@@ -559,7 +560,7 @@ def doors_text() -> str:
             "off. This is the map's own labelling, not scouting: what lies "
             "BEYOND any of these doors is not here. The listing is COMPLETE "
             "— every road with a door into a named place is above.\n"
-            + rows)
+            + rows + split_roads.split_roads_text())
 
 
 def edges_text() -> str:

@@ -78,6 +78,20 @@ labels = {lbl for places in A.MAP_DOORS.values() for lbl in places}
 ck("every place the doors line names is on the printed map",
    labels and labels <= PRINTED, sorted(labels - PRINTED))
 
+# Split roads are said in the GAME's order (user, 2026-09-28): Route 9
+# reaches Route 10's north part, not Rock Tunnel as the booklet draws it.
+import split_roads as S  # noqa: E402
+bad = [r for r, (place, frm, _n, _f, to) in S.SPLITS.items()
+       if set(E.MAP_EDGES.get(r, {}).values()) != {frm, to}
+       or place not in (A.MAP_DOORS.get(r) or {})]
+ck("each split road's two ends are its printed neighbours and its place is pinned there",
+   not bad, bad)
+ck("Rock Tunnel is said inside Route 10, reached from Route 9",
+   "ROUTE_9 -> ROUTE_10's north part -> ROCK TUNNEL -> ROUTE_10's south part"
+   " -> LAVENDER_TOWN" in A.doors_text())
+ck("the walker's printed-map line carries the same block",
+   "route_line += split_roads.split_roads_text()" in exs)
+
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, det in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not det else f"  {str(det)[:300]}"))

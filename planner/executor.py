@@ -50,6 +50,7 @@ from pathlib import Path
 
 from bridge import Bridge, RUN
 import battle_policy
+import split_roads
 import ledger
 import pred_text
 import outline_ahead
@@ -17643,6 +17644,7 @@ class Executor:
                 route_line += (f"\nTHE PRINTED MAP OF KANTO (every road and town it shows, "
                                f"and what each touches — caves, tunnels and "
                                f"buildings are doors, not shown here): {_all}.")
+                route_line += split_roads.split_roads_text()
                 # ...AND THE ROADS IT DRAWS THAT YOU HAVE NEVER TAKEN.
                 # THE WALKER WAS THE ONE WHO NEEDED THIS. The author's
                 # brief has carried this block for weeks, and its preamble
