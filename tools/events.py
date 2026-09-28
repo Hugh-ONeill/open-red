@@ -197,6 +197,44 @@ def write_phase(phase):
     os.replace(tmp, PHASE)
 
 
+AUTHOR_LOG_MAX = 40
+
+
+def author_log(line, phase):
+    """The authoring's own narration in chain.log, kept as a rolling log on
+    the phase for the HUD: what was rejected and why, what the review
+    changed, what the picker was shown. Returns True when the line was one."""
+    if phase.get("phase") != "authoring":
+        return False
+    text, tone = None, "info"
+    if phase.pop("want_problem", False) and line.startswith("- "):
+        text, tone = "  " + line[2:].strip(), "bad"
+    elif re.match(r"^\[author\] round \d+ invalid", line):
+        text, tone = line[9:].rstrip(":").strip() + ":", "bad"
+        phase["want_problem"] = True
+    elif line.startswith("[author] valid plan"):
+        text, tone = line[9:].strip(), "good"
+    elif line.startswith("[review]"):
+        text = "review " + line[8:].strip()
+        tone = "bad" if "invalid" in line else "info"
+    elif line.startswith("[drafts]"):
+        text = line[9:].strip()
+    elif line.startswith("[check-done] refused"):
+        text, tone = "check refused: " + line.split("refused:", 1)[1].strip(), "bad"
+    elif line.startswith("[draws] one shape"):
+        text = line[8:].strip()
+    elif line.startswith("[wording]"):
+        text = "wording: " + line[10:].strip()
+    elif line.startswith("--- plan ") and "author thinks" in line:
+        text, tone = line.strip("- ").strip(), "think"
+    if text is None:
+        return False
+    log = phase.setdefault("log", [])
+    log.append({"t": time.time(), "tone": tone, "text": text[:300]})
+    del log[:-AUTHOR_LOG_MAX]
+    return True
+
+
 def from_chain_line(line, phase):
     """One chain.log line -> (tone, text) or None; updates `phase` in place
     (the HUD reads it to know the game is gone because the model is writing)."""
@@ -204,12 +242,12 @@ def from_chain_line(line, phase):
     if m:
         phase.update(phase="authoring", since=time.time(), what="new leg",
                      leg="%s/%s" % (m.group(1), m.group(2)), goal=m.group(3).strip(),
-                     drafts=[], picked=None)
+                     drafts=[], picked=None, log=[])
         return "think", "writing a plan for leg %s: %s" % (m.group(1), m.group(3).strip())
     m = REWRITE.match(line)
     if m:
         phase.update(phase="authoring", since=time.time(), what="rewrite",
-                     goal=None, drafts=[], picked=None)
+                     goal=None, drafts=[], picked=None, log=[])
         phase["want_goal"] = True
         return None                      # announced with the goal on the next line
     m = GOAL.match(line)
@@ -336,6 +374,7 @@ def follow(poll=0.5):
             f.seek(max(0, f.tell() - 65536))
             phase["live"] = False           # replaying history: no captures
             for line in f.read().decode("utf-8", "replace").splitlines()[1:]:
+                author_log(line, phase)
                 from_chain_line(line, phase)
             phase.pop("live", None)
     except OSError:
@@ -357,6 +396,7 @@ def follow(poll=0.5):
         changed = False
         for line in chain.lines():
             before = json.dumps(phase, sort_keys=True)
+            author_log(line, phase)
             ev = from_chain_line(line, phase)
             if ev:
                 append("chain", *ev)

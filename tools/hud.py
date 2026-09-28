@@ -62,7 +62,7 @@ YELLOW = (230, 200, 90)
 RED = (227, 138, 115)
 CARD = (224, 228, 208)
 
-W, ROW, TOP = 248, 58, 16          # the team column
+W, ROW, TOP = 248, 80, 16          # the team column (a card: pic, lines, HP, then two lines of moves)
 COLS = 46                          # the status column, in 8px characters, when
                                    # nothing asks for more (--png, no window)
 MIN_COLS = 36                      # the narrowest status column a fit will use
@@ -174,6 +174,26 @@ class Painter:
             img.putpixel((x + w - 1, yy), col)
 
 
+def draw_moves(img, painter, y, moves):
+    """The card's four moves under it, two a line: name and PP left (yellow at
+    a quarter or less, red when empty)."""
+    colw = (W - 12) // 2                              # two columns, 4 px apart
+    for i, m in enumerate(moves[:4]):
+        x = 4 + (i % 2) * (colw + 4)
+        yy = y + (i // 2) * LINE
+        name = str(m.get("id") or m.get("name") or "?").replace("_", " ")
+        pp, mx = m.get("pp"), m.get("max_pp")
+        tail = "%2d" % pp if isinstance(pp, int) else ""
+        ppx = x + colw - 8 * len(tail)                 # PP flush right in its column
+        room = (ppx - x - 6) // 8                      # a name stops short of it
+        if len(name) > room:
+            name = name[:room - 1] + "."
+        painter.text(img, x, yy, name, FG if (pp or 0) > 0 or pp is None else DIM)
+        if tail:
+            col = RED if pp == 0 else YELLOW if mx and pp * 4 <= mx else DIM
+            painter.text(img, ppx, yy, tail, col)
+
+
 def render_team(obs, painter):
     party = obs.get("party") or []
     battle = obs.get("battle") if isinstance(obs.get("battle"), dict) else None
@@ -210,6 +230,7 @@ def render_team(obs, painter):
         painter.bar(img, 58, y + 30, W - 58 - 6, hp / max_hp)
         painter.text(img, 58, y + 38, "/".join(t[:3] for t in p.get("types") or []), DIM)
         painter.text_right(img, y + 38, "%d/%d" % (hp, max_hp), DIM)
+        draw_moves(img, painter, y + 57, p.get("moves") or [])
 
     if foe:
         y = TOP + ROW * 6
@@ -426,6 +447,33 @@ def draw_live(img, painter, y0, height, cols, lt):
         y += LINE
 
 
+def draw_author_log(img, painter, y0, height, cols, log):
+    """While a plan is written: the author's own narration from chain.log
+    (rounds the validator sent back and why, what the review changed), newest
+    at the bottom. The ollama line above says how far the current call is."""
+    if height - y0 < 5 * LINE:
+        return
+    blocks = []
+    for e in log:
+        stamp = time.strftime("%H:%M", time.localtime(e.get("t", 0)))
+        wrapped = textwrap.wrap(e.get("text", ""), cols - 7) or [""]
+        col = TONE.get(e.get("tone"), FG)
+        blocks.append([(stamp, wrapped[0], col)] + [("", w, col) for w in wrapped[1:4]])
+    room = (height - y0 - LINE - 10) // LINE
+    shown = []
+    for block in reversed(blocks):
+        if len(shown) + len(block) > room:
+            break
+        shown = block + shown
+    y = height - 4 - LINE * max(len(shown), 1) - LINE - 4
+    painter.text(img, 4, y, "AUTHOR AT WORK", YELLOW)
+    y += LINE + 2
+    for stamp, text, col in shown:
+        painter.text(img, 12, y, stamp, DIM)
+        painter.text(img, 12 + 6 * 8, y, text, col)
+        y += LINE
+
+
 def draw_events(img, painter, y0, height, cols):
     """The event feed (tools/events.py) in the column's free space, newest at
     the bottom like a chat, as many as fit."""
@@ -484,13 +532,13 @@ def draw_authoring(img, painter, y, height, cols, phase):
         col = townmap.PICKED if on else townmap.DRAFT_COLORS[(d["n"] - 1) % len(townmap.DRAFT_COLORS)]
         if picked and not on:
             col = tuple(int(c * 0.55 + 20) for c in col)    # as the map fades them
-        head = "%s%d  %d steps" % (">" if on else " ", d["n"], d["steps"])
-        painter.text(img, 4, y, head, col)
+        # one line a draft: the map beside it draws the whole route, and the
+        # room below is the author's own narration
+        head = "%s%d %2d steps  " % (">" if on else " ", d["n"], d["steps"])
+        route = d["route"].replace(" -> ", ">")
+        room = cols - len(head) - 1
+        painter.text(img, 4, y, head + (route if len(route) <= room else route[:room - 3] + "..."), col)
         y += LINE
-        for line in textwrap.wrap(d["route"], cols - 3)[:4]:
-            painter.text(img, 20, y, line, col)
-            y += LINE
-        y += 2
     if not drafts:
         painter.text(img, 12, y, "drafting...", DIM)
         y += LINE
@@ -512,7 +560,7 @@ def draw_authoring(img, painter, y, height, cols, phase):
         y += 4
         painter.text(img, 4, y, "PICKED %d OF %d" % (picked, phase["picked"]["of"]), ACCENT)
         y += LINE
-        for line in textwrap.wrap(phase["picked"].get("why", ""), cols - 1)[:6]:
+        for line in textwrap.wrap(phase["picked"].get("why", ""), cols - 1)[:3]:
             painter.text(img, 12, y, line, DIM)
             y += LINE
     return y + 4
@@ -558,6 +606,8 @@ def render_status(text, painter, height, cols=COLS, act=None):
     lt = feed.live_thought()
     if lt and not lt[2]:
         draw_live(img, painter, y + 8, height, cols, lt)
+    elif phase.get("phase") == "authoring" and phase.get("log"):
+        draw_author_log(img, painter, y + 8, height, cols, phase["log"])
     else:
         draw_events(img, painter, y + 8, height, cols)
     return img
