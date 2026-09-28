@@ -2945,9 +2945,26 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                       "being unwalkable says nothing about whether you can "
                       "press them")
                  + ("; ground you have stood on in "
-                    + ", ".join(f"{f['region']} (reaches {f.get('n')} of them)"
+                    + ", ".join(f"{f['region']} (reaches {f.get('n')} of them"
+                                + ("" if int((getattr(ex, "region_seen", None) or {})
+                                             .get(f["region"], 0) or 0)
+                                   else "; all of its ground has been on screen")
+                                + ")"
                                 for f in _from[:2])
-                    + " does reach it" if _from else
+                    + " does reach it"
+                    # ...AND SAY WHAT NO PART REACHES. Each of B2F's two
+                    # stood parts "reached" the other's own ground, both
+                    # were worked out, and the page sent the run from one to
+                    # the other twenty times while Rocket 4 and the (21,17)
+                    # ladder sat in a third part neither reaches (run 18,
+                    # 2026-09-28; user: "its just pingponging between the
+                    # other two areas of b2f").
+                    + (f"; the other {int(_su['n']) - sum(int(f.get('n') or 0) for f in _from)} "
+                       f"no part you have stood in reaches — the way onto them "
+                       f"is not known"
+                       if int(_su['n']) > sum(int(f.get('n') or 0) for f in _from)
+                       else "")
+                    if _from else
                     "; no part of this map you have stood in reaches it — "
                     "the way onto it is not known"))
         _shut_here = [c for c in (cands or [])
