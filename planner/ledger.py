@@ -2636,6 +2636,40 @@ def no_edge_words(m: dict) -> str:
     return "no edges; the doors are the only ways out"
 
 
+def untried_leads_ex(ex, here: str, cap: int = 3) -> list:
+    """Walked places with a way never taken, nearest first by walked legs:
+    the ledger's frontier less what explored says was taken, less ways a
+    standing blocker holds. The run's own record; nothing about where the
+    goal is."""
+    import re as _re0
+    explored = getattr(ex, "explored", None) or {}
+    visits = getattr(ex, "visits", None) or {}
+    held = {(str(b.get("where")), str(b.get("key")))
+            for b in (getattr(ex, "blockers", None) or {}).values()
+            if isinstance(b, dict) and not b.get("cleared")}
+    rows = []
+    for reg, ways in (getattr(ex, "frontier", None) or {}).items():
+        if not int(visits.get(reg, 0) or 0) or not ways:
+            continue
+        taken = {str(k).split("#")[0] for k in (explored.get(reg) or {})}
+        fresh = [str(w) for w in ways if "#" not in str(w)
+                 and str(w) not in taken and (str(reg), str(w)) not in held]
+        if not fresh:
+            continue
+        try:
+            path = ex._route(here, reg) if reg != here else []
+        except Exception:
+            path = None
+        if path is None:
+            continue
+        what = ", ".join(("the way " + w) if not _re0.match(r"^\d+,\d+$", w)
+                         else f"the door at ({w})" for w in fresh[:2])
+        rows.append((len(path), reg, f"{reg} ({what} never taken — "
+                                      f"{len(path)} leg(s) away)"))
+    rows.sort()
+    return [t for _n, _r, t in rows[:cap]]
+
+
 def printed_roads_words(map_id: str, seen_sides, unseen_sides, edges: dict) -> str:
     """What the TOWN MAP in the bag draws for the map you stand on, side by
     side, each marked seen or never on screen.
@@ -2849,6 +2883,17 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                            "reaches it starts somewhere else — a part of this "
                            "map you have never stood on, entered from another "
                            "map or another floor — not from where you know")
+                # ...AND WHERE YOU CAN GO, SAID RIGHT THERE. The page said all
+                # of this in Cerulean and the run went on writing walks south
+                # to Vermilion, while Route 24's east side, never crossed,
+                # sat forty lines further down (run 18, 2026-09-28; user:
+                # "the page should encourage it to go where it *can* go
+                # instead of pursuing where it *cant*"). The nearest walked
+                # places with a way never taken, from the run's own record.
+                _leads = untried_leads_ex(ex, here, cap=3)
+                if _leads:
+                    head += (". WHAT YOU CAN WALK TO THAT IS STILL UNTRIED: "
+                             + "; ".join(_leads))
         except Exception:
             pass
     # UNSEEN GROUND IS SAID IN THE HEAD LINE, not only at the foot of the

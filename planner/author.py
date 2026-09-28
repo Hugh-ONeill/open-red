@@ -2397,6 +2397,63 @@ def validate(plan: dict) -> list:
 _TRAVEL_KEYS = {"map", "area", "new_part", "not_area", "party_healthy"}
 
 
+def untried_leads(run: Path = Path("run"), skip_maps=(), cap: int = 6) -> list:
+    """Places this run has walked that still hold something never tried: a
+    way never taken (the ledger's frontier) or a person seen and never
+    spoken to. The run's own record, nearest first by the printed map.
+
+    SAY WHERE IT CAN GO, NOT ONLY WHERE IT CANNOT. The same-walk refusal
+    told the author "go somewhere else" five rounds running while every
+    draft walked to Vermilion again; the only open ground was north, Route
+    24's east side never crossed and Bill's cottage beyond (run 18,
+    2026-09-28; user: "the page should encourage it to go where it *can* go
+    instead of pursuing where it *cant*")."""
+    try:
+        d = json.loads((Path(run) / "explored.json").read_text() or "{}")
+    except (OSError, ValueError):
+        return []
+    visits = d.get("visits") or {}
+    skip = {str(m) for m in skip_maps}
+    rows: dict = {}
+    explored = d.get("explored") or {}
+    for reg, ways in (d.get("frontier") or {}).items():
+        mp = str(reg).split("|")[0]
+        if mp in skip or not int(visits.get(reg, 0) or 0) or not ways:
+            continue
+        # the frontier is every way out of the region; what was TAKEN is in
+        # explored ("north#skip1" is the north edge crossed at another cell)
+        taken = {str(k).split("#")[0] for k in (explored.get(reg) or {})}
+        held = {str(b.get("key")) for b in (d.get("blockers") or {}).values()
+                if isinstance(b, dict) and not b.get("cleared")
+                and str(b.get("where")) == str(reg)}
+        fresh = [w for w in ways if "#" not in str(w)
+                 and str(w) not in taken and str(w) not in held]
+        if not fresh:
+            continue
+        rows.setdefault(reg, []).extend(
+            f"the way {w} never taken" if not re.match(r"^\d+,\d+$", str(w))
+            else f"the door at ({w}) never taken" for w in fresh[:3])
+    touched = d.get("touched") or {}
+    for reg, names in (d.get("sightings") or {}).items():
+        mp = str(reg).split("|")[0]
+        if mp in skip or not int(visits.get(reg, 0) or 0):
+            continue
+        done = set(touched.get(reg) or [])
+        for n in names or []:
+            if n in done or str(n).startswith(("TEXT_", "ITEM_", "HIDDEN_")) \
+                    or "BOULDER" in str(n) or str(n) == "CUT_TREE":
+                continue
+            toks = {re.sub(r"\d+$", "", t) for t in str(n).upper().split("_")}
+            if toks & _UNTOUCHED_STOP:
+                continue          # a trainer is fought, not spoken to
+            rows.setdefault(reg, []).append(f"{n} never spoken to")
+    here = str(_map_now() or "")
+    near = set((MAP_EDGES.get(here) or {}).values())
+    order = sorted(rows, key=lambda r: (0 if r.split("|")[0] == here
+                                        else 1 if r.split("|")[0] in near else 2, r))
+    return [f"{r} ({', '.join(rows[r][:3])})" for r in order[:cap]]
+
+
 def same_failed_walk_problems(plan: dict, goal: str | None = None,
                               run: Path = Path("run")) -> list:
     """A rewrite that walks, with nothing done first, to the place this
@@ -2428,11 +2485,14 @@ def same_failed_walk_problems(plan: dict, goal: str | None = None,
             if isinstance(v, str) and v:
                 tgt = v.split("|")[0]
         if tgt in places:
+            _leads = untried_leads(run, skip_maps=places)
             return [f"subgoal[{i}] ({(s or {}).get('id')}) walks to {tgt}, and "
                     f"this objective's last plan failed walking to {tgt}; every "
                     f"step before it is only travel, so this is the same walk. "
                     f"Do something first that changes what that walk meets, or "
-                    f"go somewhere else."]
+                    f"go somewhere else."
+                    + (" PLACES THIS RUN HAS WALKED THAT STILL HAVE SOMETHING "
+                       "NEVER TRIED: " + "; ".join(_leads) + "." if _leads else "")]
         if not keys <= _TRAVEL_KEYS:
             return []                 # a deed comes first: the walk may follow
     return []
