@@ -3861,6 +3861,11 @@ def observed_text(path: Path) -> str:
     # without a step for what the model itself said opens the way.
     blk = [b for b in (d.get("blockers") or {}).values()
            if isinstance(b, dict) and not b.get("cleared")]
+    try:
+        _flags_now = set(json.loads(Path("run/obs.json").read_text())
+                         .get("flags") or [])
+    except (OSError, ValueError, AttributeError):
+        _flags_now = set()
     if blk:
         rows = []
         for b in sorted(blk, key=lambda b: (-int(b.get("n") or 0),
@@ -3872,6 +3877,13 @@ def observed_text(path: Path) -> str:
                 row += f" — {b['what']}"
             if b.get("your_words"):
                 row += f" — you called it: {b['your_words']}"
+            # ...AND WHAT HAS HAPPENED SINCE (Executor._since_words)
+            _new = sorted(_flags_now - set(b.get("flags_then") or [])) \
+                if b.get("flags_then") is not None and _flags_now else []
+            if _new:
+                row += (f" — SINCE IT TURNED YOU BACK {len(_new)} event(s) "
+                        f"have fired (including: {', '.join(_new[-3:])}), so it "
+                        f"may answer differently now")
             if b.get("lifts"):
                 row += f" — YOU SAID {json.dumps(b['lifts'])} lifts it"
             else:

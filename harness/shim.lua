@@ -13114,6 +13114,19 @@ function OPS.sweep(G, c)
   for _, k in ipairs(type(c.skip) == "table" and c.skip or {}) do
     skip[tostring(k)] = true
   end
+  -- ...AND THE CELL A SCRIPT STOPPED YOU ON IS A WALL. Skipping the spot a
+  -- sweep was aiming for did not help in Viridian: every unseen spot north
+  -- of the sleeping old man lies past the same line, so each sweep aimed at
+  -- the next one (19,5 -> 18,5 -> 27,6 -> 26,6) and was turned back at the
+  -- same place, run after run (user, 2026-09-28: "the sweep in viridian
+  -- getting stopped by the old man is becoming an issue literally every
+  -- run"). The executor passes the cells a script stopped a sweep on as
+  -- `wall`: no sweep walks through them, and a spot only reachable through
+  -- one is not aimed at.
+  local wall = {}
+  for _, k in ipairs(type(c.wall) == "table" and c.wall or {}) do
+    wall[tostring(k)] = true
+  end
   local last_target
   while true do
     if G.stack:top() ~= ow then
@@ -13146,6 +13159,7 @@ function OPS.sweep(G, c)
       why = "interrupted (battle or script)"
         .. (_who and (" by " .. _who) or "")
         .. (last_target and ((" on the way to (%d,%d)"):format(last_target.x, last_target.y)) or "")
+        .. ((_p and _p.cellX) and ((" standing on (%d,%d)"):format(_p.cellX, _p.cellY)) or "")
       break
     end
     if (ow.map and ow.map.id) ~= map0 then
@@ -13180,7 +13194,12 @@ function OPS.sweep(G, c)
         if not mask[k] then avoid[k] = true end
       end
     end
-    for _ = 1, budget - steps do
+    for k in pairs(wall) do avoid[k] = true end
+    -- a spot only reachable through a wall is not aimed at: try the next
+    local _walled = next(wall) ~= nil
+        and not (p.cellX == target.x and p.cellY == target.y)
+        and not bfs_dir_pass(G, target.x, target.y, avoid, route_gate(G))
+    for _ = 1, (_walled and 0 or (budget - steps)) do
       -- an arrow tile keeps moving the party after the step returns; let
       -- the slide finish before reading where we are or stepping again
       settle_slide(G)

@@ -2831,14 +2831,15 @@ class Executor:
             self._blackout_lead[target] = (mons[0] or {}).get("level")
         return True
 
-    def _sweep_skip(self, region: str) -> list:
+    def _sweep_skip(self, region: str, kind: str = "cell") -> list:
         """The spots on this floor a script has turned a sweep back from
         (blockers of kind "cell" here, not cleared), as the shim's sweep
         takes them: "x,y" strings it will not aim at again."""
         out = []
         for bk, b in (getattr(self, "blockers", None) or {}).items():
-            if (isinstance(b, dict) and b.get("kind") == "cell"
-                    and not b.get("cleared") and str(b.get("where")) == str(region)):
+            if (isinstance(b, dict) and b.get("kind") == kind
+                    and not b.get("cleared") and str(b.get("where")) == str(region)
+                    and self._blocker_current(b)):
                 out.append(str(b.get("key")))
         return sorted(out)
 
@@ -2849,11 +2850,14 @@ class Executor:
         skip = self._sweep_skip(region)
         if skip:
             st["skip"] = skip
+        wall = self._sweep_skip(region, kind="wall")
+        if wall:
+            st["wall"] = wall
         return st
 
     _SWEEP_STOPPED = _re.compile(
         r"interrupted \(battle or script\)(?: by ([A-Z][A-Z0-9_]+))? on the way to "
-        r"\((-?\d+),(-?\d+)\)")
+        r"\((-?\d+),(-?\d+)\)(?: standing on \((-?\d+),(-?\d+)\))?")
 
     def _note_sweep_refusal(self, region: str, trace) -> str:
         """A SWEEP A SCRIPT TURNED BACK IS A WAY THAT TURNED YOU BACK. The
@@ -2884,8 +2888,17 @@ class Executor:
                 + (f" — {who}" if who else "")
                 + (f' said "{said}"' if said else ""))
         self._note_blocker(region, key, "cell", what)
+        # ...AND WHERE IT STOPPED YOU IS A WALL for every later sweep here
+        # (see the shim's `wall`): a script that speaks as you step is a
+        # line, and every spot behind it is behind the same line. Only a
+        # script — words were said — never a battle.
+        _wall = ""
+        if said and m.group(4) is not None:
+            _wall = f"{m.group(4)},{m.group(5)}"
+            self._note_blocker(region, _wall, "wall",
+                               "a sweep was stopped standing here — " + what)
         self.log("sweep_refused", region=str(region), cell=key, who=who,
-                 said=said[:120])
+                 said=said[:120], wall=_wall)
         return key
 
     def _note_blocker(self, area: str, key: str, kind: str, what: str):
@@ -2912,6 +2925,43 @@ class Executor:
                 else w[:260]
         b["cleared"] = False
         b["last"] = self._cur_target or ""
+        # THE WORLD IT HAPPENED IN. Refused again, it is refused in the world
+        # as it is now, so the date moves with every bump (see _since_words).
+        if getattr(self, "_mark_now", None) is not None:
+            b["mark"] = list(self._mark_now)
+            b["flags_then"] = list(getattr(self, "_flags_now", None) or [])
+
+    def _blocker_current(self, b) -> bool:
+        """Still the world it was recorded in (or recorded before dates were
+        kept). Sweep skips and walls apply only while this holds."""
+        now = getattr(self, "_mark_now", None)
+        return not b.get("mark") or now is None or list(b["mark"]) == list(now)
+
+    def _since_words(self, b) -> str:
+        """What has happened since this turned the run back, from the run's
+        own record: events fired and badges earned. Run 16 (2026-09-28): the
+        old man's "private property" rows stood unchanged after the parcel,
+        the Pokedex and his catch demo, under "Nothing about you changed
+        since", and the run went west into the rival twice instead of north
+        (user: "despite literally talking to the now calm old man")."""
+        if self._blocker_current(b):
+            return ""
+        then = set(b.get("flags_then") or [])
+        new = [f for f in (getattr(self, "_flags_now", None) or []) if f not in then]
+        now = getattr(self, "_mark_now", None) or [0, 0, 0]
+        mark = b.get("mark") or [0, 0, 0]
+        bits = []
+        if new:
+            bits.append(f"{len(new)} event(s) have fired (including: "
+                        + ", ".join(new[-3:]) + ")")
+        if now[0] > mark[0]:
+            bits.append(f"{now[0] - mark[0]} badge(s) earned")
+        if now[2] != mark[2]:
+            bits.append("what is in your bag has changed")
+        if not bits:
+            return ""
+        return (" — SINCE IT TURNED YOU BACK: " + "; ".join(bits)
+                + ", so it may answer differently now")
 
     def _clear_blocker(self, area: str, key: str, how: str):
         b = self.blockers.get(f"{area}|{key}")
@@ -3048,6 +3098,7 @@ class Executor:
                 line += f" — {b['what']}"
             if b.get("your_words"):
                 line += f" — you called it: {b['your_words']}"
+            line += self._since_words(b)
             if b.get("lifts"):
                 holds = pred_holds(b["lifts"], obs)
                 line += (f" — you said {json.dumps(b['lifts'])} lifts it: "
@@ -5523,6 +5574,8 @@ class Executor:
         if _m:
             self._last_map = str(_m)
         self._mark_now = self._world_mark(obs)
+        if (obs or {}).get("flags") is not None:
+            self._flags_now = sorted(str(f) for f in (obs.get("flags") or []))
         self._drop_what_a_thrown_away_world_did(obs)
         # ...AND WHERE IT WAS CARRIED. The mark at the last time the run stood
         # in each region, so a return can be judged against it (see
