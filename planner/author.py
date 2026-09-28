@@ -1398,6 +1398,28 @@ def detour_text(goal: str, run: Path = Path("run")) -> str:
             f"judge.")
 
 
+def earned_map_ids() -> list:
+    """The map ids the model may copy: the printed map's towns and roads and
+    its named places' entrances (pamphlet tier), and every map this run has
+    stood on. Never the engine's whole table (audit PT-9, 2026-09-28): that
+    was 222 names, FUCHSIA_GOOD_ROD_HOUSE and SILPH_CO_11F among them, in
+    every authoring prompt. Anything else is guessed and spell-checked."""
+    ids = set(MAP_EDGES) | {t for v in MAP_EDGES.values() for t in v.values()}
+    ids |= {i for places in (MAP_DOORS or {}).values() for v in places.values() for i in v[:1]}
+    ids |= {str(r).split("|")[0] for r in visited_regions()}
+    return sorted(i for i in ids if i in ROUTE_MAPS)
+
+
+def earned_maps_text() -> str:
+    return ("\n\nMAP IDs (use exact strings). The printed map's towns, roads and "
+            "named places, and every place this run has stood in:\n  "
+            + ", ".join(earned_map_ids())
+            + "\nA place not listed is written the same way: a floor as "
+              "_1F, _2F or _B1F after the building's name, a room as its "
+              "town's name and then the room's. A name this game does not "
+              "have is refused, and nothing more is said about it.")
+
+
 def build_prompt(goal: str, start: str | None = None) -> str:
     return (
         f"GOAL: {goal}\n\n"
@@ -1405,8 +1427,7 @@ def build_prompt(goal: str, start: str | None = None) -> str:
         f"PREDICATES you may use in done_when (pick the ONE that best marks "
         f"the subgoal complete):\n"
         + "\n".join(f"  {k}: {v}" for k, v in PREDICATES.items())
-        + "\n\nMAP IDs on this route (use exact strings):\n  "
-        + ", ".join(ROUTE_MAPS)
+        + earned_maps_text()
         + (edges_text() + doors_text() if holding_town_map()
            else "\n\nYou are not carrying a TOWN MAP. Kanto's layout — "
                 "which roads touch which, and what is named where — is "
@@ -2545,7 +2566,7 @@ def _check_pred(dw: dict, tag: str, sid, probs: list):
                     for alt in v:
                         _check_pred(alt, tag, sid, probs)
             elif k in ("map", "new_part") and v not in ROUTE_MAPS:
-                probs.append(f"{tag} ({sid}) map '{v}' not in the route list")
+                probs.append(f"{tag} ({sid}) map '{v}' is not a place this game has")
             elif k == "has_item" and isinstance(v, dict):
                 for item in v:
                     if ENGINE_ITEMS and item not in ENGINE_ITEMS \
@@ -2887,7 +2908,7 @@ def _check_pred_shapes(dw: dict, tag: str, sid, probs: list):
             mp = v.split("|", 1)[0]
             if ROUTE_MAPS and mp not in ROUTE_MAPS:
                 probs.append(f"{tag} ({sid}) area '{v}' names map '{mp}', "
-                             f"which is not in the route list")
+                             f"which is not a place this game has")
 
 
 def _obs_now(path="run/obs.json") -> dict:
@@ -9819,7 +9840,12 @@ def walked_ground_text(goals, observed=None) -> str:
     except Exception:
         seen = {}
     dims = _map_dims()
-    ids = set(dims) | set(seen) | set(visits) | set(ROUTE_MAPS)
+    # ONLY PLACES THE RUN HAS EARNED THE NAME OF (audit PT-10, 2026-09-28).
+    # This read the engine's whole map table, so "Obtain the Silph Scope
+    # from the Rocket Hideout" came back as ROCKET_HIDEOUT_B1F..B4F and the
+    # ELEVATOR, each "never stood in, 0/720 tiles seen": the floor count
+    # and each floor's size of a building never entered.
+    ids = set(seen) | set(visits) | set(earned_map_ids())
     lines = []
     # A BUILDING NAMED BY ITS KIND. "Retrieve the Pokemon from the Poke
     # Mart" names no town, so maps_named found nothing and the done rung
@@ -9862,7 +9888,8 @@ def walked_ground_text(goals, observed=None) -> str:
                     if _to and _to != mid and _to not in _dests:
                         _dests.append(_to)
             bits.append(f"{mid} " + ("never stood in" if not v else f"stood in {v}x")
-                        + (f", {s}/{tot[0] * tot[1]} tiles seen" if tot else f", {s} tiles seen")
+                        + (f", {s}/{tot[0] * tot[1]} tiles seen" if tot and v
+                           else f", {s} tiles seen" if s else "")
                         + (", and every way out of it you have ever taken "
                            "led to " + ", ".join(sorted(_dests)[:4])
                            if _dests else ""))

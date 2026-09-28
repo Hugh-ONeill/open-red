@@ -40,7 +40,13 @@ text = A.walked_ground_text([(38, "Navigate the Safari Zone"), (39, "Obtain the 
 ck("the Safari leg is shown its maps, stood-in counts and tiles seen",
    "38. Navigate the Safari Zone: SAFARI_ZONE_CENTER stood in 27x, 1440/1440 tiles seen" in text
    and "SAFARI_ZONE_EAST stood in 12x, 900/1440 tiles seen" in text)
-ck("...a map never stood in is said so", "CINNABAR_ISLAND never stood in, 0/360 tiles seen" in text)
+ck("...a map never stood in is said so, without its size (audit PT-10)",
+   "CINNABAR_ISLAND never stood in" in text and "0/360" not in text)
+A._MAP_DIMS.update({"ROCKET_HIDEOUT_B1F": (30, 28), "ROCKET_HIDEOUT_B4F": (30, 24)})
+_rh = A.walked_ground_text([(20, "Obtain the Silph Scope from the Rocket Hideout")],
+                           observed="run/explored.json")
+ck("...and a building never entered lists none of its floors (audit PT-10)",
+   "ROCKET_HIDEOUT" not in _rh)
 ck("...an objective naming no place gets no line", "39. Obtain the Secret Key" not in text)
 ck("...and the header says where the facts come from", "from the walked record" in text)
 ck("no places named, no paragraph", A.walked_ground_text([(1, "Defeat Koga")], observed="run/explored.json") == "")
