@@ -18988,7 +18988,20 @@ class Executor:
         _said = " ".join(str((after or {}).get(k) or "")
                          for k in ("recent_text", "last_text")).lower()
         _woke = str(((after or {}).get("map") or {}).get("id") or "")
+        # ...AND A PARTY THAT WENT IN WITH FAINTED MEMBERS AND CAME OUT
+        # WITH NONE WAS HEALED BY A BLACKOUT: no won fight revives anyone.
+        # Mt. Moon's Super Nerd, fought by a lone PIDGEY with three fainted
+        # behind it, recorded "lost": false and the blackout row came next
+        # (run 18, 2026-09-28; user: "it beat the super nerd and got the
+        # fossil so where could it have blacked out?").
+        _pb = (before or {}).get("party") or []
+        _revived = (bool(_pb) and len(_pb) == len(party) and not fainted
+                    and any((m.get("hp") or 0) <= 0 for m in _pb)
+                    # a blackout heals to FULL; a Revive used mid-fight does not
+                    and all((m.get("hp") or 0) >= (m.get("max_hp") or 1)
+                            for m in party))
         lost = ((bool(party) and len(fainted) == len(party))
+                or _revived
                 or "blacked out" in _said or "out of useable" in _said
                 or (("POKECENTER" in _woke or _woke == "REDS_HOUSE_2F")
                     and _woke != (getattr(self, "_last_overworld_map", None)
