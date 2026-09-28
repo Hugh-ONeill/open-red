@@ -398,6 +398,28 @@ def draw_activity(img, painter, y, act):
 TONE = {"good": ACCENT, "bad": RED, "think": YELLOW, "info": FG}
 
 
+def draw_live(img, painter, y0, height, cols, lt):
+    """The thought being written right now (brock_probe streams a thinking
+    call to run/thinking_live.txt), newest lines at the bottom."""
+    text, started, _ = lt
+    if height - y0 < 5 * LINE:
+        return
+    lines = []
+    for para in re.sub(r"[`*#]+", "", text).splitlines():
+        if para.strip():
+            lines += textwrap.wrap(para.strip(), cols - 1)
+    room = (height - y0 - LINE - 10) // LINE
+    shown = lines[-room:] if room > 0 else []
+    y = height - 4 - LINE * max(len(shown), 1) - LINE - 4
+    painter.text(img, 4, y, "THINKING, LIVE", YELLOW)
+    painter.text_right(img, y, "%s  %d chars" % (clock(time.time() - started), len(text)), DIM,
+                       right=img.width)
+    y += LINE + 2
+    for line in shown:
+        painter.text(img, 12, y, line, FG)
+        y += LINE
+
+
 def draw_events(img, painter, y0, height, cols):
     """The event feed (tools/events.py) in the column's free space, newest at
     the bottom like a chat, as many as fit."""
@@ -527,7 +549,11 @@ def render_status(text, painter, height, cols=COLS, act=None):
             painter.text(img, 12, y, line, col)
             y += LINE
         y += 4
-    draw_events(img, painter, y + 8, height, cols)
+    lt = feed.live_thought()
+    if lt and not lt[2]:
+        draw_live(img, painter, y + 8, height, cols, lt)
+    else:
+        draw_events(img, painter, y + 8, height, cols)
     return img
 
 
@@ -715,7 +741,8 @@ def main():
             if time.time() - act_at >= 1.0:        # the service log, once a second
                 act, act_at = model_activity(), time.time()
             # the age tick repaints "updated Ns ago" every 5 s even when idle
-            stamps = (stamp_of(OBS), stamp_of(STATUS), stamp_of(feed.FEED), stamp_of(feed.PHASE), win,
+            stamps = (stamp_of(OBS), stamp_of(STATUS), stamp_of(feed.FEED), stamp_of(feed.PHASE),
+                      stamp_of(feed.LIVE), win,
                       int(time.time()) // 5, activity_key(act))
             if stamps != last:
                 fresh = read_obs()

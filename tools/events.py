@@ -166,6 +166,7 @@ def from_party(before, after, badges_before, badges_after):
 # ------- chain.log (the authoring between attempts) -> events + phase
 
 CHAIN = os.path.join(RUN, "chain.log")
+LIVE = os.path.join(RUN, "thinking_live.txt")     # brock_probe writes it while a call thinks
 PHASE = os.path.join(os.path.dirname(FEED), "phase.json")
 
 LEG_AUTHOR = re.compile(r"^=== leg (\d+)/(\d+): authoring \S+ (.+)$")
@@ -233,6 +234,13 @@ def from_chain_line(line, phase):
         if m.group(1).startswith("VOID"):
             return "bad", "the model voided this leg"
         return None
+    if "terminated by signal" in line or line.startswith("=== chain stopped"):
+        was = phase.get("phase")
+        phase.update(phase="stopped", since=time.time())
+        return ("bad", "the chain stopped") if was != "stopped" else None
+    if line.startswith("[chain] model="):
+        phase.update(phase="playing", since=time.time())
+        return "info", "the chain is starting up"
     m = ATTEMPT.match(line)
     if m:
         was = phase.get("phase")
@@ -327,6 +335,13 @@ def follow(poll=0.5):
             changed |= json.dumps(phase, sort_keys=True) != before
         if changed:
             write_phase(phase)
+        # a thinking call in flight: a line from it every ~30 s, for the casters
+        lt = live_thought()
+        if lt and not lt[2] and time.time() - state.get("live_at", 0) > 30:
+            line = latest_line(lt[0])
+            if line and line != state.get("live_last"):
+                append("thinking", "round", "thinking (%ds in): %s" % (time.time() - lt[1], line))
+                state["live_last"], state["live_at"] = line, time.time()
         # the party
         try:
             s = os.stat(OBS).st_mtime_ns
@@ -343,6 +358,36 @@ def follow(poll=0.5):
                 if new_party:        # a blank read mid-write is not a lost team
                     party, badges = new_party, new_badges
         time.sleep(poll)
+
+
+def live_thought():
+    """(text, started, done) of run/thinking_live.txt, or None when there is
+    none. A file untouched for 20 s without its '# done' is a call that died."""
+    try:
+        st = os.stat(LIVE)
+        with open(LIVE, errors="replace") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return None
+    if not lines or not lines[0].startswith("# thinking since"):
+        return None
+    try:
+        started = float(lines[0].split()[3])
+    except (IndexError, ValueError):
+        started = st.st_mtime
+    done = bool(lines[-1].startswith("# ")) and len(lines) > 1
+    stale = time.time() - st.st_mtime > 20
+    body = "\n".join(l for l in lines[1:] if not l.startswith("# "))
+    return body, started, done or stale
+
+
+def latest_line(text):
+    """The last finished line of a trace worth quoting (bullets and markup off)."""
+    for line in reversed(text.splitlines()[:-1] or text.splitlines()):
+        line = re.sub(r"^[\s*\-0-9.)]+", "", line).replace("**", "").strip()
+        if len(line) > 12:
+            return line if len(line) <= 160 else line[:157] + "..."
+    return None
 
 
 def read_phase():
