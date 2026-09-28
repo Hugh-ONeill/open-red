@@ -1158,7 +1158,16 @@ labels. Pages 16-27 also walk Pallet to Pewter with item spots and Mart
 prices (pamphlet tier too). The Pokemon list (44-56) gives names and art,
 no types, so PT-34 stays a decision.
 
-- [ ] **PT-17b · the ruling's own work — open the gated channels.** Drop the
+- [~] **PT-17b · BUILT 2026-09-28 (4daa6a8), replay still owed.** The gate
+  helpers answer "held" unless RED_PRINTED_MAP=bag; PRINTED_MAP_HELD
+  defaults the same; the shim seam name too; the whole-map line reads THE
+  PRINTED MAP OF KANTO. Check 1 passed (doors_text names only printed-map
+  places, pinned in tests/the_printed_map_is_the_booklets_and_needs_no_item.py);
+  check 2 passed (edges are the game's adjacency, Rock Tunnel listed on
+  ROUTE_10, no booklet labels). Author prompt +3.3k chars. Open: whether to
+  also SAY the booklet's travel order (9 -> Rock Tunnel -> 10), which would
+  revisit the 2026-08-17 call that what a repeated door id means is the
+  model's to infer. Was: open the gated channels. Drop the
   TOWN_MAP gate (`holding_town_map()`, `PRINTED_MAP_HELD`, `_holding_town_map`)
   from `edges_text`/`doors_text`, `_atlas_text`, `_printed_road_line`,
   `printed_roads_words`, seam names in `model_view`, `static_cost`, and the
@@ -1168,7 +1177,7 @@ no types, so PT-34 stays a decision.
   Replay a stretch that leaned on it (Route 9/10 to Rock Tunnel).
 
 
-- [ ] **PT-17 · Low after the ruling (was High) · wording only — `static_hops` has no Town Map gate.**
+- [x] **PT-17 · resolved by PT-17b: the refusal already said "on the printed map" when held, and now it always is. Was: Low after the ruling · wording only — `static_hops` has no Town Map gate.**
   After the ruling the gate is not needed; what is left is the refusal's
   false clause "by the roads you have walked" (it is by the printed map):
   say "on the printed map". Original finding:
