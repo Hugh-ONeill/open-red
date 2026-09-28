@@ -18526,8 +18526,29 @@ class Executor:
         self._hold_drinks()
         _ahead = self._catch_ahead(obs, subgoal, name, _want0)
         _new = None
+        # ...BUT ASKED, NOT TAKEN FOR GRANTED. A later leg that a wild would
+        # answer is a reason to catch it, not a verdict: run 12 took a
+        # DROWZEE for "FIRE or PSYCHIC" without a word, and run 15, with no
+        # Pikachu, was set to throw at the first VOLTORB for "WATER or
+        # ELECTRIC" (user, 2026-09-28: "i dont want to end up with an
+        # exploding electrode in addition to an exploding graveler"). The
+        # new-species question shows which leg it answers, the level legs
+        # and the PC; a yes throws with the catch-ahead's ball cap, a no
+        # leaves it, and a yes kept from an earlier meeting still throws.
         if _ahead:
-            name, why = "catch", "a later objective on the outline"
+            _sp = str(((((obs or {}).get("battle") or {}).get("foe") or {})
+                       .get("species")) or "")
+            _prior = (getattr(self, "_new_species_asked", {}) or {}).get(_sp)
+            if isinstance(_prior, dict):
+                _yes = bool(_prior.get("catch"))
+            else:
+                _yes = bool(self._ask_new_species(obs, subgoal))
+            if not _yes:
+                self.log("catch_ahead_declined", subgoal=subgoal.get("id"),
+                         foe=_sp, legs=_ahead.get("legs"))
+                _ahead = None
+        if _ahead:
+            name, why = "catch", "a later objective on the outline, and you said catch it"
             _want0 = _ahead["want"]
         elif name != "catch":
             _new = self._ask_new_species(obs, subgoal)
