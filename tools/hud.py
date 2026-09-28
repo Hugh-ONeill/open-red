@@ -19,6 +19,16 @@ team over status in a narrow window) and redraws when the window is resized.
 
 In battle the Pokemon that is out is framed and carries its status (SLP, PSN,
 ...), and the foe gets a line of its own under the team.
+
+The MODEL line says what the model is doing this second: reading its prompt
+(with a bar), writing (tokens so far), THINKING when the executor journalled
+think_on for the call in flight, or ACTING while the harness plays. It reads the
+ollama service log (journalctl) once a second and the journal's tail. The free
+space at the bottom shows the END of the latest thinking trace
+(run/thinking.jsonl), which is where it lands on a decision.
+
+For the side-by-side layout with Hyprland's `opaque` rule, launch it as
+  kitty --class red-hud ~/Developer/red-recomp/tools/hud.py
 """
 import argparse
 import base64
@@ -26,6 +36,7 @@ import io
 import json
 import os
 import re
+import subprocess
 import sys
 import textwrap
 import time
@@ -35,6 +46,8 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 OBS = os.path.join(HERE, "..", "run", "obs.json")
 STATUS = os.path.join(HERE, "..", "run", "status.txt")
+JOURNAL = os.path.join(HERE, "..", "run", "executor_log.jsonl")
+THOUGHTS = os.path.join(HERE, "..", "run", "thinking.jsonl")
 ASSETS = os.path.expanduser(
     "~/.local/share/love/pokemon-love2d/red/assets/generated/")
 
@@ -141,8 +154,9 @@ class Painter:
             self.pics[species] = card
         return self.pics[species]
 
-    def bar(self, img, x, y, w, frac, h=4):
-        col = ACCENT if frac > 0.5 else YELLOW if frac > 0.2 else RED
+    def bar(self, img, x, y, w, frac, h=4, col=None):
+        """An HP-style bar; `col` pins the colour (progress is not health)."""
+        col = col or (ACCENT if frac > 0.5 else YELLOW if frac > 0.2 else RED)
         fill = int(w * max(0.0, min(1.0, frac)))
         for yy in range(h):
             for xx in range(w):
@@ -261,7 +275,157 @@ def file_age(path):
         return None
 
 
-def render_status(text, painter, height, cols=COLS):
+# ------- what the model is doing right now
+
+def tail_lines(path, nbytes=65536):
+    """The last complete lines of a file, read from its end."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - nbytes))
+            chunk = f.read().decode("utf-8", "replace")
+    except OSError:
+        return []
+    lines = chunk.splitlines()
+    return lines[1:] if size > nbytes else lines     # the first may be cut
+
+
+def thinking_pending():
+    """True while a thinking call is out: the executor journals think_on just
+    before one and escalate_proposal / think_logged just after it."""
+    for line in reversed(tail_lines(JOURNAL)):
+        if '"think_on"' in line:
+            return True
+        if '"escalate_proposal"' in line or '"think_logged"' in line:
+            return False
+    return False
+
+
+GEN = re.compile(r"n_gen =\s*(\d+), tg =\s*([\d.]+)")
+PROG = re.compile(r"prompt processing, n_tokens =\s*(\d+), progress = ([\d.]+)")
+
+
+def model_activity():
+    """The model's current call, from the ollama service log: None when the
+    log cannot be read, else a dict with phase reading / writing / idle."""
+    try:
+        out = subprocess.run(
+            ["journalctl", "-u", "ollama", "-n", "400", "-o", "short-unix",
+             "--no-pager", "-q"], capture_output=True, text=True, timeout=3).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    cur = None
+    for line in out.splitlines():
+        head, _, msg = line.partition(" ")
+        try:
+            t = float(head)
+        except ValueError:
+            continue
+        if "launch_slot_" in msg and "processing task" in msg:
+            cur = {"start": t}
+        elif cur is None:
+            continue
+        elif "new prompt" in msg:
+            m = re.search(r"task.n_tokens = (\d+)", msg)
+            cur["ptok"] = int(m.group(1)) if m else None
+        elif "prompt processing" in msg:
+            m = PROG.search(msg)
+            if m:
+                cur["progress"] = float(m.group(2))
+        elif "n_gen =" in msg:
+            m = GEN.search(msg)
+            if m:
+                cur["ngen"], cur["tps"] = int(m.group(1)), float(m.group(2))
+        elif "stop processing" in msg:
+            cur["end"] = t
+    if cur is None:
+        return {"phase": "idle", "since": None}
+    now = time.time()
+    if "end" in cur:
+        return {"phase": "idle", "since": now - cur["end"]}
+    act = {"phase": "writing" if "ngen" in cur else "reading",
+           "elapsed": now - cur["start"], "progress": cur.get("progress", 0.0),
+           "ngen": cur.get("ngen", 0), "tps": cur.get("tps"), "ptok": cur.get("ptok")}
+    act["thinking"] = thinking_pending()
+    return act
+
+
+def activity_key(act):
+    """What of the activity is worth a redraw (coarse, so it is not every poll)."""
+    if not act:
+        return None
+    if act["phase"] == "idle":
+        return ("idle", int((act.get("since") or 0) // 5))
+    return (act["phase"], act.get("thinking"), int(act["progress"] * 20),
+            act["ngen"] // 25, int(act["elapsed"] // 5))
+
+
+def last_thought():
+    for line in reversed(tail_lines(THOUGHTS, 400000)):
+        try:
+            return json.loads(line)
+        except ValueError:
+            continue
+    return None
+
+
+def draw_activity(img, painter, y, act):
+    """One line: MODEL and what it is doing, with a bar while it reads."""
+    painter.text(img, 4, y, "MODEL", ACCENT)
+    x = 52
+    if act is None:
+        painter.text(img, x, y, "log unreadable", DIM)
+        return
+    if act["phase"] == "idle":
+        since = act.get("since")
+        painter.text(img, x, y, "ACTING", ACCENT)
+        if since is not None:
+            painter.text(img, x + 56, y, "(idle %s)" % clock(since), DIM)
+        return
+    tag, col = ("THINKING", RED) if act.get("thinking") else (None, None)
+    if tag:
+        painter.text(img, x, y, tag, col)
+        x += 8 * len(tag) + 8
+    if act["phase"] == "reading":
+        label = "reading %d%%" % round(100 * act["progress"])
+        painter.text(img, x, y, label, YELLOW if not tag else DIM)
+        bx = x + 8 * len(label) + 8
+        bw = img.width - bx - 8 * 7
+        if bw > 16:
+            painter.bar(img, bx, y + 2, bw, act["progress"], h=4, col=YELLOW)
+    else:
+        label = "writing %d tok" % act["ngen"]
+        if act.get("tps"):
+            label += " %d/s" % round(act["tps"])
+        painter.text(img, x, y, label, FG)
+    painter.text_right(img, y, clock(act["elapsed"]), DIM, right=img.width)
+
+
+def draw_thought(img, painter, y0, height, cols, rec):
+    """The END of the latest thinking trace (where it concludes), filling the
+    column's free space from the bottom up."""
+    if not rec or height - y0 < 8 * LINE:
+        return
+    age = time.time() - rec.get("t", time.time())
+    head = "LAST THOUGHT"
+    info = "r%s  %s tok  %s ago" % (rec.get("round", "?"), rec.get("gtok", "?"), clock(age))
+    text = re.sub(r"[`*#]+", "", rec.get("thinking") or "")
+    lines = []
+    for para in text.splitlines():
+        lines += textwrap.wrap(para.strip(), cols - 1) if para.strip() else []
+    room = (height - y0 - LINE - 12) // LINE
+    shown = lines[-room:] if room > 0 else []
+    y = height - 4 - LINE * len(shown) - LINE - 4
+    painter.text(img, 4, y, head, ACCENT)
+    painter.text_right(img, y, info, DIM, right=img.width)
+    y += LINE + 2
+    for line in shown:
+        painter.text(img, 12, y, line, DIM)
+        y += LINE
+
+
+def render_status(text, painter, height, cols=COLS, act=None, thought=None):
     img = Image.new("RGB", (cols * 8 + 8, height), BG)
     if text is None:
         painter.text(img, 4, 4, "NO STATUS YET", DIM)
@@ -280,6 +444,8 @@ def render_status(text, painter, height, cols=COLS):
         painter.text_right(img, y, "updated %s ago" % clock(age), YELLOW if age > 120 else DIM,
                            right=img.width)
     y += LINE + 4
+    draw_activity(img, painter, y, act)
+    y += LINE + 6
     for key, label, col in rows:
         if y + 2 * LINE > height:
             painter.text(img, 4, height - LINE, "...", DIM)
@@ -292,6 +458,7 @@ def render_status(text, painter, height, cols=COLS):
             painter.text(img, 12, y, line, col)
             y += LINE
         y += 4
+    draw_thought(img, painter, y + 8, height, cols, thought)
     return img
 
 
@@ -306,7 +473,8 @@ def stack_width(cols):
     return max(W, cols * 8 + 8)          # team over status
 
 
-def render(obs, status_text, painter, layout="side", height=None, width=None):
+def render(obs, status_text, painter, layout="side", height=None, width=None,
+           act=None, thought=None):
     """layout "side": team | status, both `height` tall (at least the team's).
     layout "stack": team over status, the status filling down to `height`.
     `width` (1x pixels) widens the status column to fill it; the team column
@@ -315,14 +483,14 @@ def render(obs, status_text, painter, layout="side", height=None, width=None):
     if layout == "stack":
         cols = max(MIN_COLS, ((width or stack_width(COLS)) - 8) // 8)
         rest = max((height or 0) - team.height, 30 * LINE)
-        col = render_status(status_text, painter, rest, cols)
+        col = render_status(status_text, painter, rest, cols, act, thought)
         img = Image.new("RGB", (max(stack_width(cols), width or 0), team.height + col.height), BG)
         img.paste(team, (0, 0))
         img.paste(col, (0, team.height))
         return img
     cols = max(MIN_COLS, ((width or side_width(COLS)) - W - GUTTER - 8) // 8)
     h = max(team.height, height or 0)
-    col = render_status(status_text, painter, h, cols)
+    col = render_status(status_text, painter, h, cols, act, thought)
     img = Image.new("RGB", (max(side_width(cols), width or 0), h), BG)
     img.paste(team, (0, 0))
     img.paste(col, (team.width + GUTTER, 0))
@@ -407,13 +575,14 @@ def main():
     args = ap.parse_args()
     painter = Painter()
 
-    def frame_bytes(obs, status_text, win=None):
+    def frame_bytes(obs, status_text, win=None, act=None):
         team_h = TOP + ROW * 7 + 12
         layout, scale, height, width = fit(win, team_h)
         if args.scale:
             scale = args.scale
             height, width = (win[1] // scale, win[0] // scale) if win else (None, None)
-        img = render(obs, status_text, painter, layout, height, width)
+        img = render(obs, status_text, painter, layout, height, width,
+                     act, last_thought())
         img = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
         buf = io.BytesIO()
         img.save(buf, "PNG")
@@ -424,24 +593,27 @@ def main():
         if obs is None:
             sys.exit(f"cannot read {OBS}")
         with open(args.png, "wb") as f:
-            f.write(frame_bytes(obs, read_status()))
+            f.write(frame_bytes(obs, read_status(), act=model_activity()))
         return
 
     if os.environ.get("TERM") != "xterm-kitty":
         print("warning: not a kitty window; the image may not show "
               "(inside tmux, kitty graphics need allow-passthrough)", file=sys.stderr)
     sys.stdout.write("\x1b[2J\x1b[?25l")    # clear, hide the cursor
-    last, obs = None, None
+    last, obs, act, act_at = None, None, None, 0.0
     try:
         while True:
             win = window_pixels()
+            if time.time() - act_at >= 1.0:        # the service log, once a second
+                act, act_at = model_activity(), time.time()
             # the age tick repaints "updated Ns ago" every 5 s even when idle
-            stamps = (stamp_of(OBS), stamp_of(STATUS), win, int(time.time()) // 5)
+            stamps = (stamp_of(OBS), stamp_of(STATUS), stamp_of(THOUGHTS), win,
+                      int(time.time()) // 5, activity_key(act))
             if stamps != last:
                 fresh = read_obs()
                 obs = fresh if fresh is not None else obs
                 if obs is not None:
-                    kitty_show(frame_bytes(obs, read_status(), win))
+                    kitty_show(frame_bytes(obs, read_status(), win, act))
                     last = stamps
             time.sleep(args.poll)
     except KeyboardInterrupt:
