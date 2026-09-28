@@ -20415,6 +20415,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         model happened to include don't poison the macro and break replay."""
         done = sg.get("done_when")
         trace, clean = [], []
+        self._macro_end_map = None
         for _mi, step in enumerate(macro):
             self._stop_if_asked()
             step = dict(step)
@@ -20429,6 +20430,34 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if obs and obs.get("mode") == "battle":
                 obs = self.handle_battle(sg, obs)
                 obs = self.settle()
+            # A STEP THAT LANDS ON A WAY OFF THE FLOOR CARRIES YOU AFTER IT
+            # HAS RETURNED. walk_to(5,5) on Mt. Moon 1F stood on the ladder,
+            # read "ok", and the game took the party down to B1F a frame
+            # later; the next op, use_warp(5,5) written for 1F, ran on B1F,
+            # where (5,5) is the landing ladder, and went straight back up.
+            # The page said "back where you came from ... NOTHING ABOUT YOU
+            # HAS CHANGED", both directions were ledgered as taken, and a new
+            # ladder read as spent (run 18, 2026-09-28; user: "it thought to
+            # use the 5,5 ladder then went to it but didnt seem to go down";
+            # "it really loves going back to where it just was but seems to
+            # dislike trying new things"). The rest of a macro was written
+            # for the map it started on: once the game moves the party, stop.
+            _now_map = ((obs or {}).get("map") or {}).get("id")
+            if (_mi > 0 and self._macro_end_map and _now_map
+                    and _now_map != self._macro_end_map):
+                self.log("macro_cut_map_moved", subgoal=sg.get("id"),
+                         was=self._macro_end_map, now=_now_map,
+                         dropped=len(macro) - _mi)
+                if trace:
+                    trace[-1] = (f"{trace[-1]} — and then the game carried you "
+                                 f"onto {self._where(obs)}: that step ended on "
+                                 f"a way off {self._macro_end_map}")
+                trace.append(
+                    f"— stopped here: you are now on {_now_map}, and the "
+                    f"{len(macro) - _mi} step(s) after that were written for "
+                    f"{self._macro_end_map}, so they were not made; choose "
+                    f"them again from where you stand.")
+                break
             if not ignore_done and pred_holds(done, obs):
                 return True, trace, clean
             if when and not pred_holds(when, obs):
@@ -21443,6 +21472,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     self._stamp_touch(_hr)
                     self._mark_touch(_hr, step["name"], obs)
             after = self._snapshot(obs)
+            self._macro_end_map = after[0]
             # A MAP OF None IS A MID-TRANSITION READ, NOT A PLACE. An op
             # that ends while a menu or a warp fade is still up snapshots
             # map=None, and the note then told the model "ok (map->None)" —
