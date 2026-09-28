@@ -1324,6 +1324,104 @@ def _failed_walk_places(goal: str, run: Path = Path("run")) -> list:
     return places
 
 
+def _failed_walk_history(goal: str, run: Path = Path("run")) -> tuple:
+    """(plans, places): how many of this objective's plans failed a walk,
+    and every map they failed to walk to, since the last event that was not
+    a numbered trainer beaten on the way (the world those plans failed in
+    is gone after one)."""
+    try:
+        lines = (run / "executor_log.jsonl").read_text().splitlines()[-40000:]
+    except OSError:
+        return 0, set()
+    rows = []
+    for l in lines:
+        try:
+            rows.append(json.loads(l))
+        except ValueError:
+            continue
+    bare = lambda t: _DOUBT_NOTE.sub("", str(t or "")).strip().lower()
+    last_event = max((i for i, r in enumerate(rows) if r.get("kind") == "flag_fired"
+                      and not re.match(r"^EVENT_BEAT_[A-Z0-9_]*_TRAINER_\d+$",
+                                       str(r.get("flag") or ""))), default=-1)
+    starts = [i for i, r in enumerate(rows) if r.get("kind") == "plan_start"]
+    n, places = 0, set()
+    for k, i0 in enumerate(starts):
+        if i0 < last_event or bare(rows[i0].get("goal")) != bare(goal):
+            continue
+        i1 = starts[k + 1] if k + 1 < len(starts) else len(rows)
+        tgt, failed = {}, set()
+        for r in rows[i0:i1]:
+            if r.get("kind") == "escalate_context" and r.get("subgoal") and r.get("target"):
+                tgt[r["subgoal"]] = str(r["target"])
+            if ((r.get("kind") == "escalate_end" and r.get("success") is False)
+                    or r.get("kind") in ("chain_subgoal_failed",
+                                         "subgoal_failed_continuing",
+                                         "gate_subgoal_failed")):
+                kind, _, val = tgt.get(r.get("subgoal"), "").partition(":")
+                if kind in ("map", "area", "new_part") and val:
+                    failed.add(val.split("|")[0])
+        if failed:
+            n += 1
+            places |= failed
+    return n, places
+
+
+def new_ground_problems(plan: dict, goal: str | None = None,
+                        run: Path = Path("run")) -> list:
+    """After two plans for an objective have failed a walk, a rewrite has to
+    take in ground this run has never stood on.
+
+    A PLAN THAT TRIES NOTHING NEW CANNOT FIND WHAT IT HAS NOT SEEN. Run 18's
+    ticket leg failed walking to Vermilion, and every rewrite reached it by
+    another road ("via Route 9", "via Route 5"), each refused as the same
+    walk, until the ladder pushed the leg; meanwhile Route 24's east side,
+    the one open way, was never crossed in hours spent standing on it (user,
+    2026-09-28: "it really loves going back to where it just was but seems
+    to dislike trying new things"; "we cant just have the harness drive
+    it"). So nothing is walked for it and no place is named as the answer:
+    the plan must include a step onto a map never stood on, or a new part of
+    one, other than the places it already failed to reach. Which, and why,
+    is the model's; the candidates listed are the run's own record."""
+    goal = goal if goal is not None else _AUTHORING_GOAL
+    if not goal:
+        return []
+    try:
+        n, failed = _failed_walk_history(goal, run)
+    except Exception:
+        return []
+    if n < 2:
+        return []
+    stood = {str(r).split("|")[0] for r in visited_regions()}
+
+    def _new(dw) -> bool:
+        if not isinstance(dw, dict):
+            return False
+        if isinstance(dw.get("new_part"), str):
+            return True
+        for k in ("map", "area"):
+            v = dw.get(k)
+            if isinstance(v, str) and v:
+                m = v.split("|")[0]
+                if m not in stood and m not in failed:
+                    return True
+        return any(_new(a) for a in (dw.get("any_of") or []))
+
+    if any(_new((s or {}).get("done_when")) for s in (plan.get("subgoals") or [])):
+        return []
+    unwalked = sorted({t for m in stood for t in (MAP_EDGES.get(m) or {}).values()
+                       if t not in stood and t not in failed})
+    leads = untried_leads(run, skip_maps=failed)
+    return [f"this objective's plans have failed walking to "
+            f"{', '.join(sorted(failed))} {n} times, and this plan walks only "
+            f"on ground the run has already stood on. A plan for it now has to "
+            f"take in somewhere never stood on (a map, or a new part of one) "
+            f"other than those; which, and why, is yours."
+            + (" Maps the printed map joins to ones you have walked, never stood "
+               "on: " + ", ".join(unwalked[:8]) + "." if unwalked else "")
+            + (" Walked places with something never tried: "
+               + "; ".join(leads) + "." if leads else "")]
+
+
 def failed_walk_text(goal: str, run: Path = Path("run")) -> str:
     """The places this objective's last plan failed to walk to, from the
     journal, for the author writing the next one.
@@ -2391,6 +2489,8 @@ def validate(plan: dict) -> list:
                  for p in probs]
     probs += inserted_leg_problems(plan)
     probs += same_failed_walk_problems(plan)
+    if not any("this is the same walk" in p for p in probs):
+        probs += new_ground_problems(plan)
     return probs
 
 
