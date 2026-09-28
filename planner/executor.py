@@ -5574,9 +5574,9 @@ class Executor:
         if _m:
             self._last_map = str(_m)
         self._mark_now = self._world_mark(obs)
+        self._drop_what_a_thrown_away_world_did(obs)
         if (obs or {}).get("flags") is not None:
             self._flags_now = sorted(str(f) for f in (obs.get("flags") or []))
-        self._drop_what_a_thrown_away_world_did(obs)
         # ...AND WHERE IT WAS CARRIED. The mark at the last time the run stood
         # in each region, so a return can be judged against it (see
         # _unchanged_return_note).
