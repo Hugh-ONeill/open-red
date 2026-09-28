@@ -7846,6 +7846,17 @@ def next_objective_text(goal: str, plans: Path = Path("plans")) -> str:
             f"line asks for is not part of it.")
 
 
+# words that name a role, a kind of place or a verb, never a person: "the gym
+# leader of the second gym" must not match every GYM guide never spoken to
+_UNTOUCHED_STOP = {
+    "THE", "AND", "FROM", "WITH", "FOR", "HIS", "HER", "THEIR", "CITY", "TOWN",
+    "ROUTE", "HOUSE", "ROOM", "FLOOR", "GYM", "LEADER", "GUIDE", "TRAINER",
+    "TRAINERS", "BADGE", "POKEMON", "CENTER", "MART", "NURSE", "CLERK", "GIRL",
+    "BOY", "MAN", "WOMAN", "GUY", "OLD", "LADY", "FIRST", "SECOND", "THIRD",
+    "TEAM", "TALK", "SPEAK", "GET", "OBTAIN", "RETRIEVE", "HELP", "GIVE",
+    "FIND", "REACH", "DEFEAT", "BATTLE", "BEAT", "USE", "ENTER", "EXIT"}
+
+
 def untouched_named(text: str, observed=None) -> list:
     """(region, name) for things the run has SEEN and never pressed whose
     name holds a word the text names — "Talk to Bill" and BILLSHOUSE_BILL1.
@@ -7859,9 +7870,7 @@ def untouched_named(text: str, observed=None) -> list:
     except (OSError, ValueError, TypeError):
         return []
     words = {w for w in re.findall(r"[A-Z]{3,}", str(text or "").upper())
-             if w not in {"THE", "AND", "FROM", "WITH", "CITY", "TOWN", "ROUTE",
-                          "HOUSE", "TALK", "SPEAK", "GET", "OBTAIN", "RETRIEVE",
-                          "HELP", "GIVE", "FIND", "REACH", "DEFEAT"}}
+             if w not in _UNTOUCHED_STOP}
     if not words:
         return []
     out = []
