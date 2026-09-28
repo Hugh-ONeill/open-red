@@ -1257,6 +1257,58 @@ def last_leg_left_you(run: Path = Path("run"), plans: Path = Path("plans")) -> s
     return out
 
 
+def failed_walk_text(goal: str, run: Path = Path("run")) -> str:
+    """The places this objective's last plan failed to walk to, from the
+    journal, for the author writing the next one.
+
+    THE REWRITE AIMED AT THE SAME WALL. Run of record 13 wrote three plans
+    for "Retrieve the S.S. Ticket" after the first failed walking to
+    VERMILION_CITY, and all three walked to VERMILION_CITY; run 14 did it
+    again with Bill's quest one press from done. Rewording the objective
+    toward that place has been refused since 2026-09-27; the plan itself
+    was never told. Evidence the run earned; it names no other way."""
+    try:
+        lines = (run / "executor_log.jsonl").read_text().splitlines()[-6000:]
+    except OSError:
+        return ""
+    rows = []
+    for l in reversed(lines):
+        try:
+            r = json.loads(l)
+        except ValueError:
+            continue
+        rows.append(r)
+        if r.get("kind") == "plan_start":
+            break
+    rows.reverse()
+    if not rows or rows[0].get("kind") != "plan_start":
+        return ""
+    bare = lambda t: _DOUBT_NOTE.sub("", str(t or "")).strip().lower()
+    if bare(rows[0].get("goal")) != bare(goal):
+        return ""
+    tgt, bad = {}, []
+    for r in rows:
+        if r.get("kind") == "escalate_context" and r.get("subgoal") and r.get("target"):
+            tgt[r["subgoal"]] = str(r["target"])
+        if ((r.get("kind") == "escalate_end" and r.get("success") is False)
+                or r.get("kind") in ("chain_subgoal_failed",
+                                     "subgoal_failed_continuing",
+                                     "gate_subgoal_failed")):
+            if r.get("subgoal") and r["subgoal"] not in bad:
+                bad.append(r["subgoal"])
+    places = []
+    for sid in bad:
+        kind, _, val = tgt.get(sid, "").partition(":")
+        if kind in ("map", "area", "new_part") and val:
+            places.append((sid, val.split("|")[0]))
+    if not places:
+        return ""
+    return ("\n\nYOUR LAST PLAN FOR THIS OBJECTIVE FAILED WALKING TO: "
+            + "; ".join(f"{v} (step {sid})" for sid, v in places)
+            + ". A plan that walks to the same place meets the same wall "
+              "unless something has changed since.")
+
+
 def openable_ways_text(run: Path = Path("run")) -> str:
     """Bushes the run has stood beside with ground past them no walk
     reaches, while a party Pokemon knows CUT: the escalation page's "every
@@ -1342,6 +1394,7 @@ def build_prompt(goal: str, start: str | None = None) -> str:
         + recent_events()
         + outline_so_far()
         + last_leg_left_you()
+        + failed_walk_text(goal)
         + openable_ways_text()
         + detour_text(goal)
         + objective_history_text(goal)
@@ -7619,6 +7672,16 @@ _INFERRED = re.compile(
     # by its own trace, not by where it sits in a remembered sequence.
     r"(?:which|that|this|it) (?:only )?(?:occurs|happens|comes|takes place) "
     r"(?:only )?(?:after|before|once)\b|"
+    # ...AND "ONLY POSSIBLE AFTER" IS THE SAME CLAIM. "Rescue Bill from the
+    # cave on Route 25" was crossed off on "The player has entered Bill's
+    # house, which is only possible after rescuing Bill" — no cave, no
+    # rescue, the Cell Separator never run, and the ticket never given (run
+    # of record 14, 2026-09-28). Entering a place is its own trace; what the
+    # game supposedly required first is a remembered rule.
+    r"(?:is|are|was|were|be) (?:only )?(?:possible|accessible|available|"
+    r"reachable|allowed) (?:only )?(?:after|once|when|if)\b|"
+    r"(?:can|could) only (?:be )?(?:\w+ )?(?:after|once)\b|"
+    r"which means|meaning that|this means|it follows|therefore|thus|hence|"
     # ...AND GAME LORE IS INFERENCE TOO. The missing rung put "Defeat all
     # trainers on the S.S. Anne" in front of the captain's cabin because
     # not having done so "is typical" (run 16, 2026-09-07) — no sailor
@@ -7670,6 +7733,13 @@ def _record_fact_named(why, obs_path="run/obs.json") -> str:
         isq = re.sub(r"[^A-Z]+", "", str(it).upper())
         if len(isq) >= 6 and not isq.startswith(("TM", "HM")) and isq in sq:
             return f"{it} in the bag"
+    # ...AND WHO IS IN THE PARTY. A type or species objective is answered by
+    # a member ("IVYSAUR is a GRASS type, which means ..."), and the party
+    # is on the record the same way the bag is.
+    for m in cur.get("party") or []:
+        sp = re.sub(r"[^A-Z]+", "", str((m or {}).get("species") or "").upper())
+        if len(sp) >= 4 and sp in sq:
+            return f"{m.get('species')} in the party"
     return ""
 
 
@@ -8119,6 +8189,16 @@ def _thing_unknown(objective: str) -> "str | None":
     return key
 
 
+_GET_VERBS = {"obtain", "retrieve", "get", "receive", "collect", "find",
+              "acquire", "pick"}
+
+
+def _deed_class(text: str) -> str:
+    """The first verb of an objective, with the getting verbs as one."""
+    v = (_norm_obj(_DOUBT_NOTE.sub("", str(text or ""))).split() or [""])[0]
+    return "get" if v in _GET_VERBS else v
+
+
 def check_missing(goal: str, ahead: list, start: str, model: str,
                   behind: list = (), observed=None, tries: int = 3,
                   journal=None) -> str:
@@ -8201,10 +8281,22 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             # indistinguishable from a rung never asked.
             print(f"[missing] none: {_why}", file=sys.stderr)
             return ""
-        if _norm_obj(ins) in listed:
+        # ...AND THE SAME DEED IN OTHER WORDS IS ALREADY LISTED. "Obtain the
+        # S.S. Ticket" was inserted in front of a list that held "Retrieve
+        # the S.S. Ticket" further down, the pushes that followed put the
+        # ticket behind Vermilion, and the run of record 14 went nowhere for
+        # hours (2026-09-28). Same things named, same kind of verb (see the
+        # REWORD rule below): the same line.
+        _same = next((t for _n, t in ahead
+                      if _names(ins) and _names(t) == _names(ins)
+                      and _deed_class(t) == _deed_class(ins)), None)
+        if _norm_obj(ins) in listed or _same:
             print(f"[missing] turned down {ins!r}: already on your own "
-                  f"list — {_why}", file=sys.stderr)
-            turned_down.append((ins, "already on your own list"))
+                  f"list" + (f" as {_same!r}" if _same and _norm_obj(ins)
+                             not in listed else "") + f" — {_why}",
+                  file=sys.stderr)
+            turned_down.append((ins, "already on your own list"
+                                + (f" as \"{_same}\"" if _same else "")))
             continue
         _first = _norm_obj(ins)
         if any(_first == v or _first.startswith(v + " ") for v in _ARRIVAL_VERBS):
