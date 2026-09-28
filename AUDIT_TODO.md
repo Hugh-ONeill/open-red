@@ -981,28 +981,28 @@ Scripts set flags silently: `run/explored.json` already holds
 handed over, whose name announces a Route 22 rival fight that has not
 happened. Flag NAMES, and flag COUNTS, are not on any screen.
 
-- [~] **PT-1 · STAGED 2026-09-28 in pending_next_stop/tier6 (6a filter) · · High · CHECKED — `check_missing` prints every RAM flag.**
+- [~] **PT-1 · APPLIED 2026-09-28 (1e656a4..76310e8) (6a filter) · · High · CHECKED — `check_missing` prints every RAM flag.**
   `author.py:8389` `done = sorted(obs["flags"])` → "WHAT THE GAME HAS
   RECORDED YOU DOING (N events): …" (first 60, alphabetical). Bypasses even
   `fired_flags()` (`:1023`, "the only flag names the harness may volunteer").
-- [~] **PT-2 · STAGED 2026-09-28 in pending_next_stop/tier6 (6a filter) · · High · CHECKED — `_events_bearing` reads raw `obs.flags`.**
+- [~] **PT-2 · APPLIED 2026-09-28 (1e656a4..76310e8) (6a filter) · · High · CHECKED — `_events_bearing` reads raw `obs.flags`.**
   `author.py:7544-7566`; docstring says "EVENTS THIS RUN HAS FIRED".
   Reaches `check_already_done` (8023), `check_done` (10523/10659) as
   "EVENTS ALREADY RECORDED THAT MENTION THIS OBJECTIVE'S OWN WORDS", and
   steers silently: check_done's place guard (10620-10645),
   `_record_fact_named` (7804), `void_refused_why` (9301-9307).
-- [~] **PT-3 · STAGED 2026-09-28 in pending_next_stop/tier6 (6a filter) · · High · REPORTED — flag names printed verbatim as "fired".**
+- [~] **PT-3 · APPLIED 2026-09-28 (1e656a4..76310e8) (6a filter) · · High · REPORTED — flag names printed verbatim as "fired".**
   `author.py:1043` `recent_events`, `:3785/3864` "WHERE EVENTS ACTUALLY
   FIRED"; `executor.py:13770` `_fired_text` ("EVENT_ROUTE22_RIVAL_WANTS_BATTLE
   (fired in OAKS_LAB|4,1)" — its own docstring calls it "the game's own
   record that somebody is waiting on Route 22").
-- [~] **PT-4 · STAGED 2026-09-28 in pending_next_stop/tier6 (6a filter (names; counts stay raw)) · · Medium · REPORTED — flag diffs in blocker rows and op trace.**
+- [~] **PT-4 · APPLIED 2026-09-28 (1e656a4..76310e8) (6a filter (names; counts stay raw)) · · Medium · REPORTED — flag diffs in blocker rows and op trace.**
   `executor.py:2940` `_since_words` / `author.py:3894` "SINCE IT TURNED YOU
   BACK N event(s) have fired (including: EVENT_…)", and a hidden flip marks
   the blocker "may answer differently now"; `executor.py:22527` macro cut
   "stopped here: that press changed the world (EVENT_X)" — the cut itself
   fires on a hidden change.
-- [~] **PT-5 · STAGED 2026-09-28 in pending_next_stop/tier6 (6a filter covers the names; the RAM-truth notes remain) · · Medium · REPORTED — flag state as referee leak.**
+- [~] **PT-5 · APPLIED 2026-09-28 (1e656a4..76310e8) (6a filter covers the names; the RAM-truth notes remain) · · Medium · REPORTED — flag state as referee leak.**
   `executor.py:13718` `_reset_flag_note` "HAS FIRED ONCE ALREADY … NOT set
   now"; `executor.py:3102` "THAT HOLDS NOW" on a model-written flag
   predicate; `author.py:2977` `witness_holds_now` "ALREADY HOLDS where the
@@ -1014,7 +1014,7 @@ happened. Flag NAMES, and flag COUNTS, are not on any screen.
   the model is never shown the list, so a yes/no on a guessed name like
   EVENT_BEAT_GHOST_MAROWAK is new information. Either show the vocabulary
   it is allowed to spell against, or drop the stem message.
-- [~] **PT-7 · STAGED 2026-09-28 in pending_next_stop/tier6 (counts left raw on purpose: stamped in saved records) · · Medium · REPORTED — the flag COUNT steers the ledger.**
+- [~] **PT-7 · APPLIED 2026-09-28 (1e656a4..76310e8) (counts left raw on purpose: stamped in saved records) · · Medium · REPORTED — the flag COUNT steers the ledger.**
   `ledger.py:1085` "(said before N event(s) that have fired since)";
   `executor.py:7892` `_world_mark` includes `len(obs.flags)`, read at
   `ledger.py:841/847/1249` to decide reopened / worth_a_word / inert.
@@ -1054,7 +1054,7 @@ real form.
 
 ### 6b. Warp table and map table for places never entered
 
-- [~] **PT-9 · STAGED 2026-09-28 in pending_next_stop/tier6 · · High · CHECKED — `ROUTE_MAPS` in every authoring prompt,
+- [~] **PT-9 · APPLIED 2026-09-28 (1e656a4..76310e8) · · High · CHECKED — `ROUTE_MAPS` in every authoring prompt,
   ungated.** (2026-09-28: it is all 222 maps, alphabetical, from AGATHAS_ROOM
   to HALL_OF_FAME. Honest list: printed-map places (6c ruling) + maps the
   run has stood on; other exact strings are the spell-check validator's.)
@@ -1072,14 +1072,14 @@ real form.
   POKEMON_TOWER_7F, ROCKET_HIDEOUT_B4F, SEAFOAM_ISLANDS_B4F). "on this
   route" also implies each is on the way. The Town Map gate one line later
   does not cover it.
-- [~] **PT-10 · STAGED 2026-09-28 in pending_next_stop/tier6 · · High · VERIFIED — `walked_ground_text` is a map directory.**
+- [~] **PT-10 · APPLIED 2026-09-28 (1e656a4..76310e8) · · High · VERIFIED — `walked_ground_text` is a map directory.**
   `author.py:9786-9841` `ids = set(_map_dims()) | …` = every map. Live:
   "Obtain the Silph Scope from the Rocket Hideout" → "ROCKET_HIDEOUT_B1F
   never stood in, 0/840 tiles seen; … B4F 0/720; ROCKET_HIDEOUT_ELEVATOR
   never stood in, 0/48". Reaches check_already_done, check_done,
   sweep_already_done. The "never a directory" comment at 9794 holds only
   for `_KINDS`.
-- [~] **PT-11 · STAGED 2026-09-28 in pending_next_stop/tier6 (walked or signed only) · · High · REPORTED — `door_dests` ("INTERNAL, never printed",
+- [~] **PT-11 · APPLIED 2026-09-28 (1e656a4..76310e8) (walked or signed only) · · High · REPORTED — `door_dests` ("INTERNAL, never printed",
   `executor.py:2239`) is printed.** Filled from the whole map's warp table
   (`executor.py:7089`). `author.py:9442` `held_doors_into` →
   "SAFFRON_CITY door 18,21 -> SILPH_CO_1F" into the author re-ask
@@ -1249,12 +1249,12 @@ harness says (PT-41 below).
 
 ### 6d. Collision grid beyond what was on screen
 
-- [~] **PT-22 · STAGED 2026-09-28 in pending_next_stop/tier6 (all_seen required; measure Diglett at the stop) · · Medium · REPORTED — "sealed pocket" floods unseen cells.**
+- [~] **PT-22 · APPLIED 2026-09-28 (1e656a4..76310e8) (all_seen required; measure Diglett at the stop) · · Medium · REPORTED — "sealed pocket" floods unseen cells.**
   `shim.lua:1436-1459` `pocket_of` → `ledger.py:2962` "N cell(s) you have
   seen here lie in pockets with no doorway … nothing on this floor leads
   onto them"; those cells also drop out of seen_unreached. `cut_tree.opens`
   uses the real grid past the bush.
-- [~] **PT-23 · STAGED 2026-09-28 in pending_next_stop/tier6 (no side ruled out while reachable ground is unseen) · · Medium · REPORTED — `connections_reach` from the full flood.**
+- [~] **PT-23 · APPLIED 2026-09-28 (1e656a4..76310e8) (no side ruled out while reachable ground is unseen) · · Medium · REPORTED — `connections_reach` from the full flood.**
   `shim.lua:3090-3146` (never downgraded to seen reach) → `ledger.py:1436`
   "no ground you can walk to from here touches that side of this map".
 - [ ] **PT-24 · Medium · REPORTED — boulder switch names its barrier early.**
@@ -1373,7 +1373,7 @@ harness says (PT-41 below).
   136, 264`: Agatha's Gengar, Kabutops vs Lorelei, Erika). Arena tier,
   the same fights the author's feedback already narrates; follows PT-37.
   SETUP_DOC (live executor prompts 22704/22724) is clean anyway.
-- [~] **PT-39 · STAGED 2026-09-28 in pending_next_stop/tier6 (deleted outright (user: why say anything)) · · Medium · CHECKED — system prompt: "no gym in this game needs
+- [~] **PT-39 · APPLIED 2026-09-28 (1e656a4..76310e8) (deleted outright (user: why say anything)) · · Medium · CHECKED — system prompt: "no gym in this game needs
   a field move".** `author.py:630`. Walkthrough claim that steers leg
   content; arguably false for Vermilion (the CUT tree).
 - [ ] **PT-40 · Latent — `model_view` does not strip `battle.foe.{hp,
@@ -1388,7 +1388,7 @@ The booklet is more generous than the harness assumed, and the map was
 not the only case. These are hiding, not pointing: the model is entitled
 to them from the first prompt.
 
-- [~] **PT-41 · STAGED 2026-09-28 in pending_next_stop/tier6 (booklet_items.py) · · Medium · CHECKED — the item vocabulary is seven lines;
+- [~] **PT-41 · APPLIED 2026-09-28 (1e656a4..76310e8) (booklet_items.py) · · Medium · CHECKED — the item vocabulary is seven lines;
   the booklet's is four pages.** `author.py:307` `KEY_ITEMS` gives the
   author POKE_BALL, POTION, ANTIDOTE, PARLYZ_HEAL, BURN_HEAL, ESCAPE_ROPE,
   REPEL and nothing else (the comment at `:353` calls it "a seven-entry
