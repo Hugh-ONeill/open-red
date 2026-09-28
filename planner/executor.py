@@ -9621,6 +9621,43 @@ class Executor:
         except Exception:
             return ""
 
+    def _wild_unknown_words(self, here_map, fought: set) -> str:
+        """Wild ground seen and never fought on, and walked routes where
+        none has been on screen yet — said as what has been SEEN.
+
+        SILENCE WAS READ AS "NONE". The wild lines named only the floor you
+        stand on and ground where wilds were FOUGHT, so run of record 17,
+        having beaten Route 24's bridge trainers and seen 50 of its 720
+        cells, wrote "Route 24 has no wild grass" and walked back to Mt. Moon
+        to train (2026-09-28). What is on screen is the run's own record;
+        what is not is said to be unknown, never absent."""
+        try:
+            ws = getattr(self, "_wild_seen", None) or {}
+            seen_unfought = sorted(
+                m for m, c in ws.items()
+                if m != here_map and m not in fought
+                and (int((c or {}).get("grass") or 0) or int((c or {}).get("cave") or 0)))
+            walked = sorted({str(r).split("|")[0] for r in (self.visits or {})})
+            none_yet = [m for m in walked
+                        if m.startswith("ROUTE_") and m != here_map
+                        and m not in ws and m not in fought]
+        except Exception:
+            return ""
+        out = ""
+        if seen_unfought:
+            def _cnt(m):
+                g = int((ws[m] or {}).get("grass") or 0)
+                return (f"{g} cell(s) of tall grass" if g else
+                        f"{int((ws[m] or {}).get('cave') or 0)} cell(s) of cave floor")
+            out += ("; WILD GROUND YOU HAVE SEEN AND NEVER FOUGHT ON: "
+                    + ", ".join(f"{m} ({_cnt(m)})" for m in seen_unfought[:8]))
+        if none_yet:
+            out += ("; ROUTES YOU HAVE WALKED WHERE NO WILD GROUND HAS COME ON "
+                    "SCREEN YET: " + ", ".join(none_yet[:8])
+                    + " — that is what you have seen of them, not what is "
+                      "there; whether they have any is not known")
+        return out
+
     def _wild_elsewhere_fought_note(self, here_map, obs) -> str:
         """What the wild ground on OTHER maps has paid, for comparison.
 
@@ -9650,8 +9687,9 @@ class Executor:
                 _per = (int(_g.get("exp", 0)) // int(_g["n"])) if _g.get("n") \
                     else None
                 rows.append((_hop if _hop is not None else 99, _m, _wl, _per))
+            _unfought = self._wild_unknown_words(here_map, {r[1] for r in rows})
             if not rows:
-                return ""
+                return (". " + _unfought.lstrip("; ")) if _unfought else ""
             rows.sort()
             _bits = []
             # ...AND "0 EXP PER GRIND" OFF ONE SAMPLE IS NOT A VERDICT.
@@ -9695,7 +9733,8 @@ class Executor:
             return (". WILD GROUND ELSEWHERE YOU HAVE ALREADY FOUGHT ON: "
                     + "; ".join(_bits)
                     + ("; and further off, the levels alone: "
-                       + ", ".join(_rest) if _rest else ""))
+                       + ", ".join(_rest) if _rest else "")
+                    + _unfought)
         except Exception:
             return ""
 
@@ -18240,7 +18279,9 @@ class Executor:
                     for x in ((self.plan or {}).get("subgoals") or [])
                     if isinstance(x, dict)}
             lines.insert(2, "CARRIED  " + "; ".join(
-                f"{c} NOT achieved {json.dumps(_dws.get(c) or {})}"
+                # rendered as the page renders it: no DVs / OT id on a screen
+                # a stream shows (pred_text.for_model)
+                f"{c} NOT achieved {pred_text.dumps(_dws.get(c) or {})}"
                 for c in _carried) + " : carried past, this step is tried anyway")
         try:
             (RUN / "status.txt").write_text("\n".join(lines) + "\n")
@@ -22346,6 +22387,30 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         note += (" — that was the door you came in by (a "
                                  "doorway's tiles are ONE door): you are back "
                                  f"on {_land}, where you came from")
+                except Exception:
+                    pass
+            # ...AND A CROSSING THAT UNDOES THE LAST ONE. Run of record 17's
+            # step read "Travel west from Pewter City, crossing Route 3": it
+            # crossed east onto Route 3, then "west" off Route 3's west edge
+            # straight back into Pewter, three round trips, and each reply
+            # said only "crossed — now on PEWTER_CITY" (2026-09-28). The
+            # warp note above says this for doors; a seam says it too.
+            if op == "cross" and r.get("ok"):
+                try:
+                    _frm, _to = str(self._where(pre_obs)), str(self._where(obs))
+                    if _frm != _to and "None" not in _frm + _to:
+                        _h = self.__dict__.setdefault("_cross_hist", [])
+                        _prev = _h[-1] if _h else None
+                        if _prev and _prev[0] == _to and _prev[1] == _frm:
+                            self._cross_undo = int(getattr(self, "_cross_undo", 0)) + 1
+                            note += (f" — you are back on {_to}, where you crossed "
+                                     f"from last time: this crossing undid that one"
+                                     + (f" ({self._cross_undo} times in a row)"
+                                        if self._cross_undo > 1 else ""))
+                        else:
+                            self._cross_undo = 0
+                        _h.append((_frm, _to))
+                        del _h[:-8]
                 except Exception:
                     pass
             # A THING TAKEN OUT OF A CORRIDOR OPENS IT, AND THE ROUND MUST
