@@ -23,9 +23,7 @@ In battle the Pokemon that is out is framed and carries its status (SLP, PSN,
 The MODEL line says what the model is doing this second: reading its prompt
 (with a bar), writing (tokens so far), THINKING when the executor journalled
 think_on for the call in flight, or ACTING while the harness plays. It reads the
-ollama service log (journalctl) once a second and the journal's tail. The free
-space at the bottom shows the END of the latest thinking trace
-(run/thinking.jsonl), which is where it lands on a decision.
+ollama service log (journalctl) once a second and the journal's tail.
 
 It titles its window "red-recomp HUD", which is what Hyprland's `opaque`
 rule matches (environment/rules.conf), so run it in any kitty window.
@@ -48,7 +46,6 @@ OBS = os.path.join(HERE, "..", "run", "obs.json")
 STATUS = os.path.join(HERE, "..", "run", "status.txt")
 TITLE = "red-recomp HUD"
 JOURNAL = os.path.join(HERE, "..", "run", "executor_log.jsonl")
-THOUGHTS = os.path.join(HERE, "..", "run", "thinking.jsonl")
 ASSETS = os.path.expanduser(
     "~/.local/share/love/pokemon-love2d/red/assets/generated/")
 
@@ -362,15 +359,6 @@ def activity_key(act):
             act["ngen"] // 25, int(act["elapsed"] // 5))
 
 
-def last_thought():
-    for line in reversed(tail_lines(THOUGHTS, 400000)):
-        try:
-            return json.loads(line)
-        except ValueError:
-            continue
-    return None
-
-
 def draw_activity(img, painter, y, act):
     """One line: MODEL and what it is doing, with a bar while it reads."""
     painter.text(img, 4, y, "MODEL", ACCENT)
@@ -403,30 +391,7 @@ def draw_activity(img, painter, y, act):
     painter.text_right(img, y, clock(act["elapsed"]), DIM, right=img.width)
 
 
-def draw_thought(img, painter, y0, height, cols, rec):
-    """The END of the latest thinking trace (where it concludes), filling the
-    column's free space from the bottom up."""
-    if not rec or height - y0 < 8 * LINE:
-        return
-    age = time.time() - rec.get("t", time.time())
-    head = "LAST THOUGHT"
-    info = "r%s  %s tok  %s ago" % (rec.get("round", "?"), rec.get("gtok", "?"), clock(age))
-    text = re.sub(r"[`*#]+", "", rec.get("thinking") or "")
-    lines = []
-    for para in text.splitlines():
-        lines += textwrap.wrap(para.strip(), cols - 1) if para.strip() else []
-    room = (height - y0 - LINE - 12) // LINE
-    shown = lines[-room:] if room > 0 else []
-    y = height - 4 - LINE * len(shown) - LINE - 4
-    painter.text(img, 4, y, head, ACCENT)
-    painter.text_right(img, y, info, DIM, right=img.width)
-    y += LINE + 2
-    for line in shown:
-        painter.text(img, 12, y, line, DIM)
-        y += LINE
-
-
-def render_status(text, painter, height, cols=COLS, act=None, thought=None):
+def render_status(text, painter, height, cols=COLS, act=None):
     img = Image.new("RGB", (cols * 8 + 8, height), BG)
     if text is None:
         painter.text(img, 4, 4, "NO STATUS YET", DIM)
@@ -459,7 +424,6 @@ def render_status(text, painter, height, cols=COLS, act=None, thought=None):
             painter.text(img, 12, y, line, col)
             y += LINE
         y += 4
-    draw_thought(img, painter, y + 8, height, cols, thought)
     return img
 
 
@@ -475,7 +439,7 @@ def stack_width(cols):
 
 
 def render(obs, status_text, painter, layout="side", height=None, width=None,
-           act=None, thought=None):
+           act=None):
     """layout "side": team | status, both `height` tall (at least the team's).
     layout "stack": team over status, the status filling down to `height`.
     `width` (1x pixels) widens the status column to fill it; the team column
@@ -484,14 +448,14 @@ def render(obs, status_text, painter, layout="side", height=None, width=None,
     if layout == "stack":
         cols = max(MIN_COLS, ((width or stack_width(COLS)) - 8) // 8)
         rest = max((height or 0) - team.height, 30 * LINE)
-        col = render_status(status_text, painter, rest, cols, act, thought)
+        col = render_status(status_text, painter, rest, cols, act)
         img = Image.new("RGB", (max(stack_width(cols), width or 0), team.height + col.height), BG)
         img.paste(team, (0, 0))
         img.paste(col, (0, team.height))
         return img
     cols = max(MIN_COLS, ((width or side_width(COLS)) - W - GUTTER - 8) // 8)
     h = max(team.height, height or 0)
-    col = render_status(status_text, painter, h, cols, act, thought)
+    col = render_status(status_text, painter, h, cols, act)
     img = Image.new("RGB", (max(side_width(cols), width or 0), h), BG)
     img.paste(team, (0, 0))
     img.paste(col, (team.width + GUTTER, 0))
@@ -582,8 +546,7 @@ def main():
         if args.scale:
             scale = args.scale
             height, width = (win[1] // scale, win[0] // scale) if win else (None, None)
-        img = render(obs, status_text, painter, layout, height, width,
-                     act, last_thought())
+        img = render(obs, status_text, painter, layout, height, width, act)
         img = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
         buf = io.BytesIO()
         img.save(buf, "PNG")
@@ -611,7 +574,7 @@ def main():
             if time.time() - act_at >= 1.0:        # the service log, once a second
                 act, act_at = model_activity(), time.time()
             # the age tick repaints "updated Ns ago" every 5 s even when idle
-            stamps = (stamp_of(OBS), stamp_of(STATUS), stamp_of(THOUGHTS), win,
+            stamps = (stamp_of(OBS), stamp_of(STATUS), win,
                       int(time.time()) // 5, activity_key(act))
             if stamps != last:
                 fresh = read_obs()
