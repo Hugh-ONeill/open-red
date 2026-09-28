@@ -32,7 +32,7 @@ PROGRESS = Path("run/outline_leg")
 ASKED = Path("run/upkeep_purpose_asked")
 MISSED = Path("run/outline_upkeep_missed")
 JOURNAL = Path("run/executor_log.jsonl")
-_NOTE = re.compile(r"\s*\(a doubt you recorded when outlining:.*$")
+_NOTE = re.compile(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$")
 
 ASK_SYS = """You are playing Pokemon Red, working down an outline you wrote.
 

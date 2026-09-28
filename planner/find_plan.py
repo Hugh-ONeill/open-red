@@ -32,7 +32,7 @@ if len(sys.argv) < 2:
 want = sys.argv[1].strip()
 # the chain appends the outline's own recorded doubt to the goal it hands
 # the author; the plan stores the bare objective, so compare bare
-want = re.sub(r"\s*\(a doubt you recorded when outlining:.*$", "", want)
+want = re.sub(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$", "", want)
 
 
 def version(p: Path) -> int:

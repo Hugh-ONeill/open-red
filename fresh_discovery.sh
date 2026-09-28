@@ -513,7 +513,15 @@ while :; do
   goal="$leg"
   note=$(awk -F'\t' -v L="$leg" '$1==L{print $2; exit}' \
       plans/outline.notes 2>/dev/null || true)
-  [ -n "$note" ] && goal="$leg (a doubt you recorded when outlining: $note)"
+  # A PURPOSE IS NOT A DOUBT. Most notes are an upkeep leg's purpose
+  # ("for: Reach Mt. Moon"), and "(a doubt you recorded ...)" made "every
+  # party member is at least level 12" read as a doubted leg on the page and
+  # the HUD (user, run 18, 2026-09-28: "what does this mean? ... the doubt
+  # stuff?"). The strippers in planner/ match both forms.
+  case "$note" in
+    for:*) [ -n "$note" ] && goal="$leg (you added this when outlining, $note)" ;;
+    *)     [ -n "$note" ] && goal="$leg (a doubt you recorded when outlining: $note)" ;;
+  esac
   # ALREADY DONE? Asked once BEFORE any attempt is spent — and before
   # a plan is AUTHORED: "Retrieve the HM03 from the Cinnabar Island gym"
   # paid for a full author pass with HM_SURF in the bag (2026-08-28). The sweep at the

@@ -1178,7 +1178,7 @@ def objective_history_text(goal: str) -> str:
     the Safari Zone, was authored a seventh time as a walk to the Secret
     House (2026-08-28, user: "it's authored it wrong now"). The same
     record, in front of the same model, before it writes."""
-    bare = re.sub(r"\s*\(a doubt you recorded when outlining:.*$", "", goal).strip()
+    bare = re.sub(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$", "", goal).strip()
     out = _wording_lineage(bare) + attempt_yield_text(bare)[0] + new_ground_text(bare)
     if not out:
         return ""
@@ -7962,7 +7962,7 @@ def _inferred(why) -> bool:
     return bool(_INFERRED.search(str(why or "")))
 
 
-_DOUBT_NOTE = re.compile(r"\s*\(a doubt you recorded when outlining:.*$")
+_DOUBT_NOTE = re.compile(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$")
 
 
 def chat_json(msgs, model, tries: int = 3) -> str:
@@ -8309,7 +8309,7 @@ def inserts_that_did_not_unblock(goal: str, behind: list) -> list:
     has since finished, while this one still fails: they were not the gate,
     or not all of it (run 5, 2026-09-26: "Visit Bill's house on Route 25"
     was met by standing in the house, and the S.S. Ticket never came)."""
-    bare = re.sub(r"\s*\(a doubt you recorded when outlining:.*$", "", goal).strip()
+    bare = re.sub(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$", "", goal).strip()
     try:
         rows = Path("run/outline_inserts").read_text().splitlines()
     except OSError:
@@ -8708,7 +8708,7 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
         # a Vermilion the run could not reach (user: "make the change").
         # Everything the stuck sentence names, and more: the chain rewords
         # the stuck leg to it instead (REWORD: on the first line).
-        _gbare = re.sub(r"\s*\(a doubt you recorded when outlining:.*$",
+        _gbare = re.sub(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$",
                         "", goal)
         _g = _names(_gbare)
         # ...AND THE SAME KIND OF DEED: "Reach Cerulean City" is named
@@ -9364,7 +9364,7 @@ def plan_places_unreached(plan_path, observed) -> set:
 def plan_path_for(goal: str, plans_dir="plans") -> "Path | None":
     """The highest-versioned plan written for this objective — the same
     rule as find_plan.py (a plan belongs to an objective, not a slot)."""
-    want = re.sub(r"\s*\(a doubt you recorded when outlining:.*$", "",
+    want = re.sub(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$", "",
                   str(goal or "").strip())
     best, bestv = None, -1
     for pth in sorted(Path(plans_dir).glob("leg_*.json")):
