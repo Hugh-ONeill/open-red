@@ -32,6 +32,10 @@ run        sends that exact prompt with think off and on, N times each, at the
            author's own checks (validate + the four refusal checks it runs
            before accepting a plan). Refuses while the chain is up: the two
            would share one GPU and both measurements would be wrong.
+run --full the WHOLE authoring pass per sample, as campaign.sh runs it
+           (author.py main(): drafts, picker, review, the retry rounds with the
+           validator's feedback), each in a fresh copy of the frozen case so no
+           run sees another's drafts; scored on the plan it finally writes.
 report     per case and arm: valid first replies, time, tokens, and each
            plan's route (the maps its done_when conditions name), for a person
            to judge against what actually worked.
@@ -252,25 +256,119 @@ def run(name, n, arms, force=False):
 
 # ------- report
 
+# ------- run --full: the whole authoring pass, as campaign.sh runs it
+
+FULL_CODE = r"""
+import json, sys, time
+sys.path.insert(0, "planner")
+import brock_probe
+_chat = brock_probe.chat
+stats = {"calls": 0, "think_calls": 0, "model_s": 0.0, "gtok": 0}
+def counted(msgs, model, retries=2, think=False, temp=None):
+    t = time.time()
+    try:
+        return _chat(msgs, model, retries=retries, think=think, temp=temp)
+    finally:
+        stats["calls"] += 1
+        stats["think_calls"] += bool(think)
+        stats["model_s"] += time.time() - t
+        stats["gtok"] += (brock_probe.LAST or {}).get("gtok") or 0
+brock_probe.chat = counted
+import author
+sys.argv = json.loads(sys.stdin.read())
+try:
+    author.main()
+except SystemExit:
+    pass
+print("@@STATS " + json.dumps(stats))
+"""
+
+
+def fresh_work(d, tag):
+    """A throwaway copy of the frozen case: the author keeps its drafts under
+    plans/drafts and shows earlier ones to its review, so runs sharing one
+    world would feed each other (and favour whichever arm went second)."""
+    w = d / ("work_" + tag)
+    if w.exists():
+        shutil.rmtree(w)
+    w.mkdir()
+    shutil.copytree(d / "run", w / "run")
+    shutil.copytree(d / "plans", w / "plans", symlinks=True)
+    for entry in d.iterdir():
+        if entry.is_symlink():
+            (w / entry.name).symlink_to(os.readlink(entry))
+    return w
+
+
+def run_full(name, n, arms, force=False):
+    """The WHOLE authoring pass per sample, exactly as campaign.sh runs it:
+    author.py main() with its drafts, picker, review and the retry rounds that
+    feed the validator's problems back. Arm on/off adds or drops --think; arm
+    map/nomap sets the same environment as the single-reply arms. Scored on the
+    plan it finally writes."""
+    d = case_dir(name)
+    meta = json.loads((d / "case.json").read_text())
+    out = d / "results_full.jsonl"
+    for i in range(n):
+        for arm in arms:                              # interleaved, so drift hits both arms alike
+            if chain_up() and not force:
+                print("the chain came up; stopping here so it has the GPU", flush=True)
+                return
+            nomap = arm == "nomap"
+            w = fresh_work(d, "%s_%d" % (arm, i))
+            argv = ["author.py", "--goal", meta["goal"], "--start", meta["start"], "--out", "plan_out.json",
+                    "--model", MODEL, "--observed", "run/explored.json", "--journal", "run/executor_log.jsonl"]
+            if arm == "on":
+                argv.append("--think")
+            env = dict(_env(nomap), RED_RUN_DIR=str(w / "run"))
+            t = time.time()
+            r = subprocess.run([sys.executable, "-c", FULL_CODE], cwd=w, input=json.dumps(argv),
+                               capture_output=True, text=True, timeout=3 * 3600, env=env)
+            wall = time.time() - t
+            stats = {}
+            for line in r.stdout.splitlines():
+                if line.startswith("@@STATS "):
+                    stats = json.loads(line[8:])
+            plan_txt = (w / "plan_out.json").read_text() if (w / "plan_out.json").exists() else ""
+            s = score(d, plan_txt, nomap) if plan_txt else {"parsed": False, "problems": ["no plan written"],
+                                                            "route": [], "steps": 0}
+            log = [l for l in r.stdout.splitlines()
+                   if l.startswith(("[author]", "[draws]", "[review]", "[think]", "wrote"))]
+            rec = {"t": t, "arm": arm, "i": i, "mode": "full", "wall": round(wall, 1), **stats,
+                   "valid": bool(plan_txt) and s["parsed"] and not s["problems"], **s,
+                   "plan": plan_txt, "log": log[-40:], "stderr_tail": r.stderr[-1500:]}
+            with open(out, "a") as f:
+                f.write(json.dumps(rec) + "\n")
+            shutil.rmtree(w, ignore_errors=True)
+            print(f"{name} full {arm:5s} #{i + 1}: "
+                  f"{'VALID' if rec['valid'] else 'no plan' if not plan_txt else 'invalid'} "
+                  f"{wall:6.0f}s  calls {stats.get('calls')} (think {stats.get('think_calls')})  "
+                  f"route: {' > '.join(s['route'])[:90]}", flush=True)
+
+
 def report(names):
-    names = names or sorted(p.name for p in ROOT.iterdir() if (p / "results.jsonl").exists())
+    names = names or sorted(p.name for p in ROOT.iterdir()
+                            if (p / "results.jsonl").exists() or (p / "results_full.jsonl").exists())
     for name in names:
         d = case_dir(name)
         meta = json.loads((d / "case.json").read_text())
-        rows = [json.loads(l) for l in open(d / "results.jsonl")] if (d / "results.jsonl").exists() else []
         print(f"\n== {name}: {meta['goal']}")
-        for arm in ("off", "on", "nomap", "map"):
-            r = [x for x in rows if x["arm"] == arm]
-            if not r:
-                continue
-            v = sum(x["valid"] for x in r)
-            label = f"think {arm:3s}" if arm in ("off", "on") else f"{arm:9s}"
-            print(f"  {label}  n={len(r)}  valid first reply {v}/{len(r)}  "
-                  f"median {statistics.median(x['wall'] for x in r):.0f}s  "
-                  f"{statistics.median(x['gtok'] or 0 for x in r):.0f} tok")
-            for x in r:
-                print(f"     {'ok ' if x['valid'] else 'BAD'} {' > '.join(x['route'])[:100]}"
-                      + ("" if x["valid"] else f"   [{(x['problems'] or ['?'])[0][:80]}]"))
+        for fname, kind in (("results.jsonl", "first reply"), ("results_full.jsonl", "full pass")):
+            rows = [json.loads(l) for l in open(d / fname)] if (d / fname).exists() else []
+            for arm in ("off", "on", "nomap", "map"):
+                r = [x for x in rows if x["arm"] == arm]
+                if not r:
+                    continue
+                v = sum(x["valid"] for x in r)
+                label = f"think {arm:3s}" if arm in ("off", "on") else f"{arm:9s}"
+                calls = ("  %.0f calls" % statistics.median(x.get("calls") or 0 for x in r)
+                         if kind == "full pass" else "")
+                print(f"  {kind:11s} {label}  n={len(r)}  valid {v}/{len(r)}  "
+                      f"median {statistics.median(x['wall'] for x in r):.0f}s  "
+                      f"{statistics.median(x['gtok'] or 0 for x in r):.0f} tok{calls}")
+                for x in r:
+                    print(f"     {'ok ' if x['valid'] else 'BAD'} {' > '.join(x['route'])[:100]}"
+                          + ("" if x["valid"] else f"   [{(x['problems'] or ['?'])[0][:80]}]"))
 
 
 def main():
@@ -289,6 +387,8 @@ def main():
     r.add_argument("--n", type=int, default=3)
     r.add_argument("--arms", default="off,on")
     r.add_argument("--force", action="store_true")
+    r.add_argument("--full", action="store_true",
+                   help="the whole authoring pass per sample (drafts, picker, review, retries)")
     p = sub.add_parser("report")
     p.add_argument("cases", nargs="*")
     a = ap.parse_args()
@@ -296,6 +396,8 @@ def main():
         snapshot(a.case, a.goal, a.start, a.force, a.from_case)
     elif a.cmd == "prompts":
         prompts(a.case)
+    elif a.cmd == "run" and a.full:
+        run_full(a.case, a.n, a.arms.split(","), a.force)
     elif a.cmd == "run":
         run(a.case, a.n, a.arms.split(","), a.force)
     else:
