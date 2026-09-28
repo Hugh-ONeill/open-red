@@ -969,8 +969,8 @@ validator that only says "that word is not a thing this game has" is the
 manual's index, not a hint. PT-37/38 are withdrawn below on that ground
 and PT-6/32/36 trimmed to what survives it.
 
-Suggested order: 6a (flags) first, cheapest and widest; then 6c (Town Map
-gate), 6b (door_dests), then foe HP in 6h.
+Suggested order (revised 2026-09-28 after the 6a census): 6b (PT-9 ROUTE_MAPS,
+door_dests), 6c (Town Map gate), foe HP in 6h, then the narrowed 6a filter.
 
 ### 6a. Event flags from RAM
 
@@ -1018,14 +1018,38 @@ happened. Flag NAMES, and flag COUNTS, are not on any screen.
   `executor.py:7892` `_world_mark` includes `len(obs.flags)`, read at
   `ledger.py:841/847/1249` to decide reopened / worth_a_word / inert.
   Badges and bag kinds in the mark are fine; the flag count is not.
-- [ ] **PT-8 · Low · REPORTED — Vermilion lock state from flags.**
-  `ledger.py:4171` reads EVENT_1ST/2ND_LOCK_OPENED → "THE ELECTRIC LOCKS
-  RIGHT NOW: the 1st is OPEN…"; the 1st lock is not drawn, and the line
-  restates it after an invisible re-scramble.
+- [x] **PT-8 · withdrawn (checked 2026-09-28) — Vermilion lock state from
+  flags.** `ledger.py:4171` "THE ELECTRIC LOCKS RIGHT NOW". Every change to
+  both flags prints a message (gen1recomp `OverworldController.lua:2155-2239`,
+  `trashCanSwitch`): the first switch sets EVENT_1ST_LOCK_OPENED with "The
+  1st electric lock opened!", the second sets EVENT_2ND_LOCK_OPENED with
+  "The 2nd electric lock opened! The motorized door opened!", and a wrong
+  can clears the first with "Hey! The electric locks were reset!". There is
+  no silent reset: entering Vermilion re-rolls which can hides the first
+  switch (`story.lua:328`), but leaves both flags alone
+  (`tests/parity_trashcans.lua:106`), and the line names neither can. The
+  "invisible re-scramble" in the audit was that can re-roll, which the line
+  never states. What the line says, the player was told. (Its comment at
+  4160 rests the case on the barriers being DRAWN; the text is the better
+  ground.)
 
-*Fix shape:* one helper that returns flags only for predicates the model
-wrote and the run confirmed; no `EVENT_*` name or count in any prompt
-string; `_world_mark` drops the flag term.
+*Test (user, 2026-09-28):* a flag whose change the game announces in text
+is on-screen knowledge, and showing it after it fires repeats the screen.
+Census of the run stopped 2026-09-28: 43 flags set, 41 of them deeds the
+model watched (EVENT_BEAT_BROCK, EVENT_GOT_OAKS_PARCEL, the numbered trainer
+wins); the two that fail the test are EVENT_1ST_ROUTE22_RIVAL_BATTLE and
+EVENT_ROUTE22_RIVAL_WANTS_BATTLE, set silently by Oak's lab script at the
+Pokedex hand-over to arm a fight that has not happened. So the leak in 6a is
+the SILENT flags (armings, script bookkeeping like FOLLOWED_OAK_INTO_LAB_2),
+not flag names as a class, and the severity above is overstated for most
+items.
+
+*Fix shape (narrowed):* one classifier, sorted by the test above from the
+game's scripts rather than by name patterns: announced flags stay as they
+are (done checks need them); silent flags leave every prompt string AND the
+counts (`_since_words`, `_world_mark`, `fired` lists). Floor and trainer
+numbering in names (MT_MOON_3, ROUTE_3_TRAINER_7) is a trickle; 6f is its
+real form.
 
 ### 6b. Warp table and map table for places never entered
 
