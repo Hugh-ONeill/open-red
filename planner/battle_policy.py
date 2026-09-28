@@ -219,6 +219,8 @@ _SPEC_KEYS = set(DEFAULT_SPEC) | {"name", "provenance"}   # provenance = metadat
 # confusion are left out on purpose.
 CATCH_STATUS_MOVES = {"SLEEP_POWDER", "STUN_SPORE", "THUNDER_WAVE", "HYPNOSIS",
                       "SING", "SPORE", "LOVELY_KISS", "GLARE"}
+CATCH_SLEEP_MOVES = {"SLEEP_POWDER", "HYPNOSIS", "SING", "SPORE", "LOVELY_KISS"}
+CATCH_POISON_MOVES = {"POISONPOWDER", "POISON_GAS", "TOXIC"}
 
 # ------------------------------------------------------------- item classes
 # A RULE NAMING AN ITEM IS ONLY EVER RIGHT FOR ONE STAGE OF THE GAME. v1
@@ -643,6 +645,8 @@ def validate_spec(spec) -> list:
                 probs.append("catch.max_balls int in [1,10]")
             if "first_ball" in ca and not isinstance(ca["first_ball"], bool):
                 probs.append("catch.first_ball true or false")
+            if "poison" in ca and not isinstance(ca.get("poison"), bool):
+                probs.append("catch.poison must be true/false")
             _phv = ca.get("probe_hit")
             if "probe_hit" in ca and not (
                     isinstance(_phv, bool)
@@ -1661,8 +1665,20 @@ def choose(obs: dict, spec: dict | None = None,
                 return {"op": "throw_ball", "ball": have_ball,
                         "_why": "first_ball: one ball before anything else"}
             if not foe.get("status") and not ctx.get("status_tried"):
-                st = [mv for mv in moves
-                      if str(mv.get("id") or "").upper() in CATCH_STATUS_MOVES]
+                # SLEEP, THEN PARALYSIS, THEN POISON — the Gen 1 catch
+                # formula's own order of help (sleep adds the most; paralysis,
+                # poison and burn the same smaller amount). Poison only when
+                # the spec's catch block says {"poison": true}, and never on
+                # a POISON type, which it does not take (user, 2026-09-28).
+                _rank = {m: 0 for m in CATCH_SLEEP_MOVES}
+                _rank.update({m: 1 for m in CATCH_STATUS_MOVES - CATCH_SLEEP_MOVES})
+                if ca.get("poison") and "POISON" not in [
+                        str(t).upper() for t in (foe.get("types") or [])]:
+                    _rank.update({m: 2 for m in CATCH_POISON_MOVES})
+                st = sorted((mv for mv in moves
+                             if str(mv.get("id") or "").upper() in _rank
+                             and (mv.get("pp") is None or (mv.get("pp") or 0) > 0)),
+                            key=lambda mv: _rank[str(mv.get("id")).upper()])
                 if st:
                     ctx["status_tried"] = True
                     return {"op": "battle_move", "index": st[0]["index"],

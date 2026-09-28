@@ -705,6 +705,22 @@ CATCHES = [
     # VILEPLUME resists electricity and carries both a sleep and a
     # paralysis move, so status, weakening and the throw threshold all have
     # something to do. The floor spawns on every tile (a FACILITY map).
+    # POISON AS A SOFTENER (user, 2026-09-28). Gen 1's catch formula counts
+    # poison like paralysis; the catch rule's status list held only sleep
+    # and paralysis moves, so an IVYSAUR with POISONPOWDER threw at full
+    # health. The lead here has POISONPOWDER and nothing that sleeps or
+    # paralyses, and hits hard enough that nothing is a safe weakener; the
+    # wanted are the Forest's non-poison kinds (WEEDLE and KAKUNA are
+    # POISON types and cannot be poisoned).
+    dict(name="catch_poison", map="VIRIDIAN_FOREST", badges=2,
+         start=(1, 10), want_species=["CATERPIE", "METAPOD", "PIKACHU"],
+         encounters=40, targets=3,
+         party=[("IVYSAUR", 20, ["TACKLE", "LEECH_SEED", "VINE_WHIP",
+                                 "POISONPOWDER"])],
+         bag={"POKE_BALL": 10, "POTION": 2}, money=1500,
+         note="An IVYSAUR with POISONPOWDER and no sleep or paralysis move, "
+              "hunting CATERPIE, METAPOD and PIKACHU: whether poisoning first "
+              "saves balls."),
     dict(name="catch_powerplant", map="POWER_PLANT", badges=6,
          start=(4, 21), want_types=["ELECTRIC"], encounters=20, targets=4,
          party=[("VILEPLUME", 40, ["SLEEP_POWDER", "STUN_SPORE", "ACID",
