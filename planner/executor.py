@@ -4554,6 +4554,31 @@ class Executor:
             self._note_swept(region)
             # count the walk that saw nothing (see the picker's _dry rule)
             t2 += self._count_dry_walk(region, t2)
+            # ...AND "UNTIL MAP_CHANGE" MEANS KEEP GOING. The model asked to
+            # be walked until it stood somewhere new; the arrival sweep
+            # stopped at the first new sighting and handed the round back.
+            # In run of record 13 that sighting was the robbed house's back
+            # door, the one way south out of Cerulean: found, not taken, and
+            # the next round the model walked out of the house "with no
+            # reason to stay" (2026-09-27). If the sweep left the party on
+            # the same ground, take the way it just uncovered there — the
+            # same expansion as below, run on what is now on screen.
+            cur2 = self.settle() or cur
+            if (not ok and _params.get("until") == "map_change"
+                    and ((cur2.get("map") or {}).get("id")
+                         == ((cur or {}).get("map") or {}).get("id"))):
+                cands3 = ledger.build(self, cur2, target,
+                                      outcomes=self._outcomes_here(cur2),
+                                      want_explore=False)
+                ex3 = [c for c in cands3 if c.status == "untried"
+                       and c.kind in ("door", "seam") and c.reachable]
+                if ex3:
+                    step = (self._cross_step_for(ex3[0].key)
+                            if ex3[0].kind == "seam" else self._take_exit(ex3[0]))
+                    ok3, t3, cl3 = _run(step, f"taking {ex3[0].label()} there, "
+                                              f"which the sweep uncovered — you "
+                                              f"asked to go until the map changes")
+                    return ok3, tr + t2 + t3, cl + cl3
             return ok, tr + t2, cl
         if unseen:
             # CHOSEN FOR GROUND TO LOOK AT, AND THERE IS NONE HERE. The
