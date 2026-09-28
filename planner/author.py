@@ -10611,6 +10611,18 @@ def check_done(goal: str, start: str, model: str,
     # objective is judged as itself.
     goal = _DOUBT_NOTE.sub("", goal).strip() or goal
     bearing = _events_bearing(goal)
+    # A PERSON SEEN AND NEVER SPOKEN TO HAS NOT BEEN HELPED. The sweep over
+    # other legs refused this; the leg's own judge did not. "Help Bill at
+    # Sea Cottage" stopped at the door with BILLSHOUSE_BILL_POKEMON on
+    # screen, was judged NOT done, and a minute later, asked again before
+    # re-running, "done: the player is currently inside Bill's house, which
+    # is the location required to help him" (run 17 resumed, 2026-09-28;
+    # user: "it used to do the bill arc without much of an issue").
+    _un = untouched_named(goal, observed)
+    if _un:
+        print(f"[check-done] refused: this objective names {_un[0][1]}, seen "
+              f"in {_un[0][0]} and never spoken to or pressed")
+        return False
     never = _never_stood_in(goal, observed)
     if never:
         print(f"[check-done] refused: this objective names {never} and the "
