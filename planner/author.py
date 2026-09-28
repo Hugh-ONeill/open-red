@@ -1257,20 +1257,13 @@ def last_leg_left_you(run: Path = Path("run"), plans: Path = Path("plans")) -> s
     return out
 
 
-def failed_walk_text(goal: str, run: Path = Path("run")) -> str:
-    """The places this objective's last plan failed to walk to, from the
-    journal, for the author writing the next one.
-
-    THE REWRITE AIMED AT THE SAME WALL. Run of record 13 wrote three plans
-    for "Retrieve the S.S. Ticket" after the first failed walking to
-    VERMILION_CITY, and all three walked to VERMILION_CITY; run 14 did it
-    again with Bill's quest one press from done. Rewording the objective
-    toward that place has been refused since 2026-09-27; the plan itself
-    was never told. Evidence the run earned; it names no other way."""
+def _failed_walk_places(goal: str, run: Path = Path("run")) -> list:
+    """(step, map) pairs: where this objective's last plan failed to walk
+    (see failed_walk_text)."""
     try:
         lines = (run / "executor_log.jsonl").read_text().splitlines()[-6000:]
     except OSError:
-        return ""
+        return []
     rows = []
     for l in reversed(lines):
         try:
@@ -1282,10 +1275,10 @@ def failed_walk_text(goal: str, run: Path = Path("run")) -> str:
             break
     rows.reverse()
     if not rows or rows[0].get("kind") != "plan_start":
-        return ""
+        return []
     bare = lambda t: _DOUBT_NOTE.sub("", str(t or "")).strip().lower()
     if bare(rows[0].get("goal")) != bare(goal):
-        return ""
+        return []
     tgt, bad = {}, []
     for r in rows:
         if r.get("kind") == "escalate_context" and r.get("subgoal") and r.get("target"):
@@ -1301,6 +1294,20 @@ def failed_walk_text(goal: str, run: Path = Path("run")) -> str:
         kind, _, val = tgt.get(sid, "").partition(":")
         if kind in ("map", "area", "new_part") and val:
             places.append((sid, val.split("|")[0]))
+    return places
+
+
+def failed_walk_text(goal: str, run: Path = Path("run")) -> str:
+    """The places this objective's last plan failed to walk to, from the
+    journal, for the author writing the next one.
+
+    THE REWRITE AIMED AT THE SAME WALL. Run of record 13 wrote three plans
+    for "Retrieve the S.S. Ticket" after the first failed walking to
+    VERMILION_CITY, and all three walked to VERMILION_CITY; run 14 did it
+    again with Bill's quest one press from done. Rewording the objective
+    toward that place has been refused since 2026-09-27; the plan itself
+    was never told. Evidence the run earned; it names no other way."""
+    places = _failed_walk_places(goal, run)
     if not places:
         return ""
     return ("\n\nYOUR LAST PLAN FOR THIS OBJECTIVE FAILED WALKING TO: "
@@ -1395,6 +1402,7 @@ def build_prompt(goal: str, start: str | None = None) -> str:
         + outline_so_far()
         + last_leg_left_you()
         + failed_walk_text(goal)
+        + untouched_named_text(goal)
         + openable_ways_text()
         + detour_text(goal)
         + objective_history_text(goal)
@@ -2310,7 +2318,52 @@ def validate(plan: dict) -> list:
                               or "has ALREADY stood in" in p) else p
                  for p in probs]
     probs += inserted_leg_problems(plan)
+    probs += same_failed_walk_problems(plan)
     return probs
+
+
+_TRAVEL_KEYS = {"map", "area", "new_part", "not_area", "party_healthy"}
+
+
+def same_failed_walk_problems(plan: dict, goal: str | None = None,
+                              run: Path = Path("run")) -> list:
+    """A rewrite that walks, with nothing done first, to the place this
+    objective's last plan failed to walk to.
+
+    THE SAME WALK IS THE SAME WALL. Runs of record 13, 14 and 15 (2026-09-27/
+    28) each wrote three more plans for the ticket that walked from Cerulean
+    to VERMILION_CITY, after the first had failed walking there — run 15 with
+    "YOUR LAST PLAN FOR THIS OBJECTIVE FAILED WALKING TO: VERMILION_CITY" in
+    front of every draft, and Bill's quest one conversation from done. Each
+    burned an attempt the run had just proved cannot succeed. A plan that
+    does something first (a flag, an item, a person, a move) may go there
+    after it; only the bare walk is refused. Evidence the run earned."""
+    goal = goal if goal is not None else _AUTHORING_GOAL
+    if not goal:
+        return []
+    try:
+        places = {m for _s, m in _failed_walk_places(goal, run)}
+    except Exception:
+        return []
+    if not places:
+        return []
+    for i, s in enumerate(plan.get("subgoals") or []):
+        dw = (s or {}).get("done_when") or {}
+        keys = pred_keys(dw)
+        tgt = ""
+        for k in ("map", "area", "new_part"):
+            v = dw.get(k) if isinstance(dw, dict) else None
+            if isinstance(v, str) and v:
+                tgt = v.split("|")[0]
+        if tgt in places:
+            return [f"subgoal[{i}] ({(s or {}).get('id')}) walks to {tgt}, and "
+                    f"this objective's last plan failed walking to {tgt}; every "
+                    f"step before it is only travel, so this is the same walk. "
+                    f"Do something first that changes what that walk meets, or "
+                    f"go somewhere else."]
+        if not keys <= _TRAVEL_KEYS:
+            return []                 # a deed comes first: the walk may follow
+    return []
 
 def _series_hint(mem: list, fired=()) -> str:
     """The 'did you mean' clause for a flag guessed as a placeholder in a
@@ -7793,6 +7846,45 @@ def next_objective_text(goal: str, plans: Path = Path("plans")) -> str:
             f"line asks for is not part of it.")
 
 
+def untouched_named(text: str, observed=None) -> list:
+    """(region, name) for things the run has SEEN and never pressed whose
+    name holds a word the text names — "Talk to Bill" and BILLSHOUSE_BILL1.
+
+    Run of record 15 (2026-09-28): after the Cell Separator, BILLSHOUSE_BILL1
+    stood in Bill's house never spoken to, and the missing rung's "Talk to
+    Bill" was turned down as ALREADY DONE on the run having met the other
+    Bill, the one in the machine. The ledger's own sightings and touches."""
+    try:
+        data = json.loads(Path(observed or "run/explored.json").read_text())
+    except (OSError, ValueError, TypeError):
+        return []
+    words = {w for w in re.findall(r"[A-Z]{3,}", str(text or "").upper())
+             if w not in {"THE", "AND", "FROM", "WITH", "CITY", "TOWN", "ROUTE",
+                          "HOUSE", "TALK", "SPEAK", "GET", "OBTAIN", "RETRIEVE",
+                          "HELP", "GIVE", "FIND", "REACH", "DEFEAT"}}
+    if not words:
+        return []
+    out = []
+    touched = data.get("touched") or {}
+    for reg, names in (data.get("sightings") or {}).items():
+        done = set(touched.get(reg) or [])
+        for n in names or []:
+            if n in done or str(n).startswith(("TEXT_", "ITEM_", "HIDDEN_")):
+                continue
+            toks = {re.sub(r"\d+$", "", t) for t in str(n).upper().split("_")}
+            if toks & words:
+                out.append((reg, n))
+    return out
+
+
+def untouched_named_text(goal: str) -> str:
+    rows = untouched_named(goal)
+    if not rows:
+        return ""
+    return ("\n\nSEEN AND NEVER SPOKEN TO OR PRESSED, AND NAMED IN THIS "
+            "OBJECTIVE: " + "; ".join(f"{n} in {r}" for r, n in rows[:4]) + ".")
+
+
 def check_already_done(deed: str, start: str, model: str,
                        observed=None) -> bool:
     """Has this objective ALREADY been accomplished, at any point in the run?
@@ -7808,6 +7900,12 @@ def check_already_done(deed: str, start: str, model: str,
     model's to say.
     """
     deed = _DOUBT_NOTE.sub("", deed).strip() or deed   # see check_done
+    _un = untouched_named(deed, observed)
+    if _un:
+        print(f"[already-done] refused: '{deed[:60]}' names "
+              f"{_un[0][1]}, seen in {_un[0][0]} and never spoken to or "
+              f"pressed", file=sys.stderr)
+        return False
     never = _never_stood_in(deed, observed)
     if never:
         print(f"[already-done] refused: '{deed[:60]}' names {never} and the "
