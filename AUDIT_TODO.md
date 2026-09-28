@@ -945,3 +945,298 @@ Things to test before trusting: the boulder push inside `walk()`'s
 60-frame window; Cycling Road drift vs `walk_to`; whether `ui_back_out`'s
 B-spam can cancel a still-flashing level-up evolution after `use_item
 RARE_CANDY`.
+
+---
+
+## Tier 6 — pointing: out-of-packet knowledge reaching the model (added 2026-09-28)
+
+Source: pointing audit, 28 Sep 2026, HEAD `a53f505`. Four read-only passes
+(author.py ×2, executor.py + helpers, shim.lua + ledger/battle/policy). The
+test for every item: does the model see it, or does it steer a choice the
+model would otherwise make, and could a player at that point in THIS run
+have known it? `VERIFIED` = run live by the auditor; `CHECKED` = code
+re-read at the cited line by a second pass; `REPORTED` = traced by one
+pass with file:line. Stage fixes in `pending_next_stop/` — no changes
+mid-run.
+
+Suggested order: 6a (flags) first, cheapest and widest; then 6c (Town Map
+gate), 6b (door_dests), foe HP in 6h, then the v16 pin decision.
+
+### 6a. Event flags from RAM
+
+"Watched fire" only means the RAM bit flipped while the party stood there.
+Scripts set flags silently: `run/explored.json` already holds
+`EVENT_1ST_ROUTE22_RIVAL_BATTLE`, set in Oak's lab when the Pokedex is
+handed over, whose name announces a Route 22 rival fight that has not
+happened. Flag NAMES, and flag COUNTS, are not on any screen.
+
+- [ ] **PT-1 · High · CHECKED — `check_missing` prints every RAM flag.**
+  `author.py:8389` `done = sorted(obs["flags"])` → "WHAT THE GAME HAS
+  RECORDED YOU DOING (N events): …" (first 60, alphabetical). Bypasses even
+  `fired_flags()` (`:1023`, "the only flag names the harness may volunteer").
+- [ ] **PT-2 · High · CHECKED — `_events_bearing` reads raw `obs.flags`.**
+  `author.py:7544-7566`; docstring says "EVENTS THIS RUN HAS FIRED".
+  Reaches `check_already_done` (8023), `check_done` (10523/10659) as
+  "EVENTS ALREADY RECORDED THAT MENTION THIS OBJECTIVE'S OWN WORDS", and
+  steers silently: check_done's place guard (10620-10645),
+  `_record_fact_named` (7804), `void_refused_why` (9301-9307).
+- [ ] **PT-3 · High · REPORTED — flag names printed verbatim as "fired".**
+  `author.py:1043` `recent_events`, `:3785/3864` "WHERE EVENTS ACTUALLY
+  FIRED"; `executor.py:13770` `_fired_text` ("EVENT_ROUTE22_RIVAL_WANTS_BATTLE
+  (fired in OAKS_LAB|4,1)" — its own docstring calls it "the game's own
+  record that somebody is waiting on Route 22").
+- [ ] **PT-4 · Medium · REPORTED — flag diffs in blocker rows and op trace.**
+  `executor.py:2940` `_since_words` / `author.py:3894` "SINCE IT TURNED YOU
+  BACK N event(s) have fired (including: EVENT_…)", and a hidden flip marks
+  the blocker "may answer differently now"; `executor.py:22527` macro cut
+  "stopped here: that press changed the world (EVENT_X)" — the cut itself
+  fires on a hidden change.
+- [ ] **PT-5 · Medium · REPORTED — flag state as referee leak.**
+  `executor.py:13718` `_reset_flag_note` "HAS FIRED ONCE ALREADY … NOT set
+  now"; `executor.py:3102` "THAT HOLDS NOW" on a model-written flag
+  predicate; `author.py:2977` `witness_holds_now` "ALREADY HOLDS where the
+  run stands" for any flag in live RAM.
+- [ ] **PT-6 · Medium · REPORTED — the flag validator is an existence oracle.**
+  `author.py:2538` rejects names not in `ENGINE_FLAGS` ("is not an event
+  this game defines") and passes real ones; `:1768` "No event in this
+  game's list begins with {stem}". Five rounds per draw = five probes of
+  what the game contains.
+- [ ] **PT-7 · Medium · REPORTED — the flag COUNT steers the ledger.**
+  `ledger.py:1085` "(said before N event(s) that have fired since)";
+  `executor.py:7892` `_world_mark` includes `len(obs.flags)`, read at
+  `ledger.py:841/847/1249` to decide reopened / worth_a_word / inert.
+  Badges and bag kinds in the mark are fine; the flag count is not.
+- [ ] **PT-8 · Low · REPORTED — Vermilion lock state from flags.**
+  `ledger.py:4171` reads EVENT_1ST/2ND_LOCK_OPENED → "THE ELECTRIC LOCKS
+  RIGHT NOW: the 1st is OPEN…"; the 1st lock is not drawn, and the line
+  restates it after an invisible re-scramble.
+
+*Fix shape:* one helper that returns flags only for predicates the model
+wrote and the run confirmed; no `EVENT_*` name or count in any prompt
+string; `_world_mark` drops the flag term.
+
+### 6b. Warp table and map table for places never entered
+
+- [ ] **PT-9 · High · CHECKED — `ROUTE_MAPS` in every authoring prompt,
+  ungated.** `author.py:1397` "MAP IDs on this route (use exact strings)".
+  Names carry contents (ROUTE_16_FLY_HOUSE, FUCHSIA_GOOD_ROD_HOUSE,
+  ROUTE_12_SUPER_ROD_HOUSE, CINNABAR_LAB_FOSSIL_ROOM, LAVENDER_CUBONE_HOUSE,
+  SAFARI_ZONE_SECRET_HOUSE) and floor counts (SILPH_CO_11F,
+  POKEMON_TOWER_7F, ROCKET_HIDEOUT_B4F, SEAFOAM_ISLANDS_B4F). "on this
+  route" also implies each is on the way. The Town Map gate one line later
+  does not cover it.
+- [ ] **PT-10 · High · VERIFIED — `walked_ground_text` is a map directory.**
+  `author.py:9786-9841` `ids = set(_map_dims()) | …` = every map. Live:
+  "Obtain the Silph Scope from the Rocket Hideout" → "ROCKET_HIDEOUT_B1F
+  never stood in, 0/840 tiles seen; … B4F 0/720; ROCKET_HIDEOUT_ELEVATOR
+  never stood in, 0/48". Reaches check_already_done, check_done,
+  sweep_already_done. The "never a directory" comment at 9794 holds only
+  for `_KINDS`.
+- [ ] **PT-11 · High · REPORTED — `door_dests` ("INTERNAL, never printed",
+  `executor.py:2239`) is printed.** Filled from the whole map's warp table
+  (`executor.py:7089`). `author.py:9442` `held_doors_into` →
+  "SAFFRON_CITY door 18,21 -> SILPH_CO_1F" into the author re-ask
+  (`held_step_problems` 9731) and blocker re-ask, and refuses plans on it;
+  `executor.py:8908` `_ways_off_known_line` `led.setdefault(k, door_dests)`
+  → "EVERY WAY OFF THIS FLOOR THAT YOU HAVE SEEN LEADS SOMEWHERE YOU HAVE
+  ALREADY BEEN: door (x,y) -> MAPNAME" (in exploration_text, 17905).
+- [ ] **PT-12 · Medium · REPORTED — shim op refusals list unseen doors.**
+  `shim.lua:6789-6804` use_warp refusal "Doors on this map: …" from
+  `md2.warps`, no seen filter (incl. landing warps); `shim.lua:7143-7163`
+  cross refusal "Doors on that edge" prints `destMap at (x,y)` ungated
+  (the seam name 20 lines later IS Town-Map gated).
+- [ ] **PT-13 · Medium · REPORTED — legs reordered on warp-table rooms.**
+  `author.py:9373` `pull_into_unreached` / `:9172` `rooms_of` follow
+  `destMap` out of unentered places ("leg n happens in X, the very place
+  this leg's own plan could not reach"); `push_leg.py:120-150` drags legs
+  along because "the engine's own warp table says the place has those
+  rooms". The town-word fallback there is fine.
+- [ ] **PT-14 · Medium · REPORTED — the street shop is found by warp dest.**
+  `executor.py:15213` `_shop_street` picks doors whose dest contains MART;
+  `:15490` "THE SHOP: the door into CELADON_MART_1F … (the first counter on
+  the second floor)" before the store was entered. The Dept. Store has no
+  MART sign. (The Center door at 15365 is signed, fine.)
+- [ ] **PT-15 · Low · REPORTED — smaller warp-table readers.**
+  `executor.py:11113` `_return_destinations` resolves an untaken use_warp
+  to its dest ("NOTHING ABOUT YOU HAS CHANGED since you last stood on X");
+  `:13002` `_passage_retry` auto-walks through a never-entered building
+  because two warp tiles share a dest; `author.py:9077` `road_side_words`
+  "ends N row(s) short" uses engine map dims; `author.py:8205` `_norm_obj`
+  folds TMnn → move via MACHINE_MOVES for dedupe/refusal matching;
+  `ledger.py:382` / `executor.py:7902` group unwalked door tiles by shared
+  dest (one row vs two tells).
+- [ ] **PT-16 · Low · REPORTED — warp `dest` on seen doors.** `ledger.py:1291`
+  `_frontage` (MART/POKECENTER/GYM "signed outside" — fine where signed);
+  `executor.py:15380` heal prompt prints the raw dest id.
+
+### 6c. Printed-map geography without the Town Map
+
+- [ ] **PT-17 · High · CHECKED — `static_hops` has no Town Map gate.**
+  `executor.py:110-145`; only `static_cost` checks `PRINTED_MAP_HELD`.
+  Consumers `ledger.goalward_tier` / `edge_tier` (271-343; edge_tier also
+  reads `MAP_EDGES[region][dir]` directly) rank explore (executor.py:4400,
+  4421), drive the explore refusal at `executor.py:4463-4486` ("nothing
+  untried lies toward {goal}. Every area you have walked … is AWAY from it
+  **by the roads you have walked**" — false; the comment at 4470 says
+  static_cost gates it, but this path is static_hops), and print "on the
+  printed map that is AWAY from {goal}" (`ledger.py:346`, 2328/2402/2409).
+- [ ] **PT-18 · High · CHECKED — `INTERIOR_ROAD` (map_doors.json) places
+  interiors on their road, ungated.** `executor.py:222-246` via `_doorstep`
+  (394-407) → `_goal_drift` (8005-8083, stuck_note 24961): "… is N leg(s)
+  from ROCK_TUNNEL_1F (on ROUTE_10, going by its name)" — it is the label
+  table, not the name. Also `exploration_text` route_line (16972-17030),
+  goalward_tier, atlas sort (18196). Tells Rock Tunnel/Power Plant → Route
+  10, Victory Road → 23, Seafoam → 20 before seen. `_learn_doorsteps` (the
+  walked version) is honest.
+- [ ] **PT-19 · Medium · CHECKED — system prompt promises the printed map
+  unconditionally.** `author.py:658` "It can aim at a town it has NEVER
+  SEEN, because the printed map says which way that is".
+- [ ] **PT-20 · Low · REPORTED — `review()` add cap from ungated MAP_EDGES.**
+  `author.py:4977-4983`: `gap` raises accepted additions 4 → 16.
+- [ ] **PT-21 · Low · REPORTED — `executor.py:7267`** keeps a sealed seam in
+  the frontier when MAP_EDGES has it, ungated.
+
+### 6d. Collision grid beyond what was on screen
+
+- [ ] **PT-22 · Medium · REPORTED — "sealed pocket" floods unseen cells.**
+  `shim.lua:1436-1459` `pocket_of` → `ledger.py:2962` "N cell(s) you have
+  seen here lie in pockets with no doorway … nothing on this floor leads
+  onto them"; those cells also drop out of seen_unreached. `cut_tree.opens`
+  uses the real grid past the bush.
+- [ ] **PT-23 · Medium · REPORTED — `connections_reach` from the full flood.**
+  `shim.lua:3090-3146` (never downgraded to seen reach) → `ledger.py:1436`
+  "no ground you can walk to from here touches that side of this map".
+- [ ] **PT-24 · Medium · REPORTED — boulder switch names its barrier early.**
+  `ledger.py:3341` renders `opens_x/opens_y` from the map script table
+  (`shim.lua:2313-2335`), no sight filter: "which opens the way at (x,y) —
+  THAT WAY IS OPEN/SHUT RIGHT NOW" once the switch is on screen.
+- [ ] **PT-25 · Low · REPORTED — `map.dormant` steers FULLY WORKED.**
+  `shim.lua:3380` counts script objects not yet shown; keeps a room off
+  FULLY WORKED (`executor.py:6887/7590`) and pulls the run back to rooms
+  that will change later.
+- [ ] **PT-26 · Low · REPORTED — objects on ever-seen cells show at their
+  live position** (seen_filter keeps any object on a once-seen cell).
+
+### 6e. Engine object names as identity
+
+- [ ] **PT-27 · Medium · REPORTED — NPC/object constants reach prompts.**
+  CERULEANGYM_MISTY, BLUESHOUSE_DAISY1, BILLSHOUSE_BILL1 /
+  BILL_POKEMON, POWERPLANT_VOLTORB1.. (disguised Electrodes), ROUTE12_SNORLAX,
+  SILPHCO11F_GIOVANNI, CUT_TREE (marks cuttable trees). Paths:
+  `author.py:3496-3546` WHAT WAS SEEN IN EACH AREA, journal `with {objs}
+  right there` (4392), speaker names; `author.py:7943` `untouched_named_text`
+  into build_prompt (1418) "SEEN AND NEVER SPOKEN TO … BILLSHOUSE_BILL1",
+  which also refuses done verdicts (7966); `shim.lua:3294-3354` →
+  `ledger.py:1497-1506`; `author.py:7070` `_held_doors_text` (lower —
+  sprite visible). `_looks_like_item_name` only anonymizes item balls.
+  *Fix shape:* anonymize like item balls (sprite kind + position) until
+  spoken to / fought.
+- [ ] **PT-28 · Low · REPORTED — `kind="trainer"` before any encounter.**
+  `shim.lua:3296` from trainerClass → ledger ranks "a trainer standing
+  here you have not beaten" first (1636/1667/1809); `_lead_before_a_fight`
+  keys on it.
+
+### 6f. Trainer rosters
+
+- [ ] **PT-29 · Medium · VERIFIED — series "did you mean" hint.**
+  `author.py:2381-2477` via `_check_pred` 2578-2598, into "FIX THESE
+  PROBLEMS". Live: `_series_members("EVENT_BEAT_SILPH_CO_N_TRAINER_N")` →
+  "The game defines 30 events of that series, in 10 group(s): … the 2
+  trainer(s) of SILPH_CO_10F; … the 4 trainer(s) of SILPH_CO_2F" — every
+  floor, with beaten counts, for a building maybe never entered.
+- [ ] **PT-30 · Medium · REPORTED — floor-mismatch messages give rosters.**
+  `author.py:2599-2634` "The place this step is named for, X, has N trainer
+  event(s): {ids} (k already set)"; `executor.py:10754-10800`
+  `_condition_place_words` (prompt 23687) "{f} is set by beating one
+  particular trainer in {where} — that place has N trainer event(s) … no
+  fight on 2F moves this flag".
+
+### 6g. Species, item and move knowledge
+
+- [ ] **PT-31 · Medium · CHECKED — evolution table drives stone prompts.**
+  `executor.py:14586-14625` `_stone_join` (page 17822) "STILL WITH AN
+  EVOLUTION AHEAD OF THEM … that is the engine's own species table" /
+  "NOBODY in your party has an evolution left"; `_stone_question` (14649)
+  fires only when not_fully_evolved is non-empty; `party_fully_evolved`
+  target text (16258-16270) "NOT YET THERE".
+- [ ] **PT-32 · Medium · REPORTED — game-content validators.**
+  `author.py:6915` `_phantom_item` "there is no HM08 … it defines 5 HM
+  items: HM_CUT, HM_FLASH, HM_FLY, HM_STRENGTH, HM_SURF" (via `_leg_line`
+  8872, check_wording 10022, blocker `no()`); `author.py:8311` `_thing_unknown`
+  "X is not an item, Pokemon, machine, badge or place this game has",
+  quoted into the next ask (8476); `insert_guard.py:84-95` refuses on it.
+  Also leaks by omission (a real unseen item passes).
+- [ ] **PT-33 · Low · REPORTED — found TMs displayed with their move.**
+  `executor.py:16014` `_disp_item` "TM49 (TM_TRI_ATTACK)" for non-gift TMs,
+  against its own "TM49 until booted" rule; `model_view` keys the bag by
+  these ids.
+- [ ] **PT-34 · Decide — wild foe types.** `executor.py:18383` "THE WILD
+  POKEMON: {sp} L{lvl} ({types})", from shim `curTypes`; also drives
+  catch-ahead `want`, train fight_if, `best_matchup`. A gen-1 dex shows no
+  types for unowned species. Pamphlet tier only if species typing counts
+  as manual knowledge.
+- [ ] **PT-35 · Low · REPORTED — `_never_held`** (`author.py:7318`) decides
+  "never held" by whether an engine flag named for the key item exists and
+  hasn't fired (refusal only, stderr).
+
+### 6h. Battle
+
+- [ ] **PT-36 · High · CHECKED — exact foe HP (hidden in gen 1).**
+  `shim.lua:3673` emits exact `foe.hp`/`maxhp`/`stats` (the engine's own
+  WideBattle.lua:96: "the foe's exact HP is never shown").
+  Prompts: `executor.py:18940-18962` → 23425-23430 "THE LAST FIGHT YOU
+  LOST … ONIX L14 came out first at 35 hp and was at 12 hp" under a
+  comment "as the screen showed it" (false); `policy_author.py:506-510`
+  "DAMAGE YOUR MOVES HAVE BEEN SEEN TO DO (the HP bar is on screen; this is
+  what it moved by): EMBER vs GEODUDE: 5-42" — exact points, not bar.
+  Steering: `battle_policy.py:836` KO call `seen >= foe.hp*ko_margin`,
+  `:1230` train `seen_ko_hits`, `:1610-1698` catch weakening;
+  `executor.py:1607-1621` DAMAGE_JOURNAL / DAMAGE_FRAC.
+  *Fix shape:* quantize to the 48-px bar everywhere the executor reads foe
+  HP, and journal damage as bar fractions.
+- [ ] **PT-37 · High · CHECKED — pinned policy tuned on content not yet met.**
+  `plans/policy.pin` → `policy_model_v16.json`: primary arena `e4_real`,
+  cross-scored over all 8 gym `_ideal` rooms + e4_ideal + catch rooms.
+  The author iterated on `feedback_text` (`policy_author.py:1878-1941`)
+  "beat n/5 (stopped in AGATHAS_ROOM)", "beat 5/8 in CELADON_GYM", plus
+  oracle agreement from engine-truth `battle_probe`; arena parties come
+  from `gin_gym_arenas.py` with a hand-placed type counter per gym;
+  winner picked by `cross_key` (2600-2615), same in `pick_policy.py`.
+  By the 09-24 rule (tables are the hand-pick judge's only), automatic
+  selection on unearned content is pointing. **Decision, not a bug fix.**
+- [ ] **PT-38 · Medium · CHECKED — DSL_DOC walkthrough anecdotes.**
+  `policy_author.py:75-270` (108, 136, 264): "VAPOREON and AGATHA's
+  GENGAR", "KABUTOPS led LORELEI", "walked into Erika", "a GYARADOS
+  carrying THUNDERBOLT is the answer to a WATER foe", "a wild ABRA knows
+  only TELEPORT". SETUP_DOC (live executor prompts 22704/22724) is clean.
+- [ ] **PT-39 · Medium · CHECKED — system prompt: "no gym in this game needs
+  a field move".** `author.py:630`. Walkthrough claim that steers leg
+  content; arguably false for Vermilion (the CUT tree).
+- [ ] **PT-40 · Latent — `model_view` does not strip `battle.foe.{hp,
+  maxhp, stats, boosts, moves}`** (`executor.py:545-667`); shim fills
+  `foe.moves` from the full species moveset. Leaks if an escalation obs is
+  ever taken mid-battle. Also `carry_gates.py` skips re-inserting a gate
+  on `live_flags()` (structure on RAM, no text).
+
+### Checked and properly guarded (don't re-check)
+
+- Town Map gates: `doors_text`/`edges_text`, `_printed_entrances`, ROADS
+  NEVER TRIED / EVERY PRINTED WAY IN, `_atlas_text`, `_printed_road_line`,
+  `printed_roads_words`, seam names in `model_view`, `static_cost`.
+- `model_view` strips `warps[].dest`, flags, events, DVs/statExp/catchRate,
+  map size, region_anchors. `pred_text.dumps` strips DVs/otId.
+- Shim visibility: item balls anonymized, GHOST masked, keep_xy on
+  objects/warps/buildings/doors/holes/switches, `reachable` downgraded to
+  seen reach, landing warps dropped, hole landings opaque.
+- Walked-only: `_learn_doorsteps`, `_walked_door_into`, untried-exit lists
+  (9180, 16830), ledger row destinations (2121/3958), `crossings_text`,
+  `_through_*`, `new_part_exhausted`, `part_names`.
+- Counters/shelves the run read (shelf refusals, street buy, heal upgrade);
+  catch-ahead reads only the outline + battle screen; `wild_met_text`,
+  `_met_types`, `_wild_never_fought_note` use met species only.
+- Offline / human-only: compare_outlines, outline_facts, outline_trends,
+  overclaim, repeats, decay, splits, decisions, hud, battle_oracle,
+  doors/departed/finished/blocks/bridge. `outline_reupkeep`'s judge call
+  only prints.
+- Legacy RED_LEDGER=0 paths (warp->dest feedback, `_through_buildings`,
+  `_route_to_frontier`) — dead unless the flag is flipped.
