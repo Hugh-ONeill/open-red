@@ -75,7 +75,8 @@ CHARMAP.update({c: 0xA0 + i for i, c in enumerate("abcdefghijklmnopqrstuvwxyz")}
 CHARMAP.update({c: 0xF6 + i for i, c in enumerate("0123456789")})
 CHARMAP.update({"(": 0x9A, ")": 0x9B, ":": 0x9C, ";": 0x9D, "[": 0x9E,
                 "]": 0x9F, "'": 0xE0, "-": 0xE3, "?": 0xE6, "!": 0xE7,
-                ".": 0xE8, "/": 0xF3, ",": 0xF4, "♂": 0xEF, "♀": 0xF5})
+                ".": 0xE8, "/": 0xF3, ",": 0xF4, "♂": 0xEF, "♀": 0xF5,
+                "é": 0xBA})                    # the e of POKéMON, as the cartridge draws it
 # What status.txt prints that the cartridge never needed: drawn in its style,
 # one byte per row, leftmost pixel in the high bit.
 EXTRA = {
@@ -95,7 +96,7 @@ EXTRA = {
     "@": [0x3C, 0x42, 0x5A, 0x56, 0x5C, 0x40, 0x3C, 0],
     "~": [0, 0, 0x32, 0x4C, 0, 0, 0, 0],
 }
-SUBST = {"—": "-", "–": "-", "’": "'", "‘": "'", "“": '"', "”": '"', "é": "e"}
+SUBST = {"—": "-", "–": "-", "’": "'", "‘": "'", "“": '"', "”": '"'}
 
 # status.txt fields in the order the column shows them, with how each is drawn.
 # PARTY is left out: the team column is the party.
