@@ -7245,7 +7245,11 @@ function OPS.cross(G, c)
     -- ROUTE_21)", on a seam never crossed, and that name then rode the
     -- ledger (run 27, 2026-09-18; user: "how would it know that pallets
     -- south edge is 21 though? is there a sign?").
-    local _held = G and G.save and G.save.inventory and G.save.inventory.TOWN_MAP
+    -- (2026-09-28: the booklet's World Map is pamphlet tier, so the seam
+    -- name is always the printed map's; RED_PRINTED_MAP=bag restores the
+    -- item gate for comparison replays.)
+    local _held = (os.getenv("RED_PRINTED_MAP") or "always") ~= "bag"
+      or (G and G.save and G.save.inventory and G.save.inventory.TOWN_MAP)
     if not _held then dest = nil end
     if (unseen_touched or 0) > 0 then
       _verdict = ("the %s seam of %s (to %s) cannot be reached over the "

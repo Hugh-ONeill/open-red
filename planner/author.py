@@ -450,6 +450,15 @@ except (OSError, ValueError):
 # Read from the state snapshot the re-author already uses; when it cannot
 # tell, the safe answer is NOT HELD, and it says so rather than going quiet.
 def holding_town_map() -> bool:
+    # THE PRINTED MAP IS THE BOOKLET'S (user ruling, 2026-09-28). The game's
+    # instruction booklet carries a World Map of Kanto (pp.4-5), so the
+    # printed layout is pamphlet tier whether or not the run ever picks up
+    # the TOWN_MAP item, which it only does by luck. The run had been told
+    # "you are not carrying a TOWN MAP" while static_hops ranked explore on
+    # the full map underneath (audit PT-17). RED_PRINTED_MAP=bag restores
+    # the old item gate for replays that compare the two.
+    if os.environ.get("RED_PRINTED_MAP", "always") != "bag":
+        return True
     for src in ("run/last_state.json", "run/obs.json"):
         try:
             o = json.loads(Path(src).read_text())

@@ -102,7 +102,7 @@ except (OSError, ValueError):
 # toward a Snorlax for a subgoal its own plan had got wrong (2026-08-25).
 # _note sets this from the bag every observation; without the map the
 # distances run over walked links only.
-PRINTED_MAP_HELD = False
+PRINTED_MAP_HELD = os.environ.get("RED_PRINTED_MAP", "always") != "bag"
 
 _HOPS: dict = {}
 
@@ -4928,7 +4928,13 @@ class Executor:
     def _holding_town_map(obs) -> bool:
         """Is the printed map actually in the bag? It is an item in this
         game, gettable from Daisy in Blue's house, and until the run has it
-        the layout of Kanto is not something the player can read."""
+        the layout of Kanto is not something the player can read.
+
+        Superseded 2026-09-28: the booklet's World Map makes the printed
+        layout pamphlet tier (see author.holding_town_map); the item gate
+        survives only under RED_PRINTED_MAP=bag."""
+        if os.environ.get("RED_PRINTED_MAP", "always") != "bag":
+            return True
         return "TOWN_MAP" in ((obs or {}).get("bag") or {})
 
     def _not_for_explore_to_press(self, name, kind, where) -> str:
@@ -17634,7 +17640,7 @@ class Executor:
                 _all = "; ".join(
                     f"{m}: " + ", ".join(f"{d} {t}" for d, t in sorted(v.items()))
                     for m, v in sorted(MAP_EDGES.items()))
-                route_line += (f"\nTHE TOWN MAP (every road and town it shows, "
+                route_line += (f"\nTHE PRINTED MAP OF KANTO (every road and town it shows, "
                                f"and what each touches — caves, tunnels and "
                                f"buildings are doors, not shown here): {_all}.")
                 # ...AND THE ROADS IT DRAWS THAT YOU HAVE NEVER TAKEN.
