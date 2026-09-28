@@ -969,8 +969,9 @@ validator that only says "that word is not a thing this game has" is the
 manual's index, not a hint. PT-37/38 are withdrawn below on that ground
 and PT-6/32/36 trimmed to what survives it.
 
-Suggested order (revised 2026-09-28 after the 6a census): 6b (PT-9 ROUTE_MAPS,
-door_dests), 6c (Town Map gate), foe HP in 6h, then the narrowed 6a filter.
+Suggested order (revised 2026-09-28): PT-17b (open the gated printed-map
+channels, per the 6c ruling) with PT-17's wording, then 6b (PT-11 door_dests,
+PT-9 ROUTE_MAPS, PT-10), foe HP in 6h, then the narrowed 6a filter.
 
 ### 6a. Event flags from RAM
 
@@ -1054,7 +1055,9 @@ real form.
 ### 6b. Warp table and map table for places never entered
 
 - [ ] **PT-9 · High · CHECKED — `ROUTE_MAPS` in every authoring prompt,
-  ungated.** `author.py:1397` "MAP IDs on this route (use exact strings)".
+  ungated.** (2026-09-28: it is all 222 maps, alphabetical, from AGATHAS_ROOM
+  to HALL_OF_FAME. Honest list: printed-map places (6c ruling) + maps the
+  run has stood on; other exact strings are the spell-check validator's.) `author.py:1397` "MAP IDs on this route (use exact strings)".
   Names carry contents (ROUTE_16_FLY_HOUSE, FUCHSIA_GOOD_ROD_HOUSE,
   ROUTE_12_SUPER_ROD_HOUSE, CINNABAR_LAB_FOSSIL_ROOM, LAVENDER_CUBONE_HOUSE,
   SAFARI_ZONE_SECRET_HOUSE) and floor counts (SILPH_CO_11F,
@@ -1107,7 +1110,34 @@ real form.
 
 ### 6c. Printed-map geography without the Town Map
 
-- [ ] **PT-17 · High · CHECKED — `static_hops` has no Town Map gate.**
+*RULING (user, 2026-09-28): the printed Kanto map is PAMPHLET TIER.* The
+Town Map item is picked up by luck (the model does not act on being told
+where and how to get it, even when the game says so), so gating on it means
+the run almost never has geography, and the code was split: prompts said
+"you are not carrying a TOWN MAP" while static_hops / INTERIOR_ROAD steered
+with the full map underneath. A player of the day had a Kanto map from the
+booklet or a guide. What the printed map shows is the game's own Town Map
+data (gen1recomp `data/generated/field.lua` townMap, from
+town_map_entries.asm): every town and route plus the named places MT.MOON,
+ROCK TUNNEL, POWER PLANT, VICTORY ROAD, SEAFOAM ISLANDS, POKEMON TOWER,
+POKEMON MANSION, SILPH CO., ROCKET HQ, SAFARI ZONE, S.S.ANNE, SEA COTTAGE,
+DIGLETT's CAVE, CERULEAN CAVE, UNDERGROUND PATH, VIRIDIAN FOREST. It does NOT
+show floors, rooms, houses or which door leads where, so 6b stands in full.
+
+- [ ] **PT-17b · the ruling's own work — open the gated channels.** Drop the
+  TOWN_MAP gate (`holding_town_map()`, `PRINTED_MAP_HELD`, `_holding_town_map`)
+  from `edges_text`/`doors_text`, `_atlas_text`, `_printed_road_line`,
+  `printed_roads_words`, seam names in `model_view`, `static_cost`, and the
+  "You are not carrying a TOWN MAP" prompt text, so the geography the hidden
+  ranking already uses is text the model can reason about. Check
+  `doors_text` prints only printed-map places, not warp-table rooms (6b).
+  Replay a stretch that leaned on it (Route 9/10 to Rock Tunnel).
+
+
+- [ ] **PT-17 · Low after the ruling (was High) · wording only — `static_hops` has no Town Map gate.**
+  After the ruling the gate is not needed; what is left is the refusal's
+  false clause "by the roads you have walked" (it is by the printed map):
+  say "on the printed map". Original finding:
   `executor.py:110-145`; only `static_cost` checks `PRINTED_MAP_HELD`.
   Consumers `ledger.goalward_tier` / `edge_tier` (271-343; edge_tier also
   reads `MAP_EDGES[region][dir]` directly) rank explore (executor.py:4400,
@@ -1116,7 +1146,11 @@ real form.
   **by the roads you have walked**" — false; the comment at 4470 says
   static_cost gates it, but this path is static_hops), and print "on the
   printed map that is AWAY from {goal}" (`ledger.py:346`, 2328/2402/2409).
-- [ ] **PT-18 · High · CHECKED — `INTERIOR_ROAD` (map_doors.json) places
+- [x] **PT-18 · withdrawn by the ruling — every named place in INTERIOR_ROAD
+  is printed on the Town Map at its spot (checked 2026-09-28); the rest are
+  two gates and the Rock Tunnel Center, trivially seen outside. Keep the
+  wording honest ("on the printed map", not "going by its name"). Was:
+  `INTERIOR_ROAD` (map_doors.json) places
   interiors on their road, ungated.** `executor.py:222-246` via `_doorstep`
   (394-407) → `_goal_drift` (8005-8083, stuck_note 24961): "… is N leg(s)
   from ROCK_TUNNEL_1F (on ROUTE_10, going by its name)" — it is the label
@@ -1124,12 +1158,12 @@ real form.
   goalward_tier, atlas sort (18196). Tells Rock Tunnel/Power Plant → Route
   10, Victory Road → 23, Seafoam → 20 before seen. `_learn_doorsteps` (the
   walked version) is honest.
-- [ ] **PT-19 · Medium · CHECKED — system prompt promises the printed map
+- [x] **PT-19 · withdrawn by the ruling — now true. Was: system prompt promises the printed map
   unconditionally.** `author.py:658` "It can aim at a town it has NEVER
   SEEN, because the printed map says which way that is".
-- [ ] **PT-20 · Low · REPORTED — `review()` add cap from ungated MAP_EDGES.**
+- [x] **PT-20 · withdrawn by the ruling. Was: `review()` add cap from ungated MAP_EDGES.**
   `author.py:4977-4983`: `gap` raises accepted additions 4 → 16.
-- [ ] **PT-21 · Low · REPORTED — `executor.py:7267`** keeps a sealed seam in
+- [x] **PT-21 · withdrawn by the ruling. Was: `executor.py:7267`** keeps a sealed seam in
   the frontier when MAP_EDGES has it, ungated.
 
 ### 6d. Collision grid beyond what was on screen
