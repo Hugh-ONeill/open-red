@@ -225,6 +225,85 @@ def log_thinking(where: str, **fields) -> bool:
         return False          # a lost trace must never cost a round
 
 
+# THE TRACE, WHILE IT IS BEING WRITTEN. A thinking call runs two to three
+# minutes and its trace only existed once it ended, so for those minutes a
+# watcher (the HUD, the casters) had nothing to show but "thinking" (user,
+# 2026-09-28: "its been thinking mostly this whole time so events havent been
+# going out much"). A thinking call now STREAMS, and its words go to
+# run/thinking_live.txt as they arrive: reset at the start, "# done" at the
+# end. Viewer-only: nothing in the harness reads it back, and a write that
+# fails is dropped, never a round.
+LIVE_NAME = "thinking_live.txt"
+
+
+class _Live:
+    def __init__(self, model):
+        self.fh, self.last = None, 0.0
+        try:
+            path = Path(os.environ.get("RED_RUN_DIR") or RUN) / LIVE_NAME
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.fh = open(path, "w")
+            self.fh.write(f"# thinking since {time.time():.1f} model={model}\n")
+            self.fh.flush()
+        except Exception:
+            self.fh = None
+
+    def add(self, text):
+        if not self.fh or not text:
+            return
+        try:
+            self.fh.write(text)
+            if time.time() - self.last > 0.5:      # a watcher needs no finer
+                self.fh.flush()
+                self.last = time.time()
+        except Exception:
+            self.fh = None
+
+    def close(self, ok):
+        if not self.fh:
+            return
+        try:
+            self.fh.write(f"\n# {'done' if ok else 'broken off'} {time.time():.1f}\n")
+            self.fh.close()
+        except Exception:
+            pass
+        self.fh = None
+
+
+def _read_stream(r, deadline, live):
+    """ollama's streamed reply (one JSON object per line, the last with
+    done=true and the call's accounting) put back together as the one reply
+    a non-streamed call returns, so nothing after this can tell the
+    difference. `deadline` keeps the whole call's clock: the socket timeout
+    only bounds each read now, and a reply that trickles on must still end."""
+    content, thinking, final = [], [], None
+    for raw in r:
+        line = raw.strip()
+        if not line:
+            continue
+        d = json.loads(line)
+        msg = d.get("message") or {}
+        if msg.get("thinking"):
+            thinking.append(msg["thinking"])
+            live.add(msg["thinking"])
+        if msg.get("content"):
+            content.append(msg["content"])
+        if d.get("done", True):      # a server that did not stream sends one
+            final = d                # object with no "done": that is the end
+            break
+        if time.time() > deadline:
+            raise TimeoutError("thinking reply ran past its clock")
+    if final is None:
+        raise ConnectionError("the stream ended before its last line")
+    final = dict(final)
+    final["message"] = dict(final.get("message") or {}, role="assistant",
+                            content="".join(content) or
+                            (final.get("message") or {}).get("content", ""))
+    if thinking:
+        final["message"]["thinking"] = "".join(thinking)
+    return final
+
+
 def chat(msgs, model, retries=2, think=False, temp=None):
     """Ask the model, and do not lose a whole round to one bad second.
 
@@ -336,7 +415,10 @@ def _chat_once(msgs, model, think=False, temp=None):
     # caller one round, not a quarter of an hour.
     # A thinking reply spends most of that ceiling on the trace, so it gets
     # the larger one — see NUM_PREDICT_THINK. A normal round is unchanged.
-    body = json.dumps({"model": model, "messages": msgs, "stream": False,
+    body = json.dumps({"model": model, "messages": msgs,
+                       # only a THINKING call streams (see _Live); every other
+                       # call is the exact request it always was
+                       "stream": bool(think),
                        "think": bool(think), "keep_alive": "30m",
                        # WHAT THE CALL IS FOR DECIDES THE TEMPERATURE.
                        # 0.3 is right for the rounds and the judgment rungs,
@@ -372,8 +454,17 @@ def _chat_once(msgs, model, think=False, temp=None):
     # allowed to generate rather than a promise that it will be brief.
     _timeout = 300 if not think else max(
         300, int(NUM_PREDICT_THINK / 15) + 120)
-    with urllib.request.urlopen(req, timeout=_timeout) as r:
-        d = json.loads(r.read())
+    if think:
+        live, ok = _Live(model), False
+        try:
+            with urllib.request.urlopen(req, timeout=_timeout) as r:
+                d = _read_stream(r, time.time() + _timeout, live)
+            ok = True
+        finally:
+            live.close(ok)
+    else:
+        with urllib.request.urlopen(req, timeout=_timeout) as r:
+            d = json.loads(r.read())
     # Never let this go silent again. The signature is exact: an oversized
     # prompt is cut to num_ctx/2 + 3 (measured 4099 / 8195 / 16387), so
     # truncation is a narrow WINDOW at that value, not "large". A prompt
