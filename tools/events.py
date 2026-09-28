@@ -24,6 +24,7 @@ drafts and the pick) for the HUD.
 """
 import argparse
 import json
+import subprocess
 import os
 import re
 import sys
@@ -172,6 +173,9 @@ PHASE = os.path.join(os.path.dirname(FEED), "phase.json")
 LEG_AUTHOR = re.compile(r"^=== leg (\d+)/(\d+): authoring \S+ (.+)$")
 REWRITE = re.compile(r"^--- rewriting (\S+) from evidence ---")
 GOAL = re.compile(r"^\s+goal:\s+(.+)$")
+START = re.compile(r"^\s+start:\s+(.+)$")
+AUTHOR_THINKS = re.compile(r"^--- plan (\d+) for this leg: the author thinks ---")
+AB_CAPTURE = os.environ.get("RED_AB_CAPTURE", "1") != "0"
 DRAFT = re.compile(r"^\[draws\] draft (\d+): (\d+) subgoals: (.+)$")
 PICKED = re.compile(r"^\[draws\] picked draft (\d+) of (\d+): (.+)$")
 ATTEMPT = re.compile(r"^=== attempt (\d+)/(\d+): (\S+) ===")
@@ -212,6 +216,28 @@ def from_chain_line(line, phase):
     if m and phase.pop("want_goal", False):
         phase["goal"] = m.group(1).strip()
         return "think", "rewriting the plan from what it walked: %s" % phase["goal"]
+    m = START.match(line)
+    if m and phase.get("what") == "rewrite":
+        phase["start"] = m.group(1).strip()
+        return None
+    m = AUTHOR_THINKS.match(line)
+    if m:
+        # A THINKING AUTHOR PASS IS AN A/B CASE. Freeze this moment (what the
+        # author is about to read, and the goal and start campaign.sh gave
+        # it) so tools/author_ab.py can later replay it with thinking off and
+        # on. Snapshot only: reading and copying, in the background, no GPU.
+        goal, start = phase.get("goal"), phase.get("start")
+        if AB_CAPTURE and goal and start and phase.get("live", True):
+            slug = re.sub(r"[^a-z0-9]+", "_", goal.lower()).strip("_")[:40]
+            case = "%s_%s_p%s" % (time.strftime("%m%d_%H%M"), slug, m.group(1))
+            try:
+                subprocess.Popen([sys.executable, os.path.join(HERE, "author_ab.py"), "snapshot", case,
+                                  "--goal", goal, "--start", start],
+                                 cwd=os.path.join(HERE, ".."), stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, start_new_session=True)
+            except OSError:
+                pass
+        return "think", "plan %s for this leg: the author will think it over" % m.group(1)
     m = DRAFT.match(line)
     if m:
         r = route(m.group(3))
@@ -308,8 +334,10 @@ def follow(poll=0.5):
         with open(CHAIN, "rb") as f:
             f.seek(0, 2)
             f.seek(max(0, f.tell() - 65536))
+            phase["live"] = False           # replaying history: no captures
             for line in f.read().decode("utf-8", "replace").splitlines()[1:]:
                 from_chain_line(line, phase)
+            phase.pop("live", None)
     except OSError:
         pass
     journal, chain = Tail(JOURNAL), Tail(CHAIN)
