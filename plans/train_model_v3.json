@@ -1,0 +1,20 @@
+{
+ "name": "Train_v2_center_heals",
+ "train": {
+  "lead": true,
+  "fight_if": {
+   "min_level_ratio": 0.7,
+   "min_hp_frac": 0.4,
+   "max_foe_matchup": 1.5,
+   "types_ignored_at_level_ratio": 1.4
+  },
+  "else": "switch",
+  "to": "highest_level",
+  "wild_items": "never"
+ },
+ "provenance": {
+  "authored_by": "harness knob over train_model_v2 (user, 2026-09-28)",
+  "why": "medicine is kept out of WILD fights in a TRAINING step; trainers, travel and the last one standing still use it",
+  "measured_2026_09_28": "policy_author --train-eval --refs-only, 3 trials per room, beside v2: train_early 75% vs 73%, train_mid 70% vs 64%, train_late 63% vs 38%, train_outleveled 24% vs 23%; v2 used 1 wild item in 12 trials, so the knob changed at most one decision and the gaps are trial noise; pinned via plans/train.pin, not ranked by pick_policy (no eval block written)"
+ }
+}
