@@ -62,7 +62,7 @@ ck("the author is told what it does",
    and '"types_ignored_at_level_ratio": 1.0-5.0}' in pa)
 sa = (ROOT / "planner/spec_age.py").read_text()
 ck("the spec-age line files it with the train words",
-   '"types_ignored_at_level_ratio"}' in sa)
+   '"types_ignored_at_level_ratio"' in sa[sa.index('TRAIN_BLOCK_WORDS'):sa.index('}', sa.index('TRAIN_BLOCK_WORDS'))])
 gg = (ROOT / "planner/gin_gym_arenas.py").read_text()
 ck("the outleveled room is Route 6 with a GEODUDE far above its wilds",
    'dict(name="train_outleveled", map="ROUTE_6"' in gg and '("GEODUDE", 22)]' in gg)
