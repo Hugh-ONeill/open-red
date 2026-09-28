@@ -1124,6 +1124,24 @@ POKEMON MANSION, SILPH CO., ROCKET HQ, SAFARI ZONE, S.S.ANNE, SEA COTTAGE,
 DIGLETT's CAVE, CERULEAN CAVE, UNDERGROUND PATH, VIRIDIAN FOREST. It does NOT
 show floors, rooms, houses or which door leads where, so 6b stands in full.
 
+*CONFIRMED FROM THE MANUAL (2026-09-28):* the US Pokemon Red instruction
+booklet (videogamemanual.com, "Pokemon - Red Version (USA).pdf", pages 4-5,
+"WORLD MAP: Use this map to help you find where you're going") is a
+schematic route graph. It is MORE than the Town Map on connections: every
+town joined by numbered routes (1-25, sea routes 19/20/21 drawn as sea),
+Victory Road on 23 below Indigo Plateau, Mt. Moon between 3 and 4, Rock
+Tunnel between 9 and 10 with the Power Plant branching off there, Pokemon
+Tower at Lavender, S.S. Anne at Vermilion, Safari Zone at Fuchsia, Seafoam
+on 20, Sea Cottage at the end of 25, "Unknown Dungeon" (Cerulean Cave) off
+Cerulean, and the UNDERGROUND links drawn as dotted lines: Cerulean to
+Vermilion (under Saffron), Celadon to Lavender, and Diglett's Cave joining
+the Route 2 side to the Route 11 side. It has no distances or cell
+geometry, and it does NOT name Silph Co., Rocket HQ or the Pokemon Mansion
+(the in-game Town Map does, by position). Fair geography = the union of the
+two. Pages 16-27 also walk Pallet to Pewter with item spots and Mart
+prices (pamphlet tier too). The Pokemon list (44-56) gives names and art,
+no types, so PT-34 stays a decision.
+
 - [ ] **PT-17b · the ruling's own work — open the gated channels.** Drop the
   TOWN_MAP gate (`holding_town_map()`, `PRINTED_MAP_HELD`, `_holding_town_map`)
   from `edges_text`/`doors_text`, `_atlas_text`, `_printed_road_line`,
