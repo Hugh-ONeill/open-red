@@ -43,6 +43,7 @@ import time
 from PIL import Image
 
 import events as feed     # tools/events.py: the run's event feed
+import townmap            # tools/townmap.py: drafts drawn on the Kanto map
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OBS = os.path.join(HERE, "..", "run", "obs.json")
@@ -402,15 +403,18 @@ def draw_events(img, painter, y0, height, cols):
     the bottom like a chat, as many as fit."""
     if height - y0 < 5 * LINE:
         return
-    lines = []
+    blocks = []                       # one block per event, so none is cut in half
     for e in feed.last_events(40):
         stamp = time.strftime("%H:%M", time.localtime(e.get("t", 0)))
         wrapped = textwrap.wrap(e.get("text", ""), cols - 7) or [""]
         col = TONE.get(e.get("tone"), FG)
-        lines.append((stamp, wrapped[0], col))
-        lines += [("", w, col) for w in wrapped[1:]]
+        blocks.append([(stamp, wrapped[0], col)] + [("", w, col) for w in wrapped[1:]])
     room = (height - y0 - LINE - 10) // LINE
-    shown = lines[-room:] if room > 0 else []
+    shown = []
+    for block in reversed(blocks):
+        if len(shown) + len(block) > room:
+            break
+        shown = block + shown
     y = height - 4 - LINE * max(len(shown), 1) - LINE - 4
     painter.text(img, 4, y, "EVENTS", ACCENT)
     if not shown:
@@ -449,7 +453,9 @@ def draw_authoring(img, painter, y, height, cols, phase):
         if y + 2 * LINE > height:
             break
         on = d["n"] == picked
-        col = ACCENT if on else (DIM if picked else FG)
+        col = townmap.PICKED if on else townmap.DRAFT_COLORS[(d["n"] - 1) % len(townmap.DRAFT_COLORS)]
+        if picked and not on:
+            col = tuple(int(c * 0.55 + 20) for c in col)    # as the map fades them
         head = "%s%d  %d steps" % (">" if on else " ", d["n"], d["steps"])
         painter.text(img, 4, y, head, col)
         y += LINE
@@ -464,7 +470,7 @@ def draw_authoring(img, painter, y, height, cols, phase):
         y += 4
         painter.text(img, 4, y, "PICKED %d OF %d" % (picked, phase["picked"]["of"]), ACCENT)
         y += LINE
-        for line in textwrap.wrap(phase["picked"].get("why", ""), cols - 1)[:4]:
+        for line in textwrap.wrap(phase["picked"].get("why", ""), cols - 1)[:6]:
             painter.text(img, 12, y, line, DIM)
             y += LINE
     return y + 4
@@ -528,6 +534,21 @@ def render(obs, status_text, painter, layout="side", height=None, width=None,
     layout "stack": team over status, the status filling down to `height`.
     `width` (1x pixels) widens the status column to fill it; the team column
     keeps its size, since its rows have nothing more to say."""
+    if layout.startswith("map"):
+        # authoring: the game is closed, so the town map with the drafts on it
+        # takes the game's place, beside the authoring column (the team does
+        # not change while a plan is written)
+        k = int(layout[3:] or 2)
+        start = ((obs or {}).get("map") or {}).get("id")
+        tm = townmap.render(feed.read_phase() or {}, start, k)
+        mw = tm.width + 8
+        cols = max(MIN_COLS, ((width or mw + GUTTER + COLS * 8 + 8) - mw - GUTTER - 8) // 8)
+        h = max(tm.height + 8, height or 0)
+        col = render_status(status_text, painter, h, cols, act)
+        img = Image.new("RGB", (max(mw + GUTTER + cols * 8 + 8, width or 0), h), BG)
+        img.paste(tm, (4, (h - tm.height) // 2))
+        img.paste(col, (mw + GUTTER, 0))
+        return img
     team = render_team(obs, painter)
     if layout == "stack":
         cols = max(MIN_COLS, ((width or stack_width(COLS)) - 8) // 8)
@@ -557,6 +578,26 @@ def window_pixels():
         return (xpx, ypx) if xpx and ypx else None
     except OSError:
         return None
+
+
+def fit_map(win):
+    """Authoring layout: the town map at k times the Game Boy's size beside the
+    status column, k and the screen scale chosen for the biggest map on screen
+    (then the bigger scale, for the text)."""
+    xpx, ypx = win
+    best = None
+    for k in (2, 1):
+        width = townmap.W * k + 8 + GUTTER + MIN_COLS * 8 + 8
+        min_h = max(townmap.H * k + 8, 30 * LINE)
+        scale = min(xpx // width, ypx // min_h)
+        if scale >= 1:
+            key = (k * scale, scale)
+            if best is None or key > best[0]:
+                best = (key, k, scale)
+    if best is None:
+        return None
+    _, k, scale = best
+    return "map%d" % k, scale, ypx // scale, xpx // scale
 
 
 def fit(win, team_h):
@@ -626,7 +667,9 @@ def main():
 
     def frame_bytes(obs, status_text, win=None, act=None):
         team_h = TOP + ROW * 7 + 12
-        layout, scale, height, width = fit(win, team_h)
+        phase = feed.read_phase() or {}
+        fitted = fit_map(win) if (win and phase.get("phase") == "authoring") else None
+        layout, scale, height, width = fitted or fit(win, team_h)
         if args.scale:
             scale = args.scale
             height, width = (win[1] // scale, win[0] // scale) if win else (None, None)
