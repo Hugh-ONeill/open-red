@@ -253,7 +253,12 @@ def tidy(label, value):
     if label == "PLAN":
         m = re.match(r"leg_(\d+)_(.+?)(?:\.(v\d+))?\.json$", value)
         if m:
-            return "leg %d: %s%s" % (int(m.group(1)), m.group(2).replace("_", " "),
+            words_ = m.group(2).replace("_", " ")
+            # the file name lost its é (pick_a_starter_pok_mon): put it back
+            # where Red spells it, Pokémon / Poké Ball / Poké Mart / Pokédex
+            words_ = re.sub(r"\bpok (mon|ball|balls|mart|dex|center|flute)\b", r"poké\1", words_)
+            words_ = re.sub(r"\bpoké(ball|balls|mart|center|flute)\b", r"poké \1", words_)
+            return "leg %d: %s%s" % (int(m.group(1)), words_,
                                      " (%s)" % m.group(3) if m.group(3) else "")
     value = re.sub(r'"([^"]*)":\s*', r"\1 ", value)       # "key": x -> key x
     value = value.replace('"', "").replace("{", "").replace("}", "")
