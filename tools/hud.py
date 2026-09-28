@@ -23,7 +23,8 @@ In battle the Pokemon that is out is framed and carries its status (SLP, PSN,
 The MODEL line says what the model is doing this second: reading its prompt
 (with a bar), writing (tokens so far), THINKING when the executor journalled
 think_on for the call in flight, or ACTING while the harness plays. It reads the
-ollama service log (journalctl) once a second and the journal's tail.
+ollama service log (journalctl) once a second and the journal's tail. The free
+space at the bottom is the EVENTS feed that tools/events.py --follow writes.
 
 It titles its window "red-recomp HUD", which is what Hyprland's `opaque`
 rule matches (environment/rules.conf), so run it in any kitty window.
@@ -40,6 +41,8 @@ import textwrap
 import time
 
 from PIL import Image
+
+import events as feed     # tools/events.py: the run's event feed
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OBS = os.path.join(HERE, "..", "run", "obs.json")
@@ -71,7 +74,7 @@ CHARMAP.update({c: 0xA0 + i for i, c in enumerate("abcdefghijklmnopqrstuvwxyz")}
 CHARMAP.update({c: 0xF6 + i for i, c in enumerate("0123456789")})
 CHARMAP.update({"(": 0x9A, ")": 0x9B, ":": 0x9C, ";": 0x9D, "[": 0x9E,
                 "]": 0x9F, "'": 0xE0, "-": 0xE3, "?": 0xE6, "!": 0xE7,
-                ".": 0xE8, "/": 0xF3, ",": 0xF4})
+                ".": 0xE8, "/": 0xF3, ",": 0xF4, "♂": 0xEF, "♀": 0xF5})
 # What status.txt prints that the cartridge never needed: drawn in its style,
 # one byte per row, leftmost pixel in the high bit.
 EXTRA = {
@@ -391,6 +394,35 @@ def draw_activity(img, painter, y, act):
     painter.text_right(img, y, clock(act["elapsed"]), DIM, right=img.width)
 
 
+TONE = {"good": ACCENT, "bad": RED, "think": YELLOW, "info": FG}
+
+
+def draw_events(img, painter, y0, height, cols):
+    """The event feed (tools/events.py) in the column's free space, newest at
+    the bottom like a chat, as many as fit."""
+    if height - y0 < 5 * LINE:
+        return
+    lines = []
+    for e in feed.last_events(40):
+        stamp = time.strftime("%H:%M", time.localtime(e.get("t", 0)))
+        wrapped = textwrap.wrap(e.get("text", ""), cols - 7) or [""]
+        col = TONE.get(e.get("tone"), FG)
+        lines.append((stamp, wrapped[0], col))
+        lines += [("", w, col) for w in wrapped[1:]]
+    room = (height - y0 - LINE - 10) // LINE
+    shown = lines[-room:] if room > 0 else []
+    y = height - 4 - LINE * max(len(shown), 1) - LINE - 4
+    painter.text(img, 4, y, "EVENTS", ACCENT)
+    if not shown:
+        painter.text(img, 12, y + LINE + 2, "none yet (tools/events.py --follow)", DIM)
+        return
+    y += LINE + 2
+    for stamp, text, col in shown:
+        painter.text(img, 12, y, stamp, DIM)
+        painter.text(img, 12 + 6 * 8, y, text, col)
+        y += LINE
+
+
 def render_status(text, painter, height, cols=COLS, act=None):
     img = Image.new("RGB", (cols * 8 + 8, height), BG)
     if text is None:
@@ -424,6 +456,7 @@ def render_status(text, painter, height, cols=COLS, act=None):
             painter.text(img, 12, y, line, col)
             y += LINE
         y += 4
+    draw_events(img, painter, y + 8, height, cols)
     return img
 
 
@@ -574,7 +607,7 @@ def main():
             if time.time() - act_at >= 1.0:        # the service log, once a second
                 act, act_at = model_activity(), time.time()
             # the age tick repaints "updated Ns ago" every 5 s even when idle
-            stamps = (stamp_of(OBS), stamp_of(STATUS), win,
+            stamps = (stamp_of(OBS), stamp_of(STATUS), stamp_of(feed.FEED), win,
                       int(time.time()) // 5, activity_key(act))
             if stamps != last:
                 fresh = read_obs()
