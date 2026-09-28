@@ -234,16 +234,26 @@ def log_thinking(where: str, **fields) -> bool:
 # end. Viewer-only: nothing in the harness reads it back, and a write that
 # fails is dropped, never a round.
 LIVE_NAME = "thinking_live.txt"
+# ...AND EVERY OTHER CALL'S WORDS TOO. Authoring is minutes of ordinary calls
+# (three drafts, the picker, the review, the retry rounds) with the game
+# closed, and a watcher saw only "writing 212 tok" (user, 2026-09-28: "that
+# ends up being a lot of dead air time where you cant quite see it whir").
+# Every call now streams into run/model_live.txt: a header saying whether it
+# thinks and which prompt asked (its first line), the trace if any, then
+# "# answer" and the reply as it is written. Same rules: viewer-only, and a
+# write that fails is dropped. RED_STREAM=0 sends the old one-piece request.
+MODEL_LIVE_NAME = "model_live.txt"
+STREAM_ALL = os.environ.get("RED_STREAM", "1") != "0"
 
 
 class _Live:
-    def __init__(self, model):
+    def __init__(self, model, name=LIVE_NAME, header=None):
         self.fh, self.last = None, 0.0
         try:
-            path = Path(os.environ.get("RED_RUN_DIR") or RUN) / LIVE_NAME
+            path = Path(os.environ.get("RED_RUN_DIR") or RUN) / name
             path.parent.mkdir(parents=True, exist_ok=True)
             self.fh = open(path, "w")
-            self.fh.write(f"# thinking since {time.time():.1f} model={model}\n")
+            self.fh.write(header or f"# thinking since {time.time():.1f} model={model}\n")
             self.fh.flush()
         except Exception:
             self.fh = None
@@ -270,14 +280,36 @@ class _Live:
         self.fh = None
 
 
-def _read_stream(r, deadline, live):
+class _NoLive:
+    def add(self, text):
+        pass
+
+    def close(self, ok):
+        pass
+
+
+def _who(msgs):
+    """Which prompt asked: the first line of its system message, short."""
+    for m in msgs or []:
+        if m.get("role") == "system":
+            first = (m.get("content") or "").strip().splitlines()[:1]
+            return (first[0] if first else "")[:70].replace("\n", " ")
+    return ""
+
+
+def _read_stream(r, deadline, live, every=None):
     """ollama's streamed reply (one JSON object per line, the last with
     done=true and the call's accounting) put back together as the one reply
     a non-streamed call returns, so nothing after this can tell the
     difference. `deadline` keeps the whole call's clock: the socket timeout
     only bounds each read now, and a reply that trickles on must still end."""
+    every = every or _NoLive()
     content, thinking, final = [], [], None
-    for raw in r:
+    try:
+        lines = iter(r)
+    except TypeError:                # a stand-in response with only read()
+        lines = iter(r.read().splitlines())
+    for raw in lines:
         line = raw.strip()
         if not line:
             continue
@@ -286,8 +318,12 @@ def _read_stream(r, deadline, live):
         if msg.get("thinking"):
             thinking.append(msg["thinking"])
             live.add(msg["thinking"])
+            every.add(msg["thinking"])
         if msg.get("content"):
+            if not content and thinking:
+                every.add("\n# answer\n")
             content.append(msg["content"])
+            every.add(msg["content"])
         if d.get("done", True):      # a server that did not stream sends one
             final = d                # object with no "done": that is the end
             break
@@ -436,7 +472,7 @@ def _chat_once(msgs, model, think=False, temp=None):
     body = json.dumps({"model": model, "messages": msgs,
                        # only a THINKING call streams (see _Live); every other
                        # call is the exact request it always was
-                       "stream": bool(think),
+                       "stream": bool(think) or STREAM_ALL,
                        "think": bool(think), "keep_alive": "30m",
                        # WHAT THE CALL IS FOR DECIDES THE TEMPERATURE.
                        # 0.3 is right for the rounds and the judgment rungs,
@@ -472,14 +508,20 @@ def _chat_once(msgs, model, think=False, temp=None):
     # allowed to generate rather than a promise that it will be brief.
     _timeout = 300 if not think else max(
         300, int(NUM_PREDICT_THINK / 15) + 120)
-    if think:
-        live, ok = _Live(model), False
+    if think or STREAM_ALL:
+        live = _Live(model) if think else _NoLive()
+        every = (_Live(model, MODEL_LIVE_NAME,
+                       f"# call since {time.time():.1f} model={model} "
+                       f"think={int(bool(think))} who={_who(msgs)}\n")
+                 if STREAM_ALL else _NoLive())
+        ok = False
         try:
             with urllib.request.urlopen(req, timeout=_timeout) as r:
-                d = _read_stream(r, time.time() + _timeout, live)
+                d = _read_stream(r, time.time() + _timeout, live, every)
             ok = True
         finally:
             live.close(ok)
+            every.close(ok)
     else:
         with urllib.request.urlopen(req, timeout=_timeout) as r:
             d = json.loads(r.read())

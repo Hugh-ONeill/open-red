@@ -7,7 +7,9 @@ thinking call now streams: its words go to run/thinking_live.txt as they come,
 and the streamed lines are put back together as the one reply a non-streamed
 call returns.
 
-Pinned: only a thinking call streams; the reassembled reply carries the same
+Pinned: every call streams (RED_STREAM=0: only thinking ones); a thinking
+call's trace goes to thinking_live.txt and every call's words (trace, then
+"# answer" and the reply) to model_live.txt; the reassembled reply carries the same
 content, trace and accounting the caller always read; the live file is reset
 at the start and says "# done" at the end; a live file that cannot be written
 never costs the round; a server that ignores stream and sends one object is
@@ -81,11 +83,29 @@ ck("the live file holds the trace as it came", "The tree blocks south." in live,
 ck("...opens with a header and closes with # done",
    live.startswith("# thinking since") and "# done" in live.splitlines()[-1], live)
 
+EVERY = Path(TMP) / B.MODEL_LIVE_NAME
+every = EVERY.read_text() if EVERY.exists() else ""
+ck("every call's words also go to model_live.txt, the answer after its trace",
+   every.startswith("# call since") and "think=1" in every
+   and "The tree blocks south." in every and "# answer" in every
+   and '{"op": "go north"}' in every, every)
+
 SENT.clear()
 LIVE.write_text("old trace\n")
+SYS = {"role": "system", "content": "You AUTHOR a macro.\nmore rules"}
+out = B._chat_once([SYS] + MSGS, "m")
+ck("a call that does not think streams too (a watcher sees authoring)",
+   SENT and SENT[-1].get("stream") is True and out == '{"op": "go north"}', out)
+every = EVERY.read_text() if EVERY.exists() else ""
+ck("...into model_live.txt, saying it did not think and which prompt asked",
+   "think=0" in every and "who=You AUTHOR a macro." in every and '"go north"' in every, every)
+ck("...and leaves the thinking file alone", LIVE.read_text() == "old trace\n")
+
+SENT.clear()
+B.STREAM_ALL = False
 out = B._chat_once(MSGS, "m")
-ck("a call that does not think does not stream", SENT and SENT[-1].get("stream") is False)
-ck("...and leaves the live file alone", LIVE.read_text() == "old trace\n")
+B.STREAM_ALL = True
+ck("RED_STREAM=0 sends the old one-piece request", SENT and SENT[-1].get("stream") is False)
 
 SENT.clear()
 MODE["stream"] = False
