@@ -25,6 +25,7 @@ TILES = GEN + "assets/generated/townmap/tiles.png"
 PLAYER = GEN + "assets/generated/sprites/red.png"
 CHAIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "run", "chain.log")
 FIELD = GEN + "data/generated/field.lua"
+MAPS = GEN + "data/generated/maps.lua"
 CACHE = os.path.expanduser("~/.local/state/red-recomp/townmap.json")
 
 W, H = 160, 144          # the town map screen, 20x18 tiles of 8x8
@@ -53,6 +54,14 @@ for name, loc in pairs(t.locations) do
   l[#l + 1] = q(name) .. ':{"x":' .. loc.x .. ',"y":' .. loc.y .. ',"name":' .. q(loc.name or name) .. '}'
 end
 out[#out + 1] = '"locations":{' .. table.concat(l, ",") .. '}'
+local maps = dofile(arg[2])
+local sz = {}
+for name, m in pairs(maps) do
+  if type(m) == "table" and m.width and m.height then
+    sz[#sz + 1] = q(name) .. ':[' .. m.width .. ',' .. m.height .. ']'
+  end
+end
+out[#out + 1] = '"sizes":{' .. table.concat(sz, ",") .. '}'
 print('{' .. table.concat(out, ",") .. '}')
 """
 
@@ -60,14 +69,16 @@ print('{' .. table.concat(out, ",") .. '}')
 def load():
     """{map: [360 tile ids], locations: {MAP_ID: {x, y, name}}}, cached."""
     try:
-        if os.path.getmtime(CACHE) >= os.path.getmtime(FIELD):
+        if os.path.getmtime(CACHE) >= max(os.path.getmtime(FIELD), os.path.getmtime(MAPS)):
             with open(CACHE) as f:
-                return json.load(f)
+                data = json.load(f)
+            if "sizes" in data:
+                return data
     except OSError:
         pass
     for lua in ("lua5.4", "lua", "luajit", "lua5.1"):
         try:
-            out = subprocess.run([lua, "-", FIELD], input=DUMP_LUA, capture_output=True,
+            out = subprocess.run([lua, "-", FIELD, MAPS], input=DUMP_LUA, capture_output=True,
                                  text=True, timeout=20)
         except (OSError, subprocess.SubprocessError):
             continue
@@ -103,7 +114,8 @@ def base_map():
 
 def run_history(path=CHAIN, tail_bytes=4_000_000):
     """The current run's walk, read off chain.log from the last new_game:
-    [(leg, attempt_no, MAP_ID), ...] in the order the maps were entered.
+    [(leg, attempt_no, MAP_ID, (x, y) or None), ...] in the order the maps
+    were entered, (x, y) being the cell the player arrived on.
     attempt_no counts every '=== attempt' line, so the last group is the
     attempt that ran most recently."""
     try:
@@ -128,8 +140,14 @@ def run_history(path=CHAIN, tail_bytes=4_000_000):
         elif line.startswith("=== attempt"):
             attempt += 1
         elif line.startswith("[info] map: "):
-            m = line[12:].split(" at ")[0].strip()
-            out.append((leg, attempt, m))
+            name, _, at = line[12:].partition(" at ")
+            pos = None
+            try:
+                a, b = at.strip().strip("()").split(",")
+                pos = (int(a), int(b))
+            except ValueError:
+                pass
+            out.append((leg, attempt, name.strip(), pos))
     return out
 
 
@@ -156,6 +174,30 @@ def player_sprite(k):
 def ramp(i, n):
     t = 0.0 if n <= 1 else i / (n - 1)
     return tuple(int(a + (b - a) * t) for a, b in zip(PAST_OLD, PAST_NEW))
+
+
+CELLS_PER_SQUARE = 20    # map cells (16 px) per town-map square, measured along Route 1
+
+
+def place(data, map_id, pos, k):
+    """Where on the town map this visit happened: the map's one town-map cell,
+    slid along the map's length by where the player came in. A long route has
+    ONE cell (Route 4's sits by Cerulean) but is entered at either end, and
+    without this the trail jumps to that cell and back (Route 3 -> Route 4 ->
+    Mt. Moon drew a diagonal to Cerulean). The cell is taken as the map's middle."""
+    p = cell_center(data.get("locations") or {}, map_id, k)
+    size = (data.get("sizes") or {}).get(map_id)
+    # only ROUTES slide: they are the long maps drawn as one cell. Towns, caves
+    # and buildings keep their cell (a cave floor is big but is not a line on
+    # the town map), or every entry scatters into a scribble.
+    if not p or not pos or not size or not map_id.startswith("ROUTE_"):
+        return p
+    wc, hc = size[0] * 2, size[1] * 2              # blocks -> 16 px cells
+
+    def slide(v, n):
+        # along the map's length, in half squares so repeat entries coincide
+        return round(2 * (v / max(n, 1) - 0.5) * n / CELLS_PER_SQUARE) / 2
+    return int(p[0] + slide(pos[0], wc) * 8 * k), int(p[1] + slide(pos[1], hc) * 8 * k)
 
 
 def cell_center(locations, map_id, k):
@@ -197,39 +239,38 @@ def render(phase, start_map=None, k=2, history=None):
     hist = run_history() if history is None else history
     if hist:
         last_attempt = hist[-1][1]
-        legs = sorted({leg for leg, att, _ in hist if att != last_attempt})
+        legs = sorted({h[0] for h in hist if h[1] != last_attempt})
         shade = {leg: ramp(i, len(legs)) for i, leg in enumerate(legs)}
-        # every cell this run has stood in, by the leg that first reached it
+        pts = [(h[0], h[1], place(data, h[2], h[3] if len(h) > 3 else None, k)) for h in hist]
+        # every spot this run has stood in, by the leg that first reached it
         seen = {}
-        for leg, att, m in hist:
-            seen.setdefault(m, leg)
-        for m, leg in seen.items():
-            p = cell_center(locs, m, k)
+        for leg, att, p in pts:
             if p:
-                x, y = p
-                r = max(2, k + 1)
-                draw.rectangle((x - r, y - r, x + r, y + r), fill=shade.get(leg, PAST_NEW))
+                seen.setdefault(p, leg)
+        for (x, y), leg in seen.items():
+            r = max(2, k + 1)
+            draw.rectangle((x - r, y - r, x + r, y + r), fill=shade.get(leg, PAST_NEW))
         # earlier attempts' moves, leg by leg
         prev = None
-        for leg, att, m in hist:
+        for leg, att, p in pts:
             if att == last_attempt:
                 break
-            p = cell_center(locs, m, k)
             if p and prev and p != prev:
                 draw.line((prev, p), fill=shade.get(leg, PAST_NEW), width=max(1, k))
             prev = p or prev
-        # the last attempt, in gold, thicker; its cells outlined, so an attempt
+        # the last attempt, in gold, thicker; its spots outlined, so an attempt
         # that never left one town still shows
-        last = [m for leg, att, m in hist if att == last_attempt]
-        for m in set(last):
-            p = cell_center(locs, m, k)
-            if p:
-                x, y = p
-                r = 2 * k + 1
-                draw.rectangle((x - r, y - r, x + r, y + r), outline=LAST_ATTEMPT, width=max(1, k // 2 + 1))
-        pts = trail(locs, ([hist[-len(last) - 1][2]] if len(hist) > len(last) else []) + last, k)
-        if len(pts) > 1:
-            draw.line(pts, fill=LAST_ATTEMPT, width=max(2, k + 1), joint="curve")
+        first = next(i for i, (leg, att, p) in enumerate(pts) if att == last_attempt)
+        last = [p for leg, att, p in pts[max(0, first - 1):] if p]
+        for x, y in set(last[1:] or last):
+            r = 2 * k + 1
+            draw.rectangle((x - r, y - r, x + r, y + r), outline=LAST_ATTEMPT, width=max(1, k // 2 + 1))
+        gold = []
+        for p in last:
+            if not gold or gold[-1] != p:
+                gold.append(p)
+        if len(gold) > 1:
+            draw.line(gold, fill=LAST_ATTEMPT, width=max(2, k + 1), joint="curve")
 
     # ---- the drafts
     drafts = phase.get("drafts") or []
