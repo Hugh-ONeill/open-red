@@ -189,6 +189,9 @@ def run(name, n, arms, force=False):
     temp = prompt.get("temp")
     for i in range(n):
         for arm in arms:                              # interleaved, so drift hits both arms alike
+            if chain_up() and not force:
+                print("the chain came up; stopping here so it has the GPU", flush=True)
+                return
             think = arm == "on"
             t = time.time()
             try:
