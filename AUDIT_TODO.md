@@ -1196,6 +1196,16 @@ harness says (PT-41 below).
   Route 20 around Seafoam), never the booklet's 9 -> Rock Tunnel -> 10. It would
   revisit the 2026-08-17 call that what a repeated door id means is the
   model's to infer. Was: open the gated channels. Drop the
+  RE-AUTHOR TEST 2026-09-28 (tools/author_ab.py, 5 per arm, think off):
+  Reach Lavender from Cerulean went Vermilion/Saffron 5/5 without the map,
+  the right road 5/5 with it (9 -> 10 -> Rock Tunnel -> 10 -> Lavender) but
+  0/5 valid: freeze_new_parts froze a never-stood-on map to a bare {"map"}
+  and the exit rule refused it. Fixed (see git log "far side the
+  plan itself reaches first"): left unfrozen, the executor freezes it at
+  step entry into the plan file. Full author loop 3/3 accepted the right
+  plan after that (round 1 bare map refused, round 2 new_part). The S.S.
+  Ticket belief did not move with the map (still the S.S. Anne); Reach
+  Vermilion went through Saffron's closed gates with the map.
   TOWN_MAP gate (`holding_town_map()`, `PRINTED_MAP_HELD`, `_holding_town_map`)
   from `edges_text`/`doors_text`, `_atlas_text`, `_printed_road_line`,
   `printed_roads_words`, seam names in `model_view`, `static_cost`, and the
