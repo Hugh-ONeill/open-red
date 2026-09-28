@@ -1681,9 +1681,12 @@ def choose(obs: dict, spec: dict | None = None,
                             key=lambda mv: _rank[str(mv.get("id")).upper()])
                 if st:
                     ctx["status_tried"] = True
+                    _kind = ("sleeping" if str(st[0]["id"]).upper() in CATCH_SLEEP_MOVES
+                             else "poisoned" if str(st[0]["id"]).upper() in CATCH_POISON_MOVES
+                             else "paralysed")
                     return {"op": "battle_move", "index": st[0]["index"],
-                            "_why": f"{st[0]['id']} first — a sleeping or "
-                                    f"paralysed Pokemon is far easier to catch"}
+                            "_why": f"{st[0]['id']} first — a {_kind} "
+                                    f"Pokemon is easier to catch"}
             # WHAT A HIT HAS BEEN SEEN TO TAKE OF THIS SPECIES' BAR, when
             # our level's own record is silent: the most any hit of this
             # move took when we stood at least as far above it as now
