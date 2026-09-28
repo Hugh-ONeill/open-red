@@ -4486,18 +4486,42 @@ class Executor:
             _held = self._holding_town_map(obs)
             _src = ("on the printed map" if _held
                     else "by the roads you have walked")
-            self.log("explore_refused_away", subgoal=sg.get("id"),
-                     region=best[1], goal=_g, held=bool(_held))
-            return False, [
-                f"explore: nothing untried lies toward {_g}. Every area you "
-                f"have walked that still has something is AWAY from it "
-                f"{_src} — the nearest is {best[1]}, "
-                f"{len(best[4])} leg(s) back — so walking to one is going "
-                f"backwards, and the harness will not do that for you. The "
-                f"way on is something here you have not done, or a place "
-                f"you have never stood in. {{\"op\":\"go\",\"to\":\"AREA\"}} "
-                f"still takes you anywhere you have walked, if one of them "
-                f"is what you want."], []
+            # ...ONCE. ASKED AGAIN, IT GOES. Refusing every time left the
+            # run standing still: in Cerulean with the south strip out of
+            # reach and Bill never spoken to on Route 25, every place with
+            # something left was AWAY from Vermilion (the model's wrong
+            # goal), explore was refused fifteen times in an hour and the
+            # repeat gate refused the rest (run 17 resumed, 2026-09-28;
+            # user: "theres no world in which it should be staying in the
+            # same place with seemingly no desire to explore the area it
+            # has available to it"). The harness still never CHOOSES to go
+            # back: the first ask is refused with the reason, and a second
+            # ask with the world unchanged is the model's own choice, made
+            # knowing it.
+            _akey = (str(sg.get("id")), _g, tuple(self._world_mark(obs) or ()))
+            _asked = getattr(self, "_away_asked", None)
+            if _asked is None:
+                _asked = self._away_asked = set()
+            if _akey in _asked:
+                self._away_last = None
+                self.log("explore_went_away", subgoal=sg.get("id"),
+                         region=best[1], goal=_g, held=bool(_held))
+            else:
+                _asked.add(_akey)
+                self._away_last = str(sg.get("id"))
+                self.log("explore_refused_away", subgoal=sg.get("id"),
+                         region=best[1], goal=_g, held=bool(_held))
+                return False, [
+                    f"explore: nothing untried lies toward {_g}. Every area you "
+                    f"have walked that still has something is AWAY from it "
+                    f"{_src} — the nearest is {best[1]}, "
+                    f"{len(best[4])} leg(s) back — so walking to one is going "
+                    f"backwards, and the harness will not do that on its own. "
+                    f"The way on may be something here you have not done, or "
+                    f"a place you have never stood in. If going back is what "
+                    f"you want, ask for explore again and it will walk to "
+                    f"{best[1]}; {{\"op\":\"go\",\"to\":\"AREA\"}} takes you "
+                    f"anywhere you have walked."], []
         if not best:
             # ...AND SAY WHICH KIND OF NOTHING IT IS. "Something you have
             # done must be undone" is a claim about the WORLD, and it was
@@ -24155,6 +24179,14 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                        "would not close")):
                 self.log("repeat_allowed_ui_blocked", subgoal=sg["id"],
                          round=rnd, why=str(_seen.get("why") or "")[:160])
+                _seen = None
+            # AN EXPLORE REFUSED AS "AWAY" IS ASKED AGAIN ON PURPOSE: the
+            # refusal said a second ask goes (see the away rule in explore).
+            if (_seen and len(macro) == 1 and isinstance(macro[0], dict)
+                    and macro[0].get("op") == "explore"
+                    and getattr(self, "_away_last", None) == str(sg.get("id"))):
+                self.log("repeat_allowed_explore_after_away",
+                         subgoal=sg["id"], round=rnd)
                 _seen = None
             if _seen:
                 _others = len({k for k in self._spent_macros

@@ -27,7 +27,7 @@ SRC = (ROOT / "planner" / "executor.py").read_text()
 checks = []
 def ck(n, ok, d=""): checks.append((n, bool(ok), d))
 
-blk = SRC.split("NOTHING UNTRIED LIES TOWARD THE GOAL IS AN ANSWER", 1)[1][:3400]
+blk = SRC.split("NOTHING UNTRIED LIES TOWARD THE GOAL IS AN ANSWER", 1)[1][:5600]
 import re                                               # noqa: E402
 # the message is built from adjacent f-string literals, so a sentence can
 # straddle a boundary in the SOURCE while reading as one line to the model
@@ -48,9 +48,13 @@ ck("...and names its source, gated on holding the town map",
    "on the printed map" in flat and "by the roads you have walked" in flat
    and "_held = self._holding_town_map(obs)" in blk)
 ck("...and hands the choice back rather than pointing",
-   "The way on is something here you have not done" in flat)
+   "The way on may be something here you have not done" in flat)
 ck("go is still offered for a place it has walked",
-   "still takes you anywhere you have walked" in flat)
+   "takes you anywhere you have walked" in flat)
+# ...ONCE (2026-09-28): asked again with the world unchanged, it goes
+# (tests/explore_asked_twice_goes_even_away_from_the_goal.py).
+ck("a second ask goes, and says so first",
+   "ask for explore again and it will walk to" in flat)
 ck("the refusal is logged for the meter",
    'self.log("explore_refused_away"' in blk)
 
