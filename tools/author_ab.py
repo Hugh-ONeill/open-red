@@ -9,6 +9,15 @@ freezes a real authoring moment and replays it both ways.
   author_ab.py snapshot CASE --goal "Reach Vermilion City"   # freeze now
   author_ab.py run CASE --n 3                                # think off/on
   author_ab.py report [CASE ...]
+  author_ab.py snapshot CASE2 --from CASE --goal "..."       # same frozen world, new goal
+  author_ab.py prompts CASE                                  # recapture with today's code
+  author_ab.py run CASE --n 5 --arms nomap,map               # printed map without/with
+
+THE PRINTED-MAP ARMS (2026-09-28, audit PT-17b). Every snapshot also saves
+prompt.nomap.json, captured under RED_PRINTED_MAP=bag (the old TOWN_MAP item
+gate); arms "map" and "nomap" send prompt.json / prompt.nomap.json with
+think off and score each under its own setting, so the only difference is
+whether the author was shown the printed map.
 
 snapshot   copies what the author reads from run/ (obs, explored, seen,
            last_state, the journal, the outline_* / leg_* bookkeeping) and a
@@ -70,7 +79,10 @@ def case_dir(name):
 
 # ------- snapshot
 
-def snapshot(name, goal, start=None, force=False):
+def snapshot(name, goal, start=None, force=False, from_case=None):
+    src = case_dir(from_case) if from_case else REPO
+    if from_case and not (src / "run").is_dir():
+        sys.exit(f"no case {from_case}")
     d = case_dir(name)
     if d.exists():
         if not force:
@@ -79,11 +91,11 @@ def snapshot(name, goal, start=None, force=False):
     d.mkdir(parents=True)
     (d / "run").mkdir()
     n = 0
-    for f in (REPO / "run").iterdir():
+    for f in (src / "run").iterdir():
         if f.is_file() and RUN_KEEP.match(f.name):
             shutil.copy2(f, d / "run" / f.name)
             n += 1
-    shutil.copytree(REPO / "plans", d / "plans", symlinks=True)
+    shutil.copytree(src / "plans", d / "plans", symlinks=True)
     for entry in REPO.iterdir():
         if entry.name not in ("run", "plans", ".git"):
             (d / entry.name).symlink_to(entry)
@@ -92,15 +104,35 @@ def snapshot(name, goal, start=None, force=False):
                                capture_output=True, text=True, timeout=120).stdout.strip()
     prompt = capture_prompt(d, goal, start)
     meta = {"case": name, "goal": goal, "start": start, "model": MODEL, "created": time.time(),
-            "run_files": n, "draw_temp": prompt.get("temp")}
+            "run_files": n, "draw_temp": prompt.get("temp"), "from": from_case}
     (d / "case.json").write_text(json.dumps(meta, indent=1))
     (d / "prompt.json").write_text(json.dumps(prompt))
+    (d / "prompt.nomap.json").write_text(json.dumps(capture_prompt(d, goal, start, nomap=True)))
     chars = sum(len(m["content"]) for m in prompt["messages"])
     print(f"{name}: {n} run files, prompt {chars} chars "
           f"({len(prompt['messages'])} messages), start: {start[:100]}...")
 
 
-def capture_prompt(d, goal, start):
+def prompts(name):
+    """Recapture both prompts from a case's frozen world with today's code."""
+    d = case_dir(name)
+    meta = json.loads((d / "case.json").read_text())
+    for fn, nm in (("prompt.json", False), ("prompt.nomap.json", True)):
+        pr = capture_prompt(d, meta["goal"], meta["start"], nomap=nm)
+        (d / fn).write_text(json.dumps(pr))
+        print(f"{name} {fn}: {sum(len(m['content']) for m in pr['messages'])} chars")
+
+
+def _env(nomap):
+    env = dict(os.environ)
+    if nomap:
+        env["RED_PRINTED_MAP"] = "bag"
+    else:
+        env.pop("RED_PRINTED_MAP", None)
+    return env
+
+
+def capture_prompt(d, goal, start, nomap=False):
     """author.py's main(), exactly as campaign.sh calls it for a rewrite, with
     brock_probe.chat replaced by a recorder that keeps the first call and stops."""
     code = f"""
@@ -122,7 +154,8 @@ except _Captured:
 except SystemExit:
     pass
 """
-    r = subprocess.run([sys.executable, "-c", code], cwd=d, capture_output=True, text=True, timeout=600)
+    r = subprocess.run([sys.executable, "-c", code], cwd=d, capture_output=True, text=True,
+                       timeout=600, env=_env(nomap))
     cap = d / "prompt.captured.json"
     if not cap.exists():
         sys.exit("the author sent no model call; its output:\n" + (r.stdout + r.stderr)[-2000:])
@@ -133,7 +166,7 @@ except SystemExit:
 
 # ------- run
 
-def score(d, reply):
+def score(d, reply, nomap=False):
     """The author's own acceptance test, run in the case's frozen world."""
     code = """
 import json, re, sys
@@ -169,7 +202,7 @@ else:
 print(json.dumps(out))
 """
     r = subprocess.run([sys.executable, "-c", code], cwd=d, input=reply, capture_output=True,
-                       text=True, timeout=300)
+                       text=True, timeout=300, env=_env(nomap))
     try:
         return json.loads(r.stdout.strip().splitlines()[-1])
     except (ValueError, IndexError):
@@ -182,6 +215,8 @@ def run(name, n, arms, force=False):
         sys.exit("the chain is running; this needs the GPU to itself (--force to override)")
     d = case_dir(name)
     prompt = json.loads((d / "prompt.json").read_text())
+    if {"map", "nomap"} & set(arms) and not (d / "prompt.nomap.json").exists():
+        sys.exit(f"{name} has no prompt.nomap.json; run: author_ab.py prompts {name}")
     sys.path.insert(0, str(REPO / "planner"))
     os.environ["RED_RUN_DIR"] = str(d / "run")      # a thinking call's live file stays in the case
     import brock_probe as B
@@ -193,22 +228,24 @@ def run(name, n, arms, force=False):
                 print("the chain came up; stopping here so it has the GPU", flush=True)
                 return
             think = arm == "on"
+            nomap = arm == "nomap"
+            msgs = (json.loads((d / "prompt.nomap.json").read_text()) if nomap else prompt)["messages"]
             t = time.time()
             try:
-                reply = B.chat(prompt["messages"], MODEL, think=think, temp=temp)
+                reply = B.chat(msgs, MODEL, think=think, temp=temp)
                 err = None
             except Exception as e:
                 reply, err = "", f"{type(e).__name__}: {e}"
             wall = time.time() - t
             last = dict(B.LAST or {})
-            s = score(d, reply) if not err else {"parsed": False, "problems": [err], "route": [], "steps": 0}
+            s = score(d, reply, nomap) if not err else {"parsed": False, "problems": [err], "route": [], "steps": 0}
             rec = {"t": t, "arm": arm, "i": i, "wall": round(wall, 1), "gtok": last.get("gtok"),
                    "ptok": last.get("ptok"), "think_chars": last.get("think_chars"),
                    "valid": s["parsed"] and not s["problems"], **s, "reply": reply,
                    "thinking": last.get("thinking", "")}
             with open(out, "a") as f:
                 f.write(json.dumps(rec) + "\n")
-            print(f"{name} {arm:3s} #{i + 1}: {'VALID' if rec['valid'] else 'invalid'} "
+            print(f"{name} {arm:5s} #{i + 1}: {'VALID' if rec['valid'] else 'invalid'} "
                   f"{wall:6.1f}s {rec['gtok']} tok  route: {' > '.join(s['route'])[:90]}"
                   + ("" if rec["valid"] else f"  | {(s['problems'] or ['?'])[0][:110]}"), flush=True)
 
@@ -222,12 +259,13 @@ def report(names):
         meta = json.loads((d / "case.json").read_text())
         rows = [json.loads(l) for l in open(d / "results.jsonl")] if (d / "results.jsonl").exists() else []
         print(f"\n== {name}: {meta['goal']}")
-        for arm in ("off", "on"):
+        for arm in ("off", "on", "nomap", "map"):
             r = [x for x in rows if x["arm"] == arm]
             if not r:
                 continue
             v = sum(x["valid"] for x in r)
-            print(f"  think {arm:3s}  n={len(r)}  valid first reply {v}/{len(r)}  "
+            label = f"think {arm:3s}" if arm in ("off", "on") else f"{arm:9s}"
+            print(f"  {label}  n={len(r)}  valid first reply {v}/{len(r)}  "
                   f"median {statistics.median(x['wall'] for x in r):.0f}s  "
                   f"{statistics.median(x['gtok'] or 0 for x in r):.0f} tok")
             for x in r:
@@ -243,6 +281,9 @@ def main():
     s.add_argument("--goal", required=True)
     s.add_argument("--start")
     s.add_argument("--force", action="store_true")
+    s.add_argument("--from", dest="from_case")
+    q = sub.add_parser("prompts")
+    q.add_argument("case")
     r = sub.add_parser("run")
     r.add_argument("case")
     r.add_argument("--n", type=int, default=3)
@@ -252,7 +293,9 @@ def main():
     p.add_argument("cases", nargs="*")
     a = ap.parse_args()
     if a.cmd == "snapshot":
-        snapshot(a.case, a.goal, a.start, a.force)
+        snapshot(a.case, a.goal, a.start, a.force, a.from_case)
+    elif a.cmd == "prompts":
+        prompts(a.case)
     elif a.cmd == "run":
         run(a.case, a.n, a.arms.split(","), a.force)
     else:
