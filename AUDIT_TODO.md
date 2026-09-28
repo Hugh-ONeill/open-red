@@ -1266,7 +1266,17 @@ no types, so PT-34 stays a decision.
   `executor.py:16014` `_disp_item` "TM49 (TM_TRI_ATTACK)" for non-gift TMs,
   against its own "TM49 until booted" rule; `model_view` keys the bag by
   these ids.
-- [ ] **PT-34 · Decide — wild foe types.** `executor.py:18383` "THE WILD
+- [ ] **PT-34 · RULED (user, 2026-09-28): not shown; the model has to intuit
+  them.** The booklet's Pokemon list (pp.44-56) gives names and art, no
+  types. Plan: a foe's type comes from (1) species the run has OWNED (the
+  status screen shows TYPE), (2) a type journal of effectiveness text seen
+  ("super effective" / "doesn't affect" against a species with a known move
+  type), like the damage journal, and (3) otherwise the MODEL's own guess,
+  asked once per new species and cached for the run; evidence from (1)/(2)
+  overrides a guess. Every foe-type reader goes through that (battle_policy
+  matchups, train fight_if max_foe_matchup, best_matchup, catch-ahead want,
+  the prompt line), never shim curTypes. Re-run the arena rooms after:
+  pinned policies were picked with exact types. Was: wild foe types. `executor.py:18383` "THE WILD
   POKEMON: {sp} L{lvl} ({types})", from shim `curTypes`; also drives
   catch-ahead `want`, train fight_if, `best_matchup`. A gen-1 dex shows no
   types for unowned species. Pamphlet tier only if species typing counts
