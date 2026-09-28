@@ -20429,6 +20429,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         done = sg.get("done_when")
         trace, clean = [], []
         self._macro_end_map = None
+        self._macro_prev_op = None
         for _mi, step in enumerate(macro):
             self._stop_if_asked()
             step = dict(step)
@@ -20456,7 +20457,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # dislike trying new things"). The rest of a macro was written
             # for the map it started on: once the game moves the party, stop.
             _now_map = ((obs or {}).get("map") or {}).get("id")
-            if (_mi > 0 and self._macro_end_map and _now_map
+            # ...ONLY AFTER AN OP THAT DOES NOT MEAN TO LEAVE. go, use_warp,
+            # cross, explore and heal change maps by design, and one of them
+            # finishes by a path that never recorded where it ended, so
+            # "go to ROUTE_24, then grind" read as a late warp and the grind
+            # was dropped, twice in run 18's first five minutes after this
+            # rule landed. Only a step that can stand on a warp tile by
+            # accident is followed up: the map it STARTED on is compared.
+            if (_mi > 0 and self._macro_prev_op in ("walk_to", "interact", "grind")
+                    and self._macro_end_map and _now_map
                     and _now_map != self._macro_end_map):
                 self.log("macro_cut_map_moved", subgoal=sg.get("id"),
                          was=self._macro_end_map, now=_now_map,
@@ -20471,6 +20480,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     f"{self._macro_end_map}, so they were not made; choose "
                     f"them again from where you stand.")
                 break
+            self._macro_end_map = _now_map
+            self._macro_prev_op = op
             if not ignore_done and pred_holds(done, obs):
                 return True, trace, clean
             if when and not pred_holds(when, obs):
@@ -21485,7 +21496,6 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     self._stamp_touch(_hr)
                     self._mark_touch(_hr, step["name"], obs)
             after = self._snapshot(obs)
-            self._macro_end_map = after[0]
             # A MAP OF None IS A MID-TRANSITION READ, NOT A PLACE. An op
             # that ends while a menu or a warp fade is still up snapshots
             # map=None, and the note then told the model "ok (map->None)" —
