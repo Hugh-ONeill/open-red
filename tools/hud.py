@@ -470,15 +470,15 @@ def draw_authoring(img, painter, y, height, cols, phase):
     y += 2
     painter.text(img, 4, y, "MAP", ACCENT)
     x = 44
-    for label, col in (("earlier legs", townmap.PAST_OLD), ("", townmap.PAST_NEW),
-                       ("last attempt", townmap.LAST_ATTEMPT)):
-        for yy in range(3, 7):
-            for xx in range(8):
-                img.putpixel((x + xx, y + yy), col)
-        x += 12
-        if label:
-            painter.text(img, x, y, label, DIM)
-            x += 8 * len(label) + 12
+    for swatches, label in (((townmap.PAST_OLD, townmap.PAST_NEW), "earlier legs"),
+                            ((townmap.LAST_ATTEMPT,), "last attempt")):
+        for col in swatches:
+            for yy in range(3, 7):
+                for xx in range(8):
+                    img.putpixel((x + xx, y + yy), col)
+            x += 10
+        painter.text(img, x + 2, y, label, DIM)
+        x += 8 * len(label) + 14
     y += LINE + 2
     if phase.get("picked"):
         y += 4
