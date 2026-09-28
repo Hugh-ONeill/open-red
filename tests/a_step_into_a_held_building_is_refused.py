@@ -26,6 +26,11 @@ REC = {"visits": {"SAFFRON_CITY|12,0": 10, "CELADON_CITY|2,1": 30, "ROCKET_HIDEO
                       "GAME_CORNER": {"17,4": "ROCKET_HIDEOUT_B1F"}},
        "shut_doors": {"CELADON_CITY|2,1": ["12,27 (None is standing there)"], "SAFFRON_CITY|12,0": ["18,21 (SAFFRONCITY_ROCKET8 is standing there)",
                                             "34,3 (SAFFRONCITY_ROCKET3 is standing there)"]}}
+# A door's destination counts only once the run has been through it, or a
+# sign outside says it (audit PT-11, 2026-09-28): the record here has been
+# through Silph Co's door before.
+REC["explored"] = {"SAFFRON_CITY|12,0": {"18,21": {"to": "SILPH_CO_1F|0,0"}}}
+UNWALKED = {k: v for k, v in REC.items() if k != "explored"}
 SILPH = {"subgoals": [
     {"id": "exit_rocket_hideout", "done_when": {"map": "ROCKET_HIDEOUT_ELEVATOR"}},
     {"id": "reach_saffron_city", "done_when": {"map": "SAFFRON_CITY"}},

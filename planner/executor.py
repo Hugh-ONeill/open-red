@@ -8928,8 +8928,9 @@ class Executor:
                 if to and "|" in to and not str(k).startswith("walk:"):
                     led[str(k)] = to.split("|")[0]
                     led_region[str(k)] = to
-        for k, d in ((self.door_dests or {}).get(mid) or {}).items():
-            led.setdefault(str(k), str(d))
+        # (door_dests is the engine's warp table and was folded in here,
+        # printing where untaken doors lead: audit PT-11, 2026-09-28. Only
+        # the run's own record says where a way goes.)
         ways = []
         for d in ("north", "south", "west", "east"):
             if d in (m.get("connections") or {}):

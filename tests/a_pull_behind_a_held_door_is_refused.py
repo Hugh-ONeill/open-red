@@ -29,11 +29,19 @@ REC = {"visits": {"SAFFRON_CITY|12,0": 10, "CELADON_CITY|2,1": 30, "GAME_CORNER|
                       "GAME_CORNER": {"17,4": "ROCKET_HIDEOUT_B1F"}},
        "shut_doors": {"CELADON_CITY|2,1": ["12,27 (None is standing there)"], "SAFFRON_CITY|12,0": ["18,21 (SAFFRONCITY_ROCKET8 is standing there)",
                                             "34,3 (SAFFRONCITY_ROCKET3 is standing there)"]}}
+# A door's destination counts only once the run has been through it, or a
+# sign outside says it (audit PT-11, 2026-09-28): the record here has been
+# through Silph Co's door before.
+REC["explored"] = {"SAFFRON_CITY|12,0": {"18,21": {"to": "SILPH_CO_1F|0,0"}}}
+UNWALKED = {k: v for k, v in REC.items() if k != "explored"}
 with tempfile.TemporaryDirectory() as d:
     obs = Path(d) / "explored.json"; obs.write_text(json.dumps(REC))
     got = A.pull_into_held("Defeat the Silph Co. guards to reach the President", obs)
     ck("a pull into Silph Co, whose one known door a Rocket stands on, is named",
        got is not None and "SILPH_CO_1F" in got and "SAFFRONCITY_ROCKET8 is standing there" in got, got)
+    obs2 = Path(d) / "unwalked.json"; obs2.write_text(json.dumps(UNWALKED))
+    ck("...but not when the run has never been through that door: the engine's door table is not the record",
+       A.pull_into_held("Defeat the Silph Co. guards to reach the President", obs2) is None)
     got = A.pull_into_held("Defeat Sabrina at the Saffron Gym", obs)
     ck("...the Gym likewise", got is not None and "SAFFRON_GYM" in got and "ROCKET3" in got, got)
     got = A.pull_into_held("Defeat Erika at the Celadon Gym", obs)

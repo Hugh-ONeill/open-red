@@ -9495,6 +9495,30 @@ def _flags_at_last_visit(o: dict, map_id: str) -> "int | None":
     return best
 
 
+def earned_door_dests(o: dict) -> dict:
+    """map -> {door key: the map it led to}, for doors this run has walked
+    through (its explored record), and nothing else. door_dests is filled
+    from the engine's whole warp table and was read here as the record, so
+    "SAFFRON_CITY door 18,21 -> SILPH_CO_1F" refused plans before anyone had
+    been through that door (audit PT-11, 2026-09-28)."""
+    out: dict = {}
+    # ...AND BUILDINGS SIGNED OUTSIDE: a gym's roof, a Mart's and a Center's
+    # sign say what the door is before it is used (ledger._frontage; PT-16).
+    # Celadon's department store carries no MART sign, and its ids end in
+    # a floor, so it does not match.
+    for mid, doors in ((o or {}).get("door_dests") or {}).items():
+        for k, dest in (doors or {}).items():
+            if re.match(r"^[A-Z]+(_[A-Z]+)*_(GYM|POKECENTER)$|^[A-Z]+_MART$", str(dest)):
+                out.setdefault(str(mid), {})[str(k)] = str(dest)
+    for reg, ways in ((o or {}).get("explored") or {}).items():
+        mid = str(reg).split("|")[0]
+        for k, e in (ways or {}).items():
+            to = str((e or {}).get("to") or "") if isinstance(e, dict) else ""
+            if to and re.match(r"^\d+,\d+$", str(k)):
+                out.setdefault(mid, {})[str(k)] = to.split("|")[0]
+    return out
+
+
 def held_doors_into(named: set, o: dict, now_flags: "int | None" = None) -> "str | None":
     """The run's own record of the doors into `named`: one sentence when
     EVERY known door had somebody standing on it the last time the run
@@ -9509,7 +9533,7 @@ def held_doors_into(named: set, o: dict, now_flags: "int | None" = None) -> "str
     (2026-09-04). Who stands on a door is known only as of the last look;
     when event flags have fired since the run last stood in that map, the
     note is a memory, not evidence, and the door is left to the model."""
-    dd = o.get("door_dests") or {}
+    dd = earned_door_dests(o)
     shut = o.get("shut_doors") or {}
     if now_flags is None:
         now_flags = _flags_now()
