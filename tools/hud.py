@@ -48,7 +48,9 @@ RED = (227, 138, 115)
 CARD = (224, 228, 208)
 
 W, ROW, TOP = 248, 58, 16          # the team column
-COLS = 46                          # the status column, in 8px characters
+COLS = 46                          # the status column, in 8px characters, when
+                                   # nothing asks for more (--png, no window)
+MIN_COLS = 36                      # the narrowest status column a fit will use
 LINE = 10
 
 # The cartridge's own charmap: font.png is tiles $80-$FF, 16 to a row, and a
@@ -259,8 +261,8 @@ def file_age(path):
         return None
 
 
-def render_status(text, painter, height):
-    img = Image.new("RGB", (COLS * 8 + 8, height), BG)
+def render_status(text, painter, height, cols=COLS):
+    img = Image.new("RGB", (cols * 8 + 8, height), BG)
     if text is None:
         painter.text(img, 4, 4, "NO STATUS YET", DIM)
         return img
@@ -284,7 +286,7 @@ def render_status(text, painter, height):
             break
         painter.text(img, 4, y, label, ACCENT if col is not ACCENT else DIM)
         y += LINE
-        for line in textwrap.wrap(tidy(key, fields[key]), COLS - 1) or [""]:
+        for line in textwrap.wrap(tidy(key, fields[key]), cols - 1) or [""]:
             if y + LINE > height:
                 break
             painter.text(img, 12, y, line, col)
@@ -294,24 +296,34 @@ def render_status(text, painter, height):
 
 
 GUTTER = 8
-SIDE_W = W + GUTTER + COLS * 8 + 8  # team | status
-STACK_W = max(W, COLS * 8 + 8)     # team over status
 
 
-def render(obs, status_text, painter, layout="side", height=None):
+def side_width(cols):
+    return W + GUTTER + cols * 8 + 8     # team | status
+
+
+def stack_width(cols):
+    return max(W, cols * 8 + 8)          # team over status
+
+
+def render(obs, status_text, painter, layout="side", height=None, width=None):
     """layout "side": team | status, both `height` tall (at least the team's).
-    layout "stack": team over status, the status filling down to `height`."""
+    layout "stack": team over status, the status filling down to `height`.
+    `width` (1x pixels) widens the status column to fill it; the team column
+    keeps its size, since its rows have nothing more to say."""
     team = render_team(obs, painter)
     if layout == "stack":
+        cols = max(MIN_COLS, ((width or stack_width(COLS)) - 8) // 8)
         rest = max((height or 0) - team.height, 30 * LINE)
-        col = render_status(status_text, painter, rest)
-        img = Image.new("RGB", (STACK_W, team.height + col.height), BG)
+        col = render_status(status_text, painter, rest, cols)
+        img = Image.new("RGB", (max(stack_width(cols), width or 0), team.height + col.height), BG)
         img.paste(team, (0, 0))
         img.paste(col, (0, team.height))
         return img
+    cols = max(MIN_COLS, ((width or side_width(COLS)) - W - GUTTER - 8) // 8)
     h = max(team.height, height or 0)
-    col = render_status(status_text, painter, h)
-    img = Image.new("RGB", (SIDE_W, h), BG)
+    col = render_status(status_text, painter, h, cols)
+    img = Image.new("RGB", (max(side_width(cols), width or 0), h), BG)
     img.paste(team, (0, 0))
     img.paste(col, (team.width + GUTTER, 0))
     return img
@@ -332,17 +344,20 @@ def window_pixels():
 
 def fit(win, team_h):
     """Pick the layout and whole-number scale that fill the window best (whole
-    numbers keep the pixels square); side by side wins a tie."""
+    numbers keep the pixels square; side by side wins a tie), sized against the
+    NARROWEST status column, which then widens to take the rest of the width.
+    Returns (layout, scale, height, width), height and width at 1x."""
     if not win:
-        return "side", 2, None
+        return "side", 2, None, None
     xpx, ypx = win
     best = None
-    for layout, width, min_h in (("side", SIDE_W, team_h), ("stack", STACK_W, team_h + 20 * LINE)):
+    for layout, width, min_h in (("side", side_width(MIN_COLS), team_h),
+                                 ("stack", stack_width(MIN_COLS), team_h + 20 * LINE)):
         scale = min(xpx // width, ypx // min_h)
         if scale >= 1 and (best is None or scale > best[1]):
             best = (layout, scale)
     layout, scale = best or ("side", 1)
-    return layout, scale, ypx // scale
+    return layout, scale, ypx // scale, xpx // scale
 
 
 def read_obs():
@@ -394,10 +409,11 @@ def main():
 
     def frame_bytes(obs, status_text, win=None):
         team_h = TOP + ROW * 7 + 12
-        layout, scale, height = fit(win, team_h)
+        layout, scale, height, width = fit(win, team_h)
         if args.scale:
-            scale, height = args.scale, (win[1] // args.scale if win else None)
-        img = render(obs, status_text, painter, layout, height)
+            scale = args.scale
+            height, width = (win[1] // scale, win[0] // scale) if win else (None, None)
+        img = render(obs, status_text, painter, layout, height, width)
         img = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
         buf = io.BytesIO()
         img.save(buf, "PNG")
