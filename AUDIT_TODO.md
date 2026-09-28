@@ -1158,6 +1158,32 @@ labels. Pages 16-27 also walk Pallet to Pewter with item spots and Mart
 prices (pamphlet tier too). The Pokemon list (44-56) gives names and art,
 no types, so PT-34 stays a decision.
 
+*PAGES 27-43 READ (second pass, 2026-09-28), what else the booklet hands
+over:* p27 POKEMON LEADERS names all eight leaders with their city and
+badge (Giovanni printed as "?????????", the Earth Badge named) and which
+badge unlocks CUT / FLY / SURF / STRENGTH / FLASH outside battle, plus the
+obedience levels. p28: an HM "can be used while moving in the world … CUT
+a tree blocking the road … swim in the water by using SURF". p29: one
+place changes nicknames; B stops an evolution. p31: one Pokemon per game
+"appears only once"; "Train all your Pokemon to higher levels and
+DISCOVER the ones that evolve" (so which species evolve is withheld on
+purpose). p32-33: the full 15-type chart. p34 BATTLE SCREEN: the enemy
+box is name, level and an HP BAR; only your own side has numbers. p35:
+a wipe returns you to the last Center used and takes half your money.
+p40: nine techniques by name and effect, incl. FLY, CUT, FLASH; five
+balls. p41: the five stones ("has a connection to Fire Pokemon"…), the
+fossils and Old Amber ("find the secret"), every recovery item. p42:
+power-ups; BICYCLE "too expensive for a child to buy", ESCAPE ROPE, the
+REPELs. p43: POKEDEX, TOWN MAP, TM, HM, and the key items WITH THEIR
+PURPOSE: GOLD TEETH "belong to the warden of Safari Zone", S.S. TICKET
+"a boarding ticket for the S.S. Anne", SILPH SCOPE "identify a ghostly
+Pokemon", POKE FLUTE "wakes up sleeping Pokemon", COIN "use these at the
+Game Corner", the three rods, ITEMFINDER, EXP. ALL. p44-56: the dex grid
+with 46 species pictured at their numbers (so the starter lines and
+Caterpie/Weedle lines read as consecutive numbers), no types. That is the
+whole item vocabulary and every key item's job, which is MORE than the
+harness says (PT-41 below).
+
 - [~] **PT-17b · BUILT 2026-09-28 (4daa6a8), replay still owed.** The gate
   helpers answer "held" unless RED_PRINTED_MAP=bag; PRINTED_MAP_HELD
   defaults the same; the shim seam name too; the whole-map line reads THE
@@ -1273,14 +1299,17 @@ no types, so PT-34 stays a decision.
   EVOLUTION AHEAD OF THEM … that is the engine's own species table" /
   "NOBODY in your party has an evolution left"; `_stone_question` (14649)
   fires only when not_fully_evolved is non-empty; `party_fully_evolved`
-  target text (16258-16270) "NOT YET THERE".
-- [ ] **PT-32 · Low · REPORTED — `_phantom_item` enumerates the HMs.**
-  `author.py:6915` "there is no HM08 … it defines 5 HM items: HM_CUT,
-  HM_FLASH, HM_FLY, HM_STRENGTH, HM_SURF" (via `_leg_line` 8872,
-  check_wording 10022, blocker `no()`). The refusal is spell-check class
-  and fine; the list of what the five are is not. Say "5 HM items" and
-  stop. (`_thing_unknown` 8311 / `insert_guard.py:84` are pure spell-check
-  — withdrawn.)
+  target text (16258-16270) "NOT YET THERE". Booklet check: STANDS. p31
+  says outright "discover the ones that evolve", so who evolves is
+  withheld by design; what IS pamphlet tier is p41's "FIRE STONE has a
+  connection to Fire Pokemon" (a stone question may say that) and the
+  starter / Caterpie / Weedle lines pictured at consecutive dex numbers.
+- [x] **PT-32 · withdrawn by the booklet — the five HMs are all named
+  in it.** CUT p27/28/40, FLY p27/40, SURF p27/28, STRENGTH p27, FLASH
+  p27/40, each tied to its badge. `_phantom_item`'s "it defines 5 HM
+  items: HM_CUT, HM_FLASH, HM_FLY, HM_STRENGTH, HM_SURF" says nothing the
+  booklet does not. (`_thing_unknown` 8311 / `insert_guard.py:84` were
+  already withdrawn as spell-check; pp.40-43 are the item vocabulary.)
 - [ ] **PT-33 · Low · REPORTED — found TMs displayed with their move.**
   `executor.py:16014` `_disp_item` "TM49 (TM_TRI_ATTACK)" for non-gift TMs,
   against its own "TM49 until booted" rule; `model_view` keys the bag by
@@ -1308,7 +1337,9 @@ no types, so PT-34 stays a decision.
 
 - [ ] **PT-36 · High · CHECKED — exact foe HP (hidden in gen 1).**
   `shim.lua:3673` emits exact `foe.hp`/`maxhp`/`stats` (the engine's own
-  WideBattle.lua:96: "the foe's exact HP is never shown").
+  WideBattle.lua:96: "the foe's exact HP is never shown"; the booklet's
+  BATTLE SCREEN p34 draws the enemy box as name, level and a bar, and
+  gives numbers only on your own side).
   Live prompt: `executor.py:18940-18962` → 23425-23430 "THE LAST FIGHT YOU
   LOST … ONIX L14 came out first at 35 hp and was at 12 hp" under a
   comment "as the screen showed it" (false). Live steering:
@@ -1340,6 +1371,37 @@ no types, so PT-34 stays a decision.
   `foe.moves` from the full species moveset. Leaks if an escalation obs is
   ever taken mid-battle. Also `carry_gates.py` skips re-inserting a gate
   on `live_flags()` (structure on RAM, no text).
+
+### 6i. The other direction: pamphlet knowledge the harness HIDES
+
+The booklet is more generous than the harness assumed, and the map was
+not the only case. These are hiding, not pointing: the model is entitled
+to them from the first prompt.
+
+- [ ] **PT-41 · Medium · CHECKED — the item vocabulary is seven lines;
+  the booklet's is four pages.** `author.py:307` `KEY_ITEMS` gives the
+  author POKE_BALL, POTION, ANTIDOTE, PARLYZ_HEAL, BURN_HEAL, ESCAPE_ROPE,
+  REPEL and nothing else (the comment at `:353` calls it "a seven-entry
+  spelling aid"). pp.40-43 give every item's effect, and the KEY ITEMS
+  WITH THEIR JOB: GOLD TEETH → the Safari Zone warden, S.S. TICKET → the
+  S.S. Anne, SILPH SCOPE → identify a ghostly Pokemon, POKE FLUTE → wakes
+  a sleeping Pokemon, COIN → the Game Corner, the stones → a type, the
+  rods, BICYCLE, ITEMFINDER, EXP. ALL, the balls. A run that holds GOLD
+  TEETH today is told the name and left to guess. *Fix shape:* replace
+  `KEY_ITEMS` with the booklet's tables verbatim (pp.40-43 wording), shown
+  wherever the bag is shown; nothing about WHERE an item is found (that
+  is the walkthrough tier, apart from pp.16-27 Pallet-to-Pewter).
+- [ ] **PT-42 · Low · check — badge → field-move gating and the wipe rule.**
+  p27 says which badge unlocks CUT / FLY / SURF / STRENGTH / FLASH and the
+  obedience levels; p35 says a wipe returns you to the last Center used
+  and costs half your money. Confirm both are stated to the model where
+  they bite (a field_move refusal, a blackout note), not only encoded in
+  the executor. `SEEDED_BADGES` (`author.py:5143`) already carries the
+  leader/city/badge triples, which p27 confirms are pamphlet tier.
+- [ ] **PT-43 · Low · check — p31 "one Pokemon per game appears only
+  once".** If the harness ever refuses or warns on a one-shot encounter
+  (Snorlax, the birds, Mewtwo) it may say this sentence; it may not say
+  which species or where.
 
 ### Checked and properly guarded (don't re-check)
 
