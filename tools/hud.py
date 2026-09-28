@@ -27,8 +27,8 @@ ollama service log (journalctl) once a second and the journal's tail. The free
 space at the bottom shows the END of the latest thinking trace
 (run/thinking.jsonl), which is where it lands on a decision.
 
-For the side-by-side layout with Hyprland's `opaque` rule, launch it as
-  kitty --class red-hud ~/Developer/red-recomp/tools/hud.py
+It titles its window "red-recomp HUD", which is what Hyprland's `opaque`
+rule matches (environment/rules.conf), so run it in any kitty window.
 """
 import argparse
 import base64
@@ -46,6 +46,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 OBS = os.path.join(HERE, "..", "run", "obs.json")
 STATUS = os.path.join(HERE, "..", "run", "status.txt")
+TITLE = "red-recomp HUD"
 JOURNAL = os.path.join(HERE, "..", "run", "executor_log.jsonl")
 THOUGHTS = os.path.join(HERE, "..", "run", "thinking.jsonl")
 ASSETS = os.path.expanduser(
@@ -599,6 +600,9 @@ def main():
     if os.environ.get("TERM") != "xterm-kitty":
         print("warning: not a kitty window; the image may not show "
               "(inside tmux, kitty graphics need allow-passthrough)", file=sys.stderr)
+    # name the window, so Hyprland's rule (match:title ^red-recomp HUD$,
+    # opaque on) finds it in whatever kitty it was started from
+    sys.stdout.write("\x1b]2;%s\x07" % TITLE)
     sys.stdout.write("\x1b[2J\x1b[?25l")    # clear, hide the cursor
     last, obs, act, act_at = None, None, None, 0.0
     try:
