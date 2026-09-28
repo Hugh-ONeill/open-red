@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Run events: one short line per thing worth telling a viewer, derived from
-the executor journal (run/executor_log.jsonl) and the party in run/obs.json,
+the executor journal (run/executor_log.jsonl), the chain log (run/chain.log:
+the plan authoring between attempts, when the game is closed) and the party
+in run/obs.json,
 appended to a feed that anything can follow: the HUD's EVENTS strip now, a
 stream chat or the casters later.
 
@@ -14,8 +16,10 @@ can touch what the chain reads. Each record is
   {"t": ..., "kind": ..., "tone": "good|bad|info|think", "text": ...}
 and the text is plain ASCII-ish words, so any sink can add its own symbols.
 
-Starting it does not replay history: it begins at the journal's current end
-and takes the party as it stands as the baseline.
+Starting it does not replay history: it begins at the logs' current ends
+and takes the party as it stands as the baseline. It also keeps
+~/.local/state/red-recomp/phase.json (playing / authoring, with the goal, the
+drafts and the pick) for the HUD.
 """
 import argparse
 import json
@@ -46,6 +50,8 @@ def first_sentence(text, limit=140):
     guarded = ABBREV.sub(lambda m: m.group(0).replace(".", "\x00"), text)
     m = re.match(r"(.+?[.!?])(\s|$)", guarded)
     s = (m.group(1) if m else guarded).replace("\x00", ".")
+    if not m and s and s[-1].isalnum():
+        s += "..."                   # the log itself cut the line mid-word
     return s if len(s) <= limit else s[:limit - 3].rstrip() + "..."
 
 
@@ -149,6 +155,85 @@ def from_party(before, after, badges_before, badges_after):
     return evs
 
 
+# ------- chain.log (the authoring between attempts) -> events + phase
+
+CHAIN = os.path.join(RUN, "chain.log")
+PHASE = os.path.join(os.path.dirname(FEED), "phase.json")
+
+LEG_AUTHOR = re.compile(r"^=== leg (\d+)/(\d+): authoring \S+ (.+)$")
+REWRITE = re.compile(r"^--- rewriting (\S+) from evidence ---")
+GOAL = re.compile(r"^\s+goal:\s+(.+)$")
+DRAFT = re.compile(r"^\[draws\] draft (\d+): (\d+) subgoals: (.+)$")
+PICKED = re.compile(r"^\[draws\] picked draft (\d+) of (\d+): (.+)$")
+ATTEMPT = re.compile(r"^=== attempt (\d+)/(\d+): (\S+) ===")
+PULLED = re.compile(r"^=== leg (\d+) stuck behind leg (\d+): pulling it forward ===")
+WORDING = re.compile(r"^\[wording\] (VOID, by the model's own account|the wording stands)(.*)$")
+
+
+def route(chain):
+    """'? -> ROUTE_24 -> CERULEAN_CITY' -> 'route 24 -> cerulean city'"""
+    stops = [words(x).lower() for x in chain.split(" -> ") if x.strip() not in ("?", "")]
+    return " -> ".join(stops)
+
+
+def write_phase(phase):
+    os.makedirs(os.path.dirname(PHASE), exist_ok=True)
+    tmp = PHASE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(phase, f)
+    os.replace(tmp, PHASE)
+
+
+def from_chain_line(line, phase):
+    """One chain.log line -> (tone, text) or None; updates `phase` in place
+    (the HUD reads it to know the game is gone because the model is writing)."""
+    m = LEG_AUTHOR.match(line)
+    if m:
+        phase.update(phase="authoring", since=time.time(), what="new leg",
+                     leg="%s/%s" % (m.group(1), m.group(2)), goal=m.group(3).strip(),
+                     drafts=[], picked=None)
+        return "think", "writing a plan for leg %s: %s" % (m.group(1), m.group(3).strip())
+    m = REWRITE.match(line)
+    if m:
+        phase.update(phase="authoring", since=time.time(), what="rewrite",
+                     goal=None, drafts=[], picked=None)
+        phase["want_goal"] = True
+        return None                      # announced with the goal on the next line
+    m = GOAL.match(line)
+    if m and phase.pop("want_goal", False):
+        phase["goal"] = m.group(1).strip()
+        return "think", "rewriting the plan from what it walked: %s" % phase["goal"]
+    m = DRAFT.match(line)
+    if m:
+        r = route(m.group(3))
+        phase.setdefault("drafts", []).append(
+            {"n": int(m.group(1)), "steps": int(m.group(2)), "route": r})
+        phase["phase"] = "authoring"
+        return "info", "draft %s (%s steps): %s" % (m.group(1), m.group(2), r)
+    m = PICKED.match(line)
+    if m:
+        phase["picked"] = {"n": int(m.group(1)), "of": int(m.group(2)),
+                           "why": first_sentence(m.group(3), 200)}
+        return "think", "picked draft %s of %s: %s" % (
+            m.group(1), m.group(2), first_sentence(m.group(3)))
+    m = PULLED.match(line)
+    if m:
+        return "info", "leg %s is stuck behind leg %s, pulling that one forward" % (
+            m.group(1), m.group(2))
+    m = WORDING.match(line)
+    if m:
+        if m.group(1).startswith("VOID"):
+            return "bad", "the model voided this leg"
+        return None
+    m = ATTEMPT.match(line)
+    if m:
+        was = phase.get("phase")
+        phase.update(phase="playing", since=time.time(), attempt="%s/%s" % (m.group(1), m.group(2)))
+        return ("info", "back to playing (attempt %s of %s)" % (m.group(1), m.group(2))) \
+            if was == "authoring" else None
+    return None
+
+
 # ------- the follower
 
 def append(kind, tone, text):
@@ -167,38 +252,70 @@ def read_obs():
         return None
 
 
+class Tail:
+    """New complete lines of a file that may be replaced (a restart archives
+    the journal and starts a new one) or truncated. Starts at the END: a
+    follower begins with what happens next, not with history."""
+
+    def __init__(self, path):
+        self.path, self.ino, self.pos, self.rest = path, None, None, b""
+
+    def lines(self):
+        try:
+            st = os.stat(self.path)
+        except OSError:
+            return []
+        if self.ino is None:                       # first sight: skip history
+            self.ino, self.pos = st.st_ino, st.st_size
+            return []
+        if st.st_ino != self.ino or st.st_size < self.pos:
+            self.ino, self.pos, self.rest = st.st_ino, 0, b""   # replaced: read it all
+        if st.st_size == self.pos:
+            return []
+        with open(self.path, "rb") as f:
+            f.seek(self.pos)
+            data = f.read()
+        self.pos += len(data)
+        data = self.rest + data
+        *done, self.rest = data.split(b"\n")
+        return [l.decode("utf-8", "replace") for l in done]
+
+
 def follow(poll=0.5):
-    state = {}
-    fh, ino = None, None
+    state, phase = {}, {"phase": "playing", "since": time.time()}
+    # where the chain stands right now (mid-authoring or playing), read off the
+    # log's recent tail WITHOUT posting any of it: history is not news
+    try:
+        with open(CHAIN, "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 65536))
+            for line in f.read().decode("utf-8", "replace").splitlines()[1:]:
+                from_chain_line(line, phase)
+    except OSError:
+        pass
+    journal, chain = Tail(JOURNAL), Tail(CHAIN)
     obs = read_obs()
     party, badges = party_of(obs), list((obs or {}).get("badges") or [])
     obs_stamp = None
+    write_phase(phase)
     while True:
-        # the journal: reopen when it is replaced (a restart archives it and
-        # starts a new one); a fresh open of the SAME file seeks to its end
-        try:
-            st = os.stat(JOURNAL)
-            if fh is None or st.st_ino != ino or st.st_size < fh.tell():
-                if fh:
-                    fh.close()
-                replaced = fh is not None
-                fh, ino = open(JOURNAL), st.st_ino
-                if not replaced:
-                    fh.seek(0, 2)
-            buf = fh.read()
-            if buf:
-                done, _, rest = buf.rpartition("\n")
-                fh.seek(fh.tell() - len(rest.encode()))    # keep a half line for later
-                for line in done.splitlines():
-                    try:
-                        d = json.loads(line)
-                    except ValueError:
-                        continue
-                    ev = from_record(d, state)
-                    if ev:
-                        append(d.get("kind"), *ev)
-        except OSError:
-            pass
+        for line in journal.lines():
+            try:
+                d = json.loads(line)
+            except ValueError:
+                continue
+            ev = from_record(d, state)
+            if ev:
+                append(d.get("kind"), *ev)
+        changed = False
+        for line in chain.lines():
+            before = json.dumps(phase, sort_keys=True)
+            ev = from_chain_line(line, phase)
+            if ev:
+                append("chain", *ev)
+            changed |= json.dumps(phase, sort_keys=True) != before
+        if changed:
+            write_phase(phase)
         # the party
         try:
             s = os.stat(OBS).st_mtime_ns
@@ -215,6 +332,14 @@ def follow(poll=0.5):
                 if new_party:        # a blank read mid-write is not a lost team
                     party, badges = new_party, new_badges
         time.sleep(poll)
+
+
+def read_phase():
+    try:
+        with open(PHASE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
 
 
 def load_feed():

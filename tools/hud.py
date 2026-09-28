@@ -423,6 +423,53 @@ def draw_events(img, painter, y0, height, cols):
         y += LINE
 
 
+def draw_authoring(img, painter, y, height, cols, phase):
+    """While the model writes a plan the game is closed and status.txt stands
+    still, so the column shows the writing: the goal, each draft's route and
+    the one picked, with why."""
+    what = "REWRITING FROM WHAT IT WALKED" if phase.get("what") == "rewrite" else \
+        "WRITING A PLAN" + (" FOR LEG %s" % phase["leg"] if phase.get("leg") else "")
+    painter.text(img, 4, y, what, YELLOW)
+    painter.text_right(img, y, clock(time.time() - phase.get("since", time.time())), DIM,
+                       right=img.width)
+    y += LINE + 4
+    if phase.get("goal"):
+        painter.text(img, 4, y, "GOAL", ACCENT)
+        y += LINE
+        for line in textwrap.wrap(phase["goal"], cols - 1):
+            painter.text(img, 12, y, line, FG)
+            y += LINE
+        y += 4
+    picked = (phase.get("picked") or {}).get("n")
+    drafts = phase.get("drafts") or []
+    if drafts:
+        painter.text(img, 4, y, "DRAFTS", ACCENT)
+        y += LINE
+    for d in drafts:
+        if y + 2 * LINE > height:
+            break
+        on = d["n"] == picked
+        col = ACCENT if on else (DIM if picked else FG)
+        head = "%s%d  %d steps" % (">" if on else " ", d["n"], d["steps"])
+        painter.text(img, 4, y, head, col)
+        y += LINE
+        for line in textwrap.wrap(d["route"], cols - 3)[:4]:
+            painter.text(img, 20, y, line, col)
+            y += LINE
+        y += 2
+    if not drafts:
+        painter.text(img, 12, y, "drafting...", DIM)
+        y += LINE
+    if phase.get("picked"):
+        y += 4
+        painter.text(img, 4, y, "PICKED %d OF %d" % (picked, phase["picked"]["of"]), ACCENT)
+        y += LINE
+        for line in textwrap.wrap(phase["picked"].get("why", ""), cols - 1)[:4]:
+            painter.text(img, 12, y, line, DIM)
+            y += LINE
+    return y + 4
+
+
 def render_status(text, painter, height, cols=COLS, act=None):
     img = Image.new("RGB", (cols * 8 + 8, height), BG)
     if text is None:
@@ -444,6 +491,10 @@ def render_status(text, painter, height, cols=COLS, act=None):
     y += LINE + 4
     draw_activity(img, painter, y, act)
     y += LINE + 6
+    phase = feed.read_phase() or {}
+    if phase.get("phase") == "authoring":
+        y = draw_authoring(img, painter, y, height, cols, phase)
+        rows = []                      # the playing fields are stale meanwhile
     for key, label, col in rows:
         if y + 2 * LINE > height:
             painter.text(img, 4, height - LINE, "...", DIM)
@@ -607,7 +658,7 @@ def main():
             if time.time() - act_at >= 1.0:        # the service log, once a second
                 act, act_at = model_activity(), time.time()
             # the age tick repaints "updated Ns ago" every 5 s even when idle
-            stamps = (stamp_of(OBS), stamp_of(STATUS), stamp_of(feed.FEED), win,
+            stamps = (stamp_of(OBS), stamp_of(STATUS), stamp_of(feed.FEED), stamp_of(feed.PHASE), win,
                       int(time.time()) // 5, activity_key(act))
             if stamps != last:
                 fresh = read_obs()
