@@ -1479,6 +1479,18 @@ def freeze_new_parts(plan: dict) -> None:
     """
     walked = visited_regions()
 
+    # ...UNLESS THE PLAN ITSELF GETS THERE FIRST. Frozen now, a map the run
+    # has never stood on froze to a bare {"map"}, and when an earlier step
+    # of the same plan reaches that map the exit rule then refused the
+    # step and told the author to write new_part, which it had. With the
+    # printed map on the page the author wrote Route 9 -> Route 10 -> Rock
+    # Tunnel -> {"new_part": "ROUTE_10"} -> Lavender five times out of five
+    # and every one was refused (author_ab lavender, 2026-09-28). Then the
+    # parts to exclude are the ones stood on when the step BEGINS, which
+    # only the run can know: the executor freezes it at step entry
+    # (Executor._freeze_new_part) and reads it as not yet done until then.
+    reached: set = set()
+
     def _freeze(dw):
         if not isinstance(dw, dict):
             return
@@ -1486,11 +1498,14 @@ def freeze_new_parts(plan: dict) -> None:
             _freeze(alt)
         if "new_part" not in dw:
             return
-        mp = str(dw.pop("new_part") or "").strip()
+        mp = str(dw.get("new_part") or "").strip()
+        known = sorted(r for r in walked if str(r).split("|")[0] == mp)
+        if mp and not known and mp in reached:
+            return
+        dw.pop("new_part")
         if not mp:
             return
         dw["map"] = mp
-        known = sorted(r for r in walked if str(r).split("|")[0] == mp)
         if known:
             dw["not_area"] = known
         else:
@@ -1501,6 +1516,14 @@ def freeze_new_parts(plan: dict) -> None:
     for s in (plan.get("subgoals") or []):
         if isinstance(s, dict):
             _freeze(s.get("done_when"))
+            dw = s.get("done_when")
+            if isinstance(dw, dict):
+                for alt in [dw] + [a for a in (dw.get("any_of") or []) if isinstance(a, dict)]:
+                    for k in ("map", "new_part"):
+                        if isinstance(alt.get(k), str):
+                            reached.add(alt[k])
+                    if isinstance(alt.get("area"), str):
+                        reached.add(alt["area"].split("|")[0])
 
 
 OUTLINE_INSERTS = Path("run/outline_inserts")
@@ -2520,7 +2543,7 @@ def _check_pred(dw: dict, tag: str, sid, probs: list):
                 else:
                     for alt in v:
                         _check_pred(alt, tag, sid, probs)
-            elif k == "map" and v not in ROUTE_MAPS:
+            elif k in ("map", "new_part") and v not in ROUTE_MAPS:
                 probs.append(f"{tag} ({sid}) map '{v}' not in the route list")
             elif k == "has_item" and isinstance(v, dict):
                 for item in v:

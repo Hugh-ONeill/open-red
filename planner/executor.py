@@ -1183,6 +1183,15 @@ def pred_holds(pred: dict | None, obs: dict) -> bool:
             got = f"{m.get('id')}|{m.get('region')}"
             if got != want and got not in AREA_ALIASES.get(want, ()):
                 return False
+        elif key == "new_part":
+            # NOT BEGUN, SO NOT DONE. The author leaves {"new_part": MAP}
+            # unfrozen only when the run has never stood on MAP and an
+            # earlier step of the same plan gets there first (Rock Tunnel's
+            # far side, 2026-09-28): which parts to exclude is the parts
+            # stood on when this step begins. Executor._freeze_new_part
+            # turns it into map + not_area as the step becomes current;
+            # until then a later step read ahead of time is not yet done.
+            return False
         elif key == "not_area":
             # A PART OF A MAP OTHER THAN THE ONE YOU KNOW. A split map's
             # far half has no region name until someone stands on it, so a
@@ -26342,6 +26351,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
 
     def _attempt_inner(self, sg) -> bool:
         """Replay the macro; escalate if that fails."""
+        self._freeze_new_part(sg)      # idempotent; the plan loop does it first
         if self._already_holds(sg):
             print(f"== subgoal: {sg['id']} (already holds from where the "
                   f"party stands — honored)")
@@ -26434,6 +26444,36 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 self.log("slot_level_pinned", subgoal=sg.get("id"), slot=n,
                          who=str(m.get("species")))
         if changed and getattr(self, "plan_path", None) and getattr(self, "plan", None):
+            _tmp = self.plan_path.with_suffix(".json.tmp")
+            _tmp.write_text(json.dumps(self.plan, indent=2))
+            _tmp.replace(self.plan_path)
+
+    def _freeze_new_part(self, sg) -> None:
+        """{"new_part": MAP} -> {"map": MAP, "not_area": [parts stood on
+        NOW]}, as the step becomes current. See pred_holds' new_part branch
+        and author.freeze_new_parts: the author could not know which parts
+        of a map the plan's own earlier steps would stand on. Written into
+        the plan file like a slot_level pin, so a resume after a crash (the
+        storm, 2026-09-27) keeps the parts as they were at the step's start
+        instead of counting the far side, stood on since, as known."""
+        dw = (sg or {}).get("done_when") if isinstance(sg, dict) else None
+        if not isinstance(dw, dict):
+            return
+        froze = []
+        for alt in [dw] + [a for a in (dw.get("any_of") or []) if isinstance(a, dict)]:
+            mp = alt.pop("new_part", None)
+            if not isinstance(mp, str) or not mp:
+                continue
+            parts = sorted(r for r in (self.visits or {}) if str(r).split("|")[0] == mp)
+            alt["map"] = mp
+            if parts:
+                alt["not_area"] = parts
+            froze.append((mp, parts))
+        if not froze:
+            return
+        for mp, parts in froze:
+            self.log("new_part_frozen", subgoal=sg.get("id"), map=mp, not_area=parts)
+        if getattr(self, "plan_path", None) and getattr(self, "plan", None):
             _tmp = self.plan_path.with_suffix(".json.tmp")
             _tmp.write_text(json.dumps(self.plan, indent=2))
             _tmp.replace(self.plan_path)
@@ -26561,6 +26601,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             idx += 1
             sg = subgoals[idx]
             self._cur_sg_idx = idx
+            self._freeze_new_part(sg)
             if idx < resume:
                 # A POSITION CANNOT VOUCH FOR AN ACHIEVEMENT BEFORE IT.
                 # This block already refuses to use a flag as resume
