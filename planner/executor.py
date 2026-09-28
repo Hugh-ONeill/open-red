@@ -21370,7 +21370,24 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     str(((obs or {}).get("result") or {}).get("detail") or ""))
                 if _stopped and not step.get("name"):
                     who = _stopped.group(1)
+                # ...AND AN ANSWER IS THE ASKER'S SPEECH. Bill asked "Help me
+                # out here!", the run answered with {"op":"menu"}, and his
+                # reply — "When I'm in the TELEPORTER, go to my PC and run the
+                # Cell Separation System!", the whole of what he wanted — came
+                # back with a question box still open before it, no map in
+                # that observation, so the region read None and the line was
+                # dropped. The ledger kept only "Help me out here!", and the
+                # run of record 14 walked out of his house with the quest one
+                # press from done (2026-09-28). File an answer under whoever
+                # was pressed last, and take the room from after the answer
+                # when the observation before it had none.
+                if op == "interact" and step.get("name"):
+                    self._last_talker = str(step.get("name"))
+                elif op == "menu" and getattr(self, "_last_talker", None):
+                    who = self._last_talker
                 reg = self._where(pre_obs)
+                if "None" in reg:
+                    reg = self._where(obs)
                 # The harness's own noise is not a hint: saving, using an
                 # item and buying all print a line the game addressed to
                 # nobody. Keep what a NAMED thing said, and anything else
