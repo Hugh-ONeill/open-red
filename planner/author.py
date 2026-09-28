@@ -36,6 +36,7 @@ from pathlib import Path
 
 import brock_probe   # reuse chat()
 import split_roads
+import booklet_items
 from silent_flags import SILENT as _SILENT_FLAGS, announced as _announced
 import pred_text
 
@@ -305,6 +306,8 @@ ROUTE_MAPS = [
 # them POKE_BALL (underscore) and PARLYZ_HEAL. Left to guess it wrote
 # "POKEBALL", which has_item can never match, so the subgoal was
 # unsatisfiable from the moment it was written.
+# (2026-09-28, audit PT-41: the prompt now carries the booklet's own item
+# tables, booklet_items.py; this short list stays for its other readers.)
 KEY_ITEMS = {
     "POKE_BALL": "a Poke Ball (NOTE the underscore) — needed to catch",
     "POTION": "heals 20 HP out of battle or in it",
@@ -1441,8 +1444,9 @@ def build_prompt(goal: str, start: str | None = None) -> str:
           "the game does not define will be rejected."
         + "\n\nITEM IDs: has_item takes ANY item this game defines, spelled "
           "the way it spells it — a wrong spelling is rejected with close "
-          "matches to pick from. The spelling traps among the common ones:\n"
-        + "\n".join(f"  {k}: {v}" for k, v in KEY_ITEMS.items())
+          "matches to pick from. The game's instruction booklet lists these, "
+          "in its own words (ids as this game spells them):\n"
+        + booklet_items.tables_text()
         + recent_events()
         + outline_so_far()
         + last_leg_left_you()

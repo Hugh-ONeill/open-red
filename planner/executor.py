@@ -51,6 +51,7 @@ from pathlib import Path
 from bridge import Bridge, RUN
 import battle_policy
 import split_roads
+import booklet_items
 from silent_flags import SILENT as _SILENT_FLAGS, announced as _announced
 import ledger
 import pred_text
@@ -14424,6 +14425,15 @@ class Executor:
         except Exception:
             return ""
 
+    def _booklet_line(self, obs) -> str:
+        """THE BOOKLET SAYS WHAT A THING IS FOR (audit PT-41, 2026-09-28): a
+        run holding GOLD TEETH was told the name and left to guess; pp.40-43
+        say "These belong to the warden of Safari Zone". Only the tables
+        whose items' purpose is not plain from the name."""
+        _jobs = booklet_items.jobs_for((obs or {}).get("bag") or {})
+        return ("\nWHAT THE GAME'S BOOKLET SAYS OF THINGS YOU CARRY: "
+                + "; ".join(f"{k}: {v}" for k, v in _jobs)) if _jobs else ""
+
     def _bag_line(self, obs, sg) -> str:
         """A FULL BAG REFUSES A GIFT, and only an op failing ever said so.
         20/20 has blocked three legs this run (the Lift Key, the Silph
@@ -16329,7 +16339,7 @@ class Executor:
         # (2026-08-25, Lavender Center, mid-dialogue). The head line
         # already says the screen is not the overworld; stop there.
         if "None" in str(here):
-            return move_head + ledger_block + self._bag_line(obs, sg_for_bag)
+            return move_head + ledger_block + self._bag_line(obs, sg_for_bag) + self._booklet_line(obs)
         taken = self._taken_here(here)
         m = (obs or {}).get("map") or {}
         # candidates are DOORS *and* MAP EDGES. Listing only warps meant a
@@ -17931,7 +17941,7 @@ class Executor:
                     + _remote_worked
                     + shut_line
                     + hint_line + remote_line + _elsewhere_str
-                    + self._bag_line(obs, sg_for_bag)
+                    + self._bag_line(obs, sg_for_bag) + self._booklet_line(obs)
                     + self._policy_heal_line(obs)
                     + self.blockers_text(obs))
         loot_line += remote_line
@@ -18002,7 +18012,7 @@ class Executor:
             _elsewhere_str = self._elsewhere_line(elsewhere, near_hint)
         out += (floor_note + floor_away + route_line + searched_line + shut_line
                 + hint_line + loot_line + _elsewhere_str
-                + self._bag_line(obs, sg_for_bag)
+                + self._bag_line(obs, sg_for_bag) + self._booklet_line(obs)
                 + self.blockers_text(obs))
         out += self.coverage_text(obs)
         return move_head + out
