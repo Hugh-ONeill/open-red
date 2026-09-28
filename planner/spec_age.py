@@ -37,7 +37,7 @@ sys.path.insert(0, str(REPO / "planner"))
 # the fight policy, so a fight policy is not stale for lacking them.
 TRAIN_BLOCK_WORDS = {"fight_if", "else", "min_level_ratio", "min_matchup",
                      "max_foe_matchup", "seen_ko_hits",
-                     "types_ignored_at_level_ratio"}
+                     "types_ignored_at_level_ratio", "wild_items"}
 
 
 def dsl_words() -> set:

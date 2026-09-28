@@ -448,10 +448,12 @@ def _train_problems(tr) -> list:
     if not isinstance(tr, dict):
         return ["train must be null or an object"]
     probs = []
-    extra = set(tr) - {"lead", "fight_if", "else", "to"}
+    extra = set(tr) - {"lead", "fight_if", "else", "to", "wild_items"}
     if extra:
-        probs.append("train keys: lead, fight_if, else, to (not "
+        probs.append("train keys: lead, fight_if, else, to, wild_items (not "
                      + ", ".join(sorted(map(str, extra))) + ")")
+    if tr.get("wild_items") not in (None, "use", "never"):
+        probs.append("train.wild_items must be use / never")
     if "lead" in tr and not isinstance(tr["lead"], bool):
         probs.append("train.lead must be true/false")
     if tr.get("else") not in (None,) + TRAIN_ELSE:
@@ -1465,7 +1467,20 @@ def choose(obs: dict, spec: dict | None = None,
     # at once (two a fight rationed the league and starved a lone
     # IVYSAUR at Misty, 2026-09-15); a share of the bag can.
     bag0 = ctx.setdefault("bag_at_start", dict(bag))
-    for _i, rule in enumerate(spec.get("battle_items") or []):
+    # A WILD FIGHT IN TRAINING IS NOT WHAT MEDICINE IS FOR, when the train
+    # block says so: training happens near a Center, the Center heals for
+    # nothing, and the POTIONs are kept for the trainers, who cannot be run
+    # from (user, 2026-09-28: "it should avoid using potions when training
+    # ... save the potions for trainer battles"; run of record 17 spent four
+    # between 08:36 and 08:56). A low trainee is taken out by the train
+    # rule's own switch/flee and the party walks to the nurse. The last
+    # Pokemon standing still drinks: a blackout loses the walk as well.
+    _tr_items = ((spec.get("train") or {}).get("wild_items") or "use")
+    _no_wild_items = (_tr_items == "never" and ctx.get("trainee")
+                      and (b.get("kind") or "wild") == "wild"
+                      and not last_one_standing(obs, b))
+    for _i, rule in enumerate([] if _no_wild_items
+                              else (spec.get("battle_items") or [])):
         # A CLASS RULE SPENDS ITS BUDGET ON ITSELF, not on each rung it
         # reaches for in turn: `heal` with max_uses 3 is three heals, not
         # three POTIONs and then three SUPER_POTIONs. A rule naming one

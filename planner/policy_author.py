@@ -1397,7 +1397,7 @@ class Gym:
                "progress": 0.0, "gain": 0, "need": 0, "spill": 0,
                "steps": 0, "budget": 0, "heals": 0, "faints": 0,
                "battles": 0, "alone": 0, "shared": 0, "fled": 0,
-               "nothing": 0, "reached": 0, "turns": 0}
+               "nothing": 0, "reached": 0, "turns": 0, "items": 0}
         for _ in range(k):
             r = self.b.send("checkpoint_restore", token="eval_e4",
                             reseed=True, force=True)
@@ -1531,6 +1531,9 @@ class Gym:
                         e[1], e[2] = min(e[1], int(_lv)), max(e[2], int(_lv))
                 if kd == "battle_turn":
                     res["turns"] += 1
+                    # medicine spent in the wild (train.wild_items)
+                    if d.get("op") == "battle_item":
+                        res["items"] += 1
                 elif kd == "blackout":
                     res["blackouts"] += 1
                 elif kd == "oracle_score":
@@ -1890,7 +1893,8 @@ def feedback_text(name: str, r: dict) -> str:
                f"{r.get('need', 0)} experience its goal needed across {n} "
                f"trial(s) ({arena_fraction(r):.0%} of the room), "
                f"{r.get('steps', 0)} of {r.get('budget', 0)} steps used, "
-               f"{r.get('heals', 0)} walk(s) to the nurse; "
+               f"{r.get('heals', 0)} walk(s) to the nurse, "
+               f"{r.get('items', 0)} item(s) used in the wild; "
                f"{r.get('battles', 0)} wild battle(s): "
                f"{r.get('alone', 0)} fought alone, {r.get('shared', 0)} "
                f"shared, {r.get('fled', 0)} fled, {r.get('nothing', 0)} "
@@ -2294,7 +2298,7 @@ def author_train(args, names, build) -> None:
     # after a room is added would outrank the incumbent without ever being
     # measured beside it there (2026-09-25, train_outleveled). Scored here
     # in every room, it is what a new rule has to beat to be kept.
-    _baselines = list(TRAIN_BASELINES)
+    _baselines = [] if getattr(args, "refs_only", False) else list(TRAIN_BASELINES)
     try:
         import pick_policy
         _cur, _ = pick_policy.rank_train(sorted((REPO / "plans").glob("train_model_v*.json")))
@@ -2303,6 +2307,11 @@ def author_train(args, names, build) -> None:
                                json.loads(Path(_cur).read_text())["train"]))
     except Exception as e:          # noqa: BLE001 — a reference, not the run
         print(f"[reference] the rule in play could not be read: {e}", flush=True)
+    # ...AND ANY RULE NAMED ON THE COMMAND LINE, measured beside them (a
+    # knob change is judged against the rule it changes, room for room)
+    for _rp in (getattr(args, "train_refs", None) or []):
+        _d = json.loads(Path(_rp).read_text())
+        _baselines.append((f"{Path(_rp).stem}", _d.get("train", _d)))
     for label, block in _baselines:
         print(f"\n[reference] {label}", flush=True)
         refs.append((label, block, score_all(block, label)))
@@ -2426,6 +2435,11 @@ def main():
     ap.add_argument("--train-eval", action="store_true",
                     help="with --train-block: score the reference rules in "
                          "the rooms and stop, authoring nothing")
+    ap.add_argument("--train-refs", nargs="*", type=Path, default=None,
+                    help="with --train-eval: train rules (files) to score "
+                         "beside the rule in play")
+    ap.add_argument("--refs-only", action="store_true",
+                    help="with --train-eval: skip the three stock baselines")
     ap.add_argument("--base-spec", type=Path, default=None,
                     help="the policy a train block is laid over (default: "
                          "plans/policy.pin, else the picker's choice)")
