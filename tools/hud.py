@@ -425,20 +425,29 @@ def draw_activity(img, painter, y, act):
 TONE = {"good": ACCENT, "bad": RED, "think": YELLOW, "info": FG}
 
 
-def draw_live(img, painter, y0, height, cols, lt):
-    """The thought being written right now (brock_probe streams a thinking
-    call to run/thinking_live.txt), newest lines at the bottom."""
-    text, started, _ = lt
+def draw_live(img, painter, y0, height, cols, lc):
+    """The words of the call in flight (brock_probe streams them to
+    run/model_live.txt, or thinking_live.txt for a thinking call), newest
+    lines at the bottom, headed by what kind of call it is."""
+    text, started = lc["text"], lc["started"]
     if height - y0 < 5 * LINE:
         return
     lines = []
-    for para in re.sub(r"[`*#]+", "", text).splitlines():
+    for para in text.splitlines():
+        if re.match(r"^\s*```\s*\w*\s*$", para):      # a code fence is not content
+            continue
+        para = re.sub(r"[`*#]+", "", para)
         if para.strip():
             lines += textwrap.wrap(para.strip(), cols - 1)
     room = (height - y0 - LINE - 10) // LINE
     shown = lines[-room:] if room > 0 else []
     y = height - 4 - LINE * max(len(shown), 1) - LINE - 4
-    painter.text(img, 4, y, "THINKING, LIVE", YELLOW)
+    who = (lc.get("who") or "").upper()
+    kind = ("THINKING" if lc.get("think") else
+            "DRAFTING" if "AUTHOR A PLAN" in who else
+            "REVIEWING" if "REVIEW" in who else
+            "PICKING" if "PICK" in who or "JUDGE" in who else "WRITING")
+    painter.text(img, 4, y, kind + ", LIVE", YELLOW)
     painter.text_right(img, y, "%s  %d chars" % (clock(time.time() - started), len(text)), DIM,
                        right=img.width)
     y += LINE + 2
@@ -603,9 +612,11 @@ def render_status(text, painter, height, cols=COLS, act=None):
             painter.text(img, 12, y, line, col)
             y += LINE
         y += 4
-    lt = feed.live_thought()
-    if lt and not lt[2]:
-        draw_live(img, painter, y + 8, height, cols, lt)
+    lc = feed.live_call()
+    if lc and not lc["done"] and (lc["think"] or phase.get("phase") == "authoring"):
+        # a thinking call anywhere, or any call while a plan is written:
+        # the words as they come (a plain round is too quick to be worth it)
+        draw_live(img, painter, y + 8, height, cols, lc)
     elif phase.get("phase") == "authoring" and phase.get("log"):
         draw_author_log(img, painter, y + 8, height, cols, phase["log"])
     else:
@@ -798,7 +809,7 @@ def main():
                 act, act_at = model_activity(), time.time()
             # the age tick repaints "updated Ns ago" every 5 s even when idle
             stamps = (stamp_of(OBS), stamp_of(STATUS), stamp_of(feed.FEED), stamp_of(feed.PHASE),
-                      stamp_of(feed.LIVE), win,
+                      stamp_of(feed.LIVE), stamp_of(feed.MODEL_LIVE), win,
                       int(time.time()) // 5, activity_key(act))
             if stamps != last:
                 fresh = read_obs()

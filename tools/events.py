@@ -168,6 +168,7 @@ def from_party(before, after, badges_before, badges_after):
 
 CHAIN = os.path.join(RUN, "chain.log")
 LIVE = os.path.join(RUN, "thinking_live.txt")     # brock_probe writes it while a call thinks
+MODEL_LIVE = os.path.join(RUN, "model_live.txt")  # ...and this for EVERY call (stream-all patch)
 PHASE = os.path.join(os.path.dirname(FEED), "phase.json")
 
 LEG_AUTHOR = re.compile(r"^=== leg (\d+)/(\d+): authoring \S+ (.+)$")
@@ -447,6 +448,46 @@ def live_thought():
     stale = time.time() - st.st_mtime > 20
     body = "\n".join(l for l in lines[1:] if not l.startswith("# "))
     return body, started, done or stale
+
+
+def live_call():
+    """The model call in flight, from run/model_live.txt (every call, once the
+    stream-all patch is in) or else run/thinking_live.txt (thinking calls):
+    {text, started, done, think, who, answer} or None. `answer` is the reply
+    part (after '# answer'), `text` everything."""
+    try:
+        st = os.stat(MODEL_LIVE)
+        fresh = time.time() - st.st_mtime < 20
+    except OSError:
+        fresh = False
+    if fresh:
+        try:
+            with open(MODEL_LIVE, errors="replace") as f:
+                lines = f.read().splitlines()
+        except OSError:
+            lines = []
+        if lines and lines[0].startswith("# call since"):
+            head = lines[0]
+            m = re.search(r"since ([\d.]+)", head)
+            who = head.split(" who=", 1)[1] if " who=" in head else ""
+            body, answer, seen_answer = [], [], False
+            for l in lines[1:]:
+                if l == "# answer":
+                    seen_answer = True
+                    continue
+                if l.startswith("# done") or l.startswith("# broken off"):
+                    continue
+                (answer if seen_answer else body).append(l)
+            think = " think=1" in head
+            done = lines[-1].startswith(("# done", "# broken off"))
+            text = "\n".join(body + answer)
+            return {"text": text, "answer": "\n".join(answer if think else body),
+                    "started": float(m.group(1)) if m else st.st_mtime,
+                    "done": done, "think": think, "who": who}
+    lt = live_thought()
+    if lt:
+        return {"text": lt[0], "answer": "", "started": lt[1], "done": lt[2], "think": True, "who": ""}
+    return None
 
 
 def latest_line(text):
