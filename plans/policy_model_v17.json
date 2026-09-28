@@ -1,0 +1,141 @@
+{
+ "name": "Gen1_Balanced_Aggressive_v17_poison",
+ "stab": 1.5,
+ "accuracy_weight": true,
+ "prefer_ko": true,
+ "ko_margin": 1.2,
+ "avoid_status_moves": true,
+ "self_ko": "last",
+ "setup": [
+  {
+   "move": "GROWTH",
+   "max_uses": 2,
+   "first_turns": 3,
+   "min_hp_frac": 0.7,
+   "vs": "any",
+   "per_foe": true
+  },
+  {
+   "move": "SLEEP_POWDER",
+   "max_uses": 1,
+   "first_turns": 1,
+   "vs": "any",
+   "per_foe": true,
+   "only_if_foe_clear": true
+  },
+  {
+   "move": "CONFUSE_RAY",
+   "max_uses": 1,
+   "first_turns": 1,
+   "vs": "any",
+   "per_foe": true,
+   "only_if_foe_clear": true
+  },
+  {
+   "move": "THUNDER_WAVE",
+   "max_uses": 1,
+   "first_turns": 1,
+   "vs": "any",
+   "per_foe": true,
+   "only_if_foe_clear": true
+  }
+ ],
+ "switch": [
+  {
+   "to": "best_matchup",
+   "first_turns": 1,
+   "vs": "trainer"
+  },
+  {
+   "to": "best_matchup",
+   "hp_below": 0.3,
+   "vs": "any"
+  },
+  {
+   "to": "healthiest",
+   "out_of_pp": true
+  }
+ ],
+ "flee_wild": {
+  "when_traversal": true,
+  "hp_below": 0.2
+ },
+ "battle_items": [
+  {
+   "item": "heal",
+   "prefer": "weakest_sufficient",
+   "hp_below": 0.3,
+   "max_uses": 3,
+   "reserve": 3
+  },
+  {
+   "item": "revive",
+   "target": "fainted",
+   "prefer": "weakest_sufficient",
+   "max_uses": 2,
+   "reserve": 2
+  }
+ ],
+ "field_heal": {
+  "item": "heal",
+  "hp_below": 0.6,
+  "prefer": "weakest_sufficient",
+  "reserve": 2
+ },
+ "field_cure": [
+  {
+   "status": "PSN",
+   "item": "cure"
+  },
+  {
+   "status": "PAR",
+   "item": "cure"
+  },
+  {
+   "status": "BRN",
+   "item": "cure"
+  },
+  {
+   "status": "SLP",
+   "item": "cure"
+  },
+  {
+   "status": "FRZ",
+   "item": "cure"
+  }
+ ],
+ "catch": {
+  "ball": "ball",
+  "throw_at_hp_frac": 0.3,
+  "max_balls": 5,
+  "first_ball": false,
+  "probe_hit": {
+   "min_level_ratio": 0.8
+  },
+  "poison": true
+ },
+ "train": {
+  "lead": true,
+  "fight_if": {
+   "min_level_ratio": 0.8,
+   "min_hp_frac": 0.4,
+   "min_matchup": 1.0
+  },
+  "else": "switch",
+  "to": "best_matchup"
+ },
+ "lead": {
+  "order": "best_matchup",
+  "vs": "trainer",
+  "min_hp_frac": 0.5
+ },
+ "replacement": {
+  "order": "best_matchup",
+  "min_hp_frac": 0.2
+ },
+ "provenance": {
+  "authored_by": "harness knob over policy_model_v16 (user, 2026-09-28)",
+  "base": "plans/policy_model_v16.json (its own eval stands for every non-catch room: only catch.poison differs)",
+  "measured_2026_09_28": "--eval-only, 6 trials: catch_poison v16 11/17 caught, 53 balls; +poison 16/18, 45 balls (plus an earlier 3-trial run 5/8, 25 balls: 21/26 overall, ~3.3 balls a catch vs 4.8); catch_abra v16 5/18, 29 balls; +poison 7/18, 17 balls (the gate: Abra did not drop)"
+ }
+}
