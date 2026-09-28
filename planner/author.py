@@ -1258,29 +1258,42 @@ def last_leg_left_you(run: Path = Path("run"), plans: Path = Path("plans")) -> s
 
 
 def _failed_walk_places(goal: str, run: Path = Path("run")) -> list:
-    """(step, map) pairs: where this objective's last plan failed to walk
-    (see failed_walk_text)."""
+    """(step, map) pairs: where this objective's most recent plan failed to
+    walk (see failed_walk_text), while nothing has fired since.
+
+    THIS OBJECTIVE'S LAST PLAN, NOT THE JOURNAL'S. Read from the last
+    plan_start only, the refusal forgot the moment the ladder moved the leg:
+    run of record 17's ticket leg was pushed behind "Reach Vermilion City"
+    and back, and re-authored in its new slot its first plan was the same
+    walk to the Vermilion captain, passed because the last plan in the
+    journal was another objective's (2026-09-28). An event fired since that
+    plan re-opens the walk — the world it failed in is gone."""
     try:
-        lines = (run / "executor_log.jsonl").read_text().splitlines()[-6000:]
+        lines = (run / "executor_log.jsonl").read_text().splitlines()[-20000:]
     except OSError:
         return []
     rows = []
-    for l in reversed(lines):
+    for l in lines:
         try:
-            r = json.loads(l)
+            rows.append(json.loads(l))
         except ValueError:
             continue
-        rows.append(r)
-        if r.get("kind") == "plan_start":
-            break
-    rows.reverse()
-    if not rows or rows[0].get("kind") != "plan_start":
-        return []
     bare = lambda t: _DOUBT_NOTE.sub("", str(t or "")).strip().lower()
-    if bare(rows[0].get("goal")) != bare(goal):
+    starts = [i for i, r in enumerate(rows) if r.get("kind") == "plan_start"]
+    mine = [i for i in starts if bare(rows[i].get("goal")) == bare(goal)]
+    if not mine:
+        return []
+    i0 = mine[-1]
+    i1 = next((i for i in starts if i > i0), len(rows))
+    # the world has moved since that plan — but a numbered trainer beaten on
+    # the way (EVENT_BEAT_ROUTE_24_TRAINER_3) moves no wall
+    if any(r.get("kind") == "flag_fired"
+           and not re.match(r"^EVENT_BEAT_[A-Z0-9_]*_TRAINER_\d+$",
+                            str(r.get("flag") or ""))
+           for r in rows[i1:]):
         return []
     tgt, bad = {}, []
-    for r in rows:
+    for r in rows[i0:i1]:
         if r.get("kind") == "escalate_context" and r.get("subgoal") and r.get("target"):
             tgt[r["subgoal"]] = str(r["target"])
         if ((r.get("kind") == "escalate_end" and r.get("success") is False)
@@ -7085,7 +7098,7 @@ def _blocker_once(goal, body, ahead, start, journal, model, leg, observed,
                   refused, held, plan):
     """One question. (n, None) is a pick that stands; (n, reason) a pick
     turned down; (None, None) no pick at all."""
-    reply = brock_probe.chat(
+    reply = chat_json(
         [{"role": "system", "content": BLOCKER_SYS},
          {"role": "user", "content": body}], model)
     # EVERY ANSWER IS SAID. "none" left no line in the chain log, so when
@@ -7832,6 +7845,31 @@ def _inferred(why) -> bool:
 _DOUBT_NOTE = re.compile(r"\s*\(a doubt you recorded when outlining:.*$")
 
 
+def chat_json(msgs, model, tries: int = 3) -> str:
+    """brock_probe.chat, asked again when the reply holds no JSON object.
+
+    ONE UNREADABLE REPLY IS NOT AN ANSWER. Run of record 17's missing rung
+    logged "no parseable answer" and returned at once; nothing was inserted
+    and the chain pushed the ticket behind "Reach Vermilion City" — the
+    trap that stopped run 15 (2026-09-28). The question is the same; asking
+    it again costs one call. Used by the blocker, missing, wording and
+    check-done rungs. The last reply is returned either way, so a caller's
+    own parse still decides."""
+    reply = ""
+    for n in range(max(1, tries)):
+        reply = brock_probe.chat(msgs, model)
+        m = re.search(r"\{.*\}", reply or "", re.S)
+        if m:
+            try:
+                json.loads(m.group(0))
+                return reply
+            except ValueError:
+                pass
+        print(f"[ask] reply {n + 1} held no readable JSON — asking again",
+              file=sys.stderr)
+    return reply
+
+
 def next_objective_text(goal: str, plans: Path = Path("plans")) -> str:
     """The line after this one on the model's own list, so the judge does
     not fold it into this one.
@@ -7866,7 +7904,10 @@ _UNTOUCHED_STOP = {
     "TRAINERS", "BADGE", "POKEMON", "CENTER", "MART", "NURSE", "CLERK", "GIRL",
     "BOY", "MAN", "WOMAN", "GUY", "OLD", "LADY", "FIRST", "SECOND", "THIRD",
     "TEAM", "TALK", "SPEAK", "GET", "OBTAIN", "RETRIEVE", "HELP", "GIVE",
-    "FIND", "REACH", "DEFEAT", "BATTLE", "BEAT", "USE", "ENTER", "EXIT"}
+    "FIND", "REACH", "DEFEAT", "BATTLE", "BEAT", "USE", "ENTER", "EXIT",
+    # field moves are moves, not people: "a party Pokemon knows CUT" matched
+    # CUT_TREE and was refused as not done (run of record 17, 2026-09-28)
+    "CUT", "SURF", "STRENGTH", "FLASH", "FLY", "KNOWS", "PARTY", "MOVE"}
 
 
 def untouched_named(text: str, observed=None) -> list:
@@ -7890,8 +7931,9 @@ def untouched_named(text: str, observed=None) -> list:
     for reg, names in (data.get("sightings") or {}).items():
         done = set(touched.get(reg) or [])
         for n in names or []:
-            if n in done or str(n).startswith(("TEXT_", "ITEM_", "HIDDEN_")):
-                continue
+            if n in done or str(n).startswith(("TEXT_", "ITEM_", "HIDDEN_")) \
+                    or str(n) in ("CUT_TREE",) or "BOULDER" in str(n):
+                continue          # obstacles are not people
             toks = {re.sub(r"\d+$", "", t) for t in str(n).upper().split("_")}
             if toks & words:
                 out.append((reg, n))
@@ -8382,7 +8424,7 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
                        + "\n".join(f"  - {d} ({w})" for d, w in turned_down)
                        if turned_down else "")
         try:
-            reply = brock_probe.chat(
+            reply = chat_json(
                 [{"role": "system", "content": CHECKMISSING_SYS},
                  {"role": "user", "content": body}], model)
             m = re.search(r"\{.*\}", reply, re.S)
@@ -9990,7 +10032,7 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
             + "\n\nSTILL ON YOUR LIST, in order:\n"
             + "\n".join(_leg_line(n, t) for n, t in ahead))
     try:
-        reply = brock_probe.chat(
+        reply = chat_json(
             [{"role": "system", "content": WORDING_SYS},
              {"role": "user", "content": body}], model)
         m = re.search(r"\{.*\}", reply, re.S)
@@ -10601,7 +10643,7 @@ def check_done(goal: str, start: str, model: str,
                   f"the events it could rest on name somewhere else "
                   f"({', '.join(names[:3])})")
             return False
-    reply = brock_probe.chat(
+    reply = chat_json(
         [{"role": "system", "content": CHECKDONE_SYS},
          {"role": "user", "content": f"THE OBJECTIVE: {goal}"
           + next_objective_text(goal)
