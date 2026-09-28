@@ -63,9 +63,11 @@ def main():
 
     # the world agrees with the ledger
     full = {"flags": list(LEDGER)}
+    # ...but not one the game set without a word (silent_flags.py, audit 6a,
+    # 2026-09-28): WANTS_BATTLE arms a Route 22 fight that has not happened.
     check("events still true are volunteered", full, FLAG_SG,
-          ["EVENT_GOT_POKEDEX", "EVENT_ROUTE22_RIVAL_WANTS_BATTLE",
-           "fired in OAKS_LAB|4,1"], [])
+          ["EVENT_GOT_POKEDEX", "fired in OAKS_LAB|4,1"],
+          ["EVENT_ROUTE22_RIVAL_WANTS_BATTLE"])
 
     # THE ROLLBACK. The save lost three of them; the ledger did not.
     rolled = {"flags": ["EVENT_GOT_STARTER", "EVENT_GOT_OAKS_PARCEL"]}

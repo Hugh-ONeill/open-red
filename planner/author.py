@@ -36,6 +36,7 @@ from pathlib import Path
 
 import brock_probe   # reuse chat()
 import split_roads
+from silent_flags import SILENT as _SILENT_FLAGS, announced as _announced
 import pred_text
 
 # EVERY MODE THE SHIM CAN ACTUALLY REPORT, read out of the shim so the two
@@ -1042,7 +1043,7 @@ def fired_flags() -> list:
             except json.JSONDecodeError:
                 continue
             f = r.get("flag")
-            if f and f not in fired:
+            if f and f not in fired and f not in _SILENT_FLAGS:
                 fired.append(f)
     except OSError:
         pass
@@ -1084,7 +1085,8 @@ def recent_events(cap: int = 14) -> str:
     sites = {}
     try:
         _d = json.loads(Path("run/explored.json").read_text() or "{}")
-        for _f, _r in (_d.get("flag_sites") or {}).items():
+        for _f, _r in ((k, v) for k, v in (_d.get("flag_sites") or {}).items()
+                       if k not in _SILENT_FLAGS):
             _m = str(_r).split("|")[0]
             if _m and "None" not in _m:
                 sites[_f] = _m
@@ -3816,7 +3818,8 @@ def observed_text(path: Path) -> str:
                         + "\n".join(walls))
     _live = _live_flags()
     fired = [f"  {f} fired in {region}" + _fired_row_note(f, _live)
-             for f, region in sorted((d.get("flag_sites") or {}).items())]
+             for f, region in sorted((d.get("flag_sites") or {}).items())
+             if f not in _SILENT_FLAGS]
     hints = d.get("hints") or {}
     if hints:
         # THE PROMPT HAS A CLIFF AND IT EATS THE FRONT. Ollama evaluates at
@@ -3907,8 +3910,8 @@ def observed_text(path: Path) -> str:
     blk = [b for b in (d.get("blockers") or {}).values()
            if isinstance(b, dict) and not b.get("cleared")]
     try:
-        _flags_now = set(json.loads(Path("run/obs.json").read_text())
-                         .get("flags") or [])
+        _flags_now = set(_announced(json.loads(Path("run/obs.json").read_text())
+                                    .get("flags") or []))
     except (OSError, ValueError, AttributeError):
         _flags_now = set()
     if blk:
@@ -7590,7 +7593,7 @@ def _events_bearing(goal: str) -> str:
         return ""
     words = {w for w in re.sub(r"[^A-Z]+", " ", goal.upper()).split()
              if len(w) > 3}
-    hit = [f for f in (cur.get("flags") or [])
+    hit = [f for f in _announced(cur.get("flags") or [])
            if words & set(re.sub(r"[^A-Z]+", " ", f.upper()).split())]
     if not hit:
         return ""
@@ -8418,7 +8421,7 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
         cur = json.loads(Path("run/obs.json").read_text())
     except (OSError, ValueError):
         cur = {}
-    done = sorted(cur.get("flags") or [])
+    done = sorted(_announced(cur.get("flags") or []))
     # A LEG ALREADY WALKED PAST CANNOT SATISFY A NEED NOW. The same rule as
     # insert_guard's (7f0f7c6), and this copy had to learn it too: "Clear
     # space in the bag" sat at leg 27, counted without ever being confirmed

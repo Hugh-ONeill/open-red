@@ -51,6 +51,7 @@ from pathlib import Path
 from bridge import Bridge, RUN
 import battle_policy
 import split_roads
+from silent_flags import SILENT as _SILENT_FLAGS, announced as _announced
 import ledger
 import pred_text
 import outline_ahead
@@ -5592,7 +5593,7 @@ class Executor:
         self._mark_now = self._world_mark(obs)
         self._drop_what_a_thrown_away_world_did(obs)
         if (obs or {}).get("flags") is not None:
-            self._flags_now = sorted(str(f) for f in (obs.get("flags") or []))
+            self._flags_now = sorted(str(f) for f in _announced(obs.get("flags") or []))
         # ...AND WHERE IT WAS CARRIED. The mark at the last time the run stood
         # in each region, so a return can be judged against it (see
         # _unchanged_return_note).
@@ -6630,6 +6631,12 @@ class Executor:
         if "None" in here:
             return
         for f in fresh:
+            # A FLAG SET WITHOUT A WORD IS NOT HISTORY THE PLAYER HAS
+            # (silent_flags.py): it stays out of flag_sites and every page
+            # that reads flag_fired, and is journalled under its own kind.
+            if f in _SILENT_FLAGS:
+                self.log("flag_set_silently", flag=f, region=here)
+                continue
             if self.flag_sites.get(f) == here:
                 continue
             self.flag_sites[f] = here
@@ -13846,7 +13853,7 @@ class Executor:
         rows = [f"  {f} (fired in {where})"
                 for f, where in reversed(list(
                     (self.flag_sites or {}).items()))
-                if f in live]
+                if f in live and f not in _SILENT_FLAGS]
         if not rows:
             return _reset_note
         return (_reset_note
@@ -22542,7 +22549,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # press is held.
             if op == "interact":
                 _f0 = set((pre_obs or {}).get("flags") or [])
-                _f1 = set((obs or {}).get("flags") or [])
+                _f1 = set(_announced((obs or {}).get("flags") or [])) | _f0
                 _nxt = macro[_mi + 1] if _mi + 1 < len(macro) else None
                 if (_f0 and _f1 - _f0 and isinstance(_nxt, dict)
                         and _nxt.get("op") == "interact"):

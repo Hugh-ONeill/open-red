@@ -50,7 +50,7 @@ ck("...and no further: other goal kinds still get nothing",
    "_pk = pred_keys(sg.get(\"done_when\") or {})" in fblk)
 ck("the live-flags authority check is untouched",
    'live = set((obs or {}).get("flags") or [])' in src
-   and "if f in live]" in src)
+   and "if f in live and f not in _SILENT_FLAGS]" in src)
 
 import ast
 try:

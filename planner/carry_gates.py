@@ -136,7 +136,7 @@ def fired_and_cleared(journal: Path | None, live) -> dict:
     try:
         with journal.open() as fh:
             for line in fh:
-                if '"flag_fired"' not in line:
+                if '"flag_fired"' not in line and '"flag_set_silently"' not in line:
                     continue
                 try:
                     r = json.loads(line)
