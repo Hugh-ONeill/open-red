@@ -1165,7 +1165,9 @@ no types, so PT-34 stays a decision.
   places, pinned in tests/the_printed_map_is_the_booklets_and_needs_no_item.py);
   check 2 passed (edges are the game's adjacency, Rock Tunnel listed on
   ROUTE_10, no booklet labels). Author prompt +3.3k chars. Open: whether to
-  also SAY the booklet's travel order (9 -> Rock Tunnel -> 10), which would
+  also SAY the travel order, in the GAME's form (9 -> north Route 10 -> Rock
+  Tunnel -> south Route 10 -> Lavender; likewise Route 4 around Mt. Moon and
+  Route 20 around Seafoam), never the booklet's 9 -> Rock Tunnel -> 10. It would
   revisit the 2026-08-17 call that what a repeated door id means is the
   model's to infer. Was: open the gated channels. Drop the
   TOWN_MAP gate (`holding_town_map()`, `PRINTED_MAP_HELD`, `_holding_town_map`)
