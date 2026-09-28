@@ -36,6 +36,18 @@ A.brock_probe.chat = lambda *a, **k: called.append(1) or '{"done": true, "why": 
 ck("the leg's own judge refuses before asking the model",
    A.check_done("Help Bill at Sea Cottage", "standing in BILLS_HOUSE", "m", observed=str(ex)) is False
    and not called)
+# ...but a trainer class is not a person (run 18, 2026-09-28): a beaten
+# leader and an optional grunt were read as unspoken to.
+ex2 = d / "explored2.json"
+ex2.write_text(json.dumps({"visits": {"CERULEAN_GYM|0,1": 3, "MT_MOON_B2F|20,5": 1},
+                           "sightings": {"CERULEAN_GYM|0,1": ["CERULEANGYM_MISTY"],
+                                         "MT_MOON_B2F|20,5": ["MTMOONB2F_ROCKET1", "MTMOONB2F_SUPER_NERD"]},
+                           "touched": {}}))
+ck("a gym leader fought, never pressed, does not block 'Defeat Misty'",
+   A.untouched_named("Defeat Misty for the Cascade Badge", ex2) == [])
+ck("an optional grunt does not block 'fight Team Rocket'",
+   A.untouched_named("Navigate Mt. Moon and fight Team Rocket", ex2) == [])
+ck("...while Bill still does", A.untouched_named("Help Bill at Sea Cottage", str(ex)) != [])
 src = (ROOT / "planner/author.py").read_text()
 n = src.index("def check_done")
 ck("check_done carries the same refusal the sweep has",

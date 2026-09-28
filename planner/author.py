@@ -7968,6 +7968,25 @@ _UNTOUCHED_STOP = {
     # field moves are moves, not people: "a party Pokemon knows CUT" matched
     # CUT_TREE and was refused as not done (run of record 17, 2026-09-28)
     "CUT", "SURF", "STRENGTH", "FLASH", "FLY", "KNOWS", "PARTY", "MOVE"}
+# ...AND A TRAINER CLASS IS NOT A PERSON (run 18, 2026-09-28). Every
+# trainer's object name carries its class, and a fight is started by the
+# battle policy, never "pressed", so a beaten trainer reads as unspoken to:
+# "Defeat Misty for the Cascade Badge" was refused on CERULEANGYM_MISTY with
+# the badge in the case, and "Navigate Mt. Moon and fight Team Rocket" on
+# one optional grunt, MTMOONB2F_ROCKET1, so the chain sent the run back into
+# Mt. Moon (user: "it beat misty, it thinks it didnt complete mt moon and
+# its trying to get back there"). Fights are judged by badges, beat flags
+# and the model; this guard is for people you talk to, like Bill. The words
+# of gen1recomp data/generated/trainers.lua's classes, less PROF and OAK,
+# who is also someone the run talks to.
+_UNTOUCHED_STOP |= {
+    "AGATHA", "BEAUTY", "BIKER", "BIRD", "KEEPER", "BLACKBELT", "BLAINE",
+    "BROCK", "BRUNO", "BUG", "CATCHER", "BURGLAR", "CHANNELER", "CHIEF",
+    "COOLTRAINER", "ENGINEER", "ERIKA", "FISHER", "GAMBLER", "GENTLEMAN",
+    "GIOVANNI", "HIKER", "JUGGLER", "KOGA", "LANCE", "LASS", "LORELEI",
+    "SURGE", "MISTY", "POKEMANIAC", "PSYCHIC", "ROCKER", "ROCKET",
+    "SABRINA", "SAILOR", "SCIENTIST", "SUPER", "NERD", "SWIMMER", "TAMER",
+    "YOUNGSTER", "GRUNT", "GRUNTS", "RIVAL"}
 
 
 def untouched_named(text: str, observed=None) -> list:
