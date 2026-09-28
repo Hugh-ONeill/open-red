@@ -13,7 +13,8 @@ stream chat or the casters later.
 It only READS the run. The feed lives OUTSIDE it, at
 ~/.local/state/red-recomp/events.jsonl (RED_EVENTS overrides), so nothing here
 can touch what the chain reads. Each record is
-  {"t": ..., "kind": ..., "tone": "good|bad|info|think", "text": ...}
+  {"t": ..., "kind": ..., "tone": "good|bad|info|think|round", "level": 1|2, "text": ...}
+level 2 is worth showing anyone; level 1 is every round, for the casters.
 and the text is plain ASCII-ish words, so any sink can add its own symbols.
 
 Starting it does not replay history: it begins at the logs' current ends
@@ -100,6 +101,13 @@ def from_record(d, state):
         why = first_sentence(d.get("plan"))
         return "think", "thought %s (%s tokens) -> %s%s" % (
             took, d.get("gtok", "?"), what or "a new plan", ": " + why if why else "")
+    if k == "escalate_proposal":
+        # an ordinary round: what it chose and why, in its own first sentence.
+        # Level 1 = caster fodder, too frequent for chat or the HUD strip.
+        what = ops_text(d.get("macro"))
+        why = first_sentence(d.get("plan"))
+        return "round", "r%s %s: %s%s" % (d.get("round", "?"), words(d.get("subgoal")),
+                                           what or "a plan", " - " + why if why else "")
     if k == "fight_recap":
         who = words(d.get("who"))
         lost = str(d.get("lost")) == "True"
@@ -237,8 +245,11 @@ def from_chain_line(line, phase):
 # ------- the follower
 
 def append(kind, tone, text):
+    """level 2 = worth showing anyone (HUD strip, chat); level 1 = every round,
+    for the casters, who need something to say between milestones."""
     os.makedirs(os.path.dirname(FEED), exist_ok=True)
-    rec = {"t": time.time(), "kind": kind, "tone": tone, "text": text}
+    level = 1 if tone == "round" else 2
+    rec = {"t": time.time(), "kind": kind, "tone": tone, "level": level, "text": text}
     with open(FEED, "a") as f:
         f.write(json.dumps(rec) + "\n")
     print(time.strftime("%H:%M:%S"), tone.ljust(5), text, flush=True)
@@ -350,8 +361,9 @@ def load_feed():
         return []
 
 
-def last_events(n):
-    """The last n events, newest last (used by the HUD)."""
+def last_events(n, min_level=1):
+    """The last n events at or above min_level, newest last (the HUD asks for
+    level 2; a record from before levels existed counts as 2)."""
     out = []
     try:
         with open(FEED, "rb") as f:
@@ -361,12 +373,14 @@ def last_events(n):
             lines = f.read().decode("utf-8", "replace").splitlines()
     except OSError:
         return []
-    for line in lines[-n:]:
+    for line in lines:
         try:
-            out.append(json.loads(line))
+            e = json.loads(line)
         except ValueError:
-            pass
-    return out
+            continue
+        if e.get("level", 2) >= min_level:
+            out.append(e)
+    return out[-n:]
 
 
 def main():

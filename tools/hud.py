@@ -404,7 +404,7 @@ def draw_events(img, painter, y0, height, cols):
     if height - y0 < 5 * LINE:
         return
     blocks = []                       # one block per event, so none is cut in half
-    for e in feed.last_events(40):
+    for e in feed.last_events(40, min_level=2):
         stamp = time.strftime("%H:%M", time.localtime(e.get("t", 0)))
         wrapped = textwrap.wrap(e.get("text", ""), cols - 7) or [""]
         col = TONE.get(e.get("tone"), FG)
