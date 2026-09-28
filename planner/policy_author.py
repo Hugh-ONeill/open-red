@@ -2146,7 +2146,7 @@ for _path in PATHS:
 # THE CATCH ROOMS (2026-09-16): a patch of grass and a want, built by
 # gin_gym_arenas.py (CATCHES). They score the spec's `catch` block, which
 # no gym or league room ever reaches.
-for _c in ("catch_weedle", "catch_abra", "catch_powerplant"):
+for _c in ("catch_weedle", "catch_abra", "catch_poison", "catch_powerplant"):
     ARENAS[_c] = ("catch", REPO / f"run/arena_{_c}.lua",
                   REPO / f"plans/arena_{_c}.json")
 # THE TRAINING ROOMS (2026-09-19): wild ground, a trainee and a level to

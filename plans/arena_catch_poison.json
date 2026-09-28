@@ -1,0 +1,51 @@
+{
+  "party": [
+    {
+      "species": "IVYSAUR",
+      "level": 20,
+      "moves": [
+        "TACKLE",
+        "LEECH_SEED",
+        "VINE_WHIP",
+        "POISONPOWDER"
+      ],
+      "nickname": "IVYSAUR"
+    }
+  ],
+  "bag": {
+    "POKE_BALL": 10,
+    "POTION": 2
+  },
+  "money": 1500,
+  "start": {
+    "map": "VIRIDIAN_FOREST",
+    "x": 1,
+    "y": 10,
+    "facing": "down"
+  },
+  "set_flags": [
+    "EVENT_BEAT_VIRIDIAN_FOREST_TRAINER_0",
+    "EVENT_BEAT_VIRIDIAN_FOREST_TRAINER_1",
+    "EVENT_BEAT_VIRIDIAN_FOREST_TRAINER_2"
+  ],
+  "set_trainers": [
+    "VIRIDIAN_FOREST_obj_1",
+    "VIRIDIAN_FOREST_obj_2",
+    "VIRIDIAN_FOREST_obj_3",
+    "VIRIDIAN_FOREST_obj_4",
+    "VIRIDIAN_FOREST_obj_5",
+    "VIRIDIAN_FOREST_obj_6",
+    "VIRIDIAN_FOREST_obj_7",
+    "VIRIDIAN_FOREST_obj_8"
+  ],
+  "catch": {
+    "want_types": [],
+    "want_species": [
+      "CATERPIE",
+      "METAPOD",
+      "PIKACHU"
+    ],
+    "encounters": 40,
+    "targets": 3
+  }
+}
