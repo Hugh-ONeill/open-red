@@ -10,7 +10,8 @@ of Strength to navigate Koga's gym", a false fact. Ten older Koga drafts from
 runs where Koga came after those legs are heal, gym, Koga. The list stays
 (it places the leg in the arc); the rule now says what it is for, and the
 one game fact the harness can vouch for — no gym needs a field move to reach
-its leader — is on the page. User: "make that fix please".
+its leader — is on the page. User: "make that fix please". (Withdrawn
+2026-09-28, audit PT-39: it was false for Vermilion and Celadon.)
 """
 from __future__ import annotations
 
@@ -32,7 +33,10 @@ def ck(name, cond):
 
 ck("the system prompt scopes the plan to its own goal", "THIS PLAN IS FOR THIS GOAL." in A.SYS)
 ck("...and names the one case a later leg is folded in", "fold one into this plan only when THIS goal cannot be reached\nwithout it" in A.SYS)
-ck("...and says no gym needs a field move to reach its leader", "no gym in this game needs a field move\nto reach its leader" in A.SYS)
+# ...and no longer says no gym needs a field move (audit PT-39, 2026-09-28):
+# false, since Lt. Surge's gym is entered past a CUT tree and Erika's has one
+# inside it.
+ck("...and no longer claims no gym needs a field move", "needs a field move" not in A.SYS)
 src = (ROOT / "planner" / "author.py").read_text()
 ck("the after-this-one list says what it is for, where it is shown", "WHAT YOU PLANNED TO DO AFTER THIS ONE (their own legs, " in src and "not steps of this plan unless " in src)
 sys.exit(1 if fails else 0)

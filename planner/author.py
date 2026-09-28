@@ -637,8 +637,7 @@ THIS PLAN IS FOR THIS GOAL. The objectives listed as what you planned to do
 AFTER this one are their own legs and get their own plans when their turn
 comes; fold one into this plan only when THIS goal cannot be reached
 without it (an HM this goal's own route needs, a key its door needs). A
-badge is won by beating the leader: no gym in this game needs a field move
-to reach its leader.
+badge is won by beating the leader.
 
 AMBIGUOUS MAPS: a {"map": X} done_when is satisfied ANYWHERE on that map,
 and some maps are split into disconnected areas you cannot walk between
