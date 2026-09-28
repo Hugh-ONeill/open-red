@@ -1138,7 +1138,15 @@ Vermilion (under Saffron), Celadon to Lavender, and Diglett's Cave joining
 the Route 2 side to the Route 11 side. It has no distances or cell
 geometry, and it does NOT name Silph Co., Rocket HQ or the Pokemon Mansion
 (the in-game Town Map does, by position). Fair geography = the union of the
-two. Pages 16-27 also walk Pallet to Pewter with item spots and Mart
+two. Where they disagree the GAME'S layout wins (user, 2026-09-28): the booklet
+draws Mt. Moon between 3 and 4, Rock Tunnel between 9 and 10 and Seafoam
+between 19 and 20, but each sits INSIDE the second road and splits it
+(3 -> west Route 4 -> Mt. Moon -> east Route 4; 9 -> north Route 10 -> Rock
+Tunnel -> south Route 10; 19 -> east Route 20 -> Seafoam -> west Route 20).
+The order of travel matches; the labels are off by half a road. The Town Map
+places them correctly and SPLIT_ROADS already models the halves. PT-17b's
+text should say "Route 10, reached from Route 9", never copy the booklet's
+labels. Pages 16-27 also walk Pallet to Pewter with item spots and Mart
 prices (pamphlet tier too). The Pokemon list (44-56) gives names and art,
 no types, so PT-34 stays a decision.
 
