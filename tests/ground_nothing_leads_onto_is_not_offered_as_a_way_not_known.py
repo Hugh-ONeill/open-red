@@ -40,6 +40,7 @@ ck("the shim floods each unreached cell's pocket once",
    "local pk = pocket_of(G, u.x, u.y, dist, 2000)" in sh and "out.cells = seen" in sh)
 ck("...and calls it sealed only with no door, water, person, size or real edge",
    "local shut = pk and not pk.big and not pk.joins and not pk.wet\n"
+   "                       and pk.all_seen\n"
    "                       and #pk.doors == 0 and (indoor or not pk.edge)" in sh)
 ck("...publishing the sealed count beside the rest",
    "sealed = sealed_n }" in sh and "{ n = 0, sealed = sealed_n, near = {}, from = {} }" in sh)

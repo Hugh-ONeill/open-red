@@ -1441,7 +1441,12 @@ local function seen_filter(G, o)
         local k = u.x .. "," .. u.y
         if verdict[k] == nil then
           local pk = pocket_of(G, u.x, u.y, dist, 2000)
+          -- ...AND ONLY A POCKET THE PLAYER HAS SEEN ALL OF (audit PT-22,
+          -- 2026-09-28). The flood runs on the real collision grid, so it
+          -- walled pockets off through cells never on screen; sealed is
+          -- said only when every cell of the pocket has been in view.
           local shut = pk and not pk.big and not pk.joins and not pk.wet
+                       and pk.all_seen
                        and #pk.doors == 0 and (indoor or not pk.edge)
           for ck in pairs((pk and pk.cells) or { [k] = true }) do
             if verdict[ck] == nil then verdict[ck] = shut and true or false end
@@ -3138,6 +3143,18 @@ local function observe(G, seq, result)
             if _W3 > 0 and x == _W3 - 1 and _in_span("east", x, y) then
               _cr.east = true end
           end
+        end
+      end
+      -- ...AND THE NEGATIVE ONLY OVER GROUND THE PLAYER HAS SEEN (audit
+      -- PT-23, 2026-09-28). reachable_cells() floods the real grid, unseen
+      -- cells included; while any reachable cell has never been on screen
+      -- a player cannot know that side is out of reach, so no side is
+      -- ruled out.
+      local _mask3 = SEEN[(map and map.id) or ""] or {}
+      for k, v in pairs(_rc3 or {}) do
+        if v and not _mask3[k] then
+          for d in pairs(md.connections) do _cr[d] = true end
+          break
         end
       end
       for d, cn in pairs(md.connections) do
