@@ -1057,7 +1057,15 @@ real form.
 - [ ] **PT-9 · High · CHECKED — `ROUTE_MAPS` in every authoring prompt,
   ungated.** (2026-09-28: it is all 222 maps, alphabetical, from AGATHAS_ROOM
   to HALL_OF_FAME. Honest list: printed-map places (6c ruling) + maps the
-  run has stood on; other exact strings are the spell-check validator's.) `author.py:1397` "MAP IDs on this route (use exact strings)".
+  run has stood on; other exact strings are the spell-check validator's.)
+  *Fix shape (user, 2026-09-28): guess, then spell-check, as with events.*
+  Drop the 222-name list; the validator at author.py:2513/2854 ("not in the
+  route list") already refuses a map the game lacks. Show only earned IDs
+  (stood on + printed-map places) plus one syntax line (floors _1F/_2F/_B1F,
+  rooms TOWN_THING) so guesses fail on facts, not spelling. The refusal
+  says only "not a place this game has", never "did you mean" (PT-32's
+  refuse-don't-enumerate rule); a yes on a guessed floor is the accepted
+  residue. PT-10/11/13 are not covered by this and keep their own gates. `author.py:1397` "MAP IDs on this route (use exact strings)".
   Names carry contents (ROUTE_16_FLY_HOUSE, FUCHSIA_GOOD_ROD_HOUSE,
   ROUTE_12_SUPER_ROD_HOUSE, CINNABAR_LAB_FOSSIL_ROOM, LAVENDER_CUBONE_HOUSE,
   SAFARI_ZONE_SECRET_HOUSE) and floor counts (SILPH_CO_11F,
