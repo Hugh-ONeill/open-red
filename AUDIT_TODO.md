@@ -950,7 +950,7 @@ RARE_CANDY`.
 
 ## Tier 6 — pointing: out-of-packet knowledge reaching the model (added 2026-09-28)
 
-Source: pointing audit, 28 Sep 2026, HEAD `a53f505`. Four read-only passes
+Source: pointing audit, 28 Sep 2026, HEAD `a53f505`; re-read with the user 2026-09-28. Four read-only passes
 (author.py ×2, executor.py + helpers, shim.lua + ledger/battle/policy). The
 test for every item: does the model see it, or does it steer a choice the
 model would otherwise make, and could a player at that point in THIS run
@@ -959,8 +959,18 @@ re-read at the cited line by a second pass; `REPORTED` = traced by one
 pass with file:line. Stage fixes in `pending_next_stop/` — no changes
 mid-run.
 
+What is NOT pointing (user, 2026-09-28): anything the model authored and
+the model chose. The battle policy is written by the model against the
+arena rooms and picked by its own arena results, so the arena tier of
+knowledge (gym and E4 rosters, the oracle's damage) is the model's own
+homework, one rung cleaner than the outlines, which are model-authored
+but hand-picked. The same lens takes out the spell-check class: a
+validator that only says "that word is not a thing this game has" is the
+manual's index, not a hint. PT-37/38 are withdrawn below on that ground
+and PT-6/32/36 trimmed to what survives it.
+
 Suggested order: 6a (flags) first, cheapest and widest; then 6c (Town Map
-gate), 6b (door_dests), foe HP in 6h, then the v16 pin decision.
+gate), 6b (door_dests), then foe HP in 6h.
 
 ### 6a. Event flags from RAM
 
@@ -996,11 +1006,13 @@ happened. Flag NAMES, and flag COUNTS, are not on any screen.
   now"; `executor.py:3102` "THAT HOLDS NOW" on a model-written flag
   predicate; `author.py:2977` `witness_holds_now` "ALREADY HOLDS where the
   run stands" for any flag in live RAM.
-- [ ] **PT-6 · Medium · REPORTED — the flag validator is an existence oracle.**
+- [ ] **PT-6 · Low · REPORTED — the flag validator answers existence probes.**
   `author.py:2538` rejects names not in `ENGINE_FLAGS` ("is not an event
   this game defines") and passes real ones; `:1768` "No event in this
-  game's list begins with {stem}". Five rounds per draw = five probes of
-  what the game contains.
+  game's list begins with {stem}". Spell-check class (fine) EXCEPT that
+  the model is never shown the list, so a yes/no on a guessed name like
+  EVENT_BEAT_GHOST_MAROWAK is new information. Either show the vocabulary
+  it is allowed to spell against, or drop the stem message.
 - [ ] **PT-7 · Medium · REPORTED — the flag COUNT steers the ledger.**
   `ledger.py:1085` "(said before N event(s) that have fired since)";
   `executor.py:7892` `_world_mark` includes `len(obs.flags)`, read at
@@ -1159,13 +1171,13 @@ string; `_world_mark` drops the flag term.
   "NOBODY in your party has an evolution left"; `_stone_question` (14649)
   fires only when not_fully_evolved is non-empty; `party_fully_evolved`
   target text (16258-16270) "NOT YET THERE".
-- [ ] **PT-32 · Medium · REPORTED — game-content validators.**
-  `author.py:6915` `_phantom_item` "there is no HM08 … it defines 5 HM
-  items: HM_CUT, HM_FLASH, HM_FLY, HM_STRENGTH, HM_SURF" (via `_leg_line`
-  8872, check_wording 10022, blocker `no()`); `author.py:8311` `_thing_unknown`
-  "X is not an item, Pokemon, machine, badge or place this game has",
-  quoted into the next ask (8476); `insert_guard.py:84-95` refuses on it.
-  Also leaks by omission (a real unseen item passes).
+- [ ] **PT-32 · Low · REPORTED — `_phantom_item` enumerates the HMs.**
+  `author.py:6915` "there is no HM08 … it defines 5 HM items: HM_CUT,
+  HM_FLASH, HM_FLY, HM_STRENGTH, HM_SURF" (via `_leg_line` 8872,
+  check_wording 10022, blocker `no()`). The refusal is spell-check class
+  and fine; the list of what the five are is not. Say "5 HM items" and
+  stop. (`_thing_unknown` 8311 / `insert_guard.py:84` are pure spell-check
+  — withdrawn.)
 - [ ] **PT-33 · Low · REPORTED — found TMs displayed with their move.**
   `executor.py:16014` `_disp_item` "TM49 (TM_TRI_ATTACK)" for non-gift TMs,
   against its own "TM49 until booted" rule; `model_view` keys the bag by
@@ -1184,31 +1196,29 @@ string; `_world_mark` drops the flag term.
 - [ ] **PT-36 · High · CHECKED — exact foe HP (hidden in gen 1).**
   `shim.lua:3673` emits exact `foe.hp`/`maxhp`/`stats` (the engine's own
   WideBattle.lua:96: "the foe's exact HP is never shown").
-  Prompts: `executor.py:18940-18962` → 23425-23430 "THE LAST FIGHT YOU
+  Live prompt: `executor.py:18940-18962` → 23425-23430 "THE LAST FIGHT YOU
   LOST … ONIX L14 came out first at 35 hp and was at 12 hp" under a
-  comment "as the screen showed it" (false); `policy_author.py:506-510`
-  "DAMAGE YOUR MOVES HAVE BEEN SEEN TO DO (the HP bar is on screen; this is
-  what it moved by): EMBER vs GEODUDE: 5-42" — exact points, not bar.
-  Steering: `battle_policy.py:836` KO call `seen >= foe.hp*ko_margin`,
-  `:1230` train `seen_ko_hits`, `:1610-1698` catch weakening;
-  `executor.py:1607-1621` DAMAGE_JOURNAL / DAMAGE_FRAC.
+  comment "as the screen showed it" (false). Live steering:
+  `battle_policy.py:836` KO call `seen >= foe.hp*ko_margin`, `:1230` train
+  `seen_ko_hits`, `:1610-1698` catch weakening; `executor.py:1607-1621`
+  DAMAGE_JOURNAL / DAMAGE_FRAC — the sanctioned empirical journal, fed
+  from a source finer than the screen. (The policy author's damage table
+  at `policy_author.py:506-510` is arena tier — withdrawn — but its label
+  "the HP bar is on screen; this is what it moved by" is still untrue.)
   *Fix shape:* quantize to the 48-px bar everywhere the executor reads foe
   HP, and journal damage as bar fractions.
-- [ ] **PT-37 · High · CHECKED — pinned policy tuned on content not yet met.**
-  `plans/policy.pin` → `policy_model_v16.json`: primary arena `e4_real`,
-  cross-scored over all 8 gym `_ideal` rooms + e4_ideal + catch rooms.
-  The author iterated on `feedback_text` (`policy_author.py:1878-1941`)
-  "beat n/5 (stopped in AGATHAS_ROOM)", "beat 5/8 in CELADON_GYM", plus
-  oracle agreement from engine-truth `battle_probe`; arena parties come
-  from `gin_gym_arenas.py` with a hand-placed type counter per gym;
-  winner picked by `cross_key` (2600-2615), same in `pick_policy.py`.
-  By the 09-24 rule (tables are the hand-pick judge's only), automatic
-  selection on unearned content is pointing. **Decision, not a bug fix.**
-- [ ] **PT-38 · Medium · CHECKED — DSL_DOC walkthrough anecdotes.**
-  `policy_author.py:75-270` (108, 136, 264): "VAPOREON and AGATHA's
-  GENGAR", "KABUTOPS led LORELEI", "walked into Erika", "a GYARADOS
-  carrying THUNDERBOLT is the answer to a WATER foe", "a wild ABRA knows
-  only TELEPORT". SETUP_DOC (live executor prompts 22704/22724) is clean.
+- [x] **PT-37 · withdrawn (user, 2026-09-28) — pinned policy tuned on
+  arena content.** `plans/policy.pin` → `policy_model_v16.json`, authored
+  against `e4_real` and picked by `cross_key` over the gym/E4/catch rooms.
+  The audit read this as automatic selection on unearned content. The
+  user's ruling: the model wrote it AND the model's own results chose it,
+  so it sits in the model-authored tier — cleaner than the hand-picked
+  outlines, not dirtier. `pick_policy.py` ranking is fine by the same
+  ground. Not pointing.
+- [x] **PT-38 · withdrawn — DSL_DOC anecdotes** (`policy_author.py:108,
+  136, 264`: Agatha's Gengar, Kabutops vs Lorelei, Erika). Arena tier,
+  the same fights the author's feedback already narrates; follows PT-37.
+  SETUP_DOC (live executor prompts 22704/22724) is clean anyway.
 - [ ] **PT-39 · Medium · CHECKED — system prompt: "no gym in this game needs
   a field move".** `author.py:630`. Walkthrough claim that steers leg
   content; arguably false for Vermilion (the CUT tree).
