@@ -1271,6 +1271,35 @@ def last_leg_left_you(run: Path = Path("run"), plans: Path = Path("plans")) -> s
     return out
 
 
+def _walked_way_to(target_map: str, run: Path = Path("run")) -> bool:
+    """Is there a chain of ways this run has WALKED from where it stands to
+    any part of target_map? The walked graph in explored.json, nothing
+    inferred. A walk that failed before a way was learned is not the same
+    walk once one is: run 19's plans to Celadon had failed from Saffron's
+    Route 7 pocket, then the run crossed Saffron's west edge at (0,17) onto
+    the gate strip and had a walked way again, and the refusals went on,
+    fifteen rounds, until the ladder pushed the leg (2026-09-29)."""
+    try:
+        d = json.loads((Path(run) / "explored.json").read_text() or "{}")
+    except (OSError, ValueError):
+        return False
+    ex = d.get("explored") or {}
+    start = _region_now()
+    if not start or "None" in str(start):
+        return False
+    seen, todo = {start}, [start]
+    while todo:
+        r = todo.pop()
+        if str(r).split("|")[0] == target_map:
+            return True
+        for k, e in (ex.get(r) or {}).items():
+            to = str((e or {}).get("to") or "") if isinstance(e, dict) else ""
+            if to and "|" in to and not (e or {}).get("inferred") and to not in seen:
+                seen.add(to)
+                todo.append(to)
+    return False
+
+
 def _failed_walk_places(goal: str, run: Path = Path("run")) -> list:
     """(step, map) pairs: where this objective's most recent plan failed to
     walk (see failed_walk_text), while nothing has fired since.
@@ -1321,7 +1350,8 @@ def _failed_walk_places(goal: str, run: Path = Path("run")) -> list:
         kind, _, val = tgt.get(sid, "").partition(":")
         if kind in ("map", "area", "new_part") and val:
             places.append((sid, val.split("|")[0]))
-    return places
+    # a place there is now a walked way to is not the same walk
+    return [(sid, m) for sid, m in places if not _walked_way_to(m, run)]
 
 
 def _failed_walk_history(goal: str, run: Path = Path("run")) -> tuple:
@@ -1360,6 +1390,7 @@ def _failed_walk_history(goal: str, run: Path = Path("run")) -> tuple:
                 kind, _, val = tgt.get(r.get("subgoal"), "").partition(":")
                 if kind in ("map", "area", "new_part") and val:
                     failed.add(val.split("|")[0])
+        failed = {m for m in failed if not _walked_way_to(m, run)}
         if failed:
             n += 1
             places |= failed
