@@ -17144,10 +17144,24 @@ class Executor:
                 _links = self._walked_map_links()
                 _goal = _doorstep(want_map)
                 _pick = None
+                _pockets = []
                 for region in set(list(self.explored) + list(self.visits)):
                     _d = static_cost(_doorstep(region.split("|")[0]),
                                      _goal, {}, _links)
                     if _d is None:
+                        continue
+                    # A POCKET IS NOT THE WAY THERE. Aimed at Celadon from
+                    # Saffron, this named ROUTE_7|18,12 "the closest ground
+                    # you HAVE walked ... the way there from here is walk
+                    # west", while the same page called that part fully
+                    # worked: it is the ledge-bound strip whose one way out
+                    # is back into Saffron, and the run went in and out of
+                    # it for an hour (run 19, 2026-09-29; user: "it keeps
+                    # getting directed to the pocket"). A part whose only
+                    # way out leads back here is not offered; it is named
+                    # as what it is.
+                    if region != here and self._is_pocket(region, here):
+                        _pockets.append(region)
                         continue
                     _p = [] if region == here else self._route(here, region)
                     if _p is None:
@@ -17213,6 +17227,15 @@ class Executor:
                         f"{_st} to {_pick[2][0][1]}, {len(_pick[2])} leg(s) "
                         f"over ground you have already covered. What lies "
                         f"beyond that edge you have not seen.")
+                if _pockets:
+                    route_line += (
+                        f"\n{', '.join(sorted(_pockets)[:3])} "
+                        f"{'is' if len(_pockets) == 1 else 'are'} nearer "
+                        f"{want_map} on the printed map, but every way you "
+                        f"have found out of {'it' if len(_pockets) == 1 else 'them'} "
+                        f"leads back here: going there is not a way on.")
+                if _pick or _pockets:
+                    pass
                 elif not self._holding_town_map(obs):
                     route_line = (
                         f"\nNothing you have walked is ON {want_map}, and you "
