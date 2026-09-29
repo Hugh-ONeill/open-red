@@ -7830,14 +7830,31 @@ def _events_bearing(goal: str) -> str:
         cur = json.loads(Path("run/obs.json").read_text())
     except (OSError, ValueError):
         return ""
-    words = {w for w in re.sub(r"[^A-Z]+", " ", goal.upper()).split()
-             if len(w) > 3}
-    hit = [f for f in _announced(cur.get("flags") or [])
-           if words & set(re.sub(r"[^A-Z]+", " ", f.upper()).split())]
+    # A ROAD'S NAME IS NOT A DEED'S. "Give FRESH WATER to the guard on
+    # Route 6" matched on ROUTE alone, so all ten slots went to Route 10 and
+    # 11 trainer wins, and EVENT_GAVE_GUARDS_DRINK, fired legs earlier, was
+    # cut: GUARD never met GUARDS. The judge said "no record of it being
+    # given", the place guard refused on the trainers, and the leg was
+    # pushed (run 19, 2026-09-29). A place-class word may add weight but
+    # never lets a flag in; plurals meet singulars; most words shared first.
+    def _ws(t):
+        return {w[:-1] if w.endswith("S") and not w.endswith("SS") else w
+                for w in re.sub(r"[^A-Z]+", " ", t.upper()).split()
+                if len(w) > 3}
+    words = _ws(goal)
+    own = words - _BEARING_PLACE_WORDS
+    hit = []
+    for f in _announced(cur.get("flags") or []):
+        fw = _ws(f)
+        if own & fw:
+            hit.append((-len(words & fw), f))
     if not hit:
         return ""
     return ("\n\nEVENTS ALREADY RECORDED THAT MENTION THIS OBJECTIVE'S OWN "
-            "WORDS: " + ", ".join(sorted(hit)[:10]))
+            "WORDS: " + ", ".join(f for _n, f in sorted(hit)[:10]))
+
+
+_BEARING_PLACE_WORDS = {"ROUTE", "CITY", "TOWN", "ISLAND"}
 
 
 DONE_LEDGER = Path("plans/outline.done")
