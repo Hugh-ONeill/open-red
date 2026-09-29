@@ -13576,6 +13576,27 @@ class Executor:
         return any(outline_ahead._key(w) in _keys
                    for w in _re.findall(r"[A-Za-z][A-Za-z'.]*", txt))
 
+    @staticmethod
+    def _booklet_words(items) -> str:
+        """The booklet's own words for these items (booklet_items), or ""."""
+        rows = [(str(i), booklet_items.ITEMS[str(i)]) for i in items
+                if str(i) in booklet_items.ITEMS]
+        return ("\nWHAT THE GAME'S BOOKLET SAYS OF THEM: "
+                + "; ".join(f"{k}: {v}" for k, v in rows)) if rows else ""
+
+    def _type_legs_ahead(self, obs) -> str:
+        """The outline's legs still ahead that a party member answers by
+        type or species (the starter question's list), or ""."""
+        try:
+            goals = outline_ahead.catch_goals_ahead(
+                PLANS, RUN, self._species_names(), (obs or {}).get("party"))
+        except Exception:
+            return ""
+        if not goals:
+            return ""
+        return ("\nYOUR OWN OUTLINE, STILL AHEAD, ASKS THE PARTY TO BECOME:\n"
+                + "\n".join(f"  {g['pos']}. {g['leg']}" for g in goals))
+
     def _road_ahead_text(self, obs, words) -> str:
         """The outline's catch-shaped legs still ahead, when the words on
         screen name a Pokemon; "" otherwise. Shared by the yes/no asker and
@@ -14749,7 +14770,16 @@ class Executor:
             return obs
         party = (obs or {}).get("party") or []
         user = (
-            "STONES IN YOUR BAG: " + ", ".join(stones) + "\n"
+            "STONES IN YOUR BAG: " + ", ".join(stones)
+            # A STONE IS CHOSEN FOR WHAT IT MAKES. Run 19 bought the first
+            # stone on Celadon 4F's shelf, FIRE_STONE, "evolution stones
+            # are useful", and was asked about it here with nothing to weigh
+            # it by: EEVEE became a FLAREON with no Fire move, while the
+            # outline still asked for "a WATER or ELECTRIC type" before
+            # Blaine (user, 2026-09-29: "what leg is even asking for fire??").
+            # The booklet's line for each stone and the outline's own legs
+            # ahead; which, if any, is the model's.
+            + self._booklet_words(stones) + self._type_legs_ahead(obs) + "\n"
             "PARTY MEMBERS WITH AN EVOLUTION STILL AHEAD OF THEM:\n"
             + "\n".join(
                 f"  slot {i}: {sp} L{party[i-1].get('level')}"
@@ -14758,8 +14788,8 @@ class Executor:
             + "\n(Everyone else in the party has no evolution left to them.)"
               "\n\nWHAT YOU ARE TRYING TO DO RIGHT NOW: "
             + str(sg.get("goal_text") or sg.get("id") or "make progress")
-            + "\nWhich stone suits which Pokemon is not stated here and you "
-              "do not have to know: \"any\" tries each member in turn and "
+            + "\nWhich stone suits which Pokemon is not stated beyond what "
+              "the booklet says: \"any\" tries each member in turn and "
               "the stone comes back if nobody takes it."
               "\nEvolving cannot be undone. No round is spent either way. "
               "Answer it.")
@@ -15595,6 +15625,12 @@ class Executor:
                    + (f" (read {n_reads}x, the same list each time)"
                       if n_reads > 1 and not reads.get("moved")
                       else "")
+                   # the booklet's words for what is on offer, and, when a
+                   # stone is, what the outline still asks the party to
+                   # become (see the stone question: run 19's FLAREON)
+                   + Executor._booklet_words(shelf)
+                   + (Executor._type_legs_ahead(self, obs)
+                      if any(str(i).endswith("_STONE") for i in shelf) else "")
                    if shelf else
                    "\nYou have never read this counter's list. A buy names "
                    "an item and the counter answers whether it has it.")
