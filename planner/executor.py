@@ -8319,7 +8319,7 @@ class Executor:
                 n += 1
         return n
 
-    def _note_arrival(self, src, dst, before_obs, after_obs):
+    def _note_arrival(self, src, dst, before_obs, after_obs, left_by=None):
         """The facts an ARRIVAL sets: the visit, the door you came in by,
         where you came from, and the far side of that door as a way back.
         None of it needs the door you LEFT by, so a crossing whose own
@@ -8392,7 +8392,14 @@ class Executor:
                 # as ridden; the page names it with the unridden pads. A pad
                 # whose twin opens onto nothing new is a door like any other.
                 if str(_w.get("look") or "") == "pad":
+                    # THE TILE LEFT BY, not where the op began: the walk onto
+                    # the pad is part of the same op, so the player stood
+                    # elsewhere in before_obs (4F (3,15) -> 10F found no twin,
+                    # 2026-09-29).
                     _bp = (before_obs or {}).get("player") or {}
+                    _lb = _re.match(r"^(-?\d+),(-?\d+)$", str(left_by or ""))
+                    if _lb:
+                        _bp = {"x": int(_lb.group(1)), "y": int(_lb.group(2))}
                     _twin = next((w0 for w0 in (((before_obs or {}).get("map") or {})
                                                 .get("warps") or [])
                                   if w0.get("x") == _bp.get("x")
@@ -8832,7 +8839,7 @@ class Executor:
                      twins=len(self._twin_keys(before_obs, step)))
             self._save_memory()
             return
-        self._note_arrival(src, dst, before_obs, after_obs)
+        self._note_arrival(src, dst, before_obs, after_obs, left_by=key)
         # A DOOR THIS ROOM DOES NOT HAVE. The edge is keyed on the tile the
         # op AIMED at, and once — leaving the Mt Moon Pokemon Center — that
         # was 18,5, which is a ROUTE_4 tile: the Center's own two door tiles

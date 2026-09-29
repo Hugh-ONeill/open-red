@@ -75,6 +75,16 @@ ck("a twin opening onto nothing new is a door like any other",
    x.explored)
 
 x = fresh()
+x._note_arrival("SILPH_CO_4F|20,0", "SILPH_CO_10F|8,9",
+                obs("SILPH_CO_4F", 6, 15, [{"x": 3, "y": 15, "dest": "SILPH_CO_10F",
+                                            "look": "pad"}]),
+                obs("SILPH_CO_10F", 13, 15, [{"x": 13, "y": 15, "dest": "SILPH_CO_4F",
+                                              "look": "pad"}]), left_by="3,15")
+ck("the twin is the tile left by, not where the op began",
+   x.explored.get("SILPH_CO_10F|8,9", {}).get("13,15", {}).get("to") == "SILPH_CO_4F|20,0",
+   x.explored)
+
+x = fresh()
 x._note_arrival("SILPH_CO_5F|20,0", "SILPH_CO_9F|14,0",
                 obs("SILPH_CO_5F", 9, 15, []), obs("SILPH_CO_9F", 17, 15, NINE))
 ck("a twin not seen at all claims nothing",
