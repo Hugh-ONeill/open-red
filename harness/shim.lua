@@ -1421,6 +1421,27 @@ local function seen_filter(G, o)
         end
       end
     end
+    -- A PAD BESIDE GROUND YOU SEE AND CANNOT WALK TO. Silph 5F's pad at
+    -- (9,15) sits in a corridor: walked onto from the main floor it sends
+    -- you away, and the corridor past it, with a Rocket in it, is on screen
+    -- the whole time (run 19, 2026-09-29; user: "its on screen information,
+    -- you can see the corridor it leads to"). Arriving ON the pad is the
+    -- one way to step off onto that side. Screen facts only: the pad, and
+    -- seen walkable ground beside it that no walk from here reaches.
+    if un_n > 0 then
+      local un_set = {}
+      for _, u in ipairs(unreached) do un_set[u.x .. "," .. u.y] = true end
+      for _, w in ipairs(m.warps or {}) do
+        if w.look == "pad" then
+          for _, d in pairs(SDIRS) do
+            if un_set[(w.x + d[1]) .. "," .. (w.y + d[2])] then
+              w.opens_past = true
+              break
+            end
+          end
+        end
+      end
+    end
     -- ...EXCEPT GROUND NOTHING LEADS ONTO. Diglett's Cave is one winding
     -- tunnel cut through a rectangle, and the rock around it is drawn with
     -- tiles the collision table calls passable: 462 of its 726 seen cells,

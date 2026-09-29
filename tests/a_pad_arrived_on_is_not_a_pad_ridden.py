@@ -7,6 +7,11 @@ on the side the CARD KEY is on, past a Rocket. Arriving on 9F wrote "9F's
 pad leads back to 5F's main floor" (n=0), so the pad read as ridden and
 the explorer never offered it (run 19, 2026-09-29).
 
+A pad whose twin opens onto ground on screen that no walk reached is kept
+apart and named as such (user: "its on screen information, you can see
+the corridor it leads to"); one whose twin opens onto nothing new is a
+door like any other.
+
 Synthetic.
 """
 from __future__ import annotations
@@ -33,6 +38,7 @@ def fresh():
     x.log = lambda kind, **kw: x.logged.append((kind, kw))
     x._save_memory = lambda: None
     x._count_visit = lambda r: None
+    x.pad_lands = {}
     return x
 
 
@@ -41,14 +47,38 @@ def obs(mid, px, py, warps, outdoor=False):
             "player": {"x": px, "y": py}}
 
 
+NINE = [{"x": 17, "y": 15, "dest": "SILPH_CO_5F", "look": "pad"}]
 x = fresh()
 x._note_arrival("SILPH_CO_5F|20,0", "SILPH_CO_9F|14,0",
-                obs("SILPH_CO_5F", 9, 15, []),
-                obs("SILPH_CO_9F", 17, 15,
-                    [{"x": 17, "y": 15, "dest": "SILPH_CO_5F", "look": "pad"}]))
-ck("arriving on a pad writes no way back", "17,15" not in x.explored.get("SILPH_CO_9F|14,0", {}),
+                obs("SILPH_CO_5F", 9, 15, [{"x": 9, "y": 15, "dest": "SILPH_CO_9F",
+                                            "look": "pad", "opens_past": True}]),
+                obs("SILPH_CO_9F", 17, 15, NINE))
+ck("the twin opens onto seen, unreached ground: no way back in the walked graph",
+   "17,15" not in x.explored.get("SILPH_CO_9F|14,0", {}), x.explored)
+ck("...where it sets you down is kept", x.pad_lands.get("SILPH_CO_9F|17,15")
+   == {"map": "SILPH_CO_5F", "at": "9,15"}, getattr(x, "pad_lands", None))
+ck("...and logged", any(k == "pad_arrival_not_reversed" for k, _ in x.logged))
+x.map_doors = {"SILPH_CO_9F": ["17,15", "14,0"]}
+x.warp_looks = {"SILPH_CO_9F": {"17,15": "pad", "14,0": "stairs_up"}}
+line = x._pads_unridden_in_building({"SILPH_CO_9F"})
+ck("the pads line says it sets you down beside seen ground",
+   "(17,15) sets you down ON SILPH_CO_5F's pad at (9,15)" in line
+   and "no walk reached" in line, line)
+
+x = fresh()
+x._note_arrival("SILPH_CO_5F|20,0", "SILPH_CO_9F|14,0",
+                obs("SILPH_CO_5F", 9, 15, [{"x": 9, "y": 15, "dest": "SILPH_CO_9F",
+                                            "look": "pad"}]),
+                obs("SILPH_CO_9F", 17, 15, NINE))
+ck("a twin opening onto nothing new is a door like any other",
+   x.explored.get("SILPH_CO_9F|14,0", {}).get("17,15", {}).get("to") == "SILPH_CO_5F|20,0",
    x.explored)
-ck("...and says so", any(k == "pad_arrival_not_reversed" for k, _ in x.logged))
+
+x = fresh()
+x._note_arrival("SILPH_CO_5F|20,0", "SILPH_CO_9F|14,0",
+                obs("SILPH_CO_5F", 9, 15, []), obs("SILPH_CO_9F", 17, 15, NINE))
+ck("a twin not seen at all claims nothing",
+   "17,15" not in x.explored.get("SILPH_CO_9F|14,0", {}), x.explored)
 
 x = fresh()
 x._note_arrival("SILPH_CO_4F|20,0", "SILPH_CO_5F|20,0",

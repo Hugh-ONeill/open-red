@@ -5838,6 +5838,7 @@ class Executor:
             self.unreached_at = data.get("unreached_at", {}) or {}
             self.switch_seen = data.get("switch_seen", {}) or {}
             self.warp_looks = data.get("warp_looks", {}) or {}
+            self.pad_lands = data.get("pad_lands", {}) or {}
             _np = self._drop_pad_arrivals()
             if _np:
                 print(f"[memory] {_np} pad(s) known only by arriving on them are unridden again")
@@ -6471,6 +6472,7 @@ class Executor:
     def _blank_memory(self):
         self.explored, self.dead_ends = {}, {}
         self.warp_looks = {}          # map -> "x,y" -> what it is drawn as
+        self.pad_lands = {}           # "MAP|x,y" -> the twin pad it sets you down on
         self.visits, self.frontier, self.sightings = {}, {}, {}
         self.region_anchors = {}
         self.searched = {}
@@ -6533,6 +6535,7 @@ class Executor:
                  "unreached_at": getattr(self, "unreached_at", {}),
                  "switch_seen": getattr(self, "switch_seen", {}),
                  "warp_looks": getattr(self, "warp_looks", {}),
+                 "pad_lands": getattr(self, "pad_lands", {}),
                  "map_trail": list(getattr(self, "_map_trail", []) or [])[-40:],
                  "sweep_dry": dict(getattr(self, "_sweep_dry", None) or {}),
                  "map_seq": int(getattr(self, "_map_seq", 0) or 0),
@@ -8379,9 +8382,30 @@ class Executor:
                 # offered (run 19, 2026-09-29; user: "the pad [is] the only
                 # thing separating the main section of 5F from the part with
                 # the card key"). Where it sets you down is learned by riding it.
+                #
+                # ...AND WHERE ITS TWIN OPENS ONTO GROUND ON SCREEN, THAT IS
+                # SAID (user: "its on screen information, you can see the
+                # corridor it leads to"). The pad left from was marked by the
+                # shim as beside seen ground no walk reached: riding this one
+                # back sets you down there, on that pad, and both sides are
+                # open. Kept apart from the walked graph, which would read it
+                # as ridden; the page names it with the unridden pads. A pad
+                # whose twin opens onto nothing new is a door like any other.
                 if str(_w.get("look") or "") == "pad":
-                    self.log("pad_arrival_not_reversed", frm=dst, via=_wk, to=src)
-                    break
+                    _bp = (before_obs or {}).get("player") or {}
+                    _twin = next((w0 for w0 in (((before_obs or {}).get("map") or {})
+                                                .get("warps") or [])
+                                  if w0.get("x") == _bp.get("x")
+                                  and w0.get("y") == _bp.get("y")), None)
+                    if _twin is None or _twin.get("opens_past"):
+                        if _twin is not None:
+                            self.pad_lands = dict(getattr(self, "pad_lands", None) or {})
+                            self.pad_lands[f"{dmap}|{_wk}"] = {
+                                "map": _smap, "at": f"{_bp.get('x')},{_bp.get('y')}"}
+                            self._save_memory()
+                        self.log("pad_arrival_not_reversed", frm=dst, via=_wk, to=src,
+                                 opens_past=bool(_twin))
+                        break
                 _ak = _wk                    # the door itself
                 _back = self.explored.setdefault(dst, {})
                 # ...AND ARRIVING THROUGH A DOOR OUTRANKS A SELF-LOOP.
@@ -9142,13 +9166,19 @@ class Executor:
                           and (looks.get(m2) or {}).get(str(k)) == "pad")
             if left:
                 n += len(left)
-                rows.append(f"{m2} " + ", ".join(f"({k})" for k in left))
+                lands = getattr(self, "pad_lands", {}) or {}
+                rows.append(f"{m2} " + ", ".join(
+                    f"({k})" + (f" sets you down ON {lands[f'{m2}|{k}']['map']}'s pad at "
+                                f"({lands[f'{m2}|{k}']['at']}), the one you rode here, "
+                                f"beside ground you have seen there and no walk reached"
+                                if f"{m2}|{k}" in lands else "")
+                    for k in left))
         if not rows:
             return ""
         return (f" Standing again where you saw them shows the same. In this "
                 f"building {n} warp pad(s) you have seen have never been "
-                f"ridden: " + "; ".join(rows) + ". Where a pad sets you down "
-                f"is not known until it is ridden.")
+                f"ridden: " + "; ".join(rows) + ". Where any other pad sets you "
+                f"down is not known until it is ridden.")
 
     def _lock_asked_unheld(self, region_or_map, obs) -> str:
         """A shut way on that FLOOR asked for a thing the bag does NOT hold.
