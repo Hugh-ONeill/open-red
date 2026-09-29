@@ -60,6 +60,18 @@ ck("a map word in an object's name is not the person",
    A.untouched_named("Obtain FRESH WATER from the roof of the Celadon City Department Store", ex3) == [])
 ck("a guard in another town is not the guard on Route 6",
    A.untouched_named("Give FRESH WATER to the guard on Route 6", ex3) == [])
+# ...nor is a word a place is called by (run 19, 2026-09-29): a Silph worker
+# in Saffron's street is not what "... on the 5th floor of Silph Co." names.
+ex4 = d / "explored4.json"
+ex4.write_text(json.dumps({"visits": {"SAFFRON_CITY|12,0": 5, "SILPH_CO_11F|9,0": 1},
+                           "sightings": {"SAFFRON_CITY|12,0": ["SAFFRONCITY_SILPH_WORKER_F"],
+                                         "SILPH_CO_11F|9,0": ["SILPHCO11F_SILPH_PRESIDENT"]},
+                           "touched": {}}))
+ck("a place's word in a person's name is not the person",
+   A.untouched_named("Defeat the Team Rocket Executive on the 5th floor of Silph Co.", ex4) == [])
+ck("...while the president is still named by his own word",
+   A.untouched_named("Speak to the president of Silph Co.", ex4)
+   == [("SILPH_CO_11F|9,0", "SILPHCO11F_SILPH_PRESIDENT")])
 src = (ROOT / "planner/author.py").read_text()
 n = src.index("def check_done")
 ck("check_done carries the same refusal the sweep has",

@@ -8249,6 +8249,25 @@ _UNTOUCHED_STOP |= {
     "YOUNGSTER", "GRUNT", "GRUNTS", "RIVAL"}
 
 
+_PLACE_WORDS: set = set()
+
+
+def _place_words() -> set:
+    """Every word of every map's name (SILPH from SILPH_CO_7F, GYM, MART):
+    a word a place is called by is not a person's name. SAFFRONCITY_SILPH_
+    WORKER_F in the street was taken for the person "Defeat the Team Rocket
+    Executive on the 5th floor of Silph Co." named, and the done-check
+    refused on her (run 19, 2026-09-29). Names that own a place keep their
+    own spelling there (BILLS_HOUSE, MR_FUJIS_HOUSE), so BILL and FUJI stay."""
+    if not _PLACE_WORDS:
+        try:
+            for m in (Path(__file__).parent / "engine_maps.txt").read_text().split():
+                _PLACE_WORDS.update(w for w in m.upper().split("_") if len(w) >= 3)
+        except OSError:
+            pass
+    return _PLACE_WORDS
+
+
 def untouched_named(text: str, observed=None) -> list:
     """(region, name) for things the run has SEEN and never pressed whose
     name holds a word the text names — "Talk to Bill" and BILLSHOUSE_BILL1.
@@ -8284,7 +8303,8 @@ def untouched_named(text: str, observed=None) -> list:
                     or str(n) in ("CUT_TREE",) or "BOULDER" in str(n):
                 continue          # obstacles are not people
             _parts = [re.sub(r"\d+$", "", t) for t in str(n).upper().split("_")]
-            toks = {t for t in _parts[1:] if t not in _mapw} or {_parts[-1]}
+            toks = ({t for t in _parts[1:] if t not in _mapw
+                     and t not in _place_words()} or {_parts[-1]})
             if toks & words:
                 out.append((reg, n))
     return out
