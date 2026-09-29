@@ -5819,8 +5819,11 @@ class Executor:
             # back to the Route 7 gate (run 19, 2026-09-29). `go` re-tries
             # them with every cell and condemns only what that exhausts.
             if not data.get("bad_seam_v2") and self._bad_seam:
-                self.log("bad_seam_set_aside", n=len(self._bad_seam),
-                         seams=sorted(list(x) for x in self._bad_seam))
+                # (printed, not journalled: this runs inside __init__, before
+                # the journal is open, and a self.log here killed every start)
+                print(f"[memory] set aside {len(self._bad_seam)} seam verdict(s) "
+                      f"made under the three-cell uncork; go re-tries them: "
+                      + "; ".join(" ".join(map(str, x)) for x in sorted(self._bad_seam))[:400])
                 self._bad_seam = set()
             _nb = self._backfill_reverse_seams()
             if _nb:
