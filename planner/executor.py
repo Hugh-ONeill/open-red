@@ -1067,6 +1067,43 @@ def canon_item(name) -> str:
     return NUMBER_IDS.get(k, name)
 
 
+_HEARD_NOISE = ("saved the game", "saving", "got potion", "put it in", "found ",
+                 " learned ", "grew to lv", "grew to level", "gained ", "exp. points",
+                 # the battle narrating itself, not a person speaking
+                 "enemy ", " fainted", "super effective", "not very effective",
+                 "critical hit", "sent out", "wants to fight", "for winning")
+
+
+def split_heard(said: str):
+    """(main, first_name, extra) from a run of text boxes joined by " / ".
+
+    Box by box: a box that reads as a system confirmation (EXP, a level,
+    a save) is dropped and the rest kept. A trainer met on the way leaves
+    the battle's own lines and then its speech in one run, and one noisy box
+    used to drop the lot: the rival's "I went to BILL's ... go thank him!"
+    after the Cerulean fight never reached a page in any run (run 18,
+    2026-09-28; user: "does the model even pay attention to what the rival
+    says"). Then by printed speaker: the game writes the name before the
+    speech ("JERK: ...", "OAK: ..."), so boxes are grouped from each printed
+    name on. `main` is the first group plus any unnamed boxes; `first_name`
+    the first group's printed name, if it has one; `extra` the later named
+    groups, each (name, text), to be filed under the name the screen gave."""
+    boxes = [b for b in (x.strip() for x in str(said or "").split(" / "))
+             if b and not any(w in b.lower() for w in _HEARD_NOISE)]
+    groups = []
+    for bx in boxes:
+        nm = _re.match(r"^([A-Z][A-Z0-9.'\u00e9]{1,11}):\s", bx)
+        if nm or not groups:
+            groups.append([nm.group(1) if nm else None, [bx]])
+        else:
+            groups[-1][1].append(bx)
+    if not groups:
+        return "", None, []
+    extra = [(g[0], " / ".join(g[1])) for g in groups[1:] if g[0]]
+    main = " / ".join(groups[0][1] + [b for g in groups[1:] if not g[0] for b in g[1]])
+    return main, groups[0][0], extra
+
+
 def pred_holds(pred: dict | None, obs: dict) -> bool:
     if not pred:
         return True
@@ -21622,17 +21659,20 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # item and buying all print a line the game addressed to
                 # nobody. Keep what a NAMED thing said, and anything else
                 # only if it does not read as a system confirmation.
-                low = said.lower()
-                noise = any(w in low for w in
-                            ("saved the game", "saving", "got potion",
-                             "put it in", "found ", " learned ",
-                             "grew to lv", "gained ", "exp. points"))
-                # unconditional: last_text SURVIVES the box closing, so an
-                # interact that produced no dialogue of its own inherits
-                # whatever was said last — the save banner got filed under
-                # the Charmander ball that way.
-                if noise:
-                    said = ""
+                # ...BOX BY BOX, NOT ALL OR NOTHING. A trainer met on the way
+                # leaves the battle's own lines ("gained 240 EXP. Points")
+                # and then its speech in one run of boxes, and one noisy box
+                # dropped the lot: the rival's "I went to BILL's ... Since
+                # you're using his system, go thank him!" after the Cerulean
+                # fight, the game's one pointer to the ticket, never reached
+                # a page in any run (run 18, 2026-09-28; user: "does the
+                # model even pay attention to what the rival says because
+                # its usually actually important"). The boxes that read as
+                # a system confirmation go; what a person said stays.
+                said, _first, _extra = split_heard(said)
+                if _first and not step.get("name"):
+                    who = _first
+                    said = said[len(who) + 1:].lstrip()
                 # _op_spoke has already decided this line belongs to this
                 # op; the only thing left is the first-op guard, which
                 # stops the very first observation inheriting whatever was
@@ -21676,6 +21716,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             self._item_from[_it] = {
                                 "who": str(step.get("name")), "at": reg,
                                 "said": speech_excerpt(said, 300)}
+                    for _xn, _xs in (_extra if self._said_ready else []):
+                        _xl = f"{_xn}: {speech_excerpt(_xs, 480)}"
+                        if _xl not in lst:
+                            lst.append(_xl)
                     if line not in lst and not _same:
                         lst.append(line)
                         del lst[:-16]
