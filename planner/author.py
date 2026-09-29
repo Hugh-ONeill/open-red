@@ -2595,7 +2595,30 @@ def same_failed_walk_problems(plan: dict, goal: str | None = None,
                        "NEVER TRIED: " + "; ".join(_leads) + "." if _leads else "")]
         if not keys <= _TRAVEL_KEYS:
             return []                 # a deed comes first: the walk may follow
+        # ...AND SO DOES NEW GROUND. The same walk from the same place meets
+        # the same wall; a step onto ground never stood on changes what it
+        # meets. Run 19 stood inside Rock Tunnel with "come out onto the far
+        # part of Route 10, then Lavender" refused five rounds as "only
+        # travel", because the last plan had failed walking to Lavender from
+        # Cerulean (2026-09-29). A new part, or a map never stood on other
+        # than the failed places, counts as doing something first, the
+        # same test new_ground_problems asks for.
+        if "new_part" in keys or "not_area" in keys:   # new_part is frozen to not_area first
+            return []
+        _st = _stood_maps(run)
+        if tgt and _st is not None and tgt not in places and tgt not in _st:
+            return []
     return []
+
+
+def _stood_maps(run: Path = Path("run")):
+    """Maps this run has stood on, from run/explored.json; None when there is
+    no walked record to read (then nothing is called new ground)."""
+    try:
+        d = json.loads((Path(run) / "explored.json").read_text() or "{}")
+    except (OSError, ValueError):
+        return None
+    return {str(r).split("|")[0] for r, n in (d.get("visits") or {}).items() if n}
 
 def _series_hint(mem: list, fired=()) -> str:
     """The 'did you mean' clause for a flag guessed as a placeholder in a
