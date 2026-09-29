@@ -14875,6 +14875,14 @@ class Executor:
         print(f"   (stone {item} on {use}: {detail[:90]})")
         return self.settle() or obs
 
+    # A MACHINE IS OFTEN THE BETTER MOVE. The prompt closed "Saying no is a
+    # real answer and often the right one", and run 19 turned TM_MEGA_DRAIN
+    # down for VENUSAUR to keep LEECH_SEED, "redundant with Leech Seed for
+    # healing" (user, 2026-09-29: "megadrain is a strict upgrade to leech
+    # seed"; "we should posit the true fact that TMs are often stronger than
+    # what a pokemon naturally learns, or at least quicker"). No true
+    # species example is given: Red's PIKACHU never learns THUNDERBOLT by
+    # level, which is what the obvious one would claim.
     TEACH_SYS = (
         "You are playing Pokemon Red. You are carrying a machine (a TM or "
         "an HM) that teaches a move, and the game's own ITEM screen says "
@@ -14882,7 +14890,9 @@ class Executor:
         "knows that move yet. Decide whether to teach it now, to whom, and "
         "what it would replace. A Pokemon carries FOUR moves: teaching a "
         "fifth means one is gone for good, so a teach can cost more than it "
-        "gives. Saying no is a real answer and often the right one. Reply "
+        "gives. Saying no is a real answer. A machine's move is often "
+        "STRONGER than anything that Pokemon learns by level, or arrives long "
+        "before level-up would bring it. Reply "
         "with a JSON object and nothing else: "
         "{\"why\":\"<one short sentence>\",\"teach\":null} to teach it "
         "to nobody, or {\"why\":\"...\",\"teach\":<party slot number>,"
