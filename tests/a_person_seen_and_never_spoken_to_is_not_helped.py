@@ -48,6 +48,18 @@ ck("a gym leader fought, never pressed, does not block 'Defeat Misty'",
 ck("an optional grunt does not block 'fight Team Rocket'",
    A.untouched_named("Navigate Mt. Moon and fight Team Rocket", ex2) == [])
 ck("...while Bill still does", A.untouched_named("Help Bill at Sea Cottage", str(ex)) != [])
+# ...only the person's own words, not the map's (2026-09-29): "roof" is
+# a map word of CELADONMANSION_ROOF_HOUSE_HIKER, and a Cerulean guard is not
+# "the guard on Route 6".
+ex3 = d / "explored3.json"
+ex3.write_text(json.dumps({"visits": {"CELADON_MANSION_ROOF_HOUSE|0,1": 1, "CERULEAN_CITY|26,7": 2},
+                           "sightings": {"CELADON_MANSION_ROOF_HOUSE|0,1": ["CELADONMANSION_ROOF_HOUSE_HIKER"],
+                                         "CERULEAN_CITY|26,7": ["CERULEANCITY_GUARD1"]},
+                           "touched": {}}))
+ck("a map word in an object's name is not the person",
+   A.untouched_named("Obtain FRESH WATER from the roof of the Celadon City Department Store", ex3) == [])
+ck("a guard in another town is not the guard on Route 6",
+   A.untouched_named("Give FRESH WATER to the guard on Route 6", ex3) == [])
 src = (ROOT / "planner/author.py").read_text()
 n = src.index("def check_done")
 ck("check_done carries the same refusal the sweep has",

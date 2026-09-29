@@ -8181,7 +8181,8 @@ _UNTOUCHED_STOP = {
     "FIND", "REACH", "DEFEAT", "BATTLE", "BEAT", "USE", "ENTER", "EXIT",
     # field moves are moves, not people: "a party Pokemon knows CUT" matched
     # CUT_TREE and was refused as not done (run of record 17, 2026-09-28)
-    "CUT", "SURF", "STRENGTH", "FLASH", "FLY", "KNOWS", "PARTY", "MOVE"}
+    "CUT", "SURF", "STRENGTH", "FLASH", "FLY", "KNOWS", "PARTY", "MOVE",
+    "GUARD", "GUARDS"}
 # ...AND A TRAINER CLASS IS NOT A PERSON (run 18, 2026-09-28). Every
 # trainer's object name carries its class, and a fight is started by the
 # battle policy, never "pressed", so a beaten trainer reads as unspoken to:
@@ -8221,13 +8222,24 @@ def untouched_named(text: str, observed=None) -> list:
         return []
     out = []
     touched = data.get("touched") or {}
+    # ...THE PERSON'S OWN WORDS, NOT THE MAP'S (run 19, 2026-09-29). An
+    # object's name starts with its map: "Obtain FRESH WATER from the roof of
+    # the Celadon City Department Store" was refused over
+    # CELADONMANSION_ROOF_HOUSE_HIKER because "roof" is the Mansion's MAP
+    # word, and "the guard on Route 6" over CERULEANCITY_GUARD1 in another
+    # town; both legs were pushed with the item in the bag. The person's
+    # words are the name less its first part and less its map's words
+    # (BILLSHOUSE_BILL_POKEMON in BILLS_HOUSE -> BILL, POKEMON), and GUARD,
+    # like NURSE or CLERK, is a job many people hold (see _UNTOUCHED_STOP).
     for reg, names in (data.get("sightings") or {}).items():
         done = set(touched.get(reg) or [])
+        _mapw = set(str(reg).split("|")[0].upper().split("_"))
         for n in names or []:
             if n in done or str(n).startswith(("TEXT_", "ITEM_", "HIDDEN_")) \
                     or str(n) in ("CUT_TREE",) or "BOULDER" in str(n):
                 continue          # obstacles are not people
-            toks = {re.sub(r"\d+$", "", t) for t in str(n).upper().split("_")}
+            _parts = [re.sub(r"\d+$", "", t) for t in str(n).upper().split("_")]
+            toks = {t for t in _parts[1:] if t not in _mapw} or {_parts[-1]}
             if toks & words:
                 out.append((reg, n))
     return out
