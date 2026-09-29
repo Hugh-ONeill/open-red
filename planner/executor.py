@@ -5848,6 +5848,14 @@ class Executor:
             self.contested = data.get("contested", {})
             self._bad_seam = {tuple(x) for x in data.get("bad_seam", [])
                               if len(x) == 3}
+            # VERDICTS FROM BEFORE THE FULL UNCORK ARE SET ASIDE ONCE: they
+            # were reached after three cells, and one of them was the walk
+            # back to the Route 7 gate (run 19, 2026-09-29). `go` re-tries
+            # them with every cell and condemns only what that exhausts.
+            if not data.get("bad_seam_v2") and self._bad_seam:
+                self.log("bad_seam_set_aside", n=len(self._bad_seam),
+                         seams=sorted(list(x) for x in self._bad_seam))
+                self._bad_seam = set()
             _nb = self._backfill_reverse_seams()
             if _nb:
                 print(f"[memory] {_nb} seam(s) given their way back")
@@ -6529,6 +6537,7 @@ class Executor:
                  "contested": self.contested,
                  "bad_seam": sorted(list(x) for x in
                                     getattr(self, "_bad_seam", set())),
+                 "bad_seam_v2": True,
                  # A TRAINER FIGHT IN A ROOM OUTLIVES THE PROCESS, same
                  # as `contested` right above it. Without this, a gym
                  # the party lost in stopped being exempt from the
@@ -10369,14 +10378,24 @@ class Executor:
         _to = str((ways[back] or {}).get("to") or "")
         if not self._is_pocket(here, _to):
             return _no("entered from elsewhere: not a pocket", back=back)
-        if self._seam_row_uniform(_to.split("|")[0], _OPP[back]):
-            return _no("every cell of that seam already tried lands here",
-                       back=back)
+        # EVERY CELL NEVER CROSSED AT, NOT THREE. This tried skips 1-3 and
+        # declined up front once every cell already tried landed here, so
+        # Saffron's west edge was tried at rows 20-23, all into Route 7's
+        # ledge-bound pocket, and (0,17), the cell the party had arrived on
+        # from the gate strip, was never tried; the reverse edge was then
+        # condemned for good and `go` stopped offering the walk it had made
+        # (run 19, 2026-09-29; user: "the issue is really more that go is
+        # failing in the first place ... its been through the area
+        # before"). The cells are read off the far side once stepped onto
+        # it, and every one not yet crossed at is tried in order.
+        self._uncork_left = None
         self._uncorked = getattr(self, "_uncorked", set()) | {key}
         self._uncorking = True
         final = obs
+        _skips = None
+        _tries = 0
         try:
-            for skip in (1, 2, 3):
+            while True:
                 cur = self.b.obs() or final
                 if self._where(cur) != here:
                     break
@@ -10389,6 +10408,21 @@ class Executor:
                 final = o
                 if self._where(o) == here:
                     break                      # could not even step out
+                if _skips is None:
+                    _far = self._where(o)
+                    _cells = ((((o or {}).get("map") or {}).get("seam_cells") or {})
+                              .get(_OPP[back]) or [])
+                    _taken = set()
+                    for _k in (self.explored.get(_far) or {}):
+                        _mk = _re.match(r"^" + _OPP[back] + r"(?:#skip(\d+))?$", str(_k))
+                        if _mk:
+                            _taken.add(int(_mk.group(1) or 0))
+                    _skips = ([i for i in range(len(_cells)) if i not in _taken]
+                              if _cells else [1, 2, 3])
+                if not _skips or _tries >= 8:
+                    break
+                skip = _skips.pop(0)
+                _tries += 1
                 try:
                     o2 = self.b.send("cross", dir=_OPP[back], skip=skip)
                 except TimeoutError:
@@ -10406,6 +10440,7 @@ class Executor:
                     return o2                  # a different landing: free
         finally:
             self._uncorking = False
+            self._uncork_left = len(_skips) if _skips is not None else None
         return final if self._where(final) != here else None
 
     def _recross_for_target(self, obs, sg, tx, ty):
@@ -13128,7 +13163,12 @@ class Executor:
                     # at a named cell that did not land drops that cell; the
                     # direction is not condemned for every other cell of it.
                     _fe = (self.explored.get(frm) or {}).get(str(key)) or {}
-                    if isinstance(_fe.get("at"), list):
+                    # ...AND NOT WHILE CELLS OF IT ARE UNTRIED: the uncork
+                    # above says how many were left when it gave up.
+                    if getattr(self, "_uncork_left", None):
+                        self.log("inference_kept_cells_untried", frm=frm, via=key,
+                                 to=nxt, left=self._uncork_left)
+                    elif isinstance(_fe.get("at"), list):
                         _fe.pop("at", None)
                         self.log("inference_cell_refused", frm=frm, via=key,
                                  to=nxt, landed=self._where(o))
