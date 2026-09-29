@@ -28,7 +28,7 @@ ck("the never-seen-side refusal carries none of the proof phrases",
     and "no walkable path" not in t)(
         sh.split("no cell of the %s side of %s")[1][:500]))
 ck("the seam search reports whether unseen ground bordered it",
-   "unseen_touched = bfs_to_edge(G, dir, c.skip, c.surf, blind)" in sh
+   "unseen_touched = bfs_to_edge(G, dir, c.skip, c.surf, blind, nil," in sh
    and ", bestx, besty, seen, nseen, gate_unseen" in sh)
 ck("a footprint-stopped search gets the scoped verdict",
    "cannot be reached over the \"\n        .. \"ground you have SEEN" in sh

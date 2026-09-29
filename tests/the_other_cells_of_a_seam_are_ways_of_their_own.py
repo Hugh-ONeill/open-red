@@ -36,7 +36,7 @@ def ck(name, cond, detail=""):
 
 shim = (ROOT / "harness/shim.lua").read_text()
 ck("the seam search can collect every cell in skip order",
-   "bfs_to_edge = function(G, dir, skip, surf, blind, collect)" in shim
+   "bfs_to_edge = function(G, dir, skip, surf, blind, collect, only)" in shim
    and "if collect then collect[#collect + 1] = { x = x, y = y }; return nil end" in shim
    and "if collect then return collect end" in shim)
 ck("...and the observation lists them per seen side",

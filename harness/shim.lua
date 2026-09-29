@@ -5538,7 +5538,7 @@ local function doorway_labels(ws)
   return out
 end
 
-bfs_to_edge = function(G, dir, skip, surf, blind, collect)
+bfs_to_edge = function(G, dir, skip, surf, blind, collect, only)
   local Collision = require("src.world.Collision")
   local ow = G.overworld
   local p = ow.player
@@ -5568,6 +5568,12 @@ bfs_to_edge = function(G, dir, skip, surf, blind, collect)
     -- lists a seam's reachable cells so the page can offer each as a way
     -- of its own, numbered the way `skip` counts them from here
     if collect then collect[#collect + 1] = { x = x, y = y }; return nil end
+    -- ONE NAMED CELL, when the executor replays a crossing whose far side
+    -- depends on where the seam is crossed (see OPS.cross c.x/c.y)
+    if only then
+      if x == only.x and y == only.y then return x, y end
+      return nil
+    end
     nfound = nfound + 1
     if nfound > skipn then return x, y end
     fb_x, fb_y = x, y
@@ -6971,7 +6977,9 @@ function OPS.cross(G, c)
   local seen_cells, nseen_cells, unseen_touched
   for round = 1, 4 do
     ex, ey, bfs_why, stallx, stally, seen_cells, nseen_cells,
-      unseen_touched = bfs_to_edge(G, dir, c.skip, c.surf, blind)
+      unseen_touched = bfs_to_edge(G, dir, c.skip, c.surf, blind, nil,
+                                   (tonumber(c.x) and tonumber(c.y))
+                                   and { x = tonumber(c.x), y = tonumber(c.y) } or nil)
     if ex then break end
     U.wait(40)
     if G.stack:top() ~= ow then

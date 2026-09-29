@@ -52,7 +52,13 @@ for _ in range(60):
         ex2.note_transition(before, {"dir": "north"}, after); break
     except AttributeError as e:
         setattr(ex2, str(e).split("'")[-2], {})
-ck("a seam the walk refuted gets no reverse", "south" not in (ex2.explored.get("ROUTE_2|2,30") or {}))
+# (2026-09-29) ...unless the crossing's landing cell is known: then the
+# reverse is kept WITH that cell, the one place a crossing back reproduces
+# it (run 19's Saffron -> Route 7 pocket); a plain one is still not made.
+_b2 = (ex2.explored.get("ROUTE_2|2,30") or {}).get("south")
+_ap = (after.get("player") or {})
+ck("a seam the walk refuted gets no plain reverse",
+   _b2 is None or (isinstance(_b2.get("at"), list) and _ap.get("x") is not None))
 
 # graphs from before the rule get it at load
 ex3 = fresh()

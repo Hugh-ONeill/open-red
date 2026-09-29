@@ -8878,12 +8878,30 @@ class Executor:
                  "east": "west", "west": "east"}
         if str(key) in _OPPS and dst != src:
             _rk = _OPPS[str(key)]
-            if (dst, _rk, src) not in (getattr(self, "_bad_seam", None) or set()):
+            # ...AND WHERE IT CAN BE CROSSED BACK. A seam is a row, and which
+            # cell you cross at decides where you land: Saffron's west edge
+            # lands in Route 7's south pocket at rows 20-23, and only the row
+            # the party came in on from Route 7's north part leads back to
+            # it. The inference was kept by direction alone, a plain cross
+            # took the nearest cell, landed in the pocket, and the one
+            # crossing that works was thrown into bad_seam; the run went
+            # Saffron -> pocket -> Saffron for an hour (run 19, 2026-09-29;
+            # user: "it keeps getting directed to the pocket when it trying
+            # to cross west"). The cell the crossing landed on is kept with
+            # the inference, and `go` crosses there.
+            _ap = (after_obs or {}).get("player") or {}
+            _at = ([int(_ap["x"]), int(_ap["y"])]
+                   if _ap.get("x") is not None and _ap.get("y") is not None
+                   else None)
+            if ((dst, _rk, src) not in (getattr(self, "_bad_seam", None) or set())
+                    or _at):
                 _bn = self.explored.setdefault(dst, {})
                 _be = _bn.get(_rk)
                 if _be is None:
                     _bn[_rk] = {"n": 0, "to": src, "inferred": True}
-                    self.log("reverse_seam", frm=dst, via=_rk, to=src)
+                    if _at:
+                        _bn[_rk]["at"] = _at
+                    self.log("reverse_seam", frm=dst, via=_rk, to=src, at=_at)
                 elif _be.get("inferred") and _be.get("to") != src:
                     _be["to"] = src
         for k in [key] + self._twin_keys(before_obs, step):
@@ -12745,6 +12763,11 @@ class Executor:
                     _args = {"dir": _dirk}
                     if _skip:
                         _args["skip"] = _skip
+                    # the cell an inferred crossing was learned at (see the
+                    # reverse-seam inference in note_transition)
+                    _at = _edge.get("at") if isinstance(_edge.get("at"), list) else None
+                    if _at and not _skip:
+                        _args["x"], _args["y"] = int(_at[0]), int(_at[1])
                     if _sf:
                         _args["surf"] = True
                     _res = self._send_safe("cross", **_args)
@@ -13067,8 +13090,17 @@ class Executor:
                     # when the walk contradicts it, drop it for good. The
                     # crossing itself stays walkable and re-records the
                     # moment it genuinely lands there.
-                    self._bad_seam.add(
-                        (frm, str(key).split("#", 1)[0], str(nxt)))
+                    # ...ONLY THE CELL, WHEN THERE WAS ONE. A crossing replayed
+                    # at a named cell that did not land drops that cell; the
+                    # direction is not condemned for every other cell of it.
+                    _fe = (self.explored.get(frm) or {}).get(str(key)) or {}
+                    if isinstance(_fe.get("at"), list):
+                        _fe.pop("at", None)
+                        self.log("inference_cell_refused", frm=frm, via=key,
+                                 to=nxt, landed=self._where(o))
+                    else:
+                        self._bad_seam.add(
+                            (frm, str(key).split("#", 1)[0], str(nxt)))
                     self.log("inference_refused", frm=frm, via=key, to=nxt,
                              landed=self._where(o))
                     self._save_memory()
