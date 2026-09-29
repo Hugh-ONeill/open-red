@@ -63,8 +63,12 @@ ck("...and says when every crossed cell of an edge lands in one part",
    "crossed lands in {_lands}" in src)
 ck("the uncork declines a region entered from elsewhere",
    '"entered from elsewhere: not a pocket"' in src)
-ck("...and a seam already tried at every cell",
-   '"every cell of that seam already tried lands here"' in src)
+# (2026-09-29) the up-front decline on "every cell already tried" is gone:
+# it counted only cells TRIED, and left (0,17) of Saffron's west edge untried
+# for good. The uncork now tries every cell not yet crossed at instead.
+ck("...and tries the seam's untried cells rather than declining on the tried ones",
+   '"every cell of that seam already tried lands here"' not in src
+   and "if i not in _taken]" in src)
 
 bad = [n for n, ok in checks if not ok]
 for n, ok in checks: print(("ok  " if ok else "FAIL"), n)

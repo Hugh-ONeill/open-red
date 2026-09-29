@@ -10323,6 +10323,7 @@ class Executor:
                 "east": "west", "west": "east"}
         here = self._where(obs)
         mymap = here.split("|")[0]
+        self._uncork_left = None          # a declined uncork leaves no count
 
         def _no(why, **kw):
             self.log("uncork_declined", where=here, asked=dirname, why=why,
