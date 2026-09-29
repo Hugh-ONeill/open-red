@@ -9622,6 +9622,39 @@ def refund_insert_for(voided: str, inserts_path="run/outline_inserts") -> list:
     return freed
 
 
+_NOT_REAL = (r"not an? (?:real |actual |collectible |obtainable )?item|"
+             r"(?:does|do)(?: not|n't) exist|no such|plot device|"
+             r"cannot be (?:obtained|held|collected)|can(?:no|')t be (?:obtained|held)|"
+             r"is not something (?:you|the player) can (?:get|obtain|hold)")
+
+
+def _item_the_game_named(goal: str, observed) -> tuple | None:
+    """(ITEM, the words) when the objective names an item and something in
+    the game has said that item's name to the run (the ledger's hints: what
+    people, signs and doors said). Longest name first, as _item_not_held."""
+    if not observed:
+        return None
+    try:
+        d = json.loads(Path(observed).read_text() or "{}")
+    except (OSError, ValueError):
+        return None
+    heard = [str(t) for v in (d.get("hints") or {}).values()
+             for t in (v if isinstance(v, list) else [v])]
+    if not heard:
+        return None
+    g = re.sub(r"[^A-Z]+", "", goal.upper())
+    for it in sorted(ENGINE_ITEMS, key=len, reverse=True):
+        squashed = re.sub(r"[^A-Z]+", "", it.upper())
+        if len(squashed) < 6 or squashed.startswith(("TM", "HM")) \
+                or squashed not in g:
+            continue
+        spoken = it.upper().replace("_", " ")
+        for t in heard:
+            if re.search(r"\b" + re.escape(spoken) + r"\b", t.upper()):
+                return it, t.split(": ", 1)[-1][:120]
+    return None
+
+
 def void_refused_why(goal: str, observed, plans_dir="plans", why: str = "") -> str:
     """Why a VOID of this leg cannot be accepted, or ''.
 
@@ -9655,6 +9688,19 @@ def void_refused_why(goal: str, observed, plans_dir="plans", why: str = "") -> s
         if _fired and [f for f in re.findall(r"\bEVENT_[A-Z0-9_]+\b", why)
                        if f in _fired]:
             return ""
+    # ...AND AN ITEM THE GAME HAS NAMED TO YOU IS NOT NOTHING. "Obtain the
+    # CARD KEY" was struck out as "not an item that can be obtained or held
+    # in the game; it is a plot device" with Silph's doors on record saying
+    # "Darn! It needs a CARD KEY!" (run 19, 2026-09-29). Where the game
+    # said the thing a leg names, the leg names something that is there.
+    # Only a reason that says the thing is not REAL: "it comes from another
+    # place" (the Secret Key VOID the same day) is a different claim.
+    _said = (_item_the_game_named(goal, observed)
+             if re.search(_NOT_REAL, why or "", re.I) else None)
+    if _said:
+        return (f"the game itself has named {_said[0]} to you: \"{_said[1]}\" — "
+                f"it is a thing in this world, so the leg cannot be struck out "
+                f"as naming nothing. The wording stands.")
     pth = plan_path_for(goal, plans_dir)
     unreached = sorted(plan_places_unreached(pth, observed)) if pth else []
     if unreached:
