@@ -5838,6 +5838,9 @@ class Executor:
             self.unreached_at = data.get("unreached_at", {}) or {}
             self.switch_seen = data.get("switch_seen", {}) or {}
             self.warp_looks = data.get("warp_looks", {}) or {}
+            _np = self._drop_pad_arrivals()
+            if _np:
+                print(f"[memory] {_np} pad(s) known only by arriving on them are unridden again")
             self._sweep_dry = dict(data.get("sweep_dry") or {})
             self._map_trail = [list(e) for e in (data.get("map_trail", []) or [])
                                if isinstance(e, (list, tuple)) and len(e) == 2]
@@ -8297,6 +8300,22 @@ class Executor:
                     added += 1
         return added
 
+    def _drop_pad_arrivals(self) -> int:
+        """Ledger entries for a pad that come only from ARRIVING on it (n=0,
+        not an inference) are dropped at load: they claim where riding it
+        back lands, which a pad does not promise (see _note_arrival). No
+        self.log: this runs from _load_memory, before the log is open."""
+        n = 0
+        for region, exits in (self.explored or {}).items():
+            looks = (self.warp_looks or {}).get(region.split("|")[0]) or {}
+            for k in [k for k, e in (exits or {}).items()
+                      if looks.get(str(k)) == "pad" and isinstance(e, dict)
+                      and not e.get("n") and not e.get("inferred")
+                      and e.get("to") != region]:
+                del exits[k]
+                n += 1
+        return n
+
     def _note_arrival(self, src, dst, before_obs, after_obs):
         """The facts an ARRIVAL sets: the visit, the door you came in by,
         where you came from, and the far side of that door as a way back.
@@ -8351,6 +8370,18 @@ class Executor:
                     continue
                 if str(_w.get("dest") or "") != _smap:
                     continue
+                # A PAD IS NOT A DOOR. Riding a pad back sets you down ON the
+                # pad you left from, and a pad in a corridor opens onto both
+                # sides of it: Silph 5F's (9,15) was walked onto from the main
+                # floor, and only arriving on it from 9F reaches the side the
+                # CARD KEY is on, past a Rocket. Filed as "9F's pad leads back
+                # to the main floor", the pad read as ridden and was never
+                # offered (run 19, 2026-09-29; user: "the pad [is] the only
+                # thing separating the main section of 5F from the part with
+                # the card key"). Where it sets you down is learned by riding it.
+                if str(_w.get("look") or "") == "pad":
+                    self.log("pad_arrival_not_reversed", frm=dst, via=_wk, to=src)
+                    break
                 _ak = _wk                    # the door itself
                 _back = self.explored.setdefault(dst, {})
                 # ...AND ARRIVING THROUGH A DOOR OUTRANKS A SELF-LOOP.
