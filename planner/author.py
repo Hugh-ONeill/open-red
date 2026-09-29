@@ -7489,7 +7489,35 @@ def _never_stood_in(goal: str, observed) -> str | None:
             continue
         if all(w in words for w in parts):
             return m
+    # ...AND A BUILDING IS A PLACE TOO. "Infiltrate Silph Co. and defeat the
+    # rival" was judged done on "the Silph Scope, which is obtained only
+    # after infiltrating Silph Co." with no SILPH_CO floor ever stood on:
+    # only roads and towns were checked, so a building's name never met its
+    # floors (run 19, 2026-09-29; the leg holds Lapras). A place is the
+    # floor's name without its floor, or any two-word-or-longer head of it.
+    for fam in _place_families():
+        if any(r == fam or r.startswith(fam + "_") for r in seen):
+            continue
+        if all(w in words for w in fam.split("_")):
+            return fam
     return None
+
+
+def _place_families() -> list:
+    """Every building's name as a person says it: SILPH_CO for SILPH_CO_7F,
+    SAFARI_ZONE for SAFARI_ZONE_EAST. Longest first, so the most specific
+    name is the one reported."""
+    try:
+        maps = (Path(__file__).parent / "engine_maps.txt").read_text().split()
+    except OSError:
+        return []
+    fams = set()
+    for m in maps:
+        base = re.sub(r"_(B?\d+F|\d+)$", "", m)
+        parts = base.split("_")
+        for n in range(2, len(parts) + 1):
+            fams.add("_".join(parts[:n]))
+    return sorted(fams, key=lambda f: (-len(f.split("_")), f))
 
 
 def _badge_not_earned(goal: str, start: str) -> str | None:
