@@ -8913,10 +8913,20 @@ class Executor:
                     self.log("reverse_seam", frm=dst, via=_rk, to=src, at=_at)
                 elif _be.get("inferred") and _be.get("to") != src:
                     _be["to"] = src
+        # THE CELL A SEAM WAS CROSSED AT. A skip number counts reachable cells
+        # from wherever the party stands, so "west#skip5" replayed from
+        # another spot is another cell: run 19 reached Route 7's gate strip
+        # from Saffron only at (0,17), and every other cell of that edge
+        # lands in a ledge-bound pocket (2026-09-29; user: "we have to
+        # actually fix go in the first place so this doesnt happen again").
+        # The shim names the cell ("via the gap at (0,17)"); `go` replays it.
+        _gap = _re.search(r"via the gap at \((\d+),(\d+)\)", str(op_detail or ""))
         for k in [key] + self._twin_keys(before_obs, step):
             e = node.setdefault(k, {"n": 0, "to": dst})
             e["n"] += 1
             e["to"] = dst
+            if _gap and str(k).split("#", 1)[0] in ("north", "south", "east", "west"):
+                e["cell"] = [int(_gap.group(1)), int(_gap.group(2))]
             e.pop("shut", None)          # it opened; whatever shut it is gone
             e.pop("blocked_at", None)    # it landed; the block is gone
             # A CROSSING MADE RIDING THE WATER IS REMEMBERED THAT WAY, so a
@@ -10396,7 +10406,8 @@ class Executor:
                     o2 = self.b.obs()
                 o2 = self.settle() or o2
                 self.note_transition(o, {"dir": _OPP[back], "skip": skip},
-                                     o2, reason="uncork")
+                                     o2, reason="uncork",
+                                     op_detail=str(((o2 or {}).get("result") or {}).get("detail") or ""))
                 final = o2
                 land = self._where(o2)
                 self.log("seam_cell_retried", frm=here, back=back, skip=skip,
@@ -12804,6 +12815,12 @@ class Executor:
                     _at = _edge.get("at") if isinstance(_edge.get("at"), list) else None
                     if _at and not _skip:
                         _args["x"], _args["y"] = int(_at[0]), int(_at[1])
+                    # a crossing that was made is replayed at the cell it was
+                    # made at, whatever skip it was found with
+                    _cell = _edge.get("cell") if isinstance(_edge.get("cell"), list) else None
+                    if _cell:
+                        _args.pop("skip", None)
+                        _args["x"], _args["y"] = int(_cell[0]), int(_cell[1])
                     if _sf:
                         _args["surf"] = True
                     _res = self._send_safe("cross", **_args)
