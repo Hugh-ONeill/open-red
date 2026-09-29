@@ -7695,14 +7695,25 @@ def _item_not_held(goal: str, start: str) -> str | None:
     # spent on was not (run 16, 2026-09-08).
     if re.search(GIVE_VERBS, goal, re.I):
         return None
+    # AN HM BY ITS NUMBER. The squashing below drops digits, so "Retrieve
+    # the HM04 from the Safari Zone" read as "HM" and nothing was checked;
+    # it was judged done on "HM_STRENGTH (HM04) in their possession as
+    # confirmed by the plans record" with no HM04 in the bag and the GOLD
+    # TEETH still held (run 19, 2026-09-29). HMs are never used up, and
+    # the state text prints each held one with its number, "HM_CUT (HM01)".
+    _up = (start or "").upper()
+    for _n in re.findall(r"\bHM\s*0?([1-5])\b", goal.upper()):
+        if not re.search(r"\bHM0" + _n + r"\b", _up):
+            return f"HM0{_n}"
     g = re.sub(r"[^A-Z]+", "", goal.upper())
     have = re.sub(r"[^A-Z]+", "", (start or "").upper())
     for it in sorted(ENGINE_ITEMS, key=len, reverse=True):
         squashed = re.sub(r"[^A-Z]+", "", it.upper())
         # two letters is not a name; POKE_BALL and its kin are consumables
-        # a leg is rarely ABOUT, and TMs get their own leg wording
+        # a leg is rarely ABOUT, and TMs get their own leg wording. An HM
+        # named in full (HM_STRENGTH) is a thing held for good: checked.
         if len(squashed) < 6 or squashed.startswith("TM") or \
-                squashed.startswith("HM"):
+                squashed in ("HM", "HMCUT"):
             continue
         if squashed in g and squashed not in have:
             return it
