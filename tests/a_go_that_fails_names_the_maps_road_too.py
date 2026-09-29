@@ -86,5 +86,5 @@ ck("no printed map in the bag, no road named", ex._printed_road_note("ROUTE_12|8
 E.PRINTED_MAP_HELD = True
 
 src = (ROOT / "planner" / "executor.py").read_text()
-ck("the go refusal carries the note", "+ _note_b + _note_g + _note_m + _note_c], []" in src)
+ck("the go refusal carries the note", "+ _note_b + _note_g + _note_m], []" in src)
 sys.exit(1 if fails else 0)

@@ -3601,44 +3601,10 @@ class Executor:
                 _note_m = self._printed_road_note(here, want, _gap)
             except Exception:
                 _note_m = ""
-            # ...AND THE CELLS OF THE EDGE THAT FACES IT, NEVER CROSSED. Run
-            # 19 answered this failure twenty times with "cross east, go to
-            # ROUTE_7|0,2, cross west", every crossing from Saffron landing
-            # in Route 7's ledge-bound pocket, while Saffron's west edge had
-            # two cells, (0,18) and (0,17), never crossed at; they sat far
-            # down the ledger, and this reply, the one line the model read
-            # each round, did not say them (2026-09-29; user: "still
-            # stuck"). The run's own record: the edge's reachable cells in
-            # skip order, less the ones it has crossed at.
-            _note_c = ""
-            try:
-                _hm = here.split("|")[0]
-                _wm = str(want).split("|")[0]
-                _face = next((d for d, t in (MAP_EDGES.get(_hm) or {}).items()
-                              if t == _wm), None)
-                _cells = (((obs or {}).get("map") or {}).get("seam_cells") or {}).get(_face) or []
-                if _face and _cells:
-                    _taken = set()
-                    for k in (self.explored.get(here) or {}):
-                        _mk = _re.match(r"^" + _face + r"(?:#skip(\d+))?$", str(k))
-                        if _mk:
-                            _taken.add(int(_mk.group(1) or 0))
-                    _fresh = [(i, c) for i, c in enumerate(_cells) if i not in _taken]
-                    if _fresh and _taken:
-                        _note_c = (f" The {_face} edge of {_hm}, the one that faces "
-                                   f"{_wm}, has cells you have never crossed at: "
-                                   + "; ".join(f"({c}) "
-                                               + '{"op":"cross","dir":"' + _face + '"'
-                                               + (f',"skip":{i}' if i else "") + "}"
-                                               for i, c in _fresh[:4])
-                                   + f". Every crossing so far used the other "
-                                     f"{len(_taken)} cell(s).")
-            except Exception:
-                _note_c = ""
             return False, [f"go: no walked way from {here} to {want} is "
                            f"known — you have never walked a connected "
                            f"chain of exits between them (or a hop on it "
-                           f"has failed in this world state)" + _note_b + _note_g + _note_m + _note_c], []
+                           f"has failed in this world state)" + _note_b + _note_g + _note_m], []
         region, path = best
         # THE PATH AND THE START, so a lost leg can be read back. A go from
         # Route 17's foot to Fuchsia lost its first leg with the party on
