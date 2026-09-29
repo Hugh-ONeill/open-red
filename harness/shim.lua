@@ -13183,6 +13183,29 @@ function OPS.sweep(G, c)
         .. ((_p and _p.cellX) and ((" standing on (%d,%d)"):format(_p.cellX, _p.cellY)) or "")
       break
     end
+    -- A SWEEP STOPS WHEN THE PARTY IS NEARLY OUT. It walks the party, and
+    -- it walked Mt. Moon B2F on a lone IVYSAUR at 21/54 past seven wilds
+    -- into a Rocket's line of sight, twice in two minutes, and the run woke
+    -- in Pewter both times (run 19, 2026-09-28; user: "stage the low hp
+    -- sweep stop"). A player sweeping a cave turns back when the party is
+    -- spent. Stopped and said; whether to heal, press on or use an item is
+    -- the model's.
+    do
+      local _n, _up, _hp, _mx = 0, 0, 0, 0
+      for _, mon in ipairs((G.save and G.save.party) or {}) do
+        local h = tonumber(mon.hp) or 0
+        local mxh = tonumber((mon.stats or {}).hp) or 0
+        _n = _n + 1
+        if h > 0 then _up = _up + 1 end
+        _hp, _mx = _hp + h, _mx + mxh
+      end
+      if _n > 0 and _mx > 0 and ((_n > 1 and _up <= 1) or _hp * 3 < _mx) then
+        why = ("stopped: your party is nearly out -- %d of %d still standing, "
+               .. "%d%% of its HP left; a sweep does not walk a spent party "
+               .. "into more fights"):format(_up, _n, math.floor(100 * _hp / _mx))
+        break
+      end
+    end
     if (ow.map and ow.map.id) ~= map0 then
       why = "warped to " .. tostring(ow.map and ow.map.id)
         .. safari_ended_note(G, _sf0); break
