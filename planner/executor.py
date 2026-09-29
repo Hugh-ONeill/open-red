@@ -8303,6 +8303,59 @@ class Executor:
                     added += 1
         return added
 
+    def _untouched_lines(self, cur, _open, _talk) -> list:
+        """What a failed round says about the things here never touched:
+        those a walk reaches now, and those it does not (see below)."""
+        trace = []
+        # ...AND AN ITEM NO WALK REACHES IS NOT ONE YOU CAN REACH.
+        # It stays listed (a wanderer can block an approach for a
+        # moment), but Silph 5F's CARD KEY, refused "no reachable
+        # tile adjacent" in the same round, was then called a thing
+        # "you can reach", and the run went back to the main floor
+        # for it again and again (run 19, 2026-09-29). Said apart,
+        # with any pad the run knows sets it down on this floor.
+        _objs = (cur.get("map") or {}).get("objects") or []
+        _reach_now = {o.get("name") for o in _objs if o.get("reachable")}
+        _far = [n for n in _open if n not in _reach_now]
+        _open = [n for n in _open if n in _reach_now]
+        if _far:
+            _here = str((cur.get("map") or {}).get("id") or "")
+            _lands = [f"{k.split('|')[0]} ({k.split('|')[1]}) sets you down "
+                      f"ON this floor's pad at ({v.get('at')}), beside "
+                      f"ground you have seen and no walk reached"
+                      for k, v in sorted((getattr(self, "pad_lands", {})
+                                          or {}).items())
+                      if (v or {}).get("map") == _here]
+            trace.append(
+                f"Seen here and never touched, but NO WALK FROM WHERE "
+                f"YOU STAND REACHES THEM: "
+                f"{', '.join(str(x) for x in _far[:6])}. The way to "
+                f"them starts from some other ground."
+                + (" You know of: " + "; ".join(_lands) + "."
+                   if _lands else ""))
+        if _open:
+            trace.append(
+                f"Do NOT conclude this area is a dead end yet: you "
+                f"can reach {len(_open)} thing(s) here you have "
+                f"never interacted with "
+                f"({', '.join(str(x) for x in _open[:6])}). "
+                f"Something you can reach but have not touched may "
+                f"BE the obstacle — picking an item up or moving it "
+                f"can open a way that is shut. Interact with all of "
+                f"them before leaving."
+                + (f" ({', '.join(str(x) for x in _talk[:4])} "
+                   f"{'is' if len(_talk) == 1 else 'are'} here too, "
+                   f"but a computer stores and a sign reads: neither "
+                   f"opens ground.)" if _talk else ""))
+        elif not _far:
+            trace.append(
+                f"Everything here that presses has now been tried "
+                f"except {', '.join(str(x) for x in _talk[:4])}, and "
+                f"a computer stores while a sign reads — neither "
+                f"opens ground, so neither is what is stopping you. "
+                f"The way on is not in this room.")
+        return trace
+
     def _drop_pad_arrivals(self) -> int:
         """Ledger entries for a pad that come only from ARRIVING on it (n=0,
         not an inference) are dropped at load: they claim where riding it
@@ -24908,27 +24961,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         f"THAT ONE: which side of the moved walls you are "
                         f"left on is decided by where the statue you press "
                         f"stands.")
-                if _open:
-                    trace.append(
-                        f"Do NOT conclude this area is a dead end yet: you "
-                        f"can reach {len(_open)} thing(s) here you have "
-                        f"never interacted with "
-                        f"({', '.join(str(x) for x in _open[:6])}). "
-                        f"Something you can reach but have not touched may "
-                        f"BE the obstacle — picking an item up or moving it "
-                        f"can open a way that is shut. Interact with all of "
-                        f"them before leaving."
-                        + (f" ({', '.join(str(x) for x in _talk[:4])} "
-                           f"{'is' if len(_talk) == 1 else 'are'} here too, "
-                           f"but a computer stores and a sign reads: neither "
-                           f"opens ground.)" if _talk else ""))
-                else:
-                    trace.append(
-                        f"Everything here that presses has now been tried "
-                        f"except {', '.join(str(x) for x in _talk[:4])}, and "
-                        f"a computer stores while a sign reads — neither "
-                        f"opens ground, so neither is what is stopping you. "
-                        f"The way on is not in this room.")
+                trace.extend(self._untouched_lines(cur, _open, _talk))
             elif cur and (unreachable
                           or (not self._untried_exits(cur) and not live
                               and not self._unopened_doors(cur))):

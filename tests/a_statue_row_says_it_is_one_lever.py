@@ -157,7 +157,9 @@ ck("...and the backfilling form agrees",
 # ---- ...and the dead-end advice does not call it untouched -------------
 from pathlib import Path                                # noqa: E402
 SRC = (Path(__file__).resolve().parents[1] / "planner" / "executor.py").read_text()
-_blk = SRC.split("Do NOT conclude this area is a dead end yet", 1)[0][-3500:]
+# the dead-end advice is built in escalate up to the call that adds the
+# untouched-things lines (moved into _untouched_lines, 2026-09-29)
+_blk = SRC.split("trace.extend(self._untouched_lines(cur, _open, _talk))", 1)[0][-3500:]
 ck("a lever gets its own clause in the dead-end advice",
    "A LEVER IS WITHIN REACH HERE" in _blk)
 ck("...and is taken out of the count of things never interacted with",
