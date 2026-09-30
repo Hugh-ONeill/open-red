@@ -360,6 +360,19 @@ end
 -- Kept on the hooked module itself, read back via package.loaded: the main
 -- chunk is at Lua's 200-local limit, and a global would leak into the
 -- game's own namespace.
+-- THE NAMES THE SCREEN SUPPORTS (harness/public_names.lua): what a sign,
+-- a fossil, a Pokemon on a shared sprite or an unnamed stranger is called
+-- in every observation. Same package.loaded home, same reason.
+do
+  local drv = os.getenv("POKEPORT_DRIVER") or ""
+  local dir = drv:match("^(.*)/[^/]*$")
+  if not dir then
+    local src = (debug.getinfo(1, "S").source or ""):gsub("^@", "")
+    dir = src:match("^(.*)/[^/]*$")
+  end
+  dir = dir or ((os.getenv("HOME") or ".") .. "/Developer/red-recomp/harness")
+  package.loaded.red_public_names = dofile(dir .. "/public_names.lua")
+end
 do
   local okb, BS = pcall(require, "src.battle.BattleState")
   if okb and BS and BS.askNicknameUI then
@@ -3372,7 +3385,7 @@ local function observe(G, seq, result)
       local d = npc.def or {}
       local name = d.name or ""
       local kind = "npc"
-      if name:find("POKE_BALL") or d.item then
+      if package.loaded.red_public_names.is_ball(d) then
         kind = "item"
         -- WHAT IS IN THE BALL IS NOT ON THE SCREEN. The map data names an
         -- item object by its contents (ROUTE2_HP_UP, OAKSLAB_CHARMANDER_
@@ -3388,9 +3401,8 @@ local function observe(G, seq, result)
         -- (cross-map sighting recall, cross-map interact, the "seen
         -- elsewhere" line). The map is on the screen; saying it hides
         -- nothing (user, 2026-08-22: "the map-name item-coords thing").
-        name = ("ITEM_%s_%d_%d"):format(
-          tostring((G.overworld.map or {}).id or "?"),
-          npc.cellX or 0, npc.cellY or 0)
+        -- (harness/public_names.lua holds the rule now, with the signs,
+        -- fossils, Pokemon and strangers named the same way.)
       elseif d.trainerClass then
         kind = "trainer"
       elseif d.sprite == "SPRITE_BOULDER" then
@@ -3408,6 +3420,8 @@ local function observe(G, seq, result)
       elseif name:find("SIGN") or (d.text and not d.sprite) then
         kind = "sign"
       end
+      name = package.loaded.red_public_names.object(
+        (G.overworld.map or {}).id, d, npc.cellX, npc.cellY)
       -- A TRAINER YOU HAVE NOT BEATEN IS NOT FINISHED BUSINESS. The
       -- ledger's rule is "a pressed trainer is finished business", written
       -- for Route 16's bikers, every one of whom had been BEATEN. Press a
@@ -3494,8 +3508,7 @@ local function observe(G, seq, result)
     -- model cannot name what it cannot see, and a room full of unpressed
     -- signs was certifying itself as fully worked.
     for _, sg in ipairs((md and md.signs) or {}) do
-      local nm = sg.name or sg.text or ("SIGN_" .. tostring(sg.x) .. "_"
-                                        .. tostring(sg.y))
+      local nm = package.loaded.red_public_names.sign((G.overworld.map or {}).id, sg)
       -- A VENDING MACHINE IS A MACHINE, NOT A NOTICE BOARD. It rides in
       -- md.signs because that is how the ROM stores it, but pressing it
       -- opens a purchase list and hands over an item, which is the whole
@@ -5329,7 +5342,7 @@ local function bfs_dir_pass(G, tx, ty, wblock, gate)
           -- already reads it in three other places.
           local _isrock = ((npc.def or {}).sprite) == "SPRITE_BOULDER"
           fence[#fence + 1] = ("%s (%s) at %d,%d"):format(
-            tostring((npc.def or {}).name or "someone"),
+            package.loaded.red_public_names.of((G.overworld.map or {}).id, npc, "someone"),
             _isrock and "a BOULDER, which STRENGTH pushes — it is not "
                         .. "someone to talk to"
               or ("a person, " .. (mv == "WALK" and "who wanders"
@@ -6844,7 +6857,8 @@ function OPS.use_warp(G, c)
          + math.abs((npc.cellY or -99) - t.y) <= 1
          and (not _bm
               or _bm[(npc.cellX or -99) .. "," .. (npc.cellY or -99)]) then
-        local nm = (npc.def or {}).name
+        local nm = (npc.def or {}).name and
+          package.loaded.red_public_names.of((G.overworld.map or {}).id, npc)
         if nm and not blockers[nm] then
           -- SAY WHICH KIND OF PERSON, same as the seam report. A posted
           -- guard and a passer-by both "stand in front of a door", and
@@ -7202,7 +7216,7 @@ function OPS.cross(G, c)
         if fences_pocket(nx, ny) and not by_stall
            and (not mask0 or mask0[nx .. "," .. ny]) then
           fence[#fence + 1] = ("%s at %d,%d"):format(
-            tostring((npc.def or {}).name or "someone"), nx, ny)
+            package.loaded.red_public_names.of((G.overworld.map or {}).id, npc, "someone"), nx, ny)
         elseif by_stall or near_seam(nx, ny) then
           -- ...AND SAY WHICH KIND OF PERSON. Every sprite was labelled
           -- "who moves", which for a STAY trainer is a lie the model can
@@ -7210,7 +7224,7 @@ function OPS.cross(G, c)
           -- The engine keeps the movement in the object data and the
           -- reach fill already reads it.
           local _mv = ((npc.def or {}).movement) or "STAY"
-          add(tostring((npc.def or {}).name or "someone")
+          add(package.loaded.red_public_names.of((G.overworld.map or {}).id, npc, "someone")
               .. (((npc.def or {}).sprite) == "SPRITE_BOULDER"
                     and " (a BOULDER, which STRENGTH pushes — it is not "
                         .. "someone to talk to)"
@@ -9142,7 +9156,7 @@ function OPS.push(G, c)
   if ((rock.def or {}).sprite) ~= "SPRITE_BOULDER" then
     return false, ("what is at (%d,%d) is %s, not a boulder — only a "
       .. "boulder can be pushed"):format(c.x, c.y,
-        tostring((rock.def or {}).name or "something"))
+        package.loaded.red_public_names.of((G.overworld.map or {}).id, rock, "something"))
   end
   if not ow.strengthActive then
     return false, "STRENGTH is not switched on. It is switched on from the "
@@ -9315,7 +9329,7 @@ function OPS.field_move(G, c)
         for _, npc in ipairs(ow.npcs or {}) do
           if npc.cellX == a[1] and npc.cellY == a[2] then
             occ[#occ + 1] = ("%s at (%d,%d)"):format(
-              tostring((npc.def or {}).name or "someone"), a[1], a[2])
+              package.loaded.red_public_names.of((G.overworld.map or {}).id, npc, "someone"), a[1], a[2])
           end
         end
       end
@@ -11806,6 +11820,20 @@ function OPS.interact(G, c)
   local ow = G.overworld
   local tx, ty = c.x, c.y
   local want_facing
+  -- A PUBLISHED NAME IS THE MAP'S OWN THING. observe() names signs,
+  -- fossils, Pokemon and strangers by what the screen shows (see
+  -- harness/public_names.lua); `rn` is the map's name for the same object,
+  -- which the lookups below match people by. The map's names still
+  -- resolve as themselves, so a macro distilled before keeps replaying.
+  local rn = c.name
+  if c.name and not tx then
+    local od, what = package.loaded.red_public_names.resolve(
+      (ow.map or {}).id,
+      ow.map and G.data and G.data.maps and G.data.maps[ow.map.id],
+      c.name)
+    if od and what == "object" and od.name then rn = od.name end
+    if od and what == "sign" then tx, ty = od.x, od.y end
+  end
   if c.name and not tx then
     -- ITEM_x_y is the harness's own name for an item lying at x,y (see
     -- observe: contents are never emitted); pressing it is pressing that
@@ -11867,7 +11895,7 @@ function OPS.interact(G, c)
       for _, npc in ipairs(ow.npcs or {}) do
         local d2 = npc.def or {}
         if npc.cellX == tx and npc.cellY == ty
-           and ((d2.name or ""):find("POKE_BALL") or d2.item) then
+           and package.loaded.red_public_names.is_ball(d2) then
           here_item = true
         end
       end
@@ -11894,7 +11922,7 @@ function OPS.interact(G, c)
       end
     end
     for _, npc in ipairs(ow.npcs or {}) do
-      if not tx and (npc.def or {}).name == c.name then
+      if not tx and (npc.def or {}).name == rn then
         tx, ty = npc.cellX, npc.cellY
       end
     end
@@ -11941,7 +11969,18 @@ function OPS.interact(G, c)
         .. "\"y\":N} at the bush's own cell, which the object list gives "
         .. "for each one"
     end
-    if not tx then return false, "object '" .. c.name .. "' not visible" end
+    if not tx then
+      -- ...AND A PUBLISHED NAME CARRIES ITS MAP, like ITEM_ and DOOR_.
+      local mid = tostring((ow.map or {}).id)
+      local pre = tostring(c.name):match(
+        "^(%u[%u_]-)_[%u%d_]+_%d+_%d+$")
+      if pre and not tostring(c.name):find("_" .. mid .. "_", 1, true) then
+        return false, ("'%s' names a thing on another map (the map is "
+          .. "spelled out in the name), and you are on %s — go there "
+          .. "first (use_warp/go take map=)."):format(c.name, mid)
+      end
+      return false, "object '" .. c.name .. "' not visible"
+    end
   elseif tx then
     -- an x,y press on a fixture that only answers from one side must
     -- approach from that side (the separator ignores a press from the
@@ -12046,7 +12085,7 @@ function OPS.interact(G, c)
   local npc_named = nil
   if c.name then
     for _, npc in ipairs(ow.npcs or {}) do
-      if (npc.def or {}).name == c.name then npc_named = npc end
+      if (npc.def or {}).name == rn then npc_named = npc end
     end
   end
   local function refresh_target()
@@ -12421,7 +12460,7 @@ function OPS.interact(G, c)
       for _, npc in ipairs(ow.npcs or {}) do
         if npc.cellX == a[1] and npc.cellY == a[2] then
           around[#around + 1] = ("%s at (%d,%d)"):format(
-            tostring((npc.def or {}).name or "something"), a[1], a[2])
+            package.loaded.red_public_names.of((G.overworld.map or {}).id, npc, "something"), a[1], a[2])
         end
       end
       for _, f in ipairs(map_fixtures(G, ((ow.map or {}).id)) or {}) do
@@ -13143,13 +13182,14 @@ function OPS.sweep(G, c)
           local d = npc.def or {}
           local name = d.name or "?"
           local kind = "person"
-          if name:find("POKE_BALL") or d.item then
+          if package.loaded.red_public_names.is_ball(d) then
             kind = "item"
-            name = ("ITEM_%s_%d_%d"):format(map0, npc.cellX or 0, npc.cellY or 0)
           elseif d.trainerClass then kind = "trainer"
           elseif d.sprite == "SPRITE_BOULDER" then kind = "boulder"
           elseif name:find("SIGN") or (d.text and not d.sprite) then kind = "sign"
           end
+          name = package.loaded.red_public_names.object(
+            map0, d, npc.cellX, npc.cellY)
           out[#out + 1] = { kind = kind, x = npc.cellX, y = npc.cellY,
                             text = ("%s (%s) at (%d,%d)"):format(
                               name, kind, npc.cellX or 0, npc.cellY or 0) }

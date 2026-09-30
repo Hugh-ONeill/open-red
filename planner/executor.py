@@ -541,6 +541,40 @@ def _looks_like_item_name(name: str) -> bool:
     return any("_".join(parts[i:]) in _ITEM_IDS for i in range(1, len(parts)))
 
 
+# THE LEDGER SPEAKS THE NAMES THE SCREEN SUPPORTS. Since 2026-09-30 the shim
+# names signs, fossils, Pokemon on shared sprites and a few strangers by what
+# is seen (harness/public_names.lua); explored.json outlives runs and was
+# written under the map's own names, so every sighting, touch, hint and press
+# under an old name would be a thing never met. planner/public_names.json
+# (tools/public_names_table.lua) is old -> new; a whole-name rewrite on read,
+# idempotent, so a ledger already carried over is left as it is.
+_PUBLIC_NAMES_RE = None
+
+
+def _public_names(data):
+    global _PUBLIC_NAMES_RE
+    if _PUBLIC_NAMES_RE is None:
+        import re as _re0
+        try:
+            table = json.loads((Path(__file__).parent / "public_names.json").read_text())
+        except (OSError, ValueError):
+            table = {}
+        alt = "|".join(_re0.escape(k) for k in sorted(table, key=len, reverse=True))
+        _PUBLIC_NAMES_RE = (_re0.compile(r"(?<![A-Z0-9_])(" + alt + r")(?![A-Z0-9_])")
+                            if alt else False, table)
+    rx, table = _PUBLIC_NAMES_RE
+    if not rx or data is None:
+        return data, 0
+    text = json.dumps(data)
+    n = [0]
+
+    def _sub(m):
+        n[0] += 1
+        return table[m.group(1)]
+    out = rx.sub(_sub, text)
+    return (json.loads(out) if n[0] else data), n[0]
+
+
 # A Pokemon's own hidden numbers: in the save, on no screen.
 HIDDEN_MON_FIELDS = ("dvs", "statExp", "catchRate")
 
@@ -4989,7 +5023,7 @@ class Executor:
             if region.split("|")[0] != m or nb not in tgt:
                 continue
             for thing, r in (rec or {}).items():
-                if str(thing).startswith("TEXT_"):
+                if str(thing).startswith(("TEXT_", "SIGN_")):
                     continue
                 last = str((r or {}).get("last") or "")
                 i = last.find(mark)
@@ -5810,6 +5844,10 @@ class Executor:
         if data is None:
             self._blank_memory()
             return
+        data, _renamed = _public_names(data)
+        if _renamed:
+            print(f"[memory] {_renamed} mention(s) of things under the map's "
+                  "own names carried over to the names the screen supports")
         if src and src.endswith(".prev"):
             print("[memory] the current ledger was unreadable; fell back "
                   "to the last good copy")
@@ -18913,7 +18951,15 @@ class Executor:
         # good (run 27, 2026-09-18; user: "the species you dont own thing
         # should have fired"). On screen: the thing stood on the map with
         # the species in its name; the bag.
+        # ...AND SINCE 2026-09-30 A POKEMON ON THE MAP IS NAMED BY ITS SPRITE,
+        # not its species (POKEMON_VICTORY_ROAD_2F_11_5; the species shows
+        # at the cry, which is now): one of those beside the player when the
+        # fight opened is the same fact (the Power Plant's grass has wilds
+        # too, with Zapdos across the room).
+        _p0 = getattr(self, "_last_overworld_pos", None)
         _static = any(str(n).upper().endswith("_" + sp.upper())
+                      or (str(n).startswith("POKEMON_") and _p0 and _p0[0] is not None
+                          and abs(_x - _p0[0]) + abs(_y - _p0[1]) <= 1)
                       for n, _x, _y in (getattr(self, "_last_overworld_objs", None) or []))
         _mb = int(_bag.get("MASTER_BALL") or 0)
         _master_only = balls < 1 and _static and _mb > 0
@@ -25128,7 +25174,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # answer to a full bag — but never as a way out.
                 _talk = [n for n in live
                          if str(n) == "PC" or str(n).endswith("_PC")
-                         or str(n).startswith("TEXT_")]
+                         or str(n).startswith(("TEXT_", "SIGN_"))]
                 # ...AND A LEVER IS NOT A THING YOU HAVE NEVER TOUCHED.
                 # Cut off on Mansion 2F|10,1, this line said "you can
                 # reach 1 thing(s) here you have never interacted with

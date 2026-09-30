@@ -35,7 +35,7 @@ blk = ex[i:i + 6000]   # widened 2026-09-10: a lever clause now sits between
 _u = ex.index("    def _untouched_lines(")
 blk += ex[_u:ex.index("\n    def ", _u + 10)]
 ck("storage and signs are split off from the openers",
-   'str(n) == "PC" or str(n).endswith("_PC")' in blk and 'str(n).startswith("TEXT_")' in blk
+   'str(n) == "PC" or str(n).endswith("_PC")' in blk and 'str(n).startswith(("TEXT_", "SIGN_"))' in blk
    and "_open = [n for n in live if n not in _talk" in blk)
 ck("the obstacle claim is made only about the openers", "may " in blk and "_open[:6]" in blk)
 ck("...and a PC or sign is still named, as what it is", "a computer stores and a sign reads: neither " in blk)

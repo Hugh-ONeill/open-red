@@ -2647,7 +2647,7 @@ def untried_leads(run: Path = Path("run"), skip_maps=(), cap: int = 6) -> list:
             continue
         done = set(touched.get(reg) or [])
         for n in names or []:
-            if n in done or str(n).startswith(("TEXT_", "ITEM_", "HIDDEN_")) \
+            if n in done or str(n).startswith(("TEXT_", "SIGN_", "ITEM_", "HIDDEN_")) \
                     or "BOULDER" in str(n) or str(n) == "CUT_TREE":
                 continue
             toks = {re.sub(r"\d+$", "", t) for t in str(n).upper().split("_")}
@@ -3899,7 +3899,7 @@ def observed_text(path: Path) -> str:
         got = set(touched_all.get(region) or [])
 
         def _rank(n, _p=pre):
-            if n.startswith("TEXT_"):
+            if n.startswith(("TEXT_", "SIGN_")):
                 return 2            # a signpost; its words are recorded
             if n.startswith(_p):
                 return 1            # a person standing there
@@ -4015,7 +4015,7 @@ def observed_text(path: Path) -> str:
                 # road, which reads as if the sign were the reason the road
                 # has never been taken. Signs are read, not met; they never
                 # shut anything.
-                if str(thing).startswith("TEXT_"):
+                if str(thing).startswith(("TEXT_", "SIGN_")):
                     continue
                 last = str((r or {}).get("last") or "")
                 i = last.find(mark)
@@ -4060,7 +4060,7 @@ def observed_text(path: Path) -> str:
                 # crossing itself and was counted just above
                 n += sum(int((r or {}).get("n") or 0) or 1
                          for th, r in (rec or {}).items()
-                         if isinstance(r, dict) and not str(th).startswith("TEXT_")
+                         if isinstance(r, dict) and not str(th).startswith(("TEXT_", "SIGN_"))
                          and str(th) not in ("north", "south", "east", "west"))
         # a no-cross note or a sealed seam is proof of a try, not a count
         # of its own: it vouches only when nothing above was counted
@@ -8464,9 +8464,23 @@ def untouched_named(text: str, observed=None) -> list:
         done = set(touched.get(reg) or [])
         _mapw = set(str(reg).split("|")[0].upper().split("_"))
         for n in names or []:
-            if n in done or str(n).startswith(("TEXT_", "ITEM_", "HIDDEN_")) \
+            if n in done or str(n).startswith(("TEXT_", "SIGN_", "ITEM_", "HIDDEN_")) \
                     or str(n) in ("CUT_TREE",) or "BOULDER" in str(n):
                 continue          # obstacles are not people
+            _mid = str(reg).split("|")[0]
+            if re.match(r"^[A-Z_]+_%s_\d+_\d+$" % re.escape(_mid), str(n)):
+                # A THING NAMED BY WHAT THE SCREEN SHOWS (POKEMON_BILLS_HOUSE_
+                # 6_5, since 2026-09-30) has no words of its own; the room it
+                # stands in does, when the room is somebody's house: BILLS_HOUSE
+                # -> BILL, MR_FUJIS_HOUSE -> FUJI. Only the owner's word (the
+                # one spelled with the S), so the Pidgey in VERMILION_PIDGEY_
+                # HOUSE is not "a Pidgey" and FUCHSIA is not a person.
+                _mw = _mid.split("_")
+                toks = ({w[:-1] for w in _mw if len(w) >= 4 and w.endswith("S")}
+                        if "HOUSE" in _mw else set())
+                if toks & words:
+                    out.append((reg, n))
+                continue
             _parts = [re.sub(r"\d+$", "", t) for t in str(n).upper().split("_")]
             toks = ({t for t in _parts[1:] if t not in _mapw
                      and t not in _map_name_words()} or {_parts[-1]})
