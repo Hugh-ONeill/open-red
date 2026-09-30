@@ -5462,6 +5462,9 @@ class Executor:
             return
         self.visits[region] = self.visits.get(region, 0) + 1
         self._last_visit_region = region
+        # when each map was last stood on (the wild-ground rows' tie-break)
+        self._map_last_t = dict(getattr(self, "_map_last_t", None) or {})
+        self._map_last_t[str(region).split("|")[0]] = round(time.time(), 1)
 
     def _watch_for_a_wipe(self, obs) -> str | None:
         """Did the party black out since the last look? Say so, always.
@@ -6371,6 +6374,9 @@ class Executor:
             # journal's own lost-fight recaps (see the log hook)
             if "league_laps" not in data:
                 self._league_laps = self._league_laps_from_journal()
+            self._map_last_t = dict(data.get("map_last_t") or {})
+            if "map_last_t" not in data:
+                self._map_last_t = self._map_last_t_from_journal()
             # Waypoints COMPLETED this campaign stay completed across
             # attempt resumes: a resumed journey-plan re-litigated its
             # first waypoint and marched the party from the captain's
@@ -6617,6 +6623,7 @@ class Executor:
                  "blackouts": self._blackouts,
                  "blackout_lead": self._blackout_lead,
                  "league_laps": getattr(self, "_league_laps", []),
+                 "map_last_t": getattr(self, "_map_last_t", {}),
                  "map_doors": {k: sorted(v)
                                for k, v in (self.map_doors or {}).items()},
                  "map_forced": {k: sorted(v)
@@ -9942,6 +9949,13 @@ class Executor:
         """
         try:
             rows = []
+            # A TIE IN DISTANCE IS BROKEN BY WHEN, NOT BY NAME. From inside
+            # the league no walked route leads anywhere, every row tied, and
+            # the alphabet put DIGLETTS_CAVE and MT_MOON (L6-L31) ahead of
+            # Victory Road for a party in its fifties and sixties (run 19,
+            # 2026-09-30). The most recently stood-on ground comes first
+            # among equals: when the run last stood there, not its worth.
+            _last_on = dict(getattr(self, "_map_last_t", None) or {})
             for _m, _wl in (self._wild_lv or {}).items():
                 if _m == here_map or not _wl.get("n"):
                     continue
@@ -9955,11 +9969,12 @@ class Executor:
                 _g = (self._grind_exp or {}).get(_m) or {}
                 _per = (int(_g.get("exp", 0)) // int(_g["n"])) if _g.get("n") \
                     else None
-                rows.append((_hop if _hop is not None else 99, _m, _wl, _per))
+                rows.append((_hop if _hop is not None else 99,
+                             -_last_on.get(_m, -1), _m, _wl, _per))
             # through the class: a stand-in without the method must not
             # lose the whole line
             _unfought = Executor._wild_unknown_words(self, here_map,
-                                                     {r[1] for r in rows})
+                                                     {r[2] for r in rows})
             if not rows:
                 return (". " + _unfought.lstrip("; ")) if _unfought else ""
             rows.sort()
@@ -9970,7 +9985,7 @@ class Executor:
             # two numbers from the same floor saying opposite things, with
             # nothing to say which one is thin. The sample size is the
             # harness's own count; how much weight it carries is the read.
-            for _hop, _m, _wl, _per in rows[:12]:
+            for _hop, _rec, _m, _wl, _per in rows[:12]:
                 _lv = (f"L{_wl['lo']}" if _wl["lo"] == _wl["hi"]
                        else f"L{_wl['lo']}-L{_wl['hi']}")
                 # ...AND WHO LIVES THERE. The row said levels and exp and
@@ -9998,7 +10013,7 @@ class Executor:
             # is short-form, not name-only: POKEMON_TOWER_6F is L19-L30
             # whether it is listed ninth or twentieth.
             _rest = []
-            for _hop, _m, _wl, _per in rows[12:]:
+            for _hop, _rec, _m, _wl, _per in rows[12:]:
                 _rest.append(_m + " " + (f"L{_wl['lo']}"
                                          if _wl["lo"] == _wl["hi"]
                                          else f"L{_wl['lo']}-L{_wl['hi']}"))
@@ -18776,6 +18791,25 @@ class Executor:
                                      "who": str(kw.get("who") or ""),
                                      "foes": [f for f, _w in
                                               (getattr(self, "_recent_foes", None) or [])[-3:]]}])
+
+    @staticmethod
+    def _map_last_t_from_journal() -> dict:
+        """When each map was last stood on, from the journal's crossings."""
+        out = {}
+        try:
+            for _l in (RUN / "executor_log.jsonl").read_text().splitlines():
+                if '"kind": "explored"' not in _l:
+                    continue
+                try:
+                    e = json.loads(_l)
+                except ValueError:
+                    continue
+                for _r in (e.get("frm"), e.get("to")):
+                    if _r and e.get("t"):
+                        out[str(_r).split("|")[0]] = e["t"]
+        except OSError:
+            pass
+        return out
 
     @staticmethod
     def _league_laps_from_journal() -> list:
