@@ -176,6 +176,15 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
     (after a battle ends while traveling: if own hp fraction is below
      hp_below and the bag has something the rule can reach, use it in the
      FIELD — no turn cost — before walking on)
+  field_revive: null or {"item": "revive", "prefer": ...,
+                         "reserve": 0-30}
+    (after a battle ends: every party member that FAINTED in it, or is
+     still down from before, is revived in the FIELD — no turn cost — one
+     item each, party order, while the bag has something the rule can
+     reach and using it would not leave fewer than reserve. A revived
+     Pokemon comes back with some HP, which field_heal then sees. A reserve
+     never holds back more than half of what the bag held when the party
+     was last made whole. null: nobody is revived except by your own op.)
   field_cure: list of {"status": "PSN"|"PAR"|"BRN"|"SLP"|"FRZ",
                        "item": "cure"}
     (after a battle: cure that status if the bag has something for it —

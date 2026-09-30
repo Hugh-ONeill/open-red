@@ -19481,7 +19481,25 @@ class Executor:
         # user: "its going to use all its hyper potions and have none for
         # the e4"). The rule's own purpose: medicine is kept for trainers.
         _tr_never = (((ACTIVE_SPEC or {}).get("train") or {}).get("wild_items") == "never")
-        if _tr_never and _trainee and (b0.get("kind") or "wild") == "wild":
+        _no_meds = _tr_never and _trainee and (b0.get("kind") or "wild") == "wild"
+        # THE FIELD REVIVE, when the policy writes one (battle_policy.
+        # should_field_revive): every fainted member the bag and the reserve
+        # allow, before the heal, so a member brought back at half is one
+        # the heal rule can see. Asked again after each use; bounded by the
+        # party. The train rule's "never" holds for it the same way.
+        for _rv in range(6):
+            _rp = None if _no_meds else battle_policy.should_field_revive(
+                obs, ACTIVE_SPEC)
+            if not _rp:
+                break
+            self.log("field_revive", subgoal=subgoal["id"], item=_rp[0],
+                     slot=_rp[1])
+            _o2 = self._send_safe("use_item", item=_rp[0], slot=_rp[1])
+            _ok = bool(((_o2 or {}).get("result") or {}).get("ok"))
+            obs = self.settle() or _o2 or obs
+            if not _ok:
+                break                    # the game said no; not again here
+        if _no_meds:
             pick = None
         else:
             pick = battle_policy.should_field_heal(obs, ACTIVE_SPEC)

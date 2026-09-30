@@ -54,8 +54,8 @@ ck("...and values and prose are not counted as rule words",
    not ({"trainer", "wild", "healthiest", "true", "ball"} & words))
 
 missing, used = S.report(ROOT / "plans/policy_model_v13.json")
-ck("v13's real gap is the eight words of the 2026-09-22 audit",
-   missing == {"first_ball", "max_share", "min_foe_level_ratio",
+ck("v13's real gap is the eight words of the 2026-09-22 audit, and field_revive (2026-09-30)",
+   missing == {"field_revive", "first_ball", "max_share", "min_foe_level_ratio",
                "only_if_foe_clear", "only_if_leader", "per_foe",
                "probe_hit", "self_ko"}, sorted(missing))
 ck("...and what it DOES carry is not reported as missing",
@@ -75,7 +75,7 @@ with redirect_stdout(buf):
     rc = S.main([str(ROOT / "plans/policy_model_v13.json")])
 out = buf.getvalue()
 ck("the line names the spec, the count and the words",
-   rc == 0 and "policy_model_v13.json" in out and "8 word(s)" in out
+   rc == 0 and "policy_model_v13.json" in out and "9 word(s)" in out
    and "probe_hit" in out, out.strip()[:120])
 ck("...and never refuses or advises, only counts",
    not any(w in out.lower() for w in

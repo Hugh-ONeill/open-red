@@ -66,6 +66,7 @@ def strip_medicine(spec: dict) -> dict:
     out["name"] = str(spec.get("name") or "spec") + "_nomeds"
     out["battle_items"] = []
     out["field_heal"] = None
+    out["field_revive"] = None
     out["field_cure"] = []
     out.pop("provenance", None)
     return out

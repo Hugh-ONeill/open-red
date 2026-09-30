@@ -23,13 +23,13 @@ def ck(name, cond, detail=""):
 
 src = (ROOT / "planner/executor.py").read_text()
 i = src.index("battle_policy.should_field_cure(obs, ACTIVE_SPEC)")
-blk = src[i:i + 2500]
+blk = src[i:i + 4000]
 ck("the cure is still unconditional", "pick = battle_policy.should_field_cure(obs, ACTIVE_SPEC)" in src[i - 60:i + 80])
 ck("the heal reads the train rule's wild_items",
    '.get("wild_items") == "never"' in blk)
 ck("...and skips only for a trainee in a wild fight",
-   'if _tr_never and _trainee and (b0.get("kind") or "wild") == "wild":' in blk
-   and "pick = None" in blk)
+   '_no_meds = _tr_never and _trainee and (b0.get("kind") or "wild") == "wild"' in blk
+   and "if _no_meds:\n            pick = None" in blk)
 j = src.index("_trainee = None")
 ck("_trainee is always bound before the gate reads it", j < i)
 

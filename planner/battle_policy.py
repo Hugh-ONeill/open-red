@@ -86,6 +86,10 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
                              after a battle ends, if own hp frac < this and
                              the item is in the bag, use it in the field
                              (no turn cost) before travel resumes
+  field_revive: { item: str, prefer: str, reserve: int } | null
+                             after a battle ends, revive every fainted
+                             party member (party order) the bag and the
+                             reserve allow, in the field (no turn cost)
   field_cure: [ { status: "PSN"|"PAR"|"BRN"|"SLP"|"FRZ", item: str,
                   prefer: str } ]
                              after a battle: cure the listed status with
@@ -200,6 +204,7 @@ DEFAULT_SPEC = {
     "flee_wild": {"when_traversal": True, "hp_below": None},
     "battle_items": [],
     "field_heal": None,
+    "field_revive": None,
     "field_cure": [],
     # functional placeholder so the plan's catch subgoal works under the
     # baseline spec too; the record run's values come from the model
@@ -616,6 +621,22 @@ def validate_spec(spec) -> list:
             if "reserve" in fh and not (isinstance(fh["reserve"], int)
                                         and 0 <= fh["reserve"] <= 30):
                 probs.append("field_heal.reserve int in [0,30]")
+    if "field_revive" in spec and spec["field_revive"] is not None:
+        fr = spec["field_revive"]
+        if not isinstance(fr, dict) or not fr.get("item"):
+            probs.append("field_revive must be null or {item}")
+        else:
+            if str(fr.get("item")) not in ("revive", "REVIVE", "MAX_REVIVE"):
+                probs.append("field_revive.item must be revive, REVIVE or "
+                             "MAX_REVIVE (a fainted Pokemon takes nothing else)")
+            probs += _prefer_problems(fr, "field_revive")
+            if "reserve" in fr and not (isinstance(fr["reserve"], int)
+                                        and 0 <= fr["reserve"] <= 30):
+                probs.append("field_revive.reserve int in [0,30]")
+            extra = set(fr) - {"item", "prefer", "reserve"}
+            if extra:
+                probs.append("field_revive keys: item, prefer, reserve (not "
+                             + ", ".join(sorted(extra)) + ")")
     if "field_cure" in spec:
         if not isinstance(spec["field_cure"], list):
             probs.append("field_cure must be a list")
@@ -876,6 +897,43 @@ def should_field_heal(obs: dict,
             fh.get("item"), _held, fh.get("reserve")):
         return None
     return (item, slot) if item else None
+
+
+def should_field_revive(obs: dict,
+                        spec: dict | None = None) -> tuple[str, int] | None:
+    """After a battle: the spec's field revive for the first fainted party
+    member, in party order (the order the party is kept in is the model's).
+    Returns (item, slot) or None; the caller asks again after each use.
+
+    OPTION A OF THE REVIVE (user, 2026-09-30: "gotta be both to be
+    consistent"). A REVIVE was only ever an op the model could send from the
+    page (option B), and in run 19 it never did outside a battle: the party
+    walked Lorelei to Bruno with members down and a bag of them. Healing has
+    been a rule the model writes into its policy since field_heal; this is
+    the same thing for a fainted member, everywhere, not only in the
+    league. Same reserve rule as field_heal: never below what the model
+    holds back, never more than half of what the bag held when the party
+    was last made whole."""
+    spec = spec or DEFAULT_SPEC
+    fr = spec.get("field_revive")
+    if not fr:
+        return None
+    if (obs or {}).get("mode") != "overworld":
+        return None
+    party = (obs or {}).get("party") or []
+    down = [i + 1 for i, m in enumerate(party)
+            if (m.get("max_hp") or m.get("maxhp")) and (m.get("hp") or 0) <= 0]
+    if not down or len(down) == len(party):
+        return None                      # nobody down, or a blackout's to wake
+    bag = spendable((obs or {}).get("bag") or {})
+    item = resolve_item(fr.get("item"), bag, fr.get("prefer")
+                        or DEFAULT_PREFER)
+    if not item:
+        return None
+    _held = bag_holds(fr.get("item"), bag)
+    if _held - 1 < reserve_now(fr.get("item"), _held, fr.get("reserve")):
+        return None
+    return (item, down[0])
 
 
 def should_field_cure(obs: dict,
