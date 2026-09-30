@@ -2198,9 +2198,39 @@ def validate(plan: dict) -> list:
                     str((x.get("done_when") or {}).get("area") or "")
                     for x in subs[:_i5] if isinstance(x, dict)
                     and isinstance(x.get("done_when"), dict)]
+                # ...AND OUT BY THE DOOR YOU CAME IN THROUGH IS THE NEAR SIDE,
+                # WHEREVER THE PARTY STANDS WHILE THE PLAN IS WRITTEN. Leg 45
+                # was written from Route 15, so nothing above was on Route 20,
+                # and the rule sent the author at ROUTE_20|52,2 five rounds
+                # running: every one of the run's seven trips into Seafoam
+                # went in at Route 20 (48,5), landed on 1F (4,17), and came
+                # back out by (4,17). The chain stopped on it (run 19,
+                # 2026-09-29). Rock Tunnel's far side came out by a DIFFERENT
+                # door (15,33) than the one gone in by (15,3), and stays far.
+                _ex_all = _load_explored() or {}
+                _lands = set()
+                for _r, _es in _ex_all.items():
+                    if _r.split("|")[0] != _am:
+                        continue
+                    for _k, _e in (_es or {}).items():
+                        if (not str(_k).startswith("walk:")
+                                and str((_e or {}).get("to") or "").split("|")[0] in _ins
+                                and int((_e or {}).get("n") or 0) > 0
+                                and (_e or {}).get("land")):
+                            _lands.add(str(_e["land"]))
+                def _same_door(a, b):
+                    try:
+                        ax, ay = (int(v) for v in str(a).split(","))
+                        bx, by = (int(v) for v in str(b).split(","))
+                    except ValueError:
+                        return False
+                    return abs(ax - bx) + abs(ay - by) <= 1   # a doorway's twin tiles
+                _back_out = {pt for pt, d, _n, _f in _co_a
+                             if any(_same_door(d, l) for l in _lands)}
                 _bad_ex = [pt for pt in _bad_ex
-                           if not any(_walk_joined(pt, w)
-                                      for w in _in_parts if w and w != pt)]
+                           if pt not in _back_out
+                           and not any(_walk_joined(pt, w)
+                                       for w in _in_parts if w and w != pt)]
                 if _bad_ex:
                     _pt = _bad_ex[0]
                     _door, _flr = next(((d, f) for pt, d, n, f in _co_a if pt == _pt), ("?", _from5 or "inside"))
