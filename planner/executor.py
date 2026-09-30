@@ -19263,7 +19263,17 @@ class Executor:
                      slot=pick[1])
             obs = self._send_safe("use_item", item=pick[0],
                                   slot=pick[1]) or obs
-        pick = battle_policy.should_field_heal(obs, ACTIVE_SPEC)
+        # ...AND THE TRAIN RULE'S "never" HOLDS AFTER THE FIGHT TOO. It was
+        # read only inside the battle, so a grind topped the party up with
+        # a HYPER_POTION after every wild fight: 26 field heals, 20 down to
+        # 1, before Victory Road and the Elite Four (run 19, 2026-09-30;
+        # user: "its going to use all its hyper potions and have none for
+        # the e4"). The rule's own purpose: medicine is kept for trainers.
+        _tr_never = (((ACTIVE_SPEC or {}).get("train") or {}).get("wild_items") == "never")
+        if _tr_never and _trainee and (b0.get("kind") or "wild") == "wild":
+            pick = None
+        else:
+            pick = battle_policy.should_field_heal(obs, ACTIVE_SPEC)
         if pick:
             self.log("field_heal", subgoal=subgoal["id"], item=pick[0],
                      slot=pick[1])
