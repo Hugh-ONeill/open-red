@@ -15915,6 +15915,10 @@ class Executor:
                 + (("\nPRICES YOU HAVE BEEN TOLD: "
                     + ", ".join(f"{k} costs {v}" for k, v in sorted(prices.items())))
                    if prices else "")
+                + (("\nALREADY BOUGHT AT THIS COUNTER THIS VISIT: "
+                    + ", ".join(getattr(self, "_buy_this_visit", None) or [])
+                    + " (the counter refused the next item and showed its list)")
+                   if getattr(self, "_buy_this_visit", None) else "")
                 + f"\nYOUR MONEY: {money}"
                 + f"\nYOUR BAG ({len(bag)} of {self.BAG_SLOTS} kinds): "
                 + (", ".join(f"{k} x{v}" for k, v in sorted(bag.items()))
@@ -16061,18 +16065,27 @@ class Executor:
                     self._shelves[mid] = rows
                     self.log("shelf_from_refusal", map=mid, sells=rows)
                     self._save_memory()
-                    if not bought and not getattr(self, "_buy_reasked", False):
+                    # ...EVEN AFTER A PARTIAL BUY. Gated on "nothing bought
+                    # yet", the Plateau lobby's first visit bought MAX_POTION
+                    # x10, was refused MAX_REVIVE (the shelf unknown, so a
+                    # guess), learned the shelf holds REVIVE and FULL_RESTORE,
+                    # and walked into Lorelei with no revive (run 19,
+                    # 2026-09-30). The second question is told what this
+                    # visit already bought.
+                    if not getattr(self, "_buy_reasked", False):
                         refused.append(f"{item}: {det[:160]}")
                         for r0 in refused:
                             self.log("buy_refused",
                                      subgoal=(sg or {}).get("id"), what=r0)
                         self._buy_reasked = True
+                        self._buy_this_visit = list(bought)
                         try:
                             self._buy_asked_at = None
                             self._buy_street_at = None
                             return self._ask_buy(self.settle() or obs, sg) or obs
                         finally:
                             self._buy_reasked = False
+                            self._buy_this_visit = []
             refused.append(f"{item}: {det[:160]}")
             break
         for r0 in refused:
