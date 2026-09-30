@@ -1395,6 +1395,17 @@ def _foe_clock(ctx: dict, foe: dict) -> tuple:
     it was last seen at with nothing of ours left on it."""
     ctx = ctx if isinstance(ctx, dict) else {}
     turn = ctx.get("turn") or 1
+    # A SCREEN THAT COULD NOT BE READ IS NOT A NEW FOE. Between knockouts the
+    # observation often carries no foe at all ("no move list on this
+    # screen"); keyed as species None it counted as a foe, and the real one
+    # after it as another, so per-foe rules re-armed on the same Pokemon and
+    # the foe count ran 2, 4, 6, 8 through the rival's six (run 19,
+    # 2026-09-30). Nothing read, nothing changes.
+    if not (foe or {}).get("species"):
+        st = ctx.get("_foe_clock")
+        if st is None:
+            return 1, turn
+        return st["n"], max(1, turn - st["since"] + 1)
     key = (str((foe or {}).get("species")), (foe or {}).get("level"))
     hp = (foe or {}).get("hp") or 0
     st = ctx.get("_foe_clock")
