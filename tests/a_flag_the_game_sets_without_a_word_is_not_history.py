@@ -77,7 +77,8 @@ ck("the blocker since-words read announced flags only",
 aus = (ROOT / "planner/author.py").read_text()
 ck("the missing rung's done list and the objective-words list are announced only",
    'done = sorted(_announced(cur.get("flags") or []))' in aus
-   and 'hit = [f for f in _announced(cur.get("flags") or [])' in aus)
+   # next9 (2026-09-29) turned the comprehension into a ranked loop
+   and 'for f in _announced(cur.get("flags") or []):' in aus)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, det in checks:

@@ -46,7 +46,9 @@ ck("a part is joined to itself", A._walk_joined("ROUTE_20|44,2", "ROUTE_20|44,2"
 ck("a door does not join two sides", not A._walk_joined("SEAFOAM_ISLANDS_1F|3,2", "ROUTE_20|44,2", EX))
 ck("nothing is joined to nothing", not A._walk_joined("", "ROUTE_20|44,2", EX))
 ck("the rule drops an excluded part that is walk-joined to the way in",
-   "_bad_ex = [pt for pt in _bad_ex" in src and "if not any(_walk_joined(pt, w)" in src)
+   "_bad_ex = [pt for pt in _bad_ex" in src and "and not any(_walk_joined(pt, w)" in src
+   # next19 (2026-09-29): out by the door gone in through is the near side too
+   and "if pt not in _back_out" in src)
 ck("...and never against itself, which would filter every candidate",
    "for w in _in_parts if w and w != pt)]" in src)
 ck("the refusal offers new_part instead of another hand-written list",

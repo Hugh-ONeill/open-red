@@ -31,6 +31,9 @@ def ck(name, cond):
 
 i = ex.index("A COMPUTER IS NOT A LEVER.")
 blk = ex[i:i + 6000]   # widened 2026-09-10: a lever clause now sits between
+# the untouched-things lines moved into Executor._untouched_lines (2026-09-29)
+_u = ex.index("    def _untouched_lines(")
+blk += ex[_u:ex.index("\n    def ", _u + 10)]
 ck("storage and signs are split off from the openers",
    'str(n) == "PC" or str(n).endswith("_PC")' in blk and 'str(n).startswith("TEXT_")' in blk
    and "_open = [n for n in live if n not in _talk" in blk)

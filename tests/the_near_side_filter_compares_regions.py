@@ -54,7 +54,7 @@ blk = SRC.split("THE PARTY'S REGION, NOT ITS MAP", 1)[1][:600]
 ck("the near-side filter reads the region", "_in_parts = [_region_now()]" in blk)
 ck("...and still walk-joins against earlier steps' areas",
    '(x.get("done_when") or {}).get("area")' in blk)
-_f = SRC.split("_in_parts = [_region_now()]", 1)[1][:500]
+_f = SRC.split("_in_parts = [_region_now()]", 1)[1][:4000]   # next19 added a comment block (2026-09-29)
 ck("...and still never joins a part to itself", 'w != pt' in _f)
 
 # ---- the joined-ness it depends on is real ------------------------------
