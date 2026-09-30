@@ -67,7 +67,7 @@ ex._record_outcome(OBS, "use_warp", {"x": 18, "y": 3}, NOTE)
 
 edge = (ex.explored.get(HERE) or {}).get(GYM) or {}
 ck("the door is marked shut", edge.get("shut") is True)
-ck("...with the world it was shut in", edge.get("shut_at") == [6, 295, 1])
+ck("...with the world it was shut in", edge.get("shut_at") == E.Executor._world_mark(OBS))
 ck("...and is not claimed as a door that was taken", edge.get("n") == 0)
 ck("...nor claimed to lead anywhere", edge.get("to") is None)
 
@@ -82,7 +82,7 @@ ck("...and it counts as a door, not a person or a seam",
    blk.get("kind") == "door")
 
 # what the frontier does with it, which is the whole point
-ex._mark_now = [6, 295, 1]
+ex._mark_now = E.Executor._world_mark(OBS)
 left = ex._frontier_left(HERE)
 ck("the frontier stops calling it a way never tried", GYM not in left)
 ck("...while the other untried ways are untouched",
@@ -90,7 +90,8 @@ ck("...while the other untried ways are untouched",
 
 # the reopening rule is untouched: carry something new and it is worth a
 # press again, which is exactly what a key is
-ex._mark_now = [6, 295, 2]
+ex._mark_now = E.Executor._world_mark(
+    dict(OBS, bag=dict(OBS.get("bag") or {}, SECRET_KEY=1)))
 ck("it is offered again once the party is carrying something new",
    GYM in ex._frontier_left(HERE))
 

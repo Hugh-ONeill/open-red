@@ -8027,8 +8027,18 @@ class Executor:
         long you stood elsewhere, only whether you came back with something
         you did not have. Compared, never interpreted."""
         o = obs or {}
-        return [len(o.get("badges") or []), len(o.get("flags") or []),
-                len(o.get("bag") or {})]
+        # ...AND A COUNT IS NOT A WORLD. [badges, len(flags), len(bag)] read the
+        # same after the Mansion's SECRET_KEY pickup and several lever flips
+        # as when 1F's east door was stamped blocked, so `go` kept refusing
+        # a walked exit (run 19, 2026-09-30). The badge count stays a number
+        # (_since_words compares it); the flags and the bag's kinds are a
+        # digest of WHAT they are, so any change moves the mark.
+        import zlib as _z
+        _fl = ",".join(sorted(str(f) for f in (o.get("flags") or [])))
+        _bg = ",".join(sorted(str(k) for k in (o.get("bag") or {})))
+        return [len(o.get("badges") or []),
+                format(_z.crc32(_fl.encode()), "08x"),
+                format(_z.crc32(_bg.encode()), "08x")]
 
     @staticmethod
     def _door_groups(warps) -> dict:

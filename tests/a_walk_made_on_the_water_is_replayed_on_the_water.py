@@ -112,7 +112,7 @@ ex._walk_route(SG, PATH)
 walks = [kw for op, kw in w.calls if op == "walk_to"]
 ck("no SURF, no ride", len(walks) == 1 and not walks[0].get("surf"))
 ck("...and the hop is blocked for this world state",
-   ex.explored[HOME][KEY].get("blocked_at") == [0, 0, 0])
+   ex.explored[HOME][KEY].get("blocked_at") == E.Executor._world_mark(w.obs()))
 ck("...and the walk's own words are kept",
    "WATER" in (ex._route_why or ""))
 
