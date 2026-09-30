@@ -27523,7 +27523,12 @@ def _naming_prompt(obs: dict, insist: str = "") -> str:
     what = ""
     t = title.upper()
     if "NICKNAME" in t:
-        if party:
+        if nm.get("for_species"):
+            # the catch the game's own question named (see the shim)
+            what = (f" — for the {nm['for_species']}"
+                    + (f" L{nm['for_level']}" if nm.get("for_level") else "")
+                    + " you just got")
+        elif party:
             m = party[-1]
             what = (f" — for the {m.get('species')} L{m.get('level')} that "
                     f"just joined you")

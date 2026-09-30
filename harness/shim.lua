@@ -351,13 +351,41 @@ local function naming_preset_labels(pm)
   end
   return ls
 end
+-- WHO THE NICKNAME IS FOR. The question before the naming screen says it
+-- ("Do you want to give a nickname to GOLDEEN?"); the screen itself carries
+-- only "NICKNAME?". The planner used to take the newest PARTY member, which
+-- with a full party is not the catch: eleven Goldeen and Poliwag bound for
+-- the box were named EMBER and CINDER after the Growlithe in slot 6, and the
+-- Growlithe BOULDER after the Graveler (run 19, 2026-09-29).
+-- Kept on the hooked module itself, read back via package.loaded: the main
+-- chunk is at Lua's 200-local limit, and a global would leak into the
+-- game's own namespace.
+do
+  local okb, BS = pcall(require, "src.battle.BattleState")
+  if okb and BS and BS.askNicknameUI then
+    local base = BS.askNicknameUI
+    BS.askNicknameUI = function(self, mon, displayName, ...)
+      BS._rr_nick_for = { species = mon and mon.species and tostring(mon.species) or nil,
+                         level = mon and mon.level or nil, at = os.time() }
+      return base(self, mon, displayName, ...)
+    end
+  end
+end
 local function naming_fields(G, ns)
   local pm = naming_presets_menu(G, ns)
   local ls = pm and naming_preset_labels(pm) or nil
-  return { title = tostring(ns.title or "NAME?"), max = ns.maxLen or 7,
+  local t = tostring(ns.title or "NAME?")
+  -- fresh only: a gift is nicknamed by another path and must not inherit
+  -- the last catch's species
+  local nf = (package.loaded["src.battle.BattleState"] or {})._rr_nick_for
+  if not (t:upper():find("NICKNAME", 1, true) and nf
+          and os.time() - (nf.at or 0) <= 120) then nf = nil end
+  return { title = t, max = ns.maxLen or 7,
            typed = table.concat(ns.glyphs or {}),
            presets = (ls and #ls > 0) and ls or nil,
-           default = ns.default and tostring(ns.default) or nil }
+           default = ns.default and tostring(ns.default) or nil,
+           for_species = nf and nf.species or nil,
+           for_level = nf and nf.level or nil }
 end
 local function naming_words(G)
   local ns = naming_on_stack(G)
