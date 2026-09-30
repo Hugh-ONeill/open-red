@@ -2157,6 +2157,13 @@ def _floor_list_spaced(text: str) -> str:
             + " / ".join(" ".join(p.split()) for p in parts))
 
 
+# THE POKEMON LEAGUE, as one place for the blackout count (see the
+# escalation page's wipes block): a loss past the lobby sends the run back
+# to Lorelei, so every room from the lobby on is the same attempt.
+LEAGUE_MAPS = ("INDIGO_PLATEAU_LOBBY", "LORELEIS_ROOM", "BRUNOS_ROOM",
+               "AGATHAS_ROOM", "LANCES_ROOM", "CHAMPIONS_ROOM")
+
+
 class Executor:
     def __init__(self, bridge: Bridge, max_battle_turns: int = 40,
                  can_escalate: bool = False, model: str = "",
@@ -6359,6 +6366,11 @@ class Executor:
                 self._recount_blackouts()
                 self._blackouts_recounted = True
             self._blackout_lead = data.get("blackout_lead") or {}
+            self._league_laps = list(data.get("league_laps") or [])
+            # a ledger written before laps were kept: rebuilt once from the
+            # journal's own lost-fight recaps (see the log hook)
+            if "league_laps" not in data:
+                self._league_laps = self._league_laps_from_journal()
             # Waypoints COMPLETED this campaign stay completed across
             # attempt resumes: a resumed journey-plan re-litigated its
             # first waypoint and marched the party from the captain's
@@ -6604,6 +6616,7 @@ class Executor:
                  "plan_hist": getattr(self, "_plan_hist", {}),
                  "blackouts": self._blackouts,
                  "blackout_lead": self._blackout_lead,
+                 "league_laps": getattr(self, "_league_laps", []),
                  "map_doors": {k: sorted(v)
                                for k, v in (self.map_doors or {}).items()},
                  "map_forced": {k: sorted(v)
@@ -18752,6 +18765,36 @@ class Executor:
         # run's own record instead of of its prose (see had_blackout).
         if kind == "blackout":
             self._wipes_logged = getattr(self, "_wipes_logged", 0) + 1
+        # A LAP OF THE LEAGUE THAT ENDED IN A LOST FIGHT (see LEAGUE_MAPS),
+        # kept for the run, not the step: every lap is a new step. Read off
+        # the lost fight's own recap, not the blackout row: losing to the
+        # Champion wrote no "blackout" row, twice (run 19, 2026-09-30).
+        if (kind == "fight_recap" and kw.get("lost")
+                and str(kw.get("where") or "") in LEAGUE_MAPS):
+            self._league_laps = (list(getattr(self, "_league_laps", None) or [])
+                                 + [{"room": str(kw.get("where")),
+                                     "who": str(kw.get("who") or ""),
+                                     "foes": [f for f, _w in
+                                              (getattr(self, "_recent_foes", None) or [])[-3:]]}])
+
+    @staticmethod
+    def _league_laps_from_journal() -> list:
+        """Every lost fight in the league the journal holds, as laps."""
+        laps = []
+        try:
+            for _l in (RUN / "executor_log.jsonl").read_text().splitlines():
+                if '"fight_recap"' not in _l or '"lost": true' not in _l:
+                    continue
+                try:
+                    e = json.loads(_l)
+                except ValueError:
+                    continue
+                if str(e.get("where") or "") in LEAGUE_MAPS:
+                    laps.append({"room": str(e.get("where")),
+                                 "who": str(e.get("who") or ""), "foes": []})
+        except OSError:
+            pass
+        return laps
 
     # THE BALLS KEPT FOR THE GOAL IN HAND. A throw toward a later objective
     # never spends the bag down to nothing: the leg being played may need
@@ -23919,11 +23962,37 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # fact on the page (user, 2026-09-21: "we cant forget about the
             # position findings").
             _wipes_block = ""
-            if getattr(self, "_bo_here", 0):
+            # THE LEAGUE IS ONE PLACE. A blackout anywhere past the lobby
+            # sends the run back to Lorelei, and every lap starts a new step,
+            # so the per-step count (the gym leaders' "something about the
+            # plan has to change", and the rows of wild ground to train on)
+            # never passed one: run 19 lapped the Elite Four by attrition,
+            # never once going back to train (user, 2026-09-30: "something
+            # similar to how we do the gym leaders just scoped to the whole
+            # thing"; "i want it to win as elegantly as it can"). In the
+            # league the count is the run's laps that ended in a blackout.
+            _here_map = str(((start or {}).get("map") or {}).get("id")
+                            or getattr(self, "_last_overworld_map", "") or "")
+            _laps = (list(getattr(self, "_league_laps", None) or [])
+                     if _here_map in LEAGUE_MAPS else [])
+            # the page's count only: the round pardons below still read the
+            # step's own _bo_here
+            _bo_eff = max(getattr(self, "_bo_here", 0), len(_laps))
+            if _laps:
+                _wipes_block += (
+                    "\nLAPS OF THE POKEMON LEAGUE THAT ENDED IN A BLACKOUT "
+                    f"({len(_laps)}), each back to the lobby with half the "
+                    "money: " + "; ".join(
+                        f"{i}: lost to {l.get('who') or '?'} in {l.get('room')}"
+                        + (" to " + ", ".join(l.get("foes") or []) if l.get("foes") else "")
+                        for i, l in enumerate(_laps[-6:], max(1, len(_laps) - 5)))
+                    + ".\n")
+            if _bo_eff:
                 _bo_last = (getattr(self, "_bo_ops", []) or ["?"])[-1]
                 _wipes_block += (
-                    f"\nTHIS STEP HAS BLACKED OUT {self._bo_here} TIME(S). "
-                    f"A blackout is the whole party fainting: you wake at a "
+                    (f"\nTHE POKEMON LEAGUE HAS BLACKED YOU OUT {_bo_eff} TIME(S). " if _laps
+                     else f"\nTHIS STEP HAS BLACKED OUT {_bo_eff} TIME(S). ")
+                    + f"A blackout is the whole party fainting: you wake at a "
                     f"Pokemon Center, healed, HALF YOUR MONEY GONE, and "
                     f"wherever you had walked to is lost. The last one "
                     f"followed this macro: {_bo_last}. "
@@ -23935,7 +24004,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                        "the same fight. Something about the plan has to "
                        "change — where you go, what you send out, or what "
                        "you are carrying.\n"
-                       if self._bo_here > 1 else
+                       if _bo_eff > 1 else
                        "What beat you is still there.\n"))
                 # THE FIGHT ITSELF, as the screen showed it (_note_fight)
                 _lf = getattr(self, "_last_fight", None) or {}
@@ -23953,7 +24022,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # for "remaining trainers to gain experience" (user,
                 # 2026-09-16: "its also not gone into the wilds to train").
                 # The rows a level leg already gets: the run's own battles.
-                if (self._bo_here > 1
+                if (_bo_eff > 1
                         and not self._is_party_goal(self._target_key(sg))):
                     _hm = ((start or {}).get("map") or {}).get("id") \
                         or getattr(self, "_last_overworld_map", None) or ""
@@ -23967,7 +24036,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                    "fights them.\n")
             if _wipes_block:
                 memory = ((_wipes_block.lstrip("\n") + "\n" + memory)
-                          if self._bo_here > 1 else memory + _wipes_block)
+                          if _bo_eff > 1 else memory + _wipes_block)
             # the switches as they stood on this page, for the next page's
             # "it was open the last time you stood here" (see _note_switches)
             self._note_switches(start)

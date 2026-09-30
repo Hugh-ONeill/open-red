@@ -128,7 +128,7 @@ ck("the blackout page carries the lost fight and the experience",
    "THE LAST FIGHT YOU LOST (vs" in src
    and "_since = self._party_since_text(start, sg)" in src)
 ck("a trainer step blacked out more than once lists wild ground",
-   "if (self._bo_here > 1\n                        and not self._is_party_goal("
+   "if (_bo_eff > 1\n                        and not self._is_party_goal("
    in src and "self._wild_elsewhere_fought_note(_hm, start)" in src)
 ck("every trainer fight is recapped, and a recap never costs the fight",
    'if b0.get("kind") == "trainer" and _jpos is not None:' in src

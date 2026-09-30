@@ -45,15 +45,15 @@ ck("the block is built apart from the page",
 ck("...and nothing of it is appended to the page while it is built",
    "memory +=" not in _blk, _blk[:200])
 ck("the count and what beat you are in it",
-   "THIS STEP HAS BLACKED OUT {self._bo_here} TIME(S)" in _blk
+   "THIS STEP HAS BLACKED OUT {_bo_eff} TIME(S)" in _blk
    and "WHAT BEAT YOU, in the order it came out" in _blk)
 ck("...and so are the lost fight and the experience since the step began",
    "THE LAST FIGHT YOU LOST" in _blk and "_wipes_block += _since" in _blk)
 ck("...and the wild-ground note that only a repeat earns",
-   "self._bo_here > 1" in _blk and "_wild.rstrip()" in _blk)
+   "_bo_eff > 1" in _blk and "_wild.rstrip()" in _blk)
 ck("one wipe leaves the page as it was; two or more lead with it",
    'memory = ((_wipes_block.lstrip("\\n") + "\\n" + memory)\n'
-   "                          if self._bo_here > 1 else memory + _wipes_block)"
+   "                          if _bo_eff > 1 else memory + _wipes_block)"
    in SRC)
 ck("the move happens before the page is logged or sent",
    SRC.index("if _wipes_block:")
