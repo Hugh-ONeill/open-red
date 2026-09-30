@@ -4572,6 +4572,12 @@ def evidence_text(observed, journal, drafts) -> str:
     return _o + _j + _d
 
 
+# The league's rooms, lobby to Champion (executor.LEAGUE_MAPS): a lost fight
+# in any of them sends the run back to the lobby with every member reset.
+_LEAGUE_ROOMS = ("INDIGO_PLATEAU_LOBBY", "LORELEIS_ROOM", "BRUNOS_ROOM",
+                 "AGATHAS_ROOM", "LANCES_ROOM", "CHAMPIONS_ROOM")
+
+
 def journal_text(path: Path, limit: int = 60) -> str:
     """A chronological account of what HAPPENED, not just where it went.
 
@@ -4624,8 +4630,42 @@ def journal_text(path: Path, limit: int = 60) -> str:
     # them out, so three rewrites re-shipped an enter-and-buy plan that
     # from the reviewer's seat had never been tested.
     unreach = {}
+    # A LAP OF THE LEAGUE, as the fights showed it: who went down this lap,
+    # who beat the party and what that trainer sent out, and the party's
+    # levels when it ended. The executor ends the plan on a lost lap past
+    # the first so the rewrite is the decision point (user, 2026-09-30);
+    # whether to go straight back in or train first is the rewrite's.
+    lap_wins, lap_n = [], 0
     for r in seg:
         k = r.get("kind")
+        if k == "fight_recap" and str(r.get("where") or "") in _LEAGUE_ROOMS:
+            # a name once (a recap can be written twice across a restart),
+            # and only a name the screen gave
+            _who = str(r.get("who") or "")
+            if not r.get("lost"):
+                if _who and _who != "a trainer" and _who not in lap_wins:
+                    lap_wins.append(_who)
+            else:
+                lap_n += 1
+                _fo = [str(f) for f in (r.get("foes") or []) if f]
+                _pt = [str(p) for p in (r.get("party") or []) if p]
+                _won = [w for w in lap_wins if w != _who]
+                # no room: the recap's map is the last one walked, and the
+                # Champion's fight reads as Lance's room
+                events.append(
+                    f"  LEAGUE  lap {lap_n} ended in a blackout: "
+                    + (f"beat {', '.join(_won)}; " if _won
+                       else "beat nobody; ")
+                    + f"lost to {_who or 'a trainer'}"
+                    + (f", who sent out {', '.join(_fo)}" if _fo else "")
+                    + (f" — your party then: {', '.join(_pt)}" if _pt else "")
+                    + ". Every member you beat is back in their room.")
+                lap_wins = []
+        elif k == "league_lap_decision":
+            events.append(
+                f"  ENDED   the plan ended in the lobby after lap "
+                f"{r.get('laps')} of the league was lost; this rewrite starts "
+                f"there")
         if k == "battle_turn":
             fh, mh = r.get("foe_hp"), r.get("me_hp")
             if fh is not None:
