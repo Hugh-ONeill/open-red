@@ -229,10 +229,36 @@ def daycare_text(dc):
             f"there")
 
 
+# THE EIGHT, AND WHICH ARE STILL TO WIN. The booklet shows all eight badges
+# and names each gym's leader (pamphlet tier). Listing only the ones held let
+# the run write "I have all 8 badges" holding six, at Viridian's locked gym
+# with Blaine unbeaten (run 19, 2026-09-30; user: "it should recognize the
+# lack of event_beat_blaine"). The ones still to win are named by LEADER, not
+# by badge: the done guards search this text for badge names, and a badge
+# named as missing would read there as a badge held.
+_LEADERS = [("BOULDERBADGE", "Brock's (Pewter City gym)"),
+            ("CASCADEBADGE", "Misty's (Cerulean City gym)"),
+            ("THUNDERBADGE", "Lt. Surge's (Vermilion City gym)"),
+            ("RAINBOWBADGE", "Erika's (Celadon City gym)"),
+            ("SOULBADGE", "Koga's (Fuchsia City gym)"),
+            ("MARSHBADGE", "Sabrina's (Saffron City gym)"),
+            ("VOLCANOBADGE", "Blaine's (Cinnabar Island gym)"),
+            ("EARTHBADGE", "Giovanni's (Viridian City gym)")]
+
+
+def badges_text(held) -> str:
+    held = [str(b) for b in (held or [])]
+    if not held:
+        return "no badges (8 to win)"
+    left = [who for b, who in _LEADERS if b not in held]
+    return (", ".join(held) + f" — {len(held)} of the 8 badges"
+            + ("; not yet won: " + ", ".join(left) if left else ", all of them"))
+
+
 if "region" in o:                    # last_state.json is already flattened
     m = o.get("map")
     party = party_text(o.get("party") or [])
-    badges = ", ".join(o.get("badges") or []) or "no badges"
+    badges = badges_text(o.get("badges"))
     bag = bag_text(o.get("bag"))
     # A BOX UP AT THE SNAPSHOT IS NOT AN UNKNOWN WORLD. map is None while a
     # text box is open; with a party in hand that is still this run's world
@@ -256,7 +282,7 @@ if not m:
     # no map but a party: a box was up when the snapshot was taken; the
     # party, badges and bag are this run's and the done rung may read them
     party = party_text(o.get("party") or [])
-    badges = ", ".join(o.get("badges") or []) or "no badges"
+    badges = badges_text(o.get("badges"))
     print("standing in a spot not yet on record (a box was up when the "
           f"snapshot was taken) with {party}, {badges}"
           + money_text(o.get("money")) + f", and {bag_text(o.get('bag'))}"
@@ -265,7 +291,7 @@ if not m:
           + respawn_text(o.get("respawn")))
     raise SystemExit
 party = party_text(o.get("party") or [])
-badges = ", ".join(o.get("badges") or []) or "no badges"
+badges = badges_text(o.get("badges"))
 bag = bag_text(o.get("bag"))
 print(f"standing in {m} with {party or 'no party'}, {badges}"
       + money_text(o.get("money")) + f", and {bag}"
