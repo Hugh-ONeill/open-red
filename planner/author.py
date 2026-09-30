@@ -522,6 +522,11 @@ def reset_flag_problem(f: str, fired=None, live=None) -> str:
     """
     if not f:
         return ""
+    # ...EXCEPT A WIN THE GAME TOOK BACK. The Pokemon League resets its
+    # members after a loss: beating them AGAIN is the step, and it is one
+    # that can be waited on (run 19, 2026-09-30).
+    if str(f).startswith("EVENT_BEAT_"):
+        return ""
     fired = set(fired_flags()) if fired is None else set(fired)
     if f not in fired:
         return ""
@@ -1095,13 +1100,20 @@ def recent_events(cap: int = 14) -> str:
                 sites[_f] = _m
     except (OSError, ValueError):
         pass
+    # ...AND WHICH OF THEM THE GAME HAS SINCE UNSET. History says a thing
+    # happened; after a loss in the Pokemon League the game puts its
+    # members back, and "EVENT_BEAT_LORELEIS_ROOM_TRAINER_0" read as done
+    # with Lorelei standing again (run 19, 2026-09-30).
+    _live = _live_flags()
     out = []
     for b, g in list(fam.items())[:cap]:
         if len(g) > 1:
             out.append(f"{b} x{len(g)}")
             continue
         _where = sites.get(g[0])
-        out.append(g[0] + (f" (at {_where})" if _where else ""))
+        out.append(g[0] + (f" (at {_where})" if _where else "")
+                   + (" — NOT SET NOW: the game has put it back"
+                      if _live is not None and g[0] not in _live else ""))
     return ("\n\nWHAT THIS RUN HAS ALREADY DONE, most recent first, and "
             "WHERE (event records the game itself wrote; a {\"flag\":...} "
             "condition can name any of these): " + ", ".join(out)
@@ -2421,7 +2433,8 @@ def validate(plan: dict) -> list:
         last0 = subs[-1] if isinstance(subs[-1], dict) else {}
         dw0 = last0.get("done_when") or {}
         fl = dw0.get("flag") if isinstance(dw0, dict) else None
-        if fl and fl in set(fired_flags()):
+        _lv0 = _live_flags()
+        if fl and fl in set(fired_flags()) and (_lv0 is None or fl in _lv0):
             probs.append(
                 f"subgoal[{len(subs) - 1}] ({last0.get('id')}) ends on flag "
                 f"'{fl}', which ALREADY FIRED earlier in this run — it holds "
@@ -7582,6 +7595,41 @@ def _place_families() -> list:
     return sorted(fams, key=lambda f: (-len(f.split("_")), f))
 
 
+_LEAGUE_WINS = (("LORELEI", "EVENT_BEAT_LORELEIS_ROOM_TRAINER_0"),
+                ("BRUNO", "EVENT_BEAT_BRUNOS_ROOM_TRAINER_0"),
+                ("AGATHA", "EVENT_BEAT_AGATHAS_ROOM_TRAINER_0"),
+                ("LANCE", "EVENT_BEAT_LANCES_ROOM_TRAINER_0"),
+                ("ELITE FOUR", "EVENT_BEAT_LANCES_ROOM_TRAINER_0"))
+
+
+def _league_win_not_set(goal: str) -> str | None:
+    """A Pokemon League member (or the Elite Four) this objective says to
+    DEFEAT whose win is not set in the game now, or None.
+
+    "Defeat the Elite Four" was crossed off on "the player is currently in
+    Lorelei's room, which is located inside the Indigo Plateau" after a
+    loss to Lance (run 19, 2026-09-30). A place is not a win, and after a
+    loss the game has put every member back: the record that says so is
+    the flag as it stands NOW. The Champion is the Hall of Fame, which
+    finished.py already reads; a run that has it is past all of this."""
+    g = str(goal or "").upper()
+    if not re.search(r"\b(DEFEAT|BEAT|WIN|CONQUER)\w*", g):
+        return None
+    live = _live_flags()
+    if live is None:
+        return None
+    try:
+        _st = json.loads(Path("run/last_state.json").read_text())
+        if int((_st or {}).get("hall_of_fame") or 0) > 0:
+            return None
+    except (OSError, ValueError, TypeError):
+        pass
+    for who, flag in _LEAGUE_WINS:
+        if re.search(r"\b" + who + r"\b", g) and flag not in live:
+            return who
+    return None
+
+
 def _badge_not_earned(goal: str, start: str) -> str | None:
     """A badge this objective names that the run is not wearing.
 
@@ -8421,6 +8469,11 @@ def check_already_done(deed: str, start: str, model: str,
     if badge:
         print(f"[already-done] refused: '{deed[:60]}' names {badge} and the "
               f"run is not wearing it", file=sys.stderr)
+        return False
+    _lw = _league_win_not_set(deed)
+    if _lw:
+        print(f"[already-done] refused: '{deed[:60]}' says to defeat {_lw}, and "
+              f"that win is not set in the game now", file=sys.stderr)
         return False
     # ...AND THE OTHER TWO OF THE FAMILY, WHICH ONLY check_done HAD. The
     # four guards were written together and this rung got two of them, so
@@ -11075,6 +11128,12 @@ def check_done(goal: str, start: str, model: str,
     if badge:
         print(f"[check-done] refused: this objective names {badge} and the "
               f"run is not wearing it")
+        return False
+    _lw = _league_win_not_set(goal)
+    if _lw:
+        print(f"[check-done] refused: this objective says to defeat {_lw}, and "
+              f"that win is not set in the game now (the league puts its "
+              f"members back after a loss)")
         return False
     levels = _levels_not_reached(goal, start)
     if levels:
