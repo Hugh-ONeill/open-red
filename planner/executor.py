@@ -2165,6 +2165,15 @@ class Executor:
         self.max_battle_turns = max_battle_turns
         self.can_escalate = can_escalate
         self.model = model
+        # A part named with its page label ("ROUTE_20|44,2 (the west part of
+        # ROUTE_20)") equals no region; plans written before the author
+        # cleaned it are cleaned here (see author.strip_part_labels).
+        try:
+            import author as _au
+            if isinstance(plan, dict):
+                _au.strip_part_labels(plan)
+        except Exception:
+            pass
         self.plan = plan
         self.plan_path = plan_path
         self.failed_subgoal = None      # set by run_plan, read at exit

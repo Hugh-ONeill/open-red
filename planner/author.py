@@ -1876,12 +1876,44 @@ def _names_an_opponent(text: str) -> bool:
     return True
 
 
+_PART_LABEL = re.compile(r"^([A-Z0-9_]+\|-?\d+,-?\d+)\s*\(.*\)\s*$")
+
+
+def strip_part_labels(plan: dict) -> None:
+    """"ROUTE_20|44,2 (the west part of ROUTE_20)" -> "ROUTE_20|44,2".
+
+    The page labels a part with its description and the author copies the
+    label whole into an area condition, which no region can ever equal: leg
+    46's "SEAFOAM_ISLANDS_B4F|2,0 (the west part of SEAFOAM_ISLANDS_B4F)"
+    was carried past as NOT achieved round after round (run 19, 2026-09-29).
+    Spelling, not meaning: only a leading MAP|x,y followed by a bracket."""
+    def _fix(v):
+        if isinstance(v, str):
+            m = _PART_LABEL.match(v.strip())
+            return m.group(1) if m else v
+        if isinstance(v, list):
+            return [_fix(x) for x in v]
+        return v
+    def _walk(dw):
+        if not isinstance(dw, dict):
+            return
+        for k in ("area", "not_area"):
+            if k in dw:
+                dw[k] = _fix(dw[k])
+        for alt in (dw.get("any") or []) if isinstance(dw.get("any"), list) else []:
+            _walk(alt)
+    for sg in plan.get("subgoals") or []:
+        if isinstance(sg, dict):
+            _walk(sg.get("done_when"))
+
+
 def validate(plan: dict) -> list:
     """Return a list of problems (empty = ok).
 
     Normalises `new_part` into its frozen form first, so every rule below
     reads the condition the run will actually be judged against."""
     freeze_new_parts(plan)
+    strip_part_labels(plan)
     probs = []
     subs = plan.get("subgoals")
     if not isinstance(subs, list) or not subs:
