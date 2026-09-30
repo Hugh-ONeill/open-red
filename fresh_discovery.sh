@@ -772,6 +772,30 @@ while :; do
     # THE STUCK LEG ITSELF, SAID MORE EXACTLY (author.check_missing,
     # "REWORD:"): the leg is reworded in place, not given a twin in front
     # of it that no plan can be written for. It spends this leg's insert.
+    # A LATER LEG THE STUCK ONE NEEDS FIRST (author.check_missing,
+    # "PULL:n"): the same guarded pull the blocker rung makes — a leg that
+    # was pushed and is still held there may be pulled back once a chain.
+    if [ "${missing#PULL:}" != "$missing" ]; then
+      _pn=${missing#PULL:}
+      _btext=$(sed -n "${_pn}p" plans/outline.txt)
+      _bpushed=$(pushes_in_force "$_btext" "$_pn")
+      _bback=$(grep -cxF -- "$_btext" run/outline_pullbacks 2>/dev/null || true)
+      echo "LEG=$leg|PULL $_btext" >> run/outline_inserts
+      if [ "${_bpushed:-0}" -gt 0 ] && [ "${_bback:-0}" -gt 0 ]; then
+        echo "    (not pulling leg $_pn forward: it was pushed later, that push" \
+             "still holds, and it has already been pulled back once this chain: $_btext)" >&2
+        return 1
+      fi
+      echo "=== leg $i needs leg $_pn first, by the model's own account: pulling it forward ==="
+      if python planner/pull_leg.py pull "$i" "$_pn"; then
+        [ "${_bpushed:-0}" -gt 0 ] && printf '%s\n' "$_btext" >> run/outline_pullbacks
+        disposed "leg $_pn was pulled ahead of it (missing rung)"
+        echo "$i<-$_pn" >> run/outline_reorders
+        return 0
+      fi
+      echo "    (the pull was refused; on to the next rung)"
+      return 1
+    fi
     if [ "${missing#REWORD:}" != "$missing" ]; then
       _rw=${missing#REWORD:}
       echo "=== leg $i said more exactly: $_rw ==="

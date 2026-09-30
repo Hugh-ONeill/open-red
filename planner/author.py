@@ -8894,6 +8894,20 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
         _same = next((t for _n, t in ahead
                       if _names(ins) and _names(t) == _names(ins)
                       and _deed_class(t) == _deed_class(ins)), None)
+        # ...AND A LATER LEG IT NAMES IS PULLED, NOT TURNED DOWN. Stuck at
+        # "Reach Viridian City Gym", this rung named "Defeat Blaine for the
+        # Volcano Badge" three times ("Viridian only opens after ... the
+        # Volcano Badge") and was told three times "already on your own
+        # list" — while that leg sat two places BEHIND the one needing it,
+        # and the chain stopped (run 19, 2026-09-30). The model's own
+        # dependency is the pull; the chain's pull guard bounds it.
+        _later = next((n for n, t in ahead
+                       if n != ahead[0][0]
+                       and (_norm_obj(t) == _norm_obj(ins) or t == _same)), None)
+        if _later is not None:
+            print(f"[missing] {ins!r} is leg {_later}, later on your own list: "
+                  f"pull it ahead — {_why}", file=sys.stderr)
+            return f"PULL:{_later}"
         if _norm_obj(ins) in listed or _same:
             print(f"[missing] turned down {ins!r}: already on your own "
                   f"list" + (f" as {_same!r}" if _same and _norm_obj(ins)
