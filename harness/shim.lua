@@ -8716,6 +8716,11 @@ function OPS.use_item(G, c)
   local party = (G.save and G.save.party) or {}
   local slot = math.floor(tonumber(c.slot) or 1)
   if slot < 1 then slot = 1 end            -- there is no slot 0
+  -- WHAT THE TARGET AND THE BAG WERE BEFORE THE ITEM, so the verdict can be
+  -- read off the party, not off the words (see the no-effect branch).
+  local _pre = party[slot] and { hp = party[slot].hp,
+                                 status = party[slot].status } or nil
+  local _n_pre = bag_count(G, c.item)
   if #party > 0 and slot > #party then
     ui_back_out(G)
     return false, ("no party slot %d — the party has %d")
@@ -8801,6 +8806,21 @@ function OPS.use_item(G, c)
       end
     end
     if t == G.overworld then break end
+    -- ONE USE PER OP. After the item acts, the game puts the party menu
+    -- back up with the same item in hand, and the A below pressed it again:
+    -- one use_item POTION on a DUGTRIO at 20/101 spent all five POTIONs
+    -- (reproduced live 2026-09-30), and a REVIVE's second press is where
+    -- its false "It won't have any effect" came from. Once the item has
+    -- acted (the bag is lighter, or the target's HP or status moved) and a
+    -- menu is back on top, the use is over; text, an evolution or a teach
+    -- still in progress are not menus and run on.
+    if t and (t.screenId == "PartyMenu" or (t.items and not t.pages))
+       and not t.newMoveId
+       and (bag_count(G, c.item) < _n_pre
+            or (_pre and mon and ((mon.hp or 0) ~= (_pre.hp or 0)
+                                  or mon.status ~= _pre.status))) then
+      break
+    end
     do
       local _tx = page_text()
       if _tx:find("not compatible") or _tx:find("Not compatible")
@@ -8954,6 +8974,23 @@ function OPS.use_item(G, c)
       -- spot the player stood on, so the model carried the bottle around
       -- the building trying floors. WHY the game refused is the game's
       -- business, said in its own words; nothing was spent.
+      -- ...AND ONLY WHEN THE POKEMON AND THE BAG AGREE. A REVIVE that
+      -- brought KADABRA from 0 to 56/112 and left the bag one lighter was
+      -- reported "NOTHING HAPPENED — It won't have any effect.": the words
+      -- were a second press on a Pokemon already standing, and the op's
+      -- verdict disagreed with the floor (Bruno's room, 2026-09-30, the
+      -- MAX_REVIVE on NIDOQUEEN; reproduced live the same day). What moved
+      -- is the verdict; the text is not.
+      if c.slot and mon and _pre and ((mon.hp or 0) ~= (_pre.hp or 0)
+          or mon.status ~= _pre.status
+          or bag_count(G, c.item) < _n_pre) then
+        return true, ("used %s on %s: HP %d -> %d%s"):format(
+          c.item, tostring(mon.species or ("slot " .. tostring(c.slot))),
+          tonumber(_pre.hp) or 0, tonumber(mon.hp) or 0,
+          (mon.status ~= _pre.status)
+            and (" (status " .. tostring(_pre.status or "none") .. " -> "
+                 .. tostring(mon.status or "none") .. ")") or "")
+      end
       if c.slot and mon then
         return true, ("used " .. c.item .. " on "
           .. tostring(mon.species or ("slot " .. tostring(c.slot)))
@@ -8971,6 +9008,15 @@ function OPS.use_item(G, c)
         .. "what you are standing RIGHT NEXT TO, and from (%d,%d) there was "
         .. "nothing for it to act on."):format(p2.cellX, p2.cellY)
     end
+  end
+  if c.slot and mon and _pre and ((mon.hp or 0) ~= (_pre.hp or 0)
+                               or mon.status ~= _pre.status) then
+    return true, ("used %s on %s: HP %d -> %d%s"):format(
+      c.item, tostring(mon.species or ("slot " .. tostring(c.slot))),
+      tonumber(_pre.hp) or 0, tonumber(mon.hp) or 0,
+      (mon.status ~= _pre.status)
+        and (" (status " .. tostring(_pre.status or "none") .. " -> "
+             .. tostring(mon.status or "none") .. ")") or "")
   end
   return true, "used " .. c.item
 end
