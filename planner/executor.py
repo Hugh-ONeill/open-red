@@ -1906,9 +1906,14 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
         # HP alongside intent: six logged EMBERs vs a 41-HP Staryu ended in
         # a wipe, which the damage math says is impossible — whether the
         # presses deliver the scored move is only visible as an HP trace.
+        _bf = before_b.get("foe") or {}
         log("battle_turn", turn=turns, op=name, params=op, why=why,
-            foe_hp=(before_b.get("foe") or {}).get("hp"),
-            me_hp=(before_b.get("me") or {}).get("hp"))
+            foe_hp=_bf.get("hp"),
+            me_hp=(before_b.get("me") or {}).get("hp"),
+            # who is out, as the screen names it: a lost fight's recap lists
+            # every Pokemon the trainer sent, not only the first
+            foe=(f"{_bf.get('species')} L{_bf.get('level')}"
+                 if _bf.get("species") else None))
         move_id = None
         if name == "battle_move":
             mv = next((m for m in ((before_b.get("me") or {}).get("moves")
@@ -18849,13 +18854,20 @@ class Executor:
         # kept for the run, not the step: every lap is a new step. Read off
         # the lost fight's own recap, not the blackout row: losing to the
         # Champion wrote no "blackout" row, twice (run 19, 2026-09-30).
+        if (kind == "fight_recap" and not kw.get("lost")
+                and str(kw.get("where") or "") in LEAGUE_MAPS):
+            self._lap_wins = list(getattr(self, "_lap_wins", None) or []) \
+                + [str(kw.get("who") or "")]
         if (kind == "fight_recap" and kw.get("lost")
                 and str(kw.get("where") or "") in LEAGUE_MAPS):
             self._league_laps = (list(getattr(self, "_league_laps", None) or [])
                                  + [{"room": str(kw.get("where")),
                                      "who": str(kw.get("who") or ""),
-                                     "foes": [f for f, _w in
-                                              (getattr(self, "_recent_foes", None) or [])[-3:]]}])
+                                     "beaten": list(getattr(self, "_lap_wins", None) or []),
+                                     "foes": (list(kw.get("foes") or [])
+                                              or [f for f, _w in
+                                                  (getattr(self, "_recent_foes", None) or [])[-3:]])}])
+            self._lap_wins = []
 
     @staticmethod
     def _map_last_t_from_journal() -> dict:
@@ -19503,10 +19515,12 @@ class Executor:
                     rows.append(json.loads(line))
                 except ValueError:
                     pass
-        moves, foe_hp = {}, []
+        moves, foe_hp, foes_seen = {}, [], []
         for r in rows:
             if r.get("kind") != "battle_turn":
                 continue
+            if r.get("foe") and r.get("foe") not in foes_seen:
+                foes_seen.append(str(r.get("foe")))
             if r.get("op") == "battle_move":
                 why = str(r.get("why") or "")
                 # the move is the first move-shaped word: "TACKLE score=",
@@ -19577,6 +19591,11 @@ class Executor:
                           and first[-1] > 0 else "")
                        if first else "")
                     + (f". Fainted: {', '.join(fainted)}" if fainted else ""),
+            # every Pokemon the trainer sent out, and the party's levels as
+            # the fight ended: what a lap of the league showed (see the lap
+            # record in log())
+            "foes": foes_seen,
+            "party": [f"{m.get('species')} L{m.get('level')}" for m in party],
         }
         self.log("fight_recap", **{k: v for k, v in self._last_fight.items()})
         # A GIFT AFTER THE FIGHT THAT A FULL BAG REFUSED. A leader's TM is

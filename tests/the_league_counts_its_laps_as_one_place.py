@@ -33,7 +33,7 @@ x._last_overworld_map = "LANCES_ROOM"
 x._recent_foes = [("GYARADOS L58", "LANCES_ROOM"), ("DRAGONITE L62", "LANCES_ROOM")]
 x.log("fight_recap", who="JERK", where="LANCES_ROOM", lost=True, text="...")
 ck("a lost fight in the league is kept as a lap (the Champion wrote no blackout row)",
-   getattr(x, "_league_laps", None) == [{"room": "LANCES_ROOM", "who": "JERK",
+   getattr(x, "_league_laps", None) == [{"room": "LANCES_ROOM", "who": "JERK", "beaten": [],
                                          "foes": ["GYARADOS L58", "DRAGONITE L62"]}],
    getattr(x, "_league_laps", None))
 x.log("fight_recap", who="LORELEI", where="LORELEIS_ROOM", lost=False, text="...")
