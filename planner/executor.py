@@ -5604,6 +5604,9 @@ class Executor:
                 "conditions are false again: "
                 + ", ".join(n for _, n in undone) + ".")
             self._plan_regress = undone[0][0]
+            # ...and whether it was the LEAGUE that put them back (run_plan
+            # asks: a lap lost past the first is a decision, not a replay)
+            self._regress_league = was_map in LEAGUE_MAPS
             self.log("plan_deeds_undone", undone=[n for _, n in undone])
         return self._wipe_note
 
@@ -27580,6 +27583,35 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # first step whose condition is false again. Not a failure of
             # this step — it never got a fair run.
             _rg = getattr(self, "_plan_regress", None)
+            _in_league = bool(getattr(self, "_regress_league", False))
+            self._regress_league = False
+            # A LAP OF THE LEAGUE LOST IS A DECISION FROM THE SECOND ON. The
+            # replay below put the run back at Lorelei inside the same
+            # attempt after every loss: run 19 lapped the league twelve
+            # times by attrition and never once reached the rewrite, where
+            # training is on the table, or the ladder (user, 2026-09-29: "the
+            # concept of having to re-face the e4 members after losing doesnt
+            # seem to reach it naturally"). A gym's first wipe is bad luck and
+            # costs the step nothing; its later wipes spend the step's rounds
+            # until the plan is rewritten. The league is one gym scoped to all
+            # its rooms (user, 2026-09-30: "pass the first lap"): the first
+            # lap lost replays as before; every one after ends this attempt
+            # here, and the rewrite reads what the laps showed (journal_text).
+            # Going straight back to Lorelei is as good an answer as training.
+            if (_rg is not None and _in_league and _rg < idx
+                    and len(getattr(self, "_league_laps", None) or []) >= 2):
+                self._plan_regress = None
+                _laps = list(getattr(self, "_league_laps", None) or [])
+                print(f"   !! the league blacked the party out again (lap "
+                      f"{len(_laps)}) — this plan ends here and is rewritten "
+                      f"from the lobby")
+                self.log("league_lap_decision", subgoal=sg["id"],
+                         laps=len(_laps), last=_laps[-1] if _laps else None,
+                         party=[f"{m.get('species')} L{m.get('level')}"
+                                for m in ((self.settle() or {}).get("party") or [])])
+                self.log("plan_failed_at", subgoal=sg["id"])
+                self.failed_subgoal = sg["id"]
+                return False
             if _rg is not None:
                 self._plan_regress = None
                 if _rg < idx:

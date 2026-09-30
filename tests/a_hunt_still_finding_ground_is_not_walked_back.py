@@ -87,7 +87,7 @@ _branch = _code[i_hunt:i_carry]
 ck("it writes its own row", 'self.log("hunt_ends_in_new_ground"' in _branch)
 ck("...and falls through to the plan's failure, as the missed-hop rule does",
    "continue" not in _branch
-   and _code.index('self.log("plan_failed_at"') > i_carry)
+   and _code.rindex('self.log("plan_failed_at"') > i_carry)
 ck("every site that finds news marks the round",
    _code.count("self._esc_news_at = rnd") == 3
    and _code.count('self.log("round_for_news"') == 2
