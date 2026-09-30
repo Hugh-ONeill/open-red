@@ -5295,6 +5295,18 @@ local function bfs_dir_pass(G, tx, ty, wblock, gate)
           and (("From (%d,%d), beside it, it is on screen: walk there and "
                 .. "try again"):format(bx, by))
           or "Walk toward it until it is on screen, then try again")
+  elseif best == 1 and bx and by
+         and ow.map and ow.map.warpAtCell and ow.map:warpAtCell(tx, ty)
+         and ow.map.isWalkableCell and not ow.map:isWalkableCell(tx, ty) then
+    -- A DOOR IS USED FROM ON IT, NOT FROM BESIDE IT. "Act from there" is
+    -- right for a person, a sign or a Snorlax, and false for a doorway: an
+    -- exit fires only from its own cell. Mansion 1F's east doorway was a
+    -- gate block in that lever state and the run was sent between its two
+    -- tiles for fifteen rounds (run 19, 2026-09-30).
+    said = said .. (", which is RIGHT BESIDE it — but %d,%d is a WALL right "
+      .. "now: the game has it blocked in the map's current state, though "
+      .. "it may have been open before. A door fires only from standing ON "
+      .. "it; from beside it nothing happens"):format(tx, ty)
   elseif best == 1 and bx and by then
     said = said .. (", which is RIGHT BESIDE it — nothing can stand ON "
       .. "%d,%d, so (%d,%d) is as close as anyone gets. Walk to (%d,%d) "
@@ -6514,6 +6526,20 @@ function OPS.use_warp(G, c)
       .. "gives way on the step that reaches it. There is no climbing "
       .. "back up afterwards.")
       :format(c.x, c.y, c.x, c.y)
+  end
+  -- A DOOR THAT IS A WALL RIGHT NOW. The map's live grid, read before any
+  -- walk: Mansion 1F's east doorway turned to a gate block when a statue
+  -- was pressed, and three walk passes a round were spent proving what one
+  -- read says (run 19, 2026-09-30). Water is ridden, not walked.
+  do
+    local m0 = ow.map
+    if m0 and m0.isWalkableCell and not m0:isWalkableCell(c.x, c.y)
+       and not (p.surfing and m0.isWaterCell and m0:isWaterCell(c.x, c.y)) then
+      return false, ("(%d,%d) is a WALL right now: the game has it blocked "
+        .. "in the map's current state, though it may have been open "
+        .. "before. A door fires only from standing ON it; from beside it "
+        .. "nothing happens."):format(c.x, c.y)
+    end
   end
 
   -- WHICH DOOR ACTUALLY FIRED. note_transition keys its edge on the tile
