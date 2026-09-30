@@ -13804,6 +13804,23 @@ class Executor:
         """The booklet's own words for these items (booklet_items), or ""."""
         rows = [(str(i), booklet_items.ITEMS[str(i)]) for i in items
                 if str(i) in booklet_items.ITEMS]
+        # ...AND WHAT A LINE LEANS ON. The lobby's ULTRA_BALL reads "This
+        # ball performs better than a Great Ball", and with no POKE_BALL on
+        # that shelf nothing said what a ball is FOR: the run bought ten
+        # between Elite Four laps for "high-tier healing" (run 19,
+        # 2026-09-30). An item a quoted line names is quoted too, until the
+        # chain ends — the booklet's own words, followed.
+        _by_name = {k.replace("_", " ").upper().replace("POKE ", "POKE "): k
+                    for k in booklet_items.ITEMS}
+        _seen = {k for k, _v in rows}
+        _i = 0
+        while _i < len(rows):
+            _txt = rows[_i][1].upper().replace("É", "E")
+            for _nm, _k in _by_name.items():
+                if _k not in _seen and _re.search(r"\b" + _re.escape(_nm) + r"\b", _txt):
+                    rows.append((_k, booklet_items.ITEMS[_k]))
+                    _seen.add(_k)
+            _i += 1
         return ("\nWHAT THE GAME'S BOOKLET SAYS OF THEM: "
                 + "; ".join(f"{k}: {v}" for k, v in rows)) if rows else ""
 
