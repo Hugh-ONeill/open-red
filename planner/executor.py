@@ -17033,13 +17033,24 @@ class Executor:
         # last look at that floor: how many spots its seen ground ended at.
         _urows = []
         _foot_seen = getattr(self, "region_seen", None) or {}
+        # ...AND THE BUILDINGS THIS LEG IS SEARCHING COME FIRST, UNCUT. 103
+        # regions had unseen ground, the list named the nearest 30, and
+        # POKEMON_MANSION_B1F (4 spots) sat in "and 73 more floor(s)" on
+        # every page of the Blaine leg — whose attempts had searched the
+        # Mansion's 1F, 2F and 3F for a way into the locked gym and whose
+        # key lay on B1F; the chain stopped (run 19, 2026-09-30). Floors of a
+        # building the leg's own attempts have stood in (_looked_note) are
+        # recall of the search in hand, and are never cut.
+        _leg_fams = {map_family(str(m)) for m in
+                     (getattr(self, "_leg_looked", None) or {})}
         for _ur in sorted(set(_foot_seen)
                           | set(getattr(self, "region_seen_water", None) or {})):
             _un = int(_foot_seen.get(_ur, 0) or 0) + self._water_unseen(_ur)
             if not _un or _ur == here:
                 continue
             _p = self._route(here, _ur)
-            _urows.append((len(_p) if _p is not None else 99, -int(_un), _ur))
+            _urows.append((0 if map_family(_ur.split("|")[0]) in _leg_fams else 1,
+                           len(_p) if _p is not None else 99, -int(_un), _ur))
         if _urows:
             # nearest first, then the MOST unseen ground, then the name: a
             # cap of three sorted by name dropped CERULEAN_TRASHED_HOUSE —
@@ -17068,7 +17079,7 @@ class Executor:
                     + self._seen_cells_words(_m)
                     + (f"{_d} leg(s))" if _d < 99
                        else "no walked route from here)")
-                    for _d, _n, _m in _shown)
+                    for _pri, _d, _n, _m in _shown)
                 + (f"; and {len(_urows) - len(_shown)} more floor(s)"
                    if len(_urows) > len(_shown) else "")
                 # ...AND THE ONES NO WALKED ROUTE REACHES RIGHT NOW, which
@@ -17076,9 +17087,9 @@ class Executor:
                 # seven spots sat in "and 68 more floor(s)" from Route 23.
                 + ((". No walked route from here right now reaches: "
                     + ", ".join(f"{_m} ({-_n} spot(s))"
-                                for _d, _n, _m in [r for r in _urows[len(_shown):]
-                                                   if r[0] >= 99][:6]))
-                   if any(r[0] >= 99 for r in _urows[len(_shown):]) else "")
+                                for _pri, _d, _n, _m in [r for r in _urows[len(_shown):]
+                                                         if r[1] >= 99][:6]))
+                   if any(r[1] >= 99 for r in _urows[len(_shown):]) else "")
                 + ". What is past those spots is not known — one spot can "
                   "open onto most of a floor; the cell count says how much "
                   "you have looked at, not how big the floor is.")

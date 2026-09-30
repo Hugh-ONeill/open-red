@@ -47,7 +47,7 @@ j = EXEC.index("FLOORS YOU HAVE WALKED WITH GROUND NEVER ON SCREEN")
 blk2 = EXEC[j:j + 2200]
 ck("the unseen-ground list names the no-route floors it used to cut",
    "No walked route from here right now reaches: " in blk2
-   and "if r[0] >= 99][:6]" in blk2)
+   and "if r[1] >= 99][:6]" in blk2)   # distance is r[1] since the leg-searched rank came first (2026-09-30)
 
 bad = [n for n, ok in checks if not ok]
 for n, ok in checks:
