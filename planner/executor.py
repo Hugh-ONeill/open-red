@@ -20540,6 +20540,37 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         return (head + ": not from where you stood; from where the ride "
                 "above set you down: " + (str(pd)[:200] if pd else "ok"))
 
+    # THE PROMPT A ROUND WAS ASKED, WHOLE (tools/page_ablation.py reads it).
+    # The journal keeps the page capped and the echo, never the observation,
+    # the atlas, the last feedback or the sketch, so no round could be asked
+    # again as it was — and "which section of the page changes a decision"
+    # is only measurable by asking the same round again with one section
+    # out (TODO, 2026-09-30). One gzip member per round, appended; the
+    # system prompt by its hash, once. RED_PROMPT_LOG=0 turns it off.
+    PROMPT_LOG = os.environ.get("RED_PROMPT_LOG", "1") != "0"
+
+    def _journal_prompt(self, sg, rnd, obs, system, user, reply, think):
+        if not self.PROMPT_LOG:
+            return
+        try:
+            import gzip
+            import hashlib
+            sha = hashlib.sha1(str(system).encode()).hexdigest()[:16]
+            sd = RUN / "prompt_sys"
+            sd.mkdir(exist_ok=True)
+            sf = sd / f"{sha}.txt"
+            if not sf.exists():
+                sf.write_text(str(system))
+            rec = {"t": round(time.time(), 1), "subgoal": sg.get("id"),
+                   "target": self._target_key(sg), "round": rnd,
+                   "at": self._where(obs), "model": self.model,
+                   "think": bool(think), "num_ctx": brock_probe.NUM_CTX,
+                   "sys": sha, "user": user, "reply": reply}
+            with gzip.open(RUN / "prompts.jsonl.gz", "at") as f:
+                f.write(json.dumps(rec) + "\n")
+        except Exception as e:
+            self.log("prompt_journal_error", err=str(e)[:160])
+
     def _goods_delta(self, pre_obs: dict, obs: dict) -> str:
         """What this op did to the bag and the wallet, in words.
 
@@ -24535,6 +24566,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     [{"role": "system", "content": self.MACRO_AUTHOR_SYS},
                      {"role": "user", "content": user}], self.model,
                     think=_think)
+                self._journal_prompt(sg, rnd, obs, self.MACRO_AUTHOR_SYS,
+                                     user, reply, _think)
                 # WHAT IT ACTUALLY DELIBERATED ABOUT. The round costs three
                 # times a normal one and the trace was discarded the moment
                 # its length was counted, so the one record of what the

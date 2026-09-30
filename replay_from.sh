@@ -54,6 +54,7 @@ if [ -s run/executor_log.jsonl ]; then
   mv run/executor_log.jsonl "run/executor_log.$ts.pre-replay.jsonl"
   echo "archived the journal as run/executor_log.$ts.pre-replay.jsonl"
 fi
+[ -f run/prompts.jsonl.gz ] && mv run/prompts.jsonl.gz "run/prompts.$ts.pre-replay.jsonl.gz"
 # the live state files are archived too, in case the replay is regretted
 mkdir -p "run/saves/pre-replay.$ts"
 [ -f "$SAVE" ] && cp "$SAVE" "run/saves/pre-replay.$ts/slot1.lua"

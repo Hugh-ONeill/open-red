@@ -114,6 +114,8 @@ if [ "$done_legs" = 0 ]; then
     fi
   fi
   [ -f run/executor_log.jsonl ] && mv run/executor_log.jsonl "run/executor_log.${ts}.pre-discovery.jsonl"
+  # the whole prompts of the last chain's rounds go with its journal
+  [ -f run/prompts.jsonl.gz ] && mv run/prompts.jsonl.gz "run/prompts.${ts}.pre-discovery.jsonl.gz"
   [ -f "$SAVE" ] && cp "$SAVE" "run/slot1.${ts}.pre-discovery.lua"
   # ...and RETIRE it. Copying alone left the save in place, so the game
   # auto-loaded it and bootstrap's new_game hit CONTINUE instead: a "fresh"
