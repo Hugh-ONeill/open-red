@@ -2435,6 +2435,7 @@ def validate(plan: dict) -> list:
         fl = dw0.get("flag") if isinstance(dw0, dict) else None
         _lv0 = _live_flags()
         if fl and fl in set(fired_flags()) and (_lv0 is None or fl in _lv0):
+            OWN_WITNESS.add(fl)
             probs.append(
                 f"subgoal[{len(subs) - 1}] ({last0.get('id')}) ends on flag "
                 f"'{fl}', which ALREADY FIRED earlier in this run — it holds "
@@ -3413,6 +3414,47 @@ DRAW_TEMP = float(os.environ.get("RED_DRAW_TEMP") or 0.8)
 # where the run stands — read when authoring fails altogether (main: exit 6)
 INVALID_ROUNDS = [0]
 ALREADY_ROUNDS = [0]
+# THE MODEL'S OWN WITNESS FOR THIS OBJECTIVE, when it is already set. A draft
+# ending on a flag that ALREADY FIRED is refused (it cannot witness THIS
+# leg's deed), but it is also the model saying which record means the deed is
+# done — and the drink leg's later draft ended on lacks_item FRESH_WATER
+# instead, and the run spent three waters at the gate to meet it (run 19,
+# 2026-09-29). The witness is written for the judges (see witness_text).
+OWN_WITNESS: set = set()
+WITNESS_FILE = Path("run/leg_witness.json")
+
+
+def _record_witness(goal: str) -> None:
+    if not OWN_WITNESS:
+        return
+    try:
+        d = json.loads(WITNESS_FILE.read_text()) if WITNESS_FILE.exists() else {}
+    except (OSError, ValueError):
+        d = {}
+    d[_DOUBT_NOTE.sub("", goal).strip() or goal] = sorted(
+        set(d.get(goal) or []) | OWN_WITNESS)
+    try:
+        WITNESS_FILE.write_text(json.dumps(d, indent=1))
+    except OSError:
+        pass
+
+
+def witness_text(goal: str) -> str:
+    """The flags the model's own drafts named as this objective's record,
+    that the game has set now, or ""."""
+    try:
+        d = json.loads(WITNESS_FILE.read_text())
+    except (OSError, ValueError):
+        return ""
+    g = _DOUBT_NOTE.sub("", goal).strip() or goal
+    fl = d.get(g) or []
+    live = _live_flags()
+    fl = [f for f in fl if live is None or f in live]
+    if not fl:
+        return ""
+    return ("\n\nYOUR OWN PLANS FOR THIS OBJECTIVE NAMED "
+            + ", ".join(fl) + " as the record that it is done, and the game "
+            "has " + ("it" if len(fl) == 1 else "them") + " set now.")
 
 
 def author(goal: str, model: str, rounds: int = 5,
@@ -8518,7 +8560,7 @@ def check_already_done(deed: str, start: str, model: str,
               f"by another — {_thr_done}", file=sys.stderr)
         return True
     body = (f"THE OBJECTIVE: {deed}\n\nWHERE THE RUN STANDS: {start}"
-            + recent_events() + _events_bearing(deed)
+            + recent_events() + _events_bearing(deed) + witness_text(deed)
             + walked_ground_text([(0, deed)], observed)
             + crossings_text(deed, observed))
     try:
@@ -11258,6 +11300,7 @@ def check_done(goal: str, start: str, model: str,
           + walked_ground_text([(0, goal)], observed)
           + crossings_text(goal, observed)
           + plan_finish_text(goal, observed=observed)
+          + witness_text(goal)
           # WHAT THE LEG ACHIEVED, not just where it ended. A leg can fail
           # every subgoal and still have done the thing — and a FUSED
           # objective ("deliver the parcel from Bill", two errands welded
@@ -11606,6 +11649,15 @@ def main():
               "deliberates (about 4 minutes more than a plain pass)")
     plan = author_best_of(args.goal, args.model, draws=args.draws,
                           start=args.start, think=args.think)
+    # A DRAFT NAMED ITS OWN WITNESS AND THE GAME HAS IT: asked once, with
+    # that on the page, before any other plan is run for the same deed.
+    if OWN_WITNESS:
+        _record_witness(args.goal)
+        if check_done(args.goal, args.start or "", args.model,
+                      observed=args.observed):
+            print("author: a draft named this objective's own record, "
+                  "the game has it set, and check-done agrees")
+            sys.exit(6)
     if not plan:
         # A LEG EVERY DRAFT OF WHICH WAS REFUSED FOR ALREADY BEING TRUE is
         # a leg that may be done: exit 6, and the chain asks check-done
