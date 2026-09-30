@@ -2778,7 +2778,8 @@ local function observe(G, seq, result)
       -- space expanding never merges two names.
       do
         -- identity comes from the two-way fill, NOT the warp fill above
-        local rreach = region_reach(G) or reach
+        local rreach, _junction = region_reach(G)
+        rreach = rreach or reach
         local bx, by
         for k in pairs(rreach) do
           local cx, cy = k:match("^(-?%d+),(-?%d+)$")
@@ -2797,7 +2798,9 @@ local function observe(G, seq, result)
         -- it share one component and must still answer to their own
         -- names); otherwise any already-named cell we can reach. Only
         -- ground nobody has ever named falls through to a fresh mint.
-        local name = known[here]
+        -- a pad landing between two places is named by the pad (see
+        -- region_reach) and paints nothing
+        local name = _junction and here or known[here]
         if not name then
           -- ...AND WHEN THE GROUND CARRIES TWO NAMES, COUNT IT. A merge --
           -- the fossil taken off the corridor it blocked, a boulder
@@ -2866,10 +2869,14 @@ local function observe(G, seq, result)
           -- paint only the ground that has never been named, and only
           -- ground you could walk back from -- otherwise one look from the
           -- top of the ridge stamps the whole strip below with main's name
-          for k in pairs(rreach) do
-            if known[k] == nil then known[k] = name end
+          if _junction then
+            o.map.junction = true
+          else
+            for k in pairs(rreach) do
+              if known[k] == nil then known[k] = name end
+            end
+            known[here] = name
           end
-          known[here] = name
           -- one cell per name is all the executor needs to store: the
           -- component walk above re-spreads it on the next load.
           -- THE ANCHOR OF A NAME IS THE CELL IT NAMES, whenever that cell
@@ -2900,6 +2907,7 @@ local function observe(G, seq, result)
             if v and not seenp[v] then seenp[v] = true; parts[#parts + 1] = v end
           end
           table.sort(parts)
+          if _junction then parts = { name } end
           o.map.parts_here = parts
           if split_from then
             local doors = {}
@@ -4587,7 +4595,39 @@ local function warp_seals(G, x, y)
   return false
 end
 
-region_reach = function(G) return warp_reach(G, true) end
+-- A PAD THAT JOINS TWO PLACES IS NEITHER OF THEM. The fill above lets the
+-- cell under your feet be a corridor (you can step off it any way), which
+-- is true of the moment and wrong for a NAME: Silph 5F's (9,15) is the one
+-- thing between the main floor and the Card Key's corner, so landing on it
+-- from 9F flooded both, the landing took the main floor's name, and the
+-- step off into the corner was filed as a walk from the main floor to the
+-- corner, which no walk makes (run 19, 2026-09-29). The second value says
+-- so: standing on a firing warp whose neighbours, with it sealed, fall in
+-- two or more separate places. observe names that landing by its own cell.
+region_reach = function(G)
+  local r = warp_reach(G, true)
+  local ow, p = G.overworld, G.overworld and G.overworld.player
+  if not (r and p and ow and ow.map) then return r end
+  local px, py = p.cellX, p.cellY
+  local fires = {}
+  for _, w in ipairs((ow.map.def and ow.map.def.warps) or {}) do
+    if warp_seals(G, w.x, w.y) then fires[w.x .. "," .. w.y] = true end
+  end
+  if not fires[px .. "," .. py] then return r end
+  local covered, sides = {}, 0
+  for _, d in pairs(DIRS) do
+    local nx, ny = px + d[1], py + d[2]
+    local nk = nx .. "," .. ny
+    if r[nk] and not fires[nk] and not covered[nk] then
+      sides = sides + 1
+      for k in pairs(warp_reach(G, true, nil, { x = nx, y = ny }) or {}) do
+        covered[k] = true
+      end
+    end
+  end
+  if sides >= 2 then return r, true end
+  return r
+end
 
 -- surf=true floods over WATER as well as ground, which is what the party
 -- can actually reach once a Pokemon carries it there. Used for saying
@@ -4681,13 +4721,17 @@ function seafoam_forced(G)
   return any and out or nil
 end
 
-function warp_reach(G, no_ledges, surf)
+function warp_reach(G, no_ledges, surf, start)
   local okc, Collision = pcall(require, "src.world.Collision")
   local ow, p = G.overworld, G.overworld and G.overworld.player
   if not (okc and ow and p and ow.map) then return nil end
   local key = function(x, y) return x .. "," .. y end
-  local seen = { [key(p.cellX, p.cellY)] = true }
-  local q, head = { { x = p.cellX, y = p.cellY } }, 1
+  -- `start` fills from another cell than the player's (region_reach asks
+  -- which side of a pad a step off it lands on); the player's own cell is
+  -- then sealed like any other warp.
+  local ox, oy = (start and start.x) or p.cellX, (start and start.y) or p.cellY
+  local seen = { [key(ox, oy)] = true }
+  local q, head = { { x = ox, y = oy } }, 1
   -- STATIC blockers count, WANDERERS do not. Passing no entities at all
   -- made region ids stable (a strolling NPC no longer redraws the map) but
   -- also made the fossils on MT_MOON_B2F invisible — and in this game the
@@ -4736,7 +4780,7 @@ function warp_reach(G, no_ledges, surf)
   -- everything in the room read "not walkable-to right now" and the
   -- region fingerprint was minted from one cell (user: "it was on the
   -- pad, which i think has been conflated with the main area").
-  THROUGH[key(p.cellX, p.cellY)] = nil
+  THROUGH[key(ox, oy)] = nil
   while q[head] do
     local cur = q[head]; head = head + 1
     for dn, d in pairs(DIRS) do

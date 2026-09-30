@@ -7436,7 +7436,11 @@ class Executor:
         _nc = self._sealed(here)
         _real = MAP_EDGES.get(here.split("|")[0]) or {}
         keys = [k for k in keys if k not in _nc or k in _real]
-        if keys:
+        # A PAD LANDING BETWEEN TWO PLACES OWNS NO EXITS. The shim names it by
+        # the pad (map.junction): every door of both sides is walkable from it,
+        # but each is taken from the side it stands on, after the step off,
+        # so a list kept here would hold untried exits for ever.
+        if keys and not _m.get("junction"):
             # A WAY OUT SEEN ONCE IS NEVER UNSEEN. This REPLACED the stored
             # list with whatever the current instant could reach, so one
             # observation that said "no" deleted a real exit for good —
