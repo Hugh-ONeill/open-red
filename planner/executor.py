@@ -20505,6 +20505,19 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             idx = text.find("[", idx + 1)
         return None
 
+    @staticmethod
+    def _reridden_note(note: str, pd: str) -> str:
+        """THE OP'S OWN LINE SAYS WHAT THE RIDE GOT IT. A press refused from
+        where the party stood, then made again from a pad ride's landing,
+        kept its first "FAILED — no reachable tile adjacent" and had the
+        bag change appended after it: "interact(ITEM_SILPH_CO_5F_21_16):
+        FAILED — no reachable tile adjacent ...  [CARD_KEY +1 (now 1)]"
+        (run 19, 2026-09-29). The failure stays said, as where it was; the
+        verdict is the ride's."""
+        head = str(note).split(": FAILED — ", 1)[0]
+        return (head + ": not from where you stood; from where the ride "
+                "above set you down: " + (str(pd)[:200] if pd else "ok"))
+
     def _goods_delta(self, pre_obs: dict, obs: dict) -> str:
         """What this op did to the bag and the wallet, in words.
 
@@ -22716,6 +22729,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                     f"and from the cell it set you down "
                                     f"on, it could"
                                     + (f": {_pd[:200]}" if _pd else "."))
+                                note = self._reridden_note(note, _pd)
                             else:
                                 _rr = int(getattr(self, "_last_pad_rides",
                                                   0) or 0)
@@ -22754,6 +22768,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             f"have used before (a door or a pad) was used again — and "
                             f"from the cell it set you down on, it could"
                             + (f": {_pd[:200]}" if _pd else "."))
+                        note = self._reridden_note(note, _pd)
                     else:
                         _rr = int(getattr(self, "_last_pad_rides", 0) or 0)
                         if _rr:
@@ -22797,6 +22812,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             f"used again — and from the cell it set you down "
                             f"on, it could"
                             + (f": {_pd2[:200]}" if _pd2 else "."))
+                        note = self._reridden_note(note, _pd2)
                     else:
                         _rr2 = int(getattr(self, "_last_pad_rides", 0) or 0)
                         if _rr2:
