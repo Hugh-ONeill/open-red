@@ -16576,6 +16576,35 @@ class Executor:
         out = f" [handed to you by {rec['who']}" + (f" in {at}" if at else "")
         return out + (f', who said: "{said}"]' if said else "]")
 
+    @staticmethod
+    def _revive_note(obs) -> str:
+        """A FAINTED MEMBER AND A REVIVE IN THE BAG, SAID AS AN ACTION.
+
+        Healing between fights is on the page and in the policy; reviving
+        was nowhere, so the run never once used a REVIVE outside a battle
+        (seven plans named one, none sent it), and the page told a fainted
+        trainee it "cannot move until it is healed at a Pokemon Center"
+        with three REVIVEs in the bag (user, 2026-09-30: "it just needs to
+        have its ability to revive unlocked in a similar manner to how weve
+        handled healing"). The fact and the op; whether to spend is the
+        model's. Outside a battle only."""
+        o = obs or {}
+        if o.get("mode") != "overworld":
+            return ""
+        bag = o.get("bag") or {}
+        held = [(k, int(bag.get(k) or 0)) for k in ("REVIVE", "MAX_REVIVE")
+                if int(bag.get(k) or 0) > 0]
+        down = [(i, m.get("species")) for i, m in enumerate(o.get("party") or [], 1)
+                if isinstance(m, dict) and (m.get("hp") or 0) <= 0]
+        if not held or not down:
+            return ""
+        return ("FAINTED, AND A REVIVE IN THE BAG: "
+                + ", ".join(f"{sp} (slot {i})" for i, sp in down)
+                + " fainted; you hold " + ", ".join(f"{k} x{n}" for k, n in held)
+                + ". A REVIVE works outside a battle too: "
+                + '{"op":"use_item","item":"' + held[0][0] + '","slot":'
+                + str(down[0][0]) + "} brings that one back with some HP.\n")
+
     def exploration_text(self, obs, target: str = "", sg: dict | None = None) -> str:
         """Untried vs already-taken exits from where we stand."""
         # A LEVEL IS NOT A PLACE. Everything below answers "where do I go
@@ -18379,7 +18408,7 @@ class Executor:
                 + self._bag_line(obs, sg_for_bag) + self._booklet_line(obs)
                 + self.blockers_text(obs))
         out += self.coverage_text(obs)
-        return move_head + out
+        return self._revive_note(obs) + move_head + out
 
     def coverage_text(self, obs) -> str:
         """What this floor has and has not shown you (the footprint).
@@ -25437,7 +25466,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         f"({pty[want2 - 1].get('species')}) IS FAINTED. A "
                         f"fainted Pokemon cannot be sent into battle and "
                         f"earns no experience, so this goal cannot move "
-                        f"until it is healed at a Pokemon Center.")
+                        f"until it is healed at a Pokemon Center"
+                        + (" or brought back with a REVIVE from the bag"
+                           if any(int(((cur or {}).get("bag") or {}).get(_k) or 0)
+                                  for _k in ("REVIVE", "MAX_REVIVE")) else "")
+                        + ".")
             spent_here = self._tried_objs.get(here_now, set())
             here_objs = {o.get("name") for o in
                          ((cur.get("map") or {}).get("objects") or [])
