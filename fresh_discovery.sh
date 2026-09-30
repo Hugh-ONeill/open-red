@@ -1247,6 +1247,14 @@ while :; do
       # gets another look) or the world has moved. Counting is the fallback
       # only where there is no later to move it to.
       printf '%s\n' "$leg" >> run/leg_unconfirmed
+      # ...BUT FIRST THE SENTENCE ITSELF IS ASKED ABOUT. A leg whose plans met
+      # their conditions twice and whose objective the judge still will not
+      # confirm may describe nothing that is there, or be done under
+      # another name; this path pushed without ever asking (run 19,
+      # 2026-09-29, "Give FRESH WATER to the guard on Route 6" pushed
+      # 30->32 with the drink given days before). Reword, done-under-
+      # another-name and VOID stay the model's answers (wording_rung).
+      if wording_rung "done"; then continue; fi
       _after=$((i + 2))
       if [ "$_after" -lt "${#LEGS[@]}" ] \
           && python planner/push_leg.py "$i" "$_after"; then
