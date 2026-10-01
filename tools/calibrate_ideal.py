@@ -97,9 +97,13 @@ def evaluate(cal: str, kind: str, lua: Path, sp: Path, trials: int) -> dict:
         "import policy_author as PA\n"
         "from pathlib import Path\n"
         "PA.ARENAS[%r] = (%r, Path(%r), Path(%r))\n"
+        # a prescribed route belongs to the ROOM (Saffron's pads); the
+        # calibration room's name does not map back to it by itself
+        "PA.APPROACH[%r] = PA.APPROACH.get(%r)\n"
         "sys.argv = ['policy_author.py', '--arenas', %r, '--trials', %r, "
         "'--run-id', %r, '--eval-only', %r]\n"
-        "PA.main()\n") % (str(ROOT / "planner"), cal, kind, str(lua), str(sp), cal,
+        "PA.main()\n") % (str(ROOT / "planner"), cal, kind, str(lua), str(sp),
+                          cal, cal.split("_")[1], cal,
                           str(trials), "cal_" + cal, str(refp))
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
                        cwd=str(ROOT), timeout=3600)
