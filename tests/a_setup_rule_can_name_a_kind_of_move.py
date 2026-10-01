@@ -39,8 +39,26 @@ ck("...never a damaging move that only might do it",
    and B.setup_move("paralyze", [mv(1, "X", "PARALYZE_EFFECT", 40)]) is None)
 ck("a move name still means that move", B.setup_move("HYPNOSIS", [SURF, HYP]) is HYP
    and B.setup_move("SLEEP_POWDER", [SURF, HYP]) is None)
-ck("accuracy_down covers SAND_ATTACK",
-   B.setup_move("accuracy_down", [mv(4, "SAND_ATTACK", "ACCURACY_DOWN1_EFFECT")])["id"] == "SAND_ATTACK")
+ck("lower_accuracy covers SAND_ATTACK",
+   B.setup_move("lower_accuracy", [mv(4, "SAND_ATTACK", "ACCURACY_DOWN1_EFFECT")])["id"] == "SAND_ATTACK")
+
+SD = mv(5, "SWORDS_DANCE", "ATTACK_UP2_EFFECT")
+MED = mv(6, "MEDITATE", "ATTACK_UP1_EFFECT")
+GROWL = mv(7, "GROWL", "ATTACK_DOWN1_EFFECT")
+SCREECH = mv(8, "SCREECH", "DEFENSE_DOWN2_EFFECT", 0, 85)
+LEER = mv(9, "LEER", "DEFENSE_DOWN1_EFFECT")
+ck("a stat class takes the sharp boost before the mild one",
+   B.setup_move("raise_attack", [MED, SD])["id"] == "SWORDS_DANCE")
+ck("...and the mild one when that is all there is", B.setup_move("raise_attack", [MED])["id"] == "MEDITATE")
+ck("a _sharply class never takes a mild move",
+   B.setup_move("raise_attack_sharply", [MED]) is None
+   and B.setup_move("lower_defense_sharply", [LEER]) is None
+   and B.setup_move("lower_defense_sharply", [LEER, SCREECH])["id"] == "SCREECH")
+ck("GROWL is lower_attack, not lower_defense",
+   B.setup_move("lower_attack", [GROWL]) is GROWL and B.setup_move("lower_defense", [GROWL]) is None)
+ck("the first name of the accuracy class still reads", B.setup_move("accuracy_down",
+   [mv(4, "SAND_ATTACK", "ACCURACY_DOWN1_EFFECT")]) is not None
+   and "accuracy_down" not in B.SETUP_DOC)
 
 spec = dict(B.DEFAULT_SPEC, setup=[{"move": "sleep", "max_uses": 1, "per_foe": True,
                                     "only_if_foe_clear": True, "vs": "any"}])
@@ -63,7 +81,8 @@ op2 = B.choose(
 ck("...and not on a foe already asleep (only_if_foe_clear)", op2 and op2.get("index") == 1, op2)
 
 ck("the author is told about move classes", '"sleep", "paralyze"' in B.SETUP_DOC
-   and "accuracy_down" in B.SETUP_DOC)
+   and '"raise_attack"' in B.SETUP_DOC and '"lower_defense"' in B.SETUP_DOC
+   and "_sharply" in B.SETUP_DOC)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, det in checks:

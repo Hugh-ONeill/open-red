@@ -549,7 +549,8 @@ def validate_spec(spec) -> list:
                 if (str(r["move"]) != str(r["move"]).upper()
                         and r["move"] not in MOVE_CLASSES):
                     probs.append(f"setup[{i}].move: a move class is one of "
-                                 + ", ".join(MOVE_CLASSES)
+                                 + ", ".join(k for k in MOVE_CLASSES
+                                             if k != "accuracy_down")
                                  + " (a move name is in capitals)")
                 if r.get("vs") not in (None, "trainer", "wild", "any"):
                     probs.append(f"setup[{i}].vs must be trainer/wild/any")
@@ -1407,10 +1408,18 @@ SETUP_DOC = """  setup: list of deliberate status-move rules, each:
      to fights where our best damage move is PHYSICAL — a Defense-drop
      like TAIL_WHIP does nothing for a special move like BUBBLE)
     (A MOVE CLASS IS A DECISION, A MOVE NAME IS ONE POKEMON. "move" may be
-     a class in lower case instead of a name: "sleep", "paralyze",
-     "confuse", "poison" or "accuracy_down" — whichever move the Pokemon
-     in the fight knows that puts that on the foe, the surest of them when
-     it knows two. A rule naming SLEEP_POWDER does nothing for a party
+     a class in lower case instead of a name — whichever move the Pokemon
+     in the fight knows that does that (the surest, when it knows two
+     such moves). The classes:
+       on the foe: "sleep", "paralyze", "confuse", "poison",
+                   "lower_attack", "lower_defense", "lower_speed",
+                   "lower_accuracy"
+       on itself:  "raise_attack", "raise_defense", "raise_special",
+                   "raise_speed", "raise_evasion"
+     A stat class takes a sharp (two-stage) move before a mild one; add
+     "_sharply" ("raise_attack_sharply", "lower_defense_sharply", ...)
+     and it takes ONLY a sharp one, so a rule can spend a turn on a big
+     change and never on a small one. A rule naming SLEEP_POWDER does nothing for a party
      member that knows a different sleep move; a rule naming "sleep" works
      for both, and for whoever joins the party later. max_uses and the
      first_turns window are counted per class.)
@@ -1445,13 +1454,33 @@ SETUP_DOC = """  setup: list of deliberate status-move rules, each:
 # (the same field foe_carries reads), exactly as an item class resolves
 # against the bag. Status moves only: a damaging move with a side effect is
 # a damaging move.
+# ...AND STAT MOVES BY STAT (user, 2026-10-01: "we have a rule just for
+# growth? shouldnt we have stat move categories?"). A class lists its effects
+# in order of preference, so "raise_attack" reaches for the sharp boost first;
+# the _sharply classes take ONLY a two-stage move, which is how a policy says
+# "a sharp drop is worth the turn, a petty one is not".
 MOVE_CLASSES = {
-    "sleep": "SLEEP_EFFECT",
-    "paralyze": "PARALYZE_EFFECT",
-    "confuse": "CONFUSION_EFFECT",
-    "poison": "POISON_EFFECT",
-    "accuracy_down": "ACCURACY_DOWN1_EFFECT",
+    "sleep": ("SLEEP_EFFECT",),
+    "paralyze": ("PARALYZE_EFFECT",),
+    "confuse": ("CONFUSION_EFFECT",),
+    "poison": ("POISON_EFFECT",),
+    "raise_attack": ("ATTACK_UP2_EFFECT", "ATTACK_UP1_EFFECT"),
+    "raise_defense": ("DEFENSE_UP2_EFFECT", "DEFENSE_UP1_EFFECT"),
+    "raise_special": ("SPECIAL_UP2_EFFECT", "SPECIAL_UP1_EFFECT"),
+    "raise_speed": ("SPEED_UP2_EFFECT", "SPEED_UP1_EFFECT"),
+    "raise_evasion": ("EVASION_UP2_EFFECT", "EVASION_UP1_EFFECT"),
+    "raise_attack_sharply": ("ATTACK_UP2_EFFECT",),
+    "raise_defense_sharply": ("DEFENSE_UP2_EFFECT",),
+    "raise_special_sharply": ("SPECIAL_UP2_EFFECT",),
+    "raise_speed_sharply": ("SPEED_UP2_EFFECT",),
+    "lower_attack": ("ATTACK_DOWN2_EFFECT", "ATTACK_DOWN1_EFFECT"),
+    "lower_defense": ("DEFENSE_DOWN2_EFFECT", "DEFENSE_DOWN1_EFFECT"),
+    "lower_speed": ("SPEED_DOWN2_EFFECT", "SPEED_DOWN1_EFFECT"),
+    "lower_accuracy": ("ACCURACY_DOWN2_EFFECT", "ACCURACY_DOWN1_EFFECT"),
+    "lower_defense_sharply": ("DEFENSE_DOWN2_EFFECT",),
 }
+# the first name this class had (c0438ca); still read, no longer printed
+MOVE_CLASSES["accuracy_down"] = MOVE_CLASSES["lower_accuracy"]
 
 
 def setup_move(name, moves):
@@ -1459,13 +1488,17 @@ def setup_move(name, moves):
     the named one, or for a class the surest status move with that effect."""
     n = str(name or "")
     if n in MOVE_CLASSES:
-        eff = MOVE_CLASSES[n]
+        effs = list(MOVE_CLASSES[n])
         cand = [m for m in moves or []
                 if not m.get("power")
-                and str(m.get("effect") or "").upper() == eff]
+                and str(m.get("effect") or "").upper() in effs]
         if not cand:
             return None
-        return max(cand, key=lambda m: (m.get("accuracy") or 0, m.get("pp") or 0))
+        # the class's own order first (a sharp boost before a mild one),
+        # then the surest, then the one with more PP
+        return min(cand, key=lambda m: (effs.index(str(m.get("effect")).upper()),
+                                        -(m.get("accuracy") or 0),
+                                        -(m.get("pp") or 0)))
     return next((m for m in moves or [] if m.get("id") == n), None)
 
 
