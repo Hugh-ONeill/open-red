@@ -61,6 +61,7 @@ TRACK = (51, 51, 47)
 YELLOW = (230, 200, 90)
 RED = (227, 138, 115)
 CARD = (224, 228, 208)
+BADGE_TILE = (40, 45, 42)          # an earned badge's tile: a step up from the background
 HPLINE = (200, 206, 196)           # the HP bar's outline, light on the dark card
 FRAME = (104, 116, 104)            # the border tiles: quiet, the game's own green-gray
 
@@ -234,8 +235,8 @@ class Painter:
         self.text(img, right - 8 * len(s) - pad, y, s, col)
 
     # THE TRAINER CARD'S BADGES: badges.png is 8 stacked [leader face, badge]
-    # 16x16 pairs in the game's order. Earned: the badge on a light tile, as
-    # the sprite cards; not yet: the badge's outline, faint, so the row reads
+    # 16x16 pairs in the game's order. Earned: the badge on a dark tile, its
+    # shades turned over to read on it; not yet: the outline, faint, so the row reads
     # as eight slots the way the card does.
     BADGE_ORDER = ["BOULDERBADGE", "CASCADEBADGE", "THUNDERBADGE", "RAINBOWBADGE",
                    "SOULBADGE", "MARSHBADGE", "VOLCANOBADGE", "EARTHBADGE"]
@@ -245,13 +246,28 @@ class Painter:
         if key not in self.glyphs:
             sheet = Image.open(ASSETS + "trainer_card/badges.png").convert("L")
             b = sheet.crop((0, i * 32 + 16, 16, i * 32 + 32))
-            tile = Image.new("RGB", (16, 16), CARD if earned else BG)
+            # white is both the badge's background and its highlights: the
+            # background is the white reachable from the edge (flood fill)
+            outside, todo = set(), [(x, y) for x in range(16) for y in (0, 15)] + \
+                [(x, y) for y in range(16) for x in (0, 15)]
+            while todo:
+                x, y = todo.pop()
+                if (x, y) in outside or not (0 <= x < 16 and 0 <= y < 16) or b.getpixel((x, y)) < 250:
+                    continue
+                outside.add((x, y))
+                todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+            # on a dark tile the shades turn over: the black outline is drawn
+            # light, the grays stay mid-tones, the highlights stay bright
+            shade = {0: (210, 214, 204), 85: (112, 120, 112), 170: (168, 176, 164), 255: (236, 236, 230)}
+            tile = Image.new("RGB", (16, 16), BADGE_TILE if earned else BG)
             for y in range(16):
                 for x in range(16):
+                    if (x, y) in outside:
+                        continue
                     v = b.getpixel((x, y))
-                    if earned and v < 250:
-                        tile.putpixel((x, y), (int(v * 0.88 + 20),) * 3)
-                    elif not earned and v < 40:
+                    if earned:
+                        tile.putpixel((x, y), shade[min(shade, key=lambda k: abs(k - v))])
+                    elif v < 40:
                         tile.putpixel((x, y), (62, 68, 64))
             self.glyphs[key] = tile
         return self.glyphs[key]
