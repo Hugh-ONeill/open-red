@@ -322,6 +322,14 @@ def chat(msgs, model, retries=2, think=False, temp=None):
     A timeout is retried at most once, since it has already cost its full
     300 seconds by the time we see it.
     """
+    # NO MODEL, NO CALL. A savepoint arena hands its executor no model on
+    # purpose (it never asks the model anything), and every question that
+    # still reached here went to the server as {"model": ""}, came back 400
+    # "model is required", and was retried twice before its caller fell back:
+    # six seconds a question, every learn-move offer in every trial
+    # (2026-10-01). The caller's fallback is the answer; give it at once.
+    if not model:
+        raise ValueError("no model named for this call")
     last, attempt = None, 0
     while True:
         try:
@@ -335,8 +343,18 @@ def chat(msgs, model, retries=2, think=False, temp=None):
             if attempt >= budget:
                 break
             wait = 2 * (attempt + 1)
-            print(f"[ollama] {type(e).__name__}: {e} — retrying in {wait}s "
-                  f"(retry {attempt + 1} of {budget})")
+            # WHAT THE SERVER SAID. A 400 is answered in microseconds, before
+            # any model loads: the request itself was refused, and only the
+            # body says which part of it (2026-10-01: Celadon's arena calls).
+            _why = ""
+            if hasattr(e, "read"):
+                try:
+                    _why = " — the server said: " + e.read().decode(
+                        "utf-8", "replace")[:300]
+                except Exception:
+                    _why = ""
+            print(f"[ollama] {type(e).__name__}: {e}{_why} — retrying in "
+                  f"{wait}s (retry {attempt + 1} of {budget})")
             time.sleep(wait)
             attempt += 1
     raise last
