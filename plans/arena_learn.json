@@ -1,0 +1,212 @@
+{
+ "catch_abra": {
+  "BUTTERFREE|SUPERSONIC": {
+   "forget": null,
+   "level": 21,
+   "why": "Sleep Powder is essential for catching Abra, and the other status moves are redundant compared to the utility of Confusion."
+  },
+  "CHARMELEON|RAGE": {
+   "forget": null,
+   "level": 24,
+   "why": "Rage is a low-damage move and not useful for catching or battling Abra."
+  }
+ },
+ "celadon_ideal": {
+  "FEAROW|MIRROR_MOVE": {
+   "forget": null,
+   "level": 25,
+   "why": "Growl and Leer are useless for a damage-dealer, and Mirror Move is too situational compared to Peck."
+  },
+  "IVYSAUR|RAZOR_LEAF": {
+   "forget": "VINE_WHIP",
+   "level": 30,
+   "why": "Razor Leaf is a significant upgrade over Vine Whip in terms of power and accuracy."
+  }
+ },
+ "celadon_real": {
+  "KADABRA|PSYCHIC_M": {
+   "forget": "CONFUSION",
+   "level": 38,
+   "why": "Psychic is a massive upgrade over both Confusion and Psybeam."
+  },
+  "KADABRA|REFLECT": {
+   "forget": "CONFUSION",
+   "level": 42,
+   "why": "Confusion is redundant and weaker than Psybeam."
+  }
+ },
+ "cerulean_ideal": {
+  "IVYSAUR|POISONPOWDER": {
+   "forget": "GROWL",
+   "level": 22,
+   "why": "Tackle and Growl are weak early-game moves; PoisonPowder provides useful status utility."
+  }
+ },
+ "cerulean_real": {
+  "IVYSAUR|POISONPOWDER": {
+   "forget": "GROWL",
+   "level": 22,
+   "why": "Tackle and Growl are weak early-game moves; PoisonPowder provides useful utility for the gym."
+  }
+ },
+ "cinnabar_ideal": {
+  "DUGTRIO|EARTHQUAKE": {
+   "forget": "GROWL",
+   "level": 47,
+   "why": "Earthquake is a massive upgrade over Dig and Growl is useless in battle."
+  },
+  "VENUSAUR|GROWTH": {
+   "forget": null,
+   "level": 43,
+   "why": "Growth is a setup move that isn't necessary for this battle, and the current moveset provides better immediate utility and damage."
+  }
+ },
+ "cinnabar_real": {
+  "LAPRAS|HYDRO_PUMP": {
+   "forget": "MIST",
+   "level": 46,
+   "why": "Mist is the least useful move for a gym battle compared to high-damage attacks and status effects."
+  }
+ },
+ "e4_ideal": {
+  "JOLTEON|THUNDER": {
+   "forget": null,
+   "level": 54,
+   "why": "Thunder has lower accuracy and PP than Thunderbolt, and Jolteon's other attacking moves are very weak."
+  }
+ },
+ "e4_real": {
+  "MACHOKE|SUBMISSION": {
+   "forget": "LEER",
+   "level": 52,
+   "why": "Submission provides much-needed high damage output compared to Leer and Focus Energy."
+  },
+  "PIDGEOT|MIRROR_MOVE": {
+   "forget": null,
+   "level": 54,
+   "why": "Mirror Move is situational and generally less useful than the current offensive and defensive kit for the Elite Four."
+  }
+ },
+ "fuchsia_ideal": {
+  "KADABRA|REFLECT": {
+   "forget": "DISABLE",
+   "level": 42,
+   "why": "Disable is the least useful move for a special attacker in the Fuchsia Gym."
+  },
+  "VENUSAUR|GROWTH": {
+   "forget": null,
+   "level": 43,
+   "why": "Growth is a setup move that is less useful than the current offensive and utility moves for this gym battle."
+  }
+ },
+ "fuchsia_real": {
+  "GRAVELER|EXPLOSION": {
+   "forget": "SELFDESTRUCT",
+   "level": 43,
+   "why": "Explosion is a direct upgrade over SelfDestruct for maximum damage."
+  },
+  "LAPRAS|HYDRO_PUMP": {
+   "forget": "MIST",
+   "level": 46,
+   "why": "Mist is the least useful move for combat against Koga's poison team."
+  }
+ },
+ "saffron_ideal": {
+  "KADABRA|REFLECT": {
+   "forget": "DISABLE",
+   "level": 42,
+   "why": "Disable is the least useful move for a special attacker facing Sabrina's psychic types."
+  },
+  "SNORLAX|HARDEN": {
+   "forget": null,
+   "level": 41,
+   "why": "Harden is a useless status move compared to Snorlax's powerful attacking and recovery moves."
+  },
+  "VENUSAUR|GROWTH": {
+   "forget": null,
+   "level": 43,
+   "why": "Growth is a setup move that is less useful in a gym battle than immediate damage or status effects."
+  }
+ },
+ "saffron_real": {
+  "VENUSAUR|GROWTH": {
+   "forget": null,
+   "level": 43,
+   "why": "Growth is a situational buff and not necessary for the Saffron Gym battle compared to current attacks."
+  }
+ },
+ "train_early": {
+  "IVYSAUR|POISONPOWDER": {
+   "forget": "GROWL",
+   "level": 22,
+   "why": "Tackle and Growl are weak early-game moves; PoisonPowder provides useful utility and status damage."
+  }
+ },
+ "train_late": {
+  "PIDGEOT|MIRROR_MOVE": {
+   "forget": null,
+   "level": 54,
+   "why": "Mirror Move is too situational and lacks utility compared to Pidgeot's current move set for general combat."
+  }
+ },
+ "train_mid": {
+  "CHARMELEON|SLASH": {
+   "forget": "GROWL",
+   "level": 33,
+   "why": "Slash is significantly more powerful than Growl, Leer, or Rage for battling."
+  },
+  "PIDGEOTTO|WING_ATTACK": {
+   "forget": "SAND_ATTACK",
+   "level": 31,
+   "why": "Wing Attack is a much stronger STAB move than Gust or Quick Attack for fighting Brock's Geodude/Onix if needed, and Sand Attack is less useful than a reliable attack."
+  }
+ },
+ "train_outleveled": {
+  "GEODUDE|HARDEN": {
+   "forget": null,
+   "level": 26,
+   "why": "Harden is redundant given Defense Curl and provides little offensive value for a gym battle."
+  },
+  "PIDGEOTTO|WING_ATTACK": {
+   "forget": "GUST",
+   "level": 31,
+   "why": "Wing Attack is a much stronger STAB move than Gust or Quick Attack."
+  }
+ },
+ "vermilion_ideal": {
+  "IVYSAUR|POISONPOWDER": {
+   "forget": "TACKLE",
+   "level": 22,
+   "why": "Tackle is redundant and significantly weaker than Body Slam."
+  }
+ },
+ "vermilion_real": {
+  "GEODUDE|HARDEN": {
+   "forget": null,
+   "level": 26,
+   "why": "Harden is a status move that provides no offensive benefit for the gym battle."
+  },
+  "IVYSAUR|RAZOR_LEAF": {
+   "forget": "VINE_WHIP",
+   "level": 30,
+   "why": "Razor Leaf is a significant upgrade over Vine Whip in terms of power and accuracy."
+  },
+  "KADABRA|PSYBEAM": {
+   "forget": "CONFUSION",
+   "level": 27,
+   "why": "Psybeam is a direct upgrade over Confusion in terms of power."
+  }
+ },
+ "viridian_ideal": {
+  "LAPRAS|HYDRO_PUMP": {
+   "forget": "MIST",
+   "level": 46,
+   "why": "Mist is the least useful move for a gym battle compared to high-power attacks and status effects."
+  },
+  "SNORLAX|DOUBLE_EDGE": {
+   "forget": "HARDEN",
+   "level": 48,
+   "why": "Harden is a useless move in competitive or late-game combat."
+  }
+ }
+}

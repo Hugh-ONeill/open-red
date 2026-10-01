@@ -13742,14 +13742,26 @@ class Executor:
             shown = list(moves)
             new = str(ui.get("new_move") or "?")
             who = str(ui.get("learner") or "your Pokemon")
-        user = (f"{who}" + (f" ({_types})" if _types else "")
-                + f" is trying to learn {new}. It knows: "
-                + ", ".join(f"{i}={m}" for i, m in enumerate(shown, 1))
-                + f".\nWHAT YOU ARE TRYING TO DO RIGHT NOW: "
-                  f"{sg.get('goal_text') or sg.get('id') or 'make progress'}\n"
-                  "Which move should be forgotten for it, if any?")
+        user = Executor._forget_user(
+            who, _types, new, shown,
+            sg.get('goal_text') or sg.get('id') or 'make progress')
         choice = None
         why = ""
+        # A ROOM WITHOUT A MODEL READS ITS TABLE. A savepoint arena never asks
+        # the model (policy_author), and its learn offers are the same every
+        # trial; plans/arena_learn.json holds the model's own answer to each,
+        # asked once with this same question (tools/arena_learn_table.py).
+        # Keyed by species and the offered move; no row keeps the old moves.
+        _key = f"{_mon.get('species') or who}|{str(new).split(' ')[0]}"
+        if not self.model:
+            _row = (Executor.LEARN_TABLE or {}).get(_key)
+            if isinstance(_row, dict):
+                _f = _row.get("forget")
+                choice = str(_f) if _f and str(_f) in moves else None
+                why = "the room's table: " + str(_row.get("why") or "")[:180]
+            self.log("move_forget", subgoal=sg.get("id"), learner=who, new=new,
+                     forget=choice, why=why or "no model and no table row: kept")
+            return self._forget_press(obs, sg, moves, choice)
         try:
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.FORGET_SYS},
@@ -13771,6 +13783,24 @@ class Executor:
             self.log("forget_chat_error", subgoal=sg.get("id"), err=str(e))
         self.log("move_forget", subgoal=sg.get("id"), learner=who, new=new,
                  forget=choice, why=why)
+        return self._forget_press(obs, sg, moves, choice)
+
+    # plans/arena_learn.json's rows for the room being played (policy_author)
+    LEARN_TABLE: dict = {}
+
+    @staticmethod
+    def _forget_user(who, types, new, shown, goal) -> str:
+        """The learn-move question, as the model is asked it — live, and once
+        per arena offer by tools/arena_learn_table.py."""
+        return (f"{who}" + (f" ({types})" if types else "")
+                + f" is trying to learn {new}. It knows: "
+                + ", ".join(f"{i}={m}" for i, m in enumerate(shown, 1))
+                + f".\nWHAT YOU ARE TRYING TO DO RIGHT NOW: {goal}\n"
+                  "Which move should be forgotten for it, if any?")
+
+    def _forget_press(self, obs, sg, moves, choice):
+        """Carry a learn-move answer out: forget `choice`, or keep the old
+        moves when it is None."""
         if choice:
             idx = moves.index(choice) + 1
             r = self.b.send("menu", index=idx)

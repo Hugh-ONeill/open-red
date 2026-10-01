@@ -2492,6 +2492,13 @@ def main():
         # rest meant every catch in a catch room put its nickname to it, and
         # beside a live chain each of those waited out an ollama timeout
         # (2026-09-16). The authoring rounds call the model themselves.
+        # ...BUT ITS LEARN-MOVE OFFERS ARE THE MODEL'S, ASKED ONCE: the
+        # room's rows of plans/arena_learn.json (tools/arena_learn_table.py)
+        try:
+            ex_mod.Executor.LEARN_TABLE = (json.loads(
+                (REPO / "plans/arena_learn.json").read_text()).get(name) or {})
+        except (OSError, ValueError):
+            ex_mod.Executor.LEARN_TABLE = {}
         g = Gym(args.plan, args.run_id,
                 model=(args.model if kind == "brock" else ""),
                 from_save=save, arena=kind, trials=args.trials,
