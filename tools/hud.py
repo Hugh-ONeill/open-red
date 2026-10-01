@@ -61,6 +61,7 @@ TRACK = (51, 51, 47)
 YELLOW = (230, 200, 90)
 RED = (227, 138, 115)
 CARD = (224, 228, 208)
+FRAME = (104, 116, 104)            # the border tiles: quiet, the game's own green-gray
 
 W, ROW, TOP = 248, 80, 16          # the team column (a card: pic, lines, HP, then two lines of moves)
 COLS = 46                          # the status column, in 8px characters, when
@@ -130,6 +131,50 @@ class Painter:
             else:
                 self.glyphs[ch] = []
         return self.glyphs[ch]
+
+    # THE CARTRIDGE'S OWN BOX: the text-box border tiles ($79-$7E in
+    # font_extra.png, charmap.asm), the frame of every dialogue and menu.
+    BORDER = {"tl": 0x79, "h": 0x7A, "tr": 0x7B, "v": 0x7C, "bl": 0x7D, "br": 0x7E}
+
+    def extra(self, code):
+        key = ("x", code)
+        if key not in self.glyphs:
+            if not hasattr(self, "font_extra"):
+                self.font_extra = Image.open(ASSETS + "fonts/font_extra.png")
+            k = code - 0x60
+            g = self.font_extra.crop(((k % 16) * 8, (k // 16) * 8, (k % 16) * 8 + 8, (k // 16) * 8 + 8))
+            self.glyphs[key] = [(x, y) for y in range(8) for x in range(8) if g.getpixel((x, y)) != 0]
+        return self.glyphs[key]
+
+    def tile(self, img, x, y, code, col):
+        for gx, gy in self.extra(code):
+            px, py = x + gx, y + gy
+            if 0 <= px < img.width and 0 <= py < img.height:
+                img.putpixel((px, py), col)
+
+    def box(self, img, x, y, w, h, col=None, title=None, title_col=None):
+        """A Game Boy text box, w x h pixels at (x, y), drawn with the border
+        tiles; an edge that is not a whole number of tiles ends on a tile
+        pulled back to meet the corner. A title sits in the top edge, the way
+        a menu labels its box."""
+        col = col or FRAME
+        b = self.BORDER
+        for xx in list(range(x + 8, x + w - 8, 8)) + [x + w - 16]:
+            self.tile(img, xx, y, b["h"], col)
+            self.tile(img, xx, y + h - 8, b["h"], col)
+        for yy in list(range(y + 8, y + h - 8, 8)) + [y + h - 16]:
+            self.tile(img, x, yy, b["v"], col)
+            self.tile(img, x + w - 8, yy, b["v"], col)
+        self.tile(img, x, y, b["tl"], col)
+        self.tile(img, x + w - 8, y, b["tr"], col)
+        self.tile(img, x, y + h - 8, b["bl"], col)
+        self.tile(img, x + w - 8, y + h - 8, b["br"], col)
+        if title:
+            tw = 8 * len(title) + 8
+            for yy in range(y, y + 8):
+                for xx in range(x + 12, min(x + 12 + tw, x + w - 12)):
+                    img.putpixel((xx, yy), BG)
+            self.text(img, x + 16, y, title, title_col or ACCENT)
 
     def text(self, img, x, y, s, col=FG):
         for ch in s:
@@ -425,91 +470,89 @@ def draw_activity(img, painter, y, act):
 TONE = {"good": ACCENT, "bad": RED, "think": YELLOW, "info": FG}
 
 
+def bottom_panel(img, painter, y0, height, cols, title, title_col, blocks, right=None):
+    """The column's lower panel in its own text box: `blocks` are lists of
+    (stamp, text, colour) rows, one list per item so none is cut in half;
+    as many as fit, newest at the bottom. The title sits in the top border,
+    `right` (if any) at the top border's right end."""
+    room = (height - y0 - 24) // LINE
+    if room < 2:
+        return
+    shown = []
+    for block in reversed(blocks):
+        if len(shown) + len(block) > room:
+            break
+        shown = block + shown
+    bh = LINE * max(len(shown), 1) + 24
+    by = height - bh
+    painter.box(img, 0, by, img.width, bh, title=title, title_col=title_col)
+    if right:
+        tx = img.width - 12 - 8 * len(right) - 4
+        for yy in range(by, by + 8):
+            for xx in range(tx - 4, img.width - 12):
+                img.putpixel((xx, yy), BG)
+        painter.text(img, tx, by, right, DIM)
+    y = by + 12
+    if not shown:
+        return
+    for stamp, text, col in shown:
+        if stamp:
+            painter.text(img, 12, y, stamp, DIM)
+            painter.text(img, 12 + 6 * 8, y, text, col)
+        else:
+            painter.text(img, 12 if stamp is None else 12 + 6 * 8, y, text, col)
+        y += LINE
+
+
+def _stamped(entries, cols, max_lines=None):
+    blocks = []
+    for e in entries:
+        stamp = time.strftime("%H:%M", time.localtime(e.get("t", 0)))
+        wrapped = textwrap.wrap(e.get("text", ""), cols - 9) or [""]
+        if max_lines:
+            wrapped = wrapped[:max_lines]
+        col = TONE.get(e.get("tone"), FG)
+        blocks.append([(stamp, wrapped[0], col)] + [("", w, col) for w in wrapped[1:]])
+    return blocks
+
+
 def draw_live(img, painter, y0, height, cols, lc):
     """The words of the call in flight (brock_probe streams them to
     run/model_live.txt, or thinking_live.txt for a thinking call), newest
     lines at the bottom, headed by what kind of call it is."""
     text, started = lc["text"], lc["started"]
-    if height - y0 < 5 * LINE:
-        return
     lines = []
     for para in text.splitlines():
         if re.match(r"^\s*```\s*\w*\s*$", para):      # a code fence is not content
             continue
         para = re.sub(r"[`*#]+", "", para)
         if para.strip():
-            lines += textwrap.wrap(para.strip(), cols - 1)
-    room = (height - y0 - LINE - 10) // LINE
-    shown = lines[-room:] if room > 0 else []
-    y = height - 4 - LINE * max(len(shown), 1) - LINE - 4
+            lines += textwrap.wrap(para.strip(), cols - 3)
     who = (lc.get("who") or "").upper()
     kind = ("THINKING" if lc.get("think") else
             "DRAFTING" if "AUTHOR A PLAN" in who else
             "REVIEWING" if "REVIEW" in who else
             "PICKING" if "PICK" in who or "JUDGE" in who else "WRITING")
-    painter.text(img, 4, y, kind + ", LIVE", YELLOW)
-    painter.text_right(img, y, "%s  %d chars" % (clock(time.time() - started), len(text)), DIM,
-                       right=img.width)
-    y += LINE + 2
-    for line in shown:
-        painter.text(img, 12, y, line, FG)
-        y += LINE
+    bottom_panel(img, painter, y0, height, cols, kind + ", LIVE", YELLOW,
+                 [[(None, l, FG)] for l in lines],
+                 right="%s %d chars" % (clock(time.time() - started), len(text)))
 
 
 def draw_author_log(img, painter, y0, height, cols, log):
     """While a plan is written: the author's own narration from chain.log
     (rounds the validator sent back and why, what the review changed), newest
     at the bottom. The ollama line above says how far the current call is."""
-    if height - y0 < 5 * LINE:
-        return
-    blocks = []
-    for e in log:
-        stamp = time.strftime("%H:%M", time.localtime(e.get("t", 0)))
-        wrapped = textwrap.wrap(e.get("text", ""), cols - 7) or [""]
-        col = TONE.get(e.get("tone"), FG)
-        blocks.append([(stamp, wrapped[0], col)] + [("", w, col) for w in wrapped[1:4]])
-    room = (height - y0 - LINE - 10) // LINE
-    shown = []
-    for block in reversed(blocks):
-        if len(shown) + len(block) > room:
-            break
-        shown = block + shown
-    y = height - 4 - LINE * max(len(shown), 1) - LINE - 4
-    painter.text(img, 4, y, "AUTHOR AT WORK", YELLOW)
-    y += LINE + 2
-    for stamp, text, col in shown:
-        painter.text(img, 12, y, stamp, DIM)
-        painter.text(img, 12 + 6 * 8, y, text, col)
-        y += LINE
+    bottom_panel(img, painter, y0, height, cols, "AUTHOR AT WORK", YELLOW,
+                 _stamped(log, cols, max_lines=4))
 
 
 def draw_events(img, painter, y0, height, cols):
     """The event feed (tools/events.py) in the column's free space, newest at
     the bottom like a chat, as many as fit."""
-    if height - y0 < 5 * LINE:
-        return
-    blocks = []                       # one block per event, so none is cut in half
-    for e in feed.last_events(40, min_level=2):
-        stamp = time.strftime("%H:%M", time.localtime(e.get("t", 0)))
-        wrapped = textwrap.wrap(e.get("text", ""), cols - 7) or [""]
-        col = TONE.get(e.get("tone"), FG)
-        blocks.append([(stamp, wrapped[0], col)] + [("", w, col) for w in wrapped[1:]])
-    room = (height - y0 - LINE - 10) // LINE
-    shown = []
-    for block in reversed(blocks):
-        if len(shown) + len(block) > room:
-            break
-        shown = block + shown
-    y = height - 4 - LINE * max(len(shown), 1) - LINE - 4
-    painter.text(img, 4, y, "EVENTS", ACCENT)
-    if not shown:
-        painter.text(img, 12, y + LINE + 2, "none yet (tools/events.py --follow)", DIM)
-        return
-    y += LINE + 2
-    for stamp, text, col in shown:
-        painter.text(img, 12, y, stamp, DIM)
-        painter.text(img, 12 + 6 * 8, y, text, col)
-        y += LINE
+    blocks = _stamped(feed.last_events(40, min_level=2), cols)
+    if not blocks:
+        blocks = [[(None, "none yet (tools/events.py --follow)", DIM)]]
+    bottom_panel(img, painter, y0, height, cols, "EVENTS", ACCENT, blocks)
 
 
 def draw_authoring(img, painter, y, height, cols, phase):
@@ -627,12 +670,23 @@ def render_status(text, painter, height, cols=COLS, act=None):
 GUTTER = 8
 
 
+FR = 8                                   # one border tile
+
+
+def framed(inner, painter, title=None):
+    """A panel inside the cartridge's text-box border, one tile all round."""
+    out = Image.new("RGB", (inner.width + 2 * FR, inner.height + 2 * FR), BG)
+    out.paste(inner, (FR, FR))
+    painter.box(out, 0, 0, out.width, out.height, title=title)
+    return out
+
+
 def side_width(cols):
-    return W + GUTTER + cols * 8 + 8     # team | status
+    return (W + 2 * FR) + GUTTER + (cols * 8 + 8 + 2 * FR)     # [team] [status]
 
 
 def stack_width(cols):
-    return max(W, cols * 8 + 8)          # team over status
+    return max(W, cols * 8 + 8) + 2 * FR                      # [team] over [status]
 
 
 def render(obs, status_text, painter, layout="side", height=None, width=None,
@@ -647,27 +701,32 @@ def render(obs, status_text, painter, layout="side", height=None, width=None,
         # not change while a plan is written)
         k = int(layout[3:] or 2)
         start = ((obs or {}).get("map") or {}).get("id")
-        tm = townmap.render(feed.read_phase() or {}, start, k)
-        mw = tm.width + 8
-        cols = max(MIN_COLS, ((width or mw + GUTTER + COLS * 8 + 8) - mw - GUTTER - 8) // 8)
+        tm = framed(townmap.render(feed.read_phase() or {}, start, k), painter, "KANTO")
+        mw = tm.width + 4
+        rest = (width or mw + GUTTER + COLS * 8 + 8 + 2 * FR) - mw - GUTTER
+        cols = max(MIN_COLS, (rest - 8 - 2 * FR) // 8)
         h = max(tm.height + 8, height or 0)
-        col = render_status(status_text, painter, h, cols, act)
-        img = Image.new("RGB", (max(mw + GUTTER + cols * 8 + 8, width or 0), h), BG)
+        col = framed(render_status(status_text, painter, h - 2 * FR, cols, act), painter)
+        img = Image.new("RGB", (max(mw + GUTTER + col.width, width or 0), h), BG)
         img.paste(tm, (4, (h - tm.height) // 2))
         img.paste(col, (mw + GUTTER, 0))
         return img
-    team = render_team(obs, painter)
     if layout == "stack":
-        cols = max(MIN_COLS, ((width or stack_width(COLS)) - 8) // 8)
+        team = framed(render_team(obs, painter), painter)
+        cols = max(MIN_COLS, ((width or stack_width(COLS)) - 8 - 2 * FR) // 8)
         rest = max((height or 0) - team.height, 30 * LINE)
-        col = render_status(status_text, painter, rest, cols, act)
+        col = framed(render_status(status_text, painter, rest - 2 * FR, cols, act), painter)
         img = Image.new("RGB", (max(stack_width(cols), width or 0), team.height + col.height), BG)
         img.paste(team, (0, 0))
         img.paste(col, (0, team.height))
         return img
-    cols = max(MIN_COLS, ((width or side_width(COLS)) - W - GUTTER - 8) // 8)
-    h = max(team.height, height or 0)
-    col = render_status(status_text, painter, h, cols, act)
+    inner_team = render_team(obs, painter)
+    cols = max(MIN_COLS, ((width or side_width(COLS)) - (W + 2 * FR) - GUTTER - 8 - 2 * FR) // 8)
+    h = max(inner_team.height + 2 * FR, height or 0)
+    team_in = Image.new("RGB", (inner_team.width, h - 2 * FR), BG)
+    team_in.paste(inner_team, (0, 0))
+    team = framed(team_in, painter)
+    col = framed(render_status(status_text, painter, h - 2 * FR, cols, act), painter)
     img = Image.new("RGB", (max(side_width(cols), width or 0), h), BG)
     img.paste(team, (0, 0))
     img.paste(col, (team.width + GUTTER, 0))
@@ -694,8 +753,8 @@ def fit_map(win):
     xpx, ypx = win
     best = None
     for k in (2, 1):
-        width = townmap.W * k + 8 + GUTTER + MIN_COLS * 8 + 8
-        min_h = max(townmap.H * k + 8, 30 * LINE)
+        width = townmap.W * k + 2 * FR + 4 + GUTTER + MIN_COLS * 8 + 8 + 2 * FR
+        min_h = max(townmap.H * k + 2 * FR + 8, 30 * LINE)
         scale = min(xpx // width, ypx // min_h)
         if scale >= 1:
             key = (k * scale, scale)
@@ -773,7 +832,7 @@ def main():
     painter = Painter()
 
     def frame_bytes(obs, status_text, win=None, act=None):
-        team_h = TOP + ROW * 7 + 12
+        team_h = TOP + ROW * 7 + 12 + 2 * FR
         phase = feed.read_phase() or {}
         fitted = fit_map(win) if (win and phase.get("phase") == "authoring") else None
         layout, scale, height, width = fitted or fit(win, team_h)
