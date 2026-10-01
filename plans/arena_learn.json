@@ -3,24 +3,19 @@
   "BUTTERFREE|SUPERSONIC": {
    "forget": null,
    "level": 21,
-   "why": "Sleep Powder is essential for catching Abra, and status moves are more valuable than a low-accuracy move like Supersonic."
+   "why": "Sleep Powder is essential for catching Abra, and the other status moves are redundant compared to the utility of Confusion."
   },
   "CHARMELEON|RAGE": {
    "forget": null,
    "level": 24,
-   "why": "Rage is not useful for catching Abra, and Growl/Leer are redundant; keeping Scratch and Ember is priority."
+   "why": "Rage is not useful for catching Abra, and Growl/Leer are redundant; Scratch and Ember are necessary for combat."
   }
  },
  "celadon_ideal": {
-  "FEAROW|MIRROR_MOVE": {
-   "forget": "GROWL",
-   "level": 25,
-   "why": "Growl and Leer are useless for attacking the gym's grass types; Mirror Move is more versatile."
-  },
-  "IVYSAUR|RAZOR_LEAF": {
-   "forget": "VINE_WHIP",
-   "level": 30,
-   "why": "Razor Leaf is a significant upgrade over Vine Whip in terms of power and accuracy."
+  "FEAROW|FURY_ATTACK": {
+   "forget": null,
+   "level": 15,
+   "why": "Fury Attack is too weak compared to Peck, and Leer/Growl are less useful than keeping a balanced set or simply not replacing them with a low-power move."
   }
  },
  "celadon_real": {
@@ -30,26 +25,19 @@
    "why": "Bite provides much higher power and utility than Tackle."
   },
   "GRAVELER|EXPLOSION": {
-   "forget": null,
+   "forget": "MEGA_PUNCH",
    "level": 43,
-   "why": "Explosion is redundant since it already knows Self-Destruct, and Self-Destruct has higher PP."
+   "why": "Explosion is slightly stronger than Self-Destruct, but keeping both is redundant; Mega Punch is less useful than Earthquake and Rock Throw."
   },
   "KADABRA|PSYCHIC_M": {
    "forget": "DISABLE",
    "level": 38,
-   "why": "Psychic is a massive upgrade over Psybeam for dealing with Erika's grass types."
+   "why": "Psychic is a massive upgrade over Psybeam for dealing with Erika's gym."
   },
   "PIDGEOTTO|AGILITY": {
    "forget": null,
    "level": 40,
-   "why": "Agility is not useful for a gym battle against Erika's slow Grass types."
-  }
- },
- "cerulean_ideal": {
-  "IVYSAUR|POISONPOWDER": {
-   "forget": "TACKLE",
-   "level": 22,
-   "why": "Tackle is redundant since Vine Whip is stronger and more effective against the gym's water types."
+   "why": "Agility provides little value compared to the utility and damage of its current moveset for this gym."
   }
  },
  "cerulean_real": {
@@ -61,7 +49,7 @@
   "IVYSAUR|POISONPOWDER": {
    "forget": "GROWL",
    "level": 22,
-   "why": "Tackle and Growl are weak early-game moves; PoisonPowder provides useful status utility."
+   "why": "Tackle is redundant since Vine Whip is a stronger STAB move and Growl is less useful than a status effect."
   }
  },
  "cinnabar_ideal": {
@@ -73,28 +61,33 @@
   "VENUSAUR|GROWTH": {
    "forget": null,
    "level": 43,
-   "why": "Growth is a setup move that isn't necessary for the Cinnabar Gym battle, and the current moveset provides better immediate utility."
+   "why": "Growth is a setup move that is less useful than the current offensive and utility kit for this battle."
   }
  },
  "cinnabar_real": {
   "POLIWHIRL|HYDRO_PUMP": {
    "forget": null,
    "level": 49,
-   "why": "Hydro Pump has higher power but much lower PP than Surf, and Blizzard already provides high power coverage."
+   "why": "Hydro Pump has higher power than Surf but lower PP, and Surf is an essential HM; Blizzard and Body Slam provide better coverage than a second Water move."
   }
  },
  "e4_ideal": {
-  "JOLTEON|THUNDER": {
+  "LAPRAS|HYDRO_PUMP": {
    "forget": null,
-   "level": 54,
-   "why": "Thunder has lower accuracy and PP than Thunderbolt, and Jolteon's other attacking moves are very weak."
+   "level": 46,
+   "why": "Hydro Pump has very low PP and accuracy compared to Surf for a championship run."
+  },
+  "SNORLAX|DOUBLE_EDGE": {
+   "forget": "HYPER_BEAM",
+   "level": 48,
+   "why": "Double-Edge is a more reliable high-damage STAB move than Hyper Beam, which requires a recharge turn."
   }
  },
  "e4_late": {
   "PIDGEOT|MIRROR_MOVE": {
    "forget": null,
    "level": 54,
-   "why": "Mirror Move is too situational for the Elite Four compared to reliable damage and utility moves."
+   "why": "Mirror Move is too situational for the Elite Four compared to the existing utility and damage moves."
   },
   "VENUSAUR|SLEEP_POWDER": {
    "forget": "CUT",
@@ -106,24 +99,12 @@
   "PIDGEOT|MIRROR_MOVE": {
    "forget": null,
    "level": 54,
-   "why": "Mirror Move is too situational for the Elite Four compared to the current utility and damage moves."
+   "why": "Mirror Move is situational and not useful for the Elite Four compared to the current moveset."
   },
   "VENUSAUR|SLEEP_POWDER": {
    "forget": "CUT",
    "level": 55,
    "why": "Sleep Powder is essential for crowd control against the Elite Four, and Cut is a weak HM move."
-  }
- },
- "fuchsia_ideal": {
-  "KADABRA|REFLECT": {
-   "forget": "DISABLE",
-   "level": 42,
-   "why": "Disable is the least useful move for a special attacker in the Fuchsia Gym."
-  },
-  "VENUSAUR|GROWTH": {
-   "forget": null,
-   "level": 43,
-   "why": "Growth is a setup move that is less useful than the current offensive and utility kit for this gym."
   }
  },
  "fuchsia_real": {
@@ -132,6 +113,23 @@
    "level": 47,
    "why": "Earthquake is a massive upgrade over Dig as it doesn't require a charging turn."
   },
+  "FLAREON|FIRE_SPIN": {
+   "forget": null,
+   "level": 44,
+   "why": "Fire Spin is a weak move and Flareon already has strong Normal-type attacks for the gym."
+  },
+  "FLAREON|LEER": {
+   "forget": null,
+   "level": 42,
+   "why": "Leer is a status move that provides little value compared to the existing attacking moves."
+  },
+  "PIDGEOT|AGILITY": {
+   "forget": null,
+   "level": 44,
+   "why": "Agility provides little value compared to the utility and damage of the current moveset for this gym."
+  }
+ },
+ "saffron_real": {
   "FLAREON|FIRE_SPIN": {
    "forget": null,
    "level": 44,
@@ -145,60 +143,26 @@
   "PIDGEOT|AGILITY": {
    "forget": null,
    "level": 44,
-   "why": "Agility provides little benefit compared to the utility and damage of the current moveset."
-  }
- },
- "saffron_ideal": {
-  "KADABRA|REFLECT": {
-   "forget": "DISABLE",
-   "level": 42,
-   "why": "Disable is not useful for the Saffron Gym battle compared to the utility of Reflect."
-  },
-  "SNORLAX|HARDEN": {
-   "forget": null,
-   "level": 41,
-   "why": "Harden is a useless status move compared to Snorlax's powerful attacking and recovery moves."
+   "why": "Agility is not useful for the Saffron Gym battle compared to the current offensive moves."
   },
   "VENUSAUR|GROWTH": {
    "forget": null,
    "level": 43,
-   "why": "Growth is a setup move that is less useful than the current offensive and utility moves for this gym battle."
-  }
- },
- "saffron_real": {
-  "FLAREON|FIRE_SPIN": {
-   "forget": null,
-   "level": 44,
-   "why": "Fire Spin is a weak move and Flareon already has strong Normal-type attacks for the Saffron Gym."
-  },
-  "FLAREON|LEER": {
-   "forget": null,
-   "level": 42,
-   "why": "Leer is a status move that provides little value compared to the current attacking moveset."
-  },
-  "PIDGEOT|AGILITY": {
-   "forget": null,
-   "level": 44,
-   "why": "Agility provides little value compared to the utility of Whirlwind and the damage of Razor Wind for this fight."
-  },
-  "VENUSAUR|GROWTH": {
-   "forget": null,
-   "level": 43,
-   "why": "Growth is a situational buff and not as useful as the current offensive and utility kit for the Saffron Gym."
+   "why": "Growth is a situational buff and not necessary for the Saffron Gym fight compared to current utility and damage."
   }
  },
  "train_early": {
   "IVYSAUR|POISONPOWDER": {
    "forget": "GROWL",
    "level": 22,
-   "why": "Tackle and Growl are weak early-game moves; PoisonPowder adds utility and status damage."
+   "why": "Tackle and Growl are weak early-game moves; PoisonPowder provides useful status utility."
   }
  },
  "train_late": {
   "PIDGEOT|MIRROR_MOVE": {
    "forget": null,
    "level": 54,
-   "why": "Mirror Move is too situational compared to the utility and damage of the current set."
+   "why": "Mirror Move is too situational compared to the current utility and damage moves."
   }
  },
  "train_mid": {
@@ -210,14 +174,14 @@
   "PIDGEOTTO|WING_ATTACK": {
    "forget": "SAND_ATTACK",
    "level": 31,
-   "why": "Wing Attack is a much stronger STAB move than Gust or Quick Attack for fighting Rock-type gym leaders."
+   "why": "Wing Attack is a stronger STAB move than Gust and more reliable than Sand Attack for this battle."
   }
  },
  "train_outleveled": {
   "GEODUDE|HARDEN": {
    "forget": null,
    "level": 26,
-   "why": "Harden is redundant since Defense Curl provides a similar defensive boost and Geodude already has high natural defense."
+   "why": "Harden is redundant since Defense Curl already raises defense and Geodude already has high natural defense."
   },
   "PIDGEOTTO|WING_ATTACK": {
    "forget": "GUST",
@@ -243,19 +207,19 @@
   "LAPRAS|HYDRO_PUMP": {
    "forget": "MIST",
    "level": 46,
-   "why": "Hydro Pump is a massive upgrade in power over Mist, which is rarely useful in battle."
+   "why": "Hydro Pump provides massive offensive power, and Mist is the least useful move for a gym battle."
   },
   "SNORLAX|DOUBLE_EDGE": {
    "forget": "HARDEN",
    "level": 48,
-   "why": "Harden is a useless status move in a competitive battle."
+   "why": "Harden is a useless move in competitive or late-game combat."
   }
  },
  "viridian_real": {
   "POLIWHIRL|HYDRO_PUMP": {
    "forget": null,
    "level": 49,
-   "why": "Hydro Pump has lower PP and accuracy than Surf, and Blizzard already provides high power coverage."
+   "why": "Hydro Pump has higher power but lower PP than Surf, and Blizzard already provides high power coverage."
   }
  }
 }
