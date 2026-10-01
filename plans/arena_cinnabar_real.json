@@ -2,31 +2,31 @@
   "party": [
     {
       "species": "GRAVELER",
-      "level": 43,
+      "level": 60,
       "moves": [
-        "SELFDESTRUCT",
-        "HARDEN",
         "EARTHQUAKE",
-        "EXPLOSION"
+        "MEGA_PUNCH",
+        "EXPLOSION",
+        "STRENGTH"
       ],
       "nickname": "GRAVELER"
     },
     {
-      "species": "PIDGEOT",
-      "level": 48,
+      "species": "POLIWHIRL",
+      "level": 45,
       "moves": [
-        "QUICK_ATTACK",
-        "RAZOR_WIND",
-        "WING_ATTACK",
-        "DOUBLE_TEAM"
+        "BLIZZARD",
+        "SURF",
+        "HYPNOSIS",
+        "BODY_SLAM"
       ],
-      "nickname": "PIDGEOT"
+      "nickname": "POLIWHIRL"
     },
     {
       "species": "KADABRA",
-      "level": 53,
+      "level": 46,
       "moves": [
-        "PSYBEAM",
+        "RECOVER",
         "THUNDER_WAVE",
         "PSYCHIC_M",
         "REFLECT"
@@ -34,32 +34,71 @@
       "nickname": "KADABRA"
     },
     {
-      "species": "VENUSAUR",
-      "level": 47,
+      "species": "DUGTRIO",
+      "level": 48,
       "moves": [
-        "VINE_WHIP",
+        "SLASH",
+        "TAKE_DOWN",
+        "EARTHQUAKE",
+        "DOUBLE_TEAM"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "VENUSAUR",
+      "level": 46,
+      "moves": [
+        "CUT",
         "TOXIC",
-        "RAZOR_LEAF",
-        "GROWTH"
+        "LEECH_SEED",
+        "RAZOR_LEAF"
       ],
       "nickname": "VENUSAUR"
     },
     {
-      "species": "LAPRAS",
-      "level": 44,
+      "species": "PIDGEOT",
+      "level": 45,
       "moves": [
-        "MIST",
-        "BODY_SLAM",
-        "CONFUSE_RAY",
-        "SURF"
+        "RAZOR_WIND",
+        "WING_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
       ],
-      "nickname": "LAPRAS"
+      "nickname": "PIDGEOT"
     }
   ],
   "bag": {
-    "FRESH_WATER": 2
+    "POKE_FLUTE": 1,
+    "MASTER_BALL": 1,
+    "IRON": 1,
+    "RARE_CANDY": 1,
+    "CARD_KEY": 1,
+    "HM_CUT": 1,
+    "FULL_HEAL": 5,
+    "ESCAPE_ROPE": 3,
+    "LIFT_KEY": 1,
+    "SILPH_SCOPE": 1,
+    "BICYCLE": 1,
+    "GOOD_ROD": 1,
+    "REVIVE": 9,
+    "POTION": 1,
+    "HYPER_POTION": 20,
+    "OLD_ROD": 1,
+    "CARBOS": 1,
+    "HM_SURF": 1,
+    "SECRET_KEY": 1,
+    "HM_STRENGTH": 1
   },
-  "money": 53248,
+  "money": 21587,
+  "badges": [
+    "BOULDERBADGE",
+    "CASCADEBADGE",
+    "MARSHBADGE",
+    "RAINBOWBADGE",
+    "SOULBADGE",
+    "THUNDERBADGE"
+  ],
+  "bag_exact": true,
   "start": {
     "map": "CINNABAR_GYM",
     "x": 16,

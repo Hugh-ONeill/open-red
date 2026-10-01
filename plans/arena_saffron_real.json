@@ -1,32 +1,21 @@
 {
   "party": [
     {
-      "species": "VENUSAUR",
-      "level": 40,
+      "species": "GRAVELER",
+      "level": 52,
       "moves": [
-        "BODY_SLAM",
-        "VINE_WHIP",
-        "POISONPOWDER",
-        "RAZOR_LEAF"
+        "EARTHQUAKE",
+        "MEGA_PUNCH",
+        "EXPLOSION",
+        "ROCK_THROW"
       ],
-      "nickname": "VENUSAUR"
-    },
-    {
-      "species": "PIDGEOT",
-      "level": 36,
-      "moves": [
-        "RAZOR_WIND",
-        "QUICK_ATTACK",
-        "WHIRLWIND",
-        "WING_ATTACK"
-      ],
-      "nickname": "PIDGEOT"
+      "nickname": "GRAVELER"
     },
     {
       "species": "KADABRA",
-      "level": 48,
+      "level": 43,
       "moves": [
-        "PSYBEAM",
+        "RECOVER",
         "THUNDER_WAVE",
         "PSYCHIC_M",
         "REFLECT"
@@ -34,33 +23,78 @@
       "nickname": "KADABRA"
     },
     {
-      "species": "GRAVELER",
-      "level": 32,
+      "species": "DUGTRIO",
+      "level": 41,
       "moves": [
-        "MEGA_PUNCH",
-        "ROCK_THROW",
-        "SELFDESTRUCT",
-        "EARTHQUAKE"
+        "SLASH",
+        "TAKE_DOWN",
+        "DIG",
+        "SAND_ATTACK"
       ],
-      "nickname": "GRAVELER"
+      "nickname": "DUGTRIO"
     },
     {
-      "species": "LAPRAS",
-      "level": 15,
+      "species": "FLAREON",
+      "level": 40,
       "moves": [
-        "WATER_GUN",
-        "GROWL"
+        "BITE",
+        "SAND_ATTACK",
+        "DOUBLE_EDGE",
+        "QUICK_ATTACK"
       ],
-      "nickname": "LAPRAS"
+      "nickname": "FLAREON"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 40,
+      "moves": [
+        "RAZOR_WIND",
+        "WING_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "VENUSAUR",
+      "level": 42,
+      "moves": [
+        "CUT",
+        "MEGA_DRAIN",
+        "LEECH_SEED",
+        "RAZOR_LEAF"
+      ],
+      "nickname": "VENUSAUR"
     }
   ],
   "bag": {
-    "FRESH_WATER": 2,
-    "FULL_HEAL": 3,
-    "HYPER_POTION": 2,
-    "REVIVE": 1
+    "POKE_BALL": 23,
+    "HM_CUT": 1,
+    "ELIXER": 1,
+    "HELIX_FOSSIL": 1,
+    "REVIVE": 3,
+    "BICYCLE": 1,
+    "FULL_HEAL": 1,
+    "OLD_ROD": 1,
+    "GREAT_BALL": 10,
+    "S_S_TICKET": 1,
+    "POKE_FLUTE": 1,
+    "RARE_CANDY": 1,
+    "CALCIUM": 1,
+    "SILPH_SCOPE": 1,
+    "LIFT_KEY": 1,
+    "HYPER_POTION": 1,
+    "CARBOS": 1,
+    "ESCAPE_ROPE": 2
   },
-  "money": 32939,
+  "money": 39719,
+  "badges": [
+    "BOULDERBADGE",
+    "CASCADEBADGE",
+    "RAINBOWBADGE",
+    "THUNDERBADGE"
+  ],
+  "bag_exact": true,
   "start": {
     "map": "SAFFRON_GYM",
     "x": 8,

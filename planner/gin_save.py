@@ -229,6 +229,10 @@ def main():
         keep = {k: v for k, v in inv.items() if k in BADGES or k.startswith("HM_")
                 or k in ("TOWN_MAP", "BICYCLE", "POKE_FLUTE", "SILPH_SCOPE", "CARD_KEY",
                          "SECRET_KEY", "S_S_TICKET", "LIFT_KEY", "COIN_CASE")}
+        # A RECORDED BAG IS THE WHOLE BAG: the base save's key items on top of
+        # a real run's own bag made Saffron's 22 kinds, which no game holds
+        if spec.get("bag_exact"):
+            keep = {k: v for k, v in inv.items() if k in BADGES}
         new = dict(keep)
         for k, n in spec["bag"].items():
             new[k] = int(n)
@@ -240,6 +244,18 @@ def main():
         order += [k for k in new if k not in order and k not in BADGES]
         save["bagOrder"] = order
 
+    # EXACTLY THESE BADGES, when the spec says which: a badge is a stat boost
+    # in every fight (Damage.BADGE_BOOSTS), so a room parked on a base save
+    # with the right COUNT can still carry the wrong ones — run 19 beat
+    # Sabrina before Koga and tried Giovanni before Blaine (2026-10-01).
+    if "badges" in spec:
+        inv = save["inventory"]
+        for b in BADGES:
+            inv.pop(b, None)
+        for b in spec["badges"]:
+            if b not in BADGES:
+                sys.exit(f"not a badge: {b}")
+            inv[b] = 1
     if "money" in spec:
         save["money"] = int(spec["money"])
     for f in spec.get("clear_flags", []):

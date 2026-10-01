@@ -1,31 +1,32 @@
 {
   "party": [
     {
+      "species": "BULBASAUR",
+      "level": 12,
+      "moves": [
+        "TACKLE",
+        "GROWL",
+        "LEECH_SEED"
+      ],
+      "nickname": "BULBASAUR"
+    },
+    {
       "species": "PIDGEY",
-      "level": 13,
+      "level": 12,
       "moves": [
         "GUST",
         "SAND_ATTACK",
         "QUICK_ATTACK"
       ],
       "nickname": "PIDGEY"
-    },
-    {
-      "species": "BULBASAUR",
-      "level": 13,
-      "moves": [
-        "TACKLE",
-        "GROWL",
-        "LEECH_SEED",
-        "VINE_WHIP"
-      ],
-      "nickname": "BULBASAUR"
     }
   ],
   "bag": {
-    "ANTIDOTE": 1
+    "POKE_BALL": 7
   },
-  "money": 2395,
+  "money": 690,
+  "badges": [],
+  "bag_exact": true,
   "start": {
     "map": "PEWTER_GYM",
     "x": 4,

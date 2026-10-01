@@ -1,18 +1,30 @@
 {
   "party": [
     {
-      "species": "PIDGEY",
-      "level": 17,
+      "species": "KADABRA",
+      "level": 20,
+      "moves": [
+        "TELEPORT",
+        "THUNDER_WAVE",
+        "CONFUSION",
+        "DISABLE"
+      ],
+      "nickname": "KADABRA"
+    },
+    {
+      "species": "PIDGEOTTO",
+      "level": 24,
       "moves": [
         "GUST",
         "SAND_ATTACK",
-        "QUICK_ATTACK"
+        "QUICK_ATTACK",
+        "WHIRLWIND"
       ],
-      "nickname": "PIDGEY"
+      "nickname": "PIDGEOTTO"
     },
     {
       "species": "IVYSAUR",
-      "level": 21,
+      "level": 20,
       "moves": [
         "TACKLE",
         "GROWL",
@@ -23,18 +35,25 @@
     },
     {
       "species": "GEODUDE",
-      "level": 9,
+      "level": 20,
       "moves": [
         "TACKLE",
-        "MEGA_PUNCH"
+        "MEGA_PUNCH",
+        "DEFENSE_CURL",
+        "ROCK_THROW"
       ],
       "nickname": "GEODUDE"
     }
   ],
   "bag": {
-    "ANTIDOTE": 1
+    "HELIX_FOSSIL": 1,
+    "NUGGET": 1
   },
-  "money": 4419,
+  "money": 2612,
+  "badges": [
+    "BOULDERBADGE"
+  ],
+  "bag_exact": true,
   "start": {
     "map": "CERULEAN_GYM",
     "x": 4,

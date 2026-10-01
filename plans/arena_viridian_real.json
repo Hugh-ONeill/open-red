@@ -1,63 +1,105 @@
 {
   "party": [
     {
-      "species": "LAPRAS",
-      "level": 46,
-      "moves": [
-        "BODY_SLAM",
-        "CONFUSE_RAY",
-        "ICE_BEAM",
-        "SURF"
-      ],
-      "nickname": "LAPRAS"
-    },
-    {
-      "species": "PIDGEOT",
-      "level": 48,
-      "moves": [
-        "QUICK_ATTACK",
-        "RAZOR_WIND",
-        "WING_ATTACK",
-        "DOUBLE_TEAM"
-      ],
-      "nickname": "PIDGEOT"
-    },
-    {
       "species": "GRAVELER",
-      "level": 44,
+      "level": 60,
       "moves": [
-        "SELFDESTRUCT",
-        "HARDEN",
         "EARTHQUAKE",
-        "EXPLOSION"
+        "MEGA_PUNCH",
+        "EXPLOSION",
+        "STRENGTH"
       ],
       "nickname": "GRAVELER"
     },
     {
-      "species": "VENUSAUR",
-      "level": 48,
+      "species": "POLIWHIRL",
+      "level": 46,
       "moves": [
-        "VINE_WHIP",
-        "TOXIC",
-        "RAZOR_LEAF",
-        "GROWTH"
+        "BLIZZARD",
+        "SURF",
+        "HYPNOSIS",
+        "BODY_SLAM"
       ],
-      "nickname": "VENUSAUR"
+      "nickname": "POLIWHIRL"
     },
     {
       "species": "KADABRA",
-      "level": 54,
+      "level": 46,
       "moves": [
-        "PSYBEAM",
+        "RECOVER",
         "THUNDER_WAVE",
         "PSYCHIC_M",
         "REFLECT"
       ],
       "nickname": "KADABRA"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 48,
+      "moves": [
+        "SLASH",
+        "TAKE_DOWN",
+        "EARTHQUAKE",
+        "DOUBLE_TEAM"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "VENUSAUR",
+      "level": 46,
+      "moves": [
+        "CUT",
+        "TOXIC",
+        "LEECH_SEED",
+        "RAZOR_LEAF"
+      ],
+      "nickname": "VENUSAUR"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 45,
+      "moves": [
+        "RAZOR_WIND",
+        "WING_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
+      ],
+      "nickname": "PIDGEOT"
     }
   ],
-  "bag": {},
-  "money": 73311,
+  "bag": {
+    "ESCAPE_ROPE": 3,
+    "GOOD_ROD": 1,
+    "FULL_HEAL": 5,
+    "HM_CUT": 1,
+    "MASTER_BALL": 1,
+    "HM_STRENGTH": 1,
+    "CARD_KEY": 1,
+    "POKE_FLUTE": 1,
+    "OLD_ROD": 1,
+    "HYPER_POTION": 20,
+    "POTION": 1,
+    "LIFT_KEY": 1,
+    "BICYCLE": 1,
+    "RARE_CANDY": 1,
+    "SECRET_KEY": 1,
+    "CARBOS": 1,
+    "HM_SURF": 1,
+    "REVIVE": 9,
+    "IRON": 1,
+    "SILPH_SCOPE": 1
+  },
+  "money": 27165,
+  "badges": [
+    "BOULDERBADGE",
+    "CASCADEBADGE",
+    "MARSHBADGE",
+    "RAINBOWBADGE",
+    "SOULBADGE",
+    "THUNDERBADGE",
+    "VOLCANOBADGE"
+  ],
+  "bag_exact": true,
   "start": {
     "map": "VIRIDIAN_GYM",
     "x": 16,

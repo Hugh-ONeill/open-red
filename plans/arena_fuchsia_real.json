@@ -1,10 +1,43 @@
 {
   "party": [
     {
-      "species": "KADABRA",
-      "level": 52,
+      "species": "FLAREON",
+      "level": 41,
       "moves": [
-        "PSYBEAM",
+        "BITE",
+        "SAND_ATTACK",
+        "DOUBLE_EDGE",
+        "QUICK_ATTACK"
+      ],
+      "nickname": "FLAREON"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 44,
+      "moves": [
+        "SLASH",
+        "TAKE_DOWN",
+        "DIG",
+        "DOUBLE_TEAM"
+      ],
+      "nickname": "DUGTRIO"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 43,
+      "moves": [
+        "RAZOR_WIND",
+        "WING_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "KADABRA",
+      "level": 45,
+      "moves": [
+        "RECOVER",
         "THUNDER_WAVE",
         "PSYCHIC_M",
         "REFLECT"
@@ -12,58 +45,58 @@
       "nickname": "KADABRA"
     },
     {
-      "species": "PIDGEOT",
-      "level": 47,
-      "moves": [
-        "QUICK_ATTACK",
-        "RAZOR_WIND",
-        "WING_ATTACK",
-        "TAKE_DOWN"
-      ],
-      "nickname": "PIDGEOT"
-    },
-    {
       "species": "VENUSAUR",
-      "level": 44,
+      "level": 43,
       "moves": [
-        "VINE_WHIP",
-        "BODY_SLAM",
-        "RAZOR_LEAF",
-        "GROWTH"
+        "CUT",
+        "MEGA_DRAIN",
+        "LEECH_SEED",
+        "RAZOR_LEAF"
       ],
       "nickname": "VENUSAUR"
     },
     {
-      "species": "LAPRAS",
-      "level": 43,
-      "moves": [
-        "MIST",
-        "BODY_SLAM",
-        "CONFUSE_RAY",
-        "ICE_BEAM"
-      ],
-      "nickname": "LAPRAS"
-    },
-    {
       "species": "GRAVELER",
-      "level": 40,
+      "level": 54,
       "moves": [
-        "ROCK_THROW",
-        "SELFDESTRUCT",
+        "EARTHQUAKE",
         "MEGA_PUNCH",
-        "EARTHQUAKE"
+        "EXPLOSION",
+        "STRENGTH"
       ],
       "nickname": "GRAVELER"
     }
   ],
   "bag": {
-    "FRESH_WATER": 2,
-    "MAX_POTION": 1,
+    "LIFT_KEY": 1,
+    "HM_SURF": 1,
+    "FULL_RESTORE": 1,
+    "ESCAPE_ROPE": 2,
     "MAX_REVIVE": 1,
-    "REVIVE": 5,
-    "SUPER_POTION": 10
+    "ELIXER": 1,
+    "GREAT_BALL": 10,
+    "CARBOS": 1,
+    "SILPH_SCOPE": 1,
+    "HM_STRENGTH": 1,
+    "HM_CUT": 1,
+    "POKE_FLUTE": 1,
+    "POKE_BALL": 18,
+    "OLD_ROD": 1,
+    "MAX_POTION": 2,
+    "HYPER_POTION": 1,
+    "BICYCLE": 1,
+    "CARD_KEY": 1,
+    "HELIX_FOSSIL": 1
   },
-  "money": 11066,
+  "money": 43845,
+  "badges": [
+    "BOULDERBADGE",
+    "CASCADEBADGE",
+    "MARSHBADGE",
+    "RAINBOWBADGE",
+    "THUNDERBADGE"
+  ],
+  "bag_exact": true,
   "start": {
     "map": "FUCHSIA_GYM",
     "x": 4,

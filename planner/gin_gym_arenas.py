@@ -315,27 +315,35 @@ _LEAGUE_CLEAR_TRAINERS = [
     "LANCES_ROOM_obj_1", "LANCES_ROOM_obj_2", "LORELEIS_ROOM_obj_1",
     "LORELEIS_ROOM_obj_2"]
 
+# THE REAL PATH IS THE LAST REAL RUN (user, 2026-10-01: "should we alter the
+# real roster to the last real roster?" — yes). plans/arena_real_doors.json
+# holds run 19's state at each room's door, read from its own checkpoints:
+# the party with the moves it had really learned and forgotten, the badges
+# it held (each a stat boost in every fight), the whole bag and the money.
+# A door is the last checkpoint before the run first STOOD in the room — its
+# first crossing into it, or its first fight there — not its first attempt:
+# Viridian's gym is locked below seven badges and run 19 "attempted"
+# Giovanni at that door before beating Blaine (user: "viridian should have
+# the volcano badge"), and its first two league attempts never reached
+# Lorelei.
+# Run 27's hand entries, which these replace, are in git history (32bd271).
+_DOORS = json.loads((REPO / "plans/arena_real_doors.json").read_text())
+
+
+def _door(room: str) -> dict:
+    d = _DOORS[room]
+    return dict(party=[dict(species=m["species"], level=m["level"], moves=m["moves"])
+                       for m in d["party"]],
+                bag=dict(d["bag"]), money=d["money"], badges=list(d.get("badges") or []),
+                note=f"Run 19 at the door: checkpoint {d['checkpoint']} (its last "
+                     f"save before it first stood in this room, on {d['map']}).")
+
+
 GYMS = [
     dict(name="pewter", map="PEWTER_GYM", leader="BROCK", ace=14,
          badges=0, door=(4, 13), puzzle=False,
          paths=dict(
-             real=dict(party=[("PIDGEY", 13), ("BULBASAUR", 13)],
-             bag={"ANTIDOTE": 1}, money=2395,
-             note="BROCK IS THE ONE ROOM THE ENTRY STATE GETS WRONG. Run 27 walked in "
-                  "at L12 and L12 and lost the gym FOUR TIMES over ten "
-                  "blackouts, five of them inside ninety seconds; it won at "
-                  "at L13 and L13, one level each above where it walked in, "
-                  "which is the least training that answers the room: "
-                  "BULBASAUR gains VINE_WHIP at 13, and at 12 its only "
-                  "attack is TACKLE at half damage against ROCK and GROUND "
-                  "(it took a GEODUDE from 33 hp to 28 over six turns). At "
-                  "L12 both arms of the status calibration wiped and the "
-                  "room measured persistence, not policy; at L15 both swept "
-                  "32 of 32 with no blackout at all (2026-09-21, 16 trials "
-                  "an arm). Its bag is still the "
-                  "entry bag: the two Potion orders it placed mid-fight were "
-                  "trimmed to one and four for want of money, and left it on "
-                  "107 both times."),
+             real=_door("pewter"),
              # THREE UNDER, MEASURED FROM BOTH SIDES. At 10 the room was
              # calibrated under v12 and lost under v13 with the bag full:
              # a 20-power BUBBLE against ONIX is a long fight, and a solo
@@ -356,14 +364,7 @@ GYMS = [
     dict(name="cerulean", map="CERULEAN_GYM", leader="MISTY", ace=21,
          badges=1, door=(4, 13), puzzle=False,
          paths=dict(
-             real=dict(party=[("PIDGEY", 17), ("IVYSAUR", 21),
-                   ("GEODUDE", 9, ["MEGA_PUNCH"])],
-             bag={"ANTIDOTE": 1}, money=4419,
-             note="What run 27 WALKED IN WITH at MISTY, read from the save it took when "
-                  "the leg before this fight finished "
-                  "(leg_08_reach_cerulean_city.v2.20260916-1...). Run 27 is the first "
-                  "Hall of Fame run that started on BULBASAUR, which the starter "
-                  "question now picks nearly every time. Bag ANTIDOTE x1, 4419 unspent."),
+             real=_door("cerulean"),
              # FIVE UNDER WAS NOT REASONABLE ALONE. At 16 the room wiped
              # both arms, ten POTIONs and all: 4/6 with medicine, 4/6
              # without, STARMIE taking it every trial (2026-09-15). A
@@ -392,15 +393,7 @@ GYMS = [
          badges=2, door=(4, 17), puzzle=False,
          open_flags=["EVENT_1ST_LOCK_OPENED", "EVENT_2ND_LOCK_OPENED"],
          paths=dict(
-             real=dict(party=[("KADABRA", 25, ["THUNDER_WAVE"]),
-                   ("IVYSAUR", 28, ["BODY_SLAM"]), ("PIDGEOTTO", 22),
-                   ("GEODUDE", 21, ["MEGA_PUNCH", "DIG"])],
-             bag={"POTION": 2}, money=4226,
-             note="What run 27 WALKED IN WITH at LT_SURGE, read from the save it took "
-                  "when the leg before this fight finished "
-                  "(leg_14_retrieve_the_hm01_from_the_s_s_an...). Run 27 is the first "
-                  "Hall of Fame run that started on BULBASAUR, which the starter "
-                  "question now picks nearly every time. Bag POTION x2, 4226 unspent."),
+             real=_door("vermilion"),
              ideal=dict(party=[("DIGLETT", 19),
                                ("IVYSAUR", 20, ["BODY_SLAM"]),
                                ("PIDGEOTTO", 19)],
@@ -413,16 +406,7 @@ GYMS = [
     dict(name="celadon", map="CELADON_GYM", leader="ERIKA", ace=29,
          badges=3, needs_cut=True, door=(4, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("KADABRA", 37, ["THUNDER_WAVE"]), ("PIDGEOTTO", 31),
-                   ("GRAVELER", 30, ["MEGA_PUNCH", "DIG"]),
-                   ("IVYSAUR", 31, ["BODY_SLAM"])],
-             bag={"ANTIDOTE": 3, "BURN_HEAL": 5, "FRESH_WATER": 1, "PARLYZ_HEAL": 5, "SUPER_POTION": 11}, money=9208,
-             note="What run 27 WALKED IN WITH at ERIKA, read from the save it took when "
-                  "the leg before this fight finished "
-                  "(leg_18_obtain_the_fresh_water_from_the_c...). Run 27 is the first "
-                  "Hall of Fame run that started on BULBASAUR, which the starter "
-                  "question now picks nearly every time. Bag ANTIDOTE x3, BURN_HEAL x5, "
-                  "FRESH_WATER x1, PARLYZ_HEAL x5, SUPER_POTION x11, 9208 unspent."),
+             real=_door("celadon"),
              ideal=dict(party=[("FEAROW", 24),
                                ("IVYSAUR", 25, ["BODY_SLAM"]),
                                ("KADABRA", 25)],
@@ -436,17 +420,7 @@ GYMS = [
     dict(name="fuchsia", map="FUCHSIA_GYM", leader="KOGA", ace=43,
          badges=4, door=(4, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("KADABRA", 52, ["THUNDER_WAVE"]),
-                   ("PIDGEOT", 47, ["RAZOR_WIND", "TAKE_DOWN"]),
-                   ("VENUSAUR", 44, ["BODY_SLAM"]), ("LAPRAS", 43),
-                   ("GRAVELER", 40, ["MEGA_PUNCH"])],
-             bag={"FRESH_WATER": 2, "MAX_POTION": 1, "MAX_REVIVE": 1, "REVIVE": 5, "SUPER_POTION": 10}, money=11066,
-             note="What run 27 WALKED IN WITH at KOGA, read from the save it took when "
-                  "the leg before this fight finished "
-                  "(leg_30_return_the_gold_teeth_to_the_ward...). Run 27 is the first "
-                  "Hall of Fame run that started on BULBASAUR, which the starter "
-                  "question now picks nearly every time. Bag FRESH_WATER x2, MAX_POTION "
-                  "x1, MAX_REVIVE x1, REVIVE x5, SUPER_POTION x10, 11066 unspent."),
+             real=_door("fuchsia"),
              ideal=dict(party=[("KADABRA", 38),
                                ("VENUSAUR", 38, ["BODY_SLAM"]),
                                ("DUGTRIO", 38), ("FEAROW", 37, ["FLY"])],
@@ -463,18 +437,7 @@ GYMS = [
          badges=5, door=(8, 17), puzzle=False,
          score_only=["EVENT_BEAT_SABRINA"], fights=5,
          paths=dict(
-             real=dict(party=[("VENUSAUR", 40, ["BODY_SLAM"]),
-                   ("PIDGEOT", 36, ["RAZOR_WIND"]),
-                   ("KADABRA", 48, ["THUNDER_WAVE"]),
-                   ("GRAVELER", 32, ["MEGA_PUNCH", "EARTHQUAKE"]),
-                   ("LAPRAS", 15)],
-             bag={"FRESH_WATER": 2, "FULL_HEAL": 3, "HYPER_POTION": 2, "REVIVE": 1}, money=32939,
-             note="What run 27 WALKED IN WITH at SABRINA, read from the save it took "
-                  "when the leg before this fight finished "
-                  "(leg_24_clear_the_silph_co_building_and_r...). Run 27 is the first "
-                  "Hall of Fame run that started on BULBASAUR, which the starter "
-                  "question now picks nearly every time. Bag FRESH_WATER x2, FULL_HEAL "
-                  "x3, HYPER_POTION x2, REVIVE x1, 32939 unspent."),
+             real=_door("saffron"),
              ideal=dict(party=[("SNORLAX", 38, ["EARTHQUAKE"]),
                                ("VENUSAUR", 38, ["BODY_SLAM"]),
                                ("DUGTRIO", 38, ["EARTHQUAKE"]),
@@ -493,17 +456,7 @@ GYMS = [
     dict(name="cinnabar", map="CINNABAR_GYM", hms=["SURF"], leader="BLAINE",
          ace=47, badges=6, door=(16, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("GRAVELER", 43),
-                   ("PIDGEOT", 48, ["RAZOR_WIND", "DOUBLE_TEAM"]),
-                   ("KADABRA", 53, ["THUNDER_WAVE"]),
-                   ("VENUSAUR", 47, ["TOXIC"]), ("LAPRAS", 44)],
-             bag={"FRESH_WATER": 2}, money=53248,
-             note="What run 27 WALKED IN WITH at BLAINE, read from the save it took "
-                  "when the leg before this fight finished "
-                  "(leg_33_obtain_the_secret_key_from_the_po...). Run 27 is the first "
-                  "Hall of Fame run that started on BULBASAUR, which the starter "
-                  "question now picks nearly every time. Bag FRESH_WATER x2, 53248 "
-                  "unspent."),
+             real=_door("cinnabar"),
              ideal=dict(party=[("STARMIE", 42, ["BUBBLEBEAM", "THUNDERBOLT", "ICE_BEAM"]),
                                ("VENUSAUR", 42, ["BODY_SLAM"]),
                                ("DUGTRIO", 42),
@@ -521,17 +474,7 @@ GYMS = [
     dict(name="viridian", map="VIRIDIAN_GYM", hms=["SURF"], leader="GIOVANNI",
          ace=50, badges=7, door=(16, 17), puzzle=False,
          paths=dict(
-             real=dict(party=[("LAPRAS", 46),
-                   ("PIDGEOT", 48, ["RAZOR_WIND", "DOUBLE_TEAM"]),
-                   ("GRAVELER", 44), ("VENUSAUR", 48, ["TOXIC"]),
-                   ("KADABRA", 54, ["THUNDER_WAVE"])],
-             bag={}, money=73311,
-             note="What run 27 WALKED IN WITH at GIOVANNI, read from the save it took "
-                  "when the leg before this fight finished "
-                  "(leg_35_reach_viridian_city_gym.v4.202609...). Run 27 is the first "
-                  "Hall of Fame run that started on BULBASAUR, which the starter "
-                  "question now picks nearly every time. Bag nothing at all, 73311 "
-                  "unspent."),
+             real=_door("viridian"),
              ideal=dict(party=[("STARMIE", 45, ["BUBBLEBEAM", "THUNDERBOLT", "ICE_BEAM"]),
                                ("VENUSAUR", 45, ["BODY_SLAM"]),
                                ("LAPRAS", 45), ("KADABRA", 45),
@@ -550,19 +493,7 @@ GYMS = [
          league=True, base=REPO / "run/arena_e4.lua", door=(4, 11),
          puzzle=False, hms=["SURF"],
          paths=dict(
-             real=dict(party=[("LAPRAS", 63), ("MACHOKE", 50),
-                   ("VENUSAUR", 55, ["TOXIC"]), ("GRAVELER", 50),
-                   ("KADABRA", 61, ["THUNDER_WAVE"]),
-                   ("PIDGEOT", 50, ["RAZOR_WIND", "DOUBLE_TEAM"])],
-             bag={"FULL_RESTORE": 9, "MAX_POTION": 5}, money=2060,
-             note="The league has no before-save: run 27 shopped for it and fought it "
-                  "inside one leg. The party is the only record of the team that fought "
-                  "— read at the induction, so these levels are what it came OUT at and "
-                  "are an upper bound — and the bag and money are what the journal says "
-                  "it bought going in (FULL_RESTORE x1, x5 and x3 trimmed for want of "
-                  "money, MAX_POTION x5, ending on 2060). The MACHOP it carried at L24 "
-                  "among a party in the fifties was a dead slot; it stands here as the "
-                  "MACHOKE it would have been (user, 2026-09-21)."))),
+             real=_door("e4"))),
 ]
 
 
@@ -570,6 +501,13 @@ def build(g: dict, path: str) -> dict:
     p = g["paths"][path]
     party = []
     for entry in p["party"]:
+        if isinstance(entry, dict):
+            # A RECORDED MEMBER CARRIES ITS OWN MOVES: what the run taught it
+            # and what it chose to forget are the record, not a level table
+            party.append({"species": entry["species"], "level": entry["level"],
+                          "moves": list(entry["moves"]), "nickname": entry["species"],
+                          "_tms": []})
+            continue
         sp, lv = entry[0], entry[1]
         party.append({"species": sp, "level": lv,
                       "moves": natural_moves(sp, lv), "nickname": sp,
@@ -619,6 +557,8 @@ def build(g: dict, path: str) -> dict:
     # enough, and the driver turns round and presses them itself.
     facing = "down" if g["puzzle"] else "up"
     spec = {"party": party, "bag": dict(p["bag"]), "money": p["money"],
+            **({"badges": list(p["badges"]), "bag_exact": True}
+               if p.get("badges") is not None else {}),
             "start": {"map": g["map"], "x": g["door"][0], "y": g["door"][1],
                       "facing": facing}}
     if g.get("league"):

@@ -1,58 +1,101 @@
 {
   "party": [
     {
-      "species": "KADABRA",
-      "level": 37,
+      "species": "EEVEE",
+      "level": 35,
       "moves": [
-        "CONFUSION",
-        "THUNDER_WAVE",
-        "PSYBEAM",
-        "RECOVER"
+        "TACKLE",
+        "SAND_ATTACK",
+        "DOUBLE_EDGE",
+        "QUICK_ATTACK"
       ],
-      "nickname": "KADABRA"
+      "nickname": "EEVEE"
+    },
+    {
+      "species": "VENUSAUR",
+      "level": 36,
+      "moves": [
+        "CUT",
+        "POISONPOWDER",
+        "LEECH_SEED",
+        "RAZOR_LEAF"
+      ],
+      "nickname": "VENUSAUR"
     },
     {
       "species": "PIDGEOTTO",
-      "level": 31,
+      "level": 35,
       "moves": [
-        "SAND_ATTACK",
+        "RAZOR_WIND",
+        "WING_ATTACK",
         "QUICK_ATTACK",
-        "WHIRLWIND",
-        "WING_ATTACK"
+        "WHIRLWIND"
       ],
       "nickname": "PIDGEOTTO"
     },
     {
-      "species": "GRAVELER",
-      "level": 30,
+      "species": "DUGTRIO",
+      "level": 35,
       "moves": [
-        "MEGA_PUNCH",
-        "ROCK_THROW",
-        "SELFDESTRUCT",
-        "DIG"
+        "SLASH",
+        "GROWL",
+        "DIG",
+        "SAND_ATTACK"
       ],
-      "nickname": "GRAVELER"
+      "nickname": "DUGTRIO"
     },
     {
-      "species": "IVYSAUR",
-      "level": 31,
+      "species": "KADABRA",
+      "level": 36,
       "moves": [
-        "BODY_SLAM",
-        "VINE_WHIP",
-        "POISONPOWDER",
-        "CUT"
+        "RECOVER",
+        "THUNDER_WAVE",
+        "PSYBEAM",
+        "DISABLE"
       ],
-      "nickname": "IVYSAUR"
+      "nickname": "KADABRA"
+    },
+    {
+      "species": "GRAVELER",
+      "level": 41,
+      "moves": [
+        "EARTHQUAKE",
+        "MEGA_PUNCH",
+        "SELFDESTRUCT",
+        "ROCK_THROW"
+      ],
+      "nickname": "GRAVELER"
     }
   ],
   "bag": {
-    "ANTIDOTE": 3,
-    "BURN_HEAL": 5,
-    "FRESH_WATER": 1,
-    "PARLYZ_HEAL": 5,
-    "SUPER_POTION": 11
+    "POKE_FLUTE": 1,
+    "AWAKENING": 1,
+    "HP_UP": 3,
+    "ESCAPE_ROPE": 2,
+    "RARE_CANDY": 2,
+    "SUPER_POTION": 1,
+    "HM_CUT": 1,
+    "IRON": 1,
+    "SILPH_SCOPE": 1,
+    "BIKE_VOUCHER": 1,
+    "LIFT_KEY": 1,
+    "MOON_STONE": 2,
+    "GREAT_BALL": 10,
+    "REVIVE": 1,
+    "ELIXER": 1,
+    "S_S_TICKET": 1,
+    "POKE_BALL": 23,
+    "OLD_ROD": 1,
+    "NUGGET": 2,
+    "HELIX_FOSSIL": 1
   },
-  "money": 9208,
+  "money": 14448,
+  "badges": [
+    "BOULDERBADGE",
+    "CASCADEBADGE",
+    "THUNDERBADGE"
+  ],
+  "bag_exact": true,
   "start": {
     "map": "CELADON_GYM",
     "x": 4,

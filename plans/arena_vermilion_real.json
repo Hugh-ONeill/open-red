@@ -1,54 +1,65 @@
 {
   "party": [
     {
-      "species": "KADABRA",
-      "level": 25,
-      "moves": [
-        "TELEPORT",
-        "CONFUSION",
-        "DISABLE",
-        "THUNDER_WAVE"
-      ],
-      "nickname": "KADABRA"
-    },
-    {
-      "species": "IVYSAUR",
-      "level": 28,
-      "moves": [
-        "BODY_SLAM",
-        "LEECH_SEED",
-        "VINE_WHIP",
-        "POISONPOWDER"
-      ],
-      "nickname": "IVYSAUR"
-    },
-    {
       "species": "PIDGEOTTO",
-      "level": 22,
+      "level": 31,
       "moves": [
         "GUST",
-        "SAND_ATTACK",
+        "WING_ATTACK",
         "QUICK_ATTACK",
         "WHIRLWIND"
       ],
       "nickname": "PIDGEOTTO"
     },
     {
-      "species": "GEODUDE",
-      "level": 21,
+      "species": "IVYSAUR",
+      "level": 30,
+      "moves": [
+        "CUT",
+        "POISONPOWDER",
+        "LEECH_SEED",
+        "RAZOR_LEAF"
+      ],
+      "nickname": "IVYSAUR"
+    },
+    {
+      "species": "KADABRA",
+      "level": 30,
+      "moves": [
+        "TELEPORT",
+        "THUNDER_WAVE",
+        "PSYBEAM",
+        "DISABLE"
+      ],
+      "nickname": "KADABRA"
+    },
+    {
+      "species": "GRAVELER",
+      "level": 30,
       "moves": [
         "DIG",
         "MEGA_PUNCH",
-        "ROCK_THROW",
-        "SELFDESTRUCT"
+        "SELFDESTRUCT",
+        "ROCK_THROW"
       ],
-      "nickname": "GEODUDE"
+      "nickname": "GRAVELER"
     }
   ],
   "bag": {
-    "POTION": 2
+    "POKE_BALL": 10,
+    "HELIX_FOSSIL": 1,
+    "TM_BUBBLEBEAM": 1,
+    "HM_CUT": 1,
+    "SUPER_POTION": 1,
+    "S_S_TICKET": 1,
+    "NUGGET": 1
   },
-  "money": 4226,
+  "money": 4116,
+  "badges": [
+    "BOULDERBADGE",
+    "CASCADEBADGE"
+  ],
+  "bag_exact": true,
   "start": {
     "map": "VERMILION_GYM",
     "x": 4,
