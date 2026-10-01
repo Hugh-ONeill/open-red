@@ -3,19 +3,19 @@
   "BUTTERFREE|SUPERSONIC": {
    "forget": null,
    "level": 21,
-   "why": "Sleep Powder is essential for catching Abra, and the other status moves are redundant compared to the utility of Confusion."
+   "why": "Sleep Powder is essential for catching Abra, and status moves are more valuable than a low-accuracy move like Supersonic."
   },
   "CHARMELEON|RAGE": {
    "forget": null,
    "level": 24,
-   "why": "Rage is a low-damage move and not useful for catching or battling Abra."
+   "why": "Rage is not useful for catching Abra, and Growl/Leer are redundant; keeping Scratch and Ember is priority."
   }
  },
  "celadon_ideal": {
   "FEAROW|MIRROR_MOVE": {
-   "forget": null,
+   "forget": "GROWL",
    "level": 25,
-   "why": "Growl and Leer are useless for a damage-dealer, and Mirror Move is too situational compared to Peck."
+   "why": "Growl and Leer are useless for attacking the gym's grass types; Mirror Move is more versatile."
   },
   "IVYSAUR|RAZOR_LEAF": {
    "forget": "VINE_WHIP",
@@ -24,29 +24,44 @@
   }
  },
  "celadon_real": {
-  "KADABRA|PSYCHIC_M": {
-   "forget": "CONFUSION",
-   "level": 38,
-   "why": "Psychic is a massive upgrade over both Confusion and Psybeam."
+  "EEVEE|BITE": {
+   "forget": "TACKLE",
+   "level": 37,
+   "why": "Bite provides much higher power and utility than Tackle."
   },
-  "KADABRA|REFLECT": {
-   "forget": "CONFUSION",
-   "level": 42,
-   "why": "Confusion is redundant and weaker than Psybeam."
+  "GRAVELER|EXPLOSION": {
+   "forget": null,
+   "level": 43,
+   "why": "Explosion is redundant since it already knows Self-Destruct, and Self-Destruct has higher PP."
+  },
+  "KADABRA|PSYCHIC_M": {
+   "forget": "DISABLE",
+   "level": 38,
+   "why": "Psychic is a massive upgrade over Psybeam for dealing with Erika's grass types."
+  },
+  "PIDGEOTTO|AGILITY": {
+   "forget": null,
+   "level": 40,
+   "why": "Agility is not useful for a gym battle against Erika's slow Grass types."
   }
  },
  "cerulean_ideal": {
   "IVYSAUR|POISONPOWDER": {
-   "forget": "GROWL",
+   "forget": "TACKLE",
    "level": 22,
-   "why": "Tackle and Growl are weak early-game moves; PoisonPowder provides useful status utility."
+   "why": "Tackle is redundant since Vine Whip is stronger and more effective against the gym's water types."
   }
  },
  "cerulean_real": {
+  "GEODUDE|SELFDESTRUCT": {
+   "forget": "TACKLE",
+   "level": 21,
+   "why": "Tackle is redundant and significantly weaker than Mega Punch and Selfdestruct."
+  },
   "IVYSAUR|POISONPOWDER": {
    "forget": "GROWL",
    "level": 22,
-   "why": "Tackle and Growl are weak early-game moves; PoisonPowder provides useful utility for the gym."
+   "why": "Tackle and Growl are weak early-game moves; PoisonPowder provides useful status utility."
   }
  },
  "cinnabar_ideal": {
@@ -58,14 +73,14 @@
   "VENUSAUR|GROWTH": {
    "forget": null,
    "level": 43,
-   "why": "Growth is a setup move that isn't necessary for this battle, and the current moveset provides better immediate utility and damage."
+   "why": "Growth is a setup move that isn't necessary for the Cinnabar Gym battle, and the current moveset provides better immediate utility."
   }
  },
  "cinnabar_real": {
-  "LAPRAS|HYDRO_PUMP": {
-   "forget": "MIST",
-   "level": 46,
-   "why": "Mist is the least useful move for a gym battle compared to high-damage attacks and status effects."
+  "POLIWHIRL|HYDRO_PUMP": {
+   "forget": null,
+   "level": 49,
+   "why": "Hydro Pump has higher power but much lower PP than Surf, and Blizzard already provides high power coverage."
   }
  },
  "e4_ideal": {
@@ -76,15 +91,15 @@
   }
  },
  "e4_real": {
-  "MACHOKE|SUBMISSION": {
-   "forget": "LEER",
-   "level": 52,
-   "why": "Submission provides much-needed high damage output compared to Leer and Focus Energy."
-  },
   "PIDGEOT|MIRROR_MOVE": {
    "forget": null,
    "level": 54,
-   "why": "Mirror Move is situational and generally less useful than the current offensive and defensive kit for the Elite Four."
+   "why": "Mirror Move is too situational for the Elite Four compared to the current utility and damage moves."
+  },
+  "VENUSAUR|SLEEP_POWDER": {
+   "forget": "CUT",
+   "level": 55,
+   "why": "Sleep Powder is essential for crowd control against the Elite Four, and Cut is a weak HM move."
   }
  },
  "fuchsia_ideal": {
@@ -96,26 +111,36 @@
   "VENUSAUR|GROWTH": {
    "forget": null,
    "level": 43,
-   "why": "Growth is a setup move that is less useful than the current offensive and utility moves for this gym battle."
+   "why": "Growth is a setup move that is less useful than the current offensive and utility kit for this gym."
   }
  },
  "fuchsia_real": {
-  "GRAVELER|EXPLOSION": {
-   "forget": "SELFDESTRUCT",
-   "level": 43,
-   "why": "Explosion is a direct upgrade over SelfDestruct for maximum damage."
+  "DUGTRIO|EARTHQUAKE": {
+   "forget": "DIG",
+   "level": 47,
+   "why": "Earthquake is a massive upgrade over Dig as it doesn't require a charging turn."
   },
-  "LAPRAS|HYDRO_PUMP": {
-   "forget": "MIST",
-   "level": 46,
-   "why": "Mist is the least useful move for combat against Koga's poison team."
+  "FLAREON|FIRE_SPIN": {
+   "forget": null,
+   "level": 44,
+   "why": "Fire Spin is a low-damage trapping move and doesn't improve Flareon's utility over its current attack options."
+  },
+  "FLAREON|LEER": {
+   "forget": null,
+   "level": 42,
+   "why": "Leer is a status move that provides little value compared to the current offensive moveset."
+  },
+  "PIDGEOT|AGILITY": {
+   "forget": null,
+   "level": 44,
+   "why": "Agility provides little benefit compared to the utility and damage of the current moveset."
   }
  },
  "saffron_ideal": {
   "KADABRA|REFLECT": {
    "forget": "DISABLE",
    "level": 42,
-   "why": "Disable is the least useful move for a special attacker facing Sabrina's psychic types."
+   "why": "Disable is not useful for the Saffron Gym battle compared to the utility of Reflect."
   },
   "SNORLAX|HARDEN": {
    "forget": null,
@@ -125,47 +150,62 @@
   "VENUSAUR|GROWTH": {
    "forget": null,
    "level": 43,
-   "why": "Growth is a setup move that is less useful in a gym battle than immediate damage or status effects."
+   "why": "Growth is a setup move that is less useful than the current offensive and utility moves for this gym battle."
   }
  },
  "saffron_real": {
+  "FLAREON|FIRE_SPIN": {
+   "forget": null,
+   "level": 44,
+   "why": "Fire Spin is a weak move and Flareon already has strong Normal-type attacks for the Saffron Gym."
+  },
+  "FLAREON|LEER": {
+   "forget": null,
+   "level": 42,
+   "why": "Leer is a status move that provides little value compared to the current attacking moveset."
+  },
+  "PIDGEOT|AGILITY": {
+   "forget": null,
+   "level": 44,
+   "why": "Agility provides little value compared to the utility of Whirlwind and the damage of Razor Wind for this fight."
+  },
   "VENUSAUR|GROWTH": {
    "forget": null,
    "level": 43,
-   "why": "Growth is a situational buff and not necessary for the Saffron Gym battle compared to current attacks."
+   "why": "Growth is a situational buff and not as useful as the current offensive and utility kit for the Saffron Gym."
   }
  },
  "train_early": {
   "IVYSAUR|POISONPOWDER": {
    "forget": "GROWL",
    "level": 22,
-   "why": "Tackle and Growl are weak early-game moves; PoisonPowder provides useful utility and status damage."
+   "why": "Tackle and Growl are weak early-game moves; PoisonPowder adds utility and status damage."
   }
  },
  "train_late": {
   "PIDGEOT|MIRROR_MOVE": {
    "forget": null,
    "level": 54,
-   "why": "Mirror Move is too situational and lacks utility compared to Pidgeot's current move set for general combat."
+   "why": "Mirror Move is too situational compared to the utility and damage of the current set."
   }
  },
  "train_mid": {
   "CHARMELEON|SLASH": {
    "forget": "GROWL",
    "level": 33,
-   "why": "Slash is significantly more powerful than Growl, Leer, or Rage for battling."
+   "why": "Slash is a significantly stronger attacking move than Growl, Leer, or Rage."
   },
   "PIDGEOTTO|WING_ATTACK": {
    "forget": "SAND_ATTACK",
    "level": 31,
-   "why": "Wing Attack is a much stronger STAB move than Gust or Quick Attack for fighting Brock's Geodude/Onix if needed, and Sand Attack is less useful than a reliable attack."
+   "why": "Wing Attack is a much stronger STAB move than Gust or Quick Attack for fighting Rock-type gym leaders."
   }
  },
  "train_outleveled": {
   "GEODUDE|HARDEN": {
    "forget": null,
    "level": 26,
-   "why": "Harden is redundant given Defense Curl and provides little offensive value for a gym battle."
+   "why": "Harden is redundant since Defense Curl provides a similar defensive boost and Geodude already has high natural defense."
   },
   "PIDGEOTTO|WING_ATTACK": {
    "forget": "GUST",
@@ -181,32 +221,29 @@
   }
  },
  "vermilion_real": {
-  "GEODUDE|HARDEN": {
-   "forget": null,
-   "level": 26,
-   "why": "Harden is a status move that provides no offensive benefit for the gym battle."
-  },
-  "IVYSAUR|RAZOR_LEAF": {
-   "forget": "VINE_WHIP",
-   "level": 30,
-   "why": "Razor Leaf is a significant upgrade over Vine Whip in terms of power and accuracy."
-  },
-  "KADABRA|PSYBEAM": {
-   "forget": "CONFUSION",
-   "level": 27,
-   "why": "Psybeam is a direct upgrade over Confusion in terms of power."
+  "KADABRA|RECOVER": {
+   "forget": "TELEPORT",
+   "level": 31,
+   "why": "Teleport is useless in gym battles and Recover provides essential sustainability."
   }
  },
  "viridian_ideal": {
   "LAPRAS|HYDRO_PUMP": {
    "forget": "MIST",
    "level": 46,
-   "why": "Mist is the least useful move for a gym battle compared to high-power attacks and status effects."
+   "why": "Hydro Pump is a massive upgrade in power over Mist, which is rarely useful in battle."
   },
   "SNORLAX|DOUBLE_EDGE": {
    "forget": "HARDEN",
    "level": 48,
-   "why": "Harden is a useless move in competitive or late-game combat."
+   "why": "Harden is a useless status move in a competitive battle."
+  }
+ },
+ "viridian_real": {
+  "POLIWHIRL|HYDRO_PUMP": {
+   "forget": null,
+   "level": 49,
+   "why": "Hydro Pump has lower PP and accuracy than Surf, and Blizzard already provides high power coverage."
   }
  }
 }
