@@ -359,7 +359,7 @@ def render_team(obs, painter):
             painter.text_right(c, y + 16, "FNT", RED)
         elif status:
             painter.text_right(c, y + 16, str(status)[:3], YELLOW)
-        painter.hpbar(c, 58, y + 28, W - 58 - 2, hp / max_hp)
+        painter.hpbar(c, 58, y + 28, W - 58 - 2, hp / max_hp, cap=0x6C)   # the nub, as on the foe
         painter.text(c, 58, y + 38, "/".join(t[:3] for t in p.get("types") or []), DIM)
         painter.text_right(c, y + 38, "%d/%d" % (hp, max_hp), DIM)
         draw_moves(c, painter, y + 57, p.get("moves") or [])
