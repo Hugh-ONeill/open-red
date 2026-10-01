@@ -340,6 +340,18 @@ def _door(room: str, note: str = "") -> dict:
                               f"on {d['map']})."))
 
 
+# THE IDEAL ROOMS ARE SET WHERE MEDICINE DECIDES THEM (2026-10-01; user: "part
+# of what ideal is supposed to test is that proper item usage can carry an
+# underleveled but well built team to victory"). tools/calibrate_ideal.py
+# shifted each party's levels and scored a generic medicine reference
+# against the same tactics bare (run/cal/results.jsonl); `shift` is the
+# setting where the medicine arm wins and the bare one mostly does not:
+# Pewter +2 (100%/25%), Cerulean -8 (67%/33%, a POTION-only bag), Vermilion
+# -2 (100%/50%), Celadon -10 (88%/38%), Fuchsia -8 (86%/29%), Saffron -6
+# (100%/80%). Cinnabar and Viridian stay as they were: a type-ideal party
+# stomps those leaders at any level (user: "ideal is supposed to be ideal
+# it just means that it should almost always stomp gio which it always
+# has"), and the league's hand file moved -6 (90%/40%).
 GYMS = [
     dict(name="pewter", map="PEWTER_GYM", leader="BROCK", ace=14,
          badges=0, door=(4, 13), puzzle=False,
@@ -355,7 +367,7 @@ GYMS = [
              # above it, because BUBBLE and ONIX's chip are both slow. So
              # ten, the one level that separated v12 from v13 on their
              # per-fight caps (user, 2026-09-15: "put squirt back to 10").
-             ideal=dict(party=[("BULBASAUR", 10), ("NIDORAN_M", 10)],
+             ideal=dict(shift=2, party=[("BULBASAUR", 10), ("NIDORAN_M", 10)],
                         bag={"POTION": 8}, money=2000,
                         note="SQUIRTLE's BUBBLE is the answer, four under "
                              "the ace, and alone: the starter IS the "
@@ -376,7 +388,7 @@ GYMS = [
              # the calibration exactly; v13 lost every trial on its two-a-
              # fight cap, which is v13's to answer for. At 19 both specs
              # swept both arms. Eighteen, three under.
-             ideal=dict(party=[("IVYSAUR", 18), ("PIDGEOTTO", 18)],
+             ideal=dict(shift=-8, party=[("IVYSAUR", 18), ("PIDGEOTTO", 18)],
                         bag={"POTION": 10}, money=3000,
                         note="IVYSAUR resists water and VINE_WHIP hits it "
                              "double; alone, like the SQUIRTLE at Brock: "
@@ -395,7 +407,7 @@ GYMS = [
          open_flags=["EVENT_1ST_LOCK_OPENED", "EVENT_2ND_LOCK_OPENED"],
          paths=dict(
              real=_door("vermilion"),
-             ideal=dict(party=[("DIGLETT", 19),
+             ideal=dict(shift=-2, party=[("DIGLETT", 19),
                                ("IVYSAUR", 20, ["BODY_SLAM"]),
                                ("PIDGEOTTO", 19)],
                         bag={"POTION": 5, "SUPER_POTION": 6,
@@ -408,7 +420,7 @@ GYMS = [
          badges=3, needs_cut=True, door=(4, 17), puzzle=False,
          paths=dict(
              real=_door("celadon"),
-             ideal=dict(party=[("FEAROW", 24),
+             ideal=dict(shift=-10, party=[("FEAROW", 24),
                                ("IVYSAUR", 25, ["BODY_SLAM"]),
                                ("KADABRA", 25)],
                         hms=["FLY"],
@@ -422,7 +434,7 @@ GYMS = [
          badges=4, door=(4, 17), puzzle=False,
          paths=dict(
              real=_door("fuchsia"),
-             ideal=dict(party=[("KADABRA", 38),
+             ideal=dict(shift=-8, party=[("KADABRA", 38),
                                ("VENUSAUR", 38, ["BODY_SLAM"]),
                                ("DUGTRIO", 38), ("FEAROW", 37, ["FLY"])],
                         bag={"SUPER_POTION": 10, "ANTIDOTE": 4,
@@ -439,7 +451,7 @@ GYMS = [
          score_only=["EVENT_BEAT_SABRINA"], fights=5,
          paths=dict(
              real=_door("saffron"),
-             ideal=dict(party=[("SNORLAX", 38, ["EARTHQUAKE"]),
+             ideal=dict(shift=-6, party=[("SNORLAX", 38, ["EARTHQUAKE"]),
                                ("VENUSAUR", 38, ["BODY_SLAM"]),
                                ("DUGTRIO", 38, ["EARTHQUAKE"]),
                                ("KADABRA", 38)],
@@ -519,9 +531,11 @@ def build(g: dict, path: str) -> dict:
                           "moves": list(entry["moves"]), "nickname": entry["species"],
                           "_tms": []})
             continue
-        sp, lv = entry[0], entry[1]
+        # the shift moves the LEVEL only: the build (its moves) stays the
+        # one the room was designed and calibrated with
+        sp, lv = entry[0], entry[1] + int(p.get("shift") or 0)
         party.append({"species": sp, "level": lv,
-                      "moves": natural_moves(sp, lv), "nickname": sp,
+                      "moves": natural_moves(sp, entry[1]), "nickname": sp,
                       "_tms": list(entry[2]) if len(entry) > 2 else []})
     # A ROOM WITH A BUSH IN IT NEEDS SOMEBODY WHO CAN CUT (Celadon pens
     # Erika and her last three trainers inside a bed with two CUT_TREEs;

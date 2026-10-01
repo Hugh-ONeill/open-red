@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "DIGLETT",
-      "level": 19,
+      "level": 17,
       "moves": [
         "SCRATCH",
         "GROWL",
@@ -12,7 +12,7 @@
     },
     {
       "species": "IVYSAUR",
-      "level": 20,
+      "level": 18,
       "moves": [
         "TACKLE",
         "BODY_SLAM",
@@ -23,7 +23,7 @@
     },
     {
       "species": "PIDGEOTTO",
-      "level": 19,
+      "level": 17,
       "moves": [
         "GUST",
         "SAND_ATTACK",

@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "FEAROW",
-      "level": 24,
+      "level": 14,
       "moves": [
         "PECK",
         "GROWL",
@@ -13,7 +13,7 @@
     },
     {
       "species": "IVYSAUR",
-      "level": 25,
+      "level": 15,
       "moves": [
         "BODY_SLAM",
         "LEECH_SEED",
@@ -24,7 +24,7 @@
     },
     {
       "species": "KADABRA",
-      "level": 25,
+      "level": 15,
       "moves": [
         "TELEPORT",
         "CONFUSION",

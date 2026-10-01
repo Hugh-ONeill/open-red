@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "SNORLAX",
-      "level": 38,
+      "level": 32,
       "moves": [
         "HEADBUTT",
         "EARTHQUAKE",
@@ -13,7 +13,7 @@
     },
     {
       "species": "VENUSAUR",
-      "level": 38,
+      "level": 32,
       "moves": [
         "BODY_SLAM",
         "VINE_WHIP",
@@ -24,7 +24,7 @@
     },
     {
       "species": "DUGTRIO",
-      "level": 38,
+      "level": 32,
       "moves": [
         "EARTHQUAKE",
         "DIG",
@@ -35,7 +35,7 @@
     },
     {
       "species": "KADABRA",
-      "level": 38,
+      "level": 32,
       "moves": [
         "DISABLE",
         "PSYBEAM",

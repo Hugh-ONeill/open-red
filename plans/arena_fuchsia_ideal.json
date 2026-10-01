@@ -2,7 +2,7 @@
   "party": [
     {
       "species": "KADABRA",
-      "level": 38,
+      "level": 30,
       "moves": [
         "DISABLE",
         "PSYBEAM",
@@ -13,7 +13,7 @@
     },
     {
       "species": "VENUSAUR",
-      "level": 38,
+      "level": 30,
       "moves": [
         "BODY_SLAM",
         "VINE_WHIP",
@@ -24,7 +24,7 @@
     },
     {
       "species": "DUGTRIO",
-      "level": 38,
+      "level": 30,
       "moves": [
         "GROWL",
         "DIG",
@@ -35,7 +35,7 @@
     },
     {
       "species": "FEAROW",
-      "level": 37,
+      "level": 29,
       "moves": [
         "FLY",
         "FURY_ATTACK",
