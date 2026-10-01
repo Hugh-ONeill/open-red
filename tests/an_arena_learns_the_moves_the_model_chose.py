@@ -79,8 +79,28 @@ offers = T.offers({"party": [{"species": "LAPRAS", "level": 45,
                               "moves": ["SURF", "ICE_BEAM", "BODY_SLAM", "CONFUSE_RAY"]},
                              {"species": "BULBASAUR", "level": 10,
                               "moves": ["TACKLE", "GROWL", "LEECH_SEED"]}]}, data, 5)
-ck("the tool finds a four-move member's next offers, and none for a free slot",
-   [(m["species"], mv) for m, mv, _at in offers] == [("LAPRAS", "HYDRO_PUMP")], offers)
+ck("the tool finds each member's next moves in level order",
+   [(m["species"], mv) for m, mv, _at in offers]
+   == [("LAPRAS", "HYDRO_PUMP"), ("BULBASAUR", "VINE_WHIP")], offers)
+bulba = [o for o in offers if o[0]["species"] == "BULBASAUR"]
+asked = []
+walk = T.walk_member(bulba[0][0], bulba, lambda k, mv, at: (asked.append(mv), (None, ""))[1])
+ck("...a free slot learns without a question", not asked and walk[0][4] is False)
+kad = {"species": "KADABRA", "level": 37, "moves": ["CONFUSION", "THUNDER_WAVE", "PSYBEAM", "RECOVER"]}
+seen = []
+
+
+def _ans(known, mv, at):
+    seen.append((mv, tuple(known)))
+    return ({"PSYCHIC_M": "CONFUSION", "REFLECT": "PSYBEAM"}[mv], "")
+
+
+walk = T.walk_member(kad, [(kad, "PSYCHIC_M", 38), (kad, "REFLECT", 42)], _ans)
+ck("each answer is applied before the next offer is asked (PSYCHIC known at REFLECT)",
+   seen == [("PSYCHIC_M", ("CONFUSION", "THUNDER_WAVE", "PSYBEAM", "RECOVER")),
+            ("REFLECT", ("PSYCHIC_M", "THUNDER_WAVE", "PSYBEAM", "RECOVER"))], seen)
+ck("...and the second row forgets from that moveset",
+   [(mv, f) for mv, _at, f, _w, _a in walk] == [("PSYCHIC_M", "CONFUSION"), ("REFLECT", "PSYBEAM")], walk)
 ck("...shown as the summary screen shows them",
    T.shown("HYDRO_PUMP", data["moves"]) == "HYDRO_PUMP (WATER, power 120, PP 5)"
    and T.shown("SURF", data["moves"], 15) == "SURF (WATER, power 95, PP 15/15)")

@@ -93,17 +93,43 @@ def room_goal(name: str, kind: str, spec: dict) -> str:
 
 
 def offers(spec: dict, data: dict, levels: int) -> list:
-    """(member, offered move, level) for every member knowing four moves."""
+    """(member, offered move, level) for every member, in level order: every
+    move its learnset brings within `levels`, whether or not it will be a
+    question (a free slot learns without one; see walk_member)."""
     out = []
     for m in spec.get("party") or []:
         sp = (data["species"].get(str(m.get("species"))) or {})
         known = [str(x if not isinstance(x, dict) else x.get("id")) for x in m.get("moves") or []]
-        if len(known) < 4:
-            continue                    # a free slot learns without a question
         lv = int(m.get("level") or 0)
-        for at, mv in sp.get("learnset") or []:
+        for at, mv in sorted(sp.get("learnset") or [], key=lambda e: e[0]):
             if lv < at <= lv + levels and mv not in known:
                 out.append((m, mv, at))
+    return out
+
+
+def walk_member(m: dict, its_offers: list, answer) -> list:
+    """ONE MEMBER'S OFFERS, EACH ON THE MOVESET THE LAST ONE LEFT (user,
+    2026-10-01: "so kadabra can learn psychic and then reflect having psychic
+    known already"). A free slot takes the move without a question, as the
+    game does; a full one is asked `answer(known, mv, at)` -> the move to
+    forget or None, and the answer is applied before the next offer. The
+    rooms play the table in the same order: a member reaches level 38
+    before 42. Returns [(mv, at, forget or None, why, asked)]."""
+    known = [str(x if not isinstance(x, dict) else x.get("id")) for x in m.get("moves") or []]
+    out = []
+    for _m, mv, at in its_offers:
+        if mv in known:
+            continue
+        if len(known) < 4:
+            known.append(mv)
+            out.append((mv, at, None, "a free slot: learned without a question", False))
+            continue
+        forget, why = answer(list(known), mv, at)
+        if forget in known:
+            known[known.index(forget)] = mv
+        else:
+            forget = None
+        out.append((mv, at, forget, why, True))
     return out
 
 
@@ -133,27 +159,37 @@ def main(argv=None):
         if not spec_path or not Path(spec_path).exists():
             continue
         spec = json.loads(Path(spec_path).read_text())
-        rows = table.setdefault(name, {})
-        for m, mv, at in offers(spec, data, a.levels):
-            sp = str(m.get("species"))
-            key = f"{sp}|{mv}"
-            known = [str(x if not isinstance(x, dict) else x.get("id")) for x in m.get("moves")]
-            types = "/".join((data["species"].get(sp) or {}).get("types") or [])
-            line = f"{name}: {sp} L{m.get('level')} -> {mv} at L{at}"
-            if a.dry_run:
-                print(line)
+        rows = {}                       # a room's rows are rebuilt, never merged
+        allof = offers(spec, data, a.levels)
+        for m in spec.get("party") or []:
+            mine = [o for o in allof if o[0] is m]
+            if not mine:
                 continue
-            d, _user = ask(a.model, str(m.get("nickname") or sp), types,
-                           shown(mv, data["moves"]),
-                           [shown(k, data["moves"], (data["moves"].get(k) or {}).get("pp"))
-                            for k in known], room_goal(name, kind, spec))
-            f = d.get("forget")
-            f = str(f).upper().replace(" ", "_") if f is not None else None
-            rows[key] = {"forget": f if f in known else None,
-                         "why": str(d.get("why") or "")[:200], "level": at}
-            print(f"{line}: forget {rows[key]['forget'] or '(keep the old moves)'} — {rows[key]['why'][:120]}",
-                  flush=True)
-        if not rows:
+            sp = str(m.get("species"))
+            types = "/".join((data["species"].get(sp) or {}).get("types") or [])
+
+            def answer(known, mv, at, _m=m, _sp=sp, _types=types):
+                line = f"{name}: {_sp} L{_m.get('level')} -> {mv} at L{at}, knowing {', '.join(known)}"
+                if a.dry_run:
+                    print(line)
+                    return None, ""
+                d, _user = ask(a.model, str(_m.get("nickname") or _sp), _types,
+                               shown(mv, data["moves"]),
+                               [shown(k, data["moves"], (data["moves"].get(k) or {}).get("pp"))
+                                for k in known], room_goal(name, kind, spec))
+                f = d.get("forget")
+                f = str(f).upper().replace(" ", "_") if f is not None else None
+                why = str(d.get("why") or "")[:200]
+                print(f"{line}: forget {f if f in known else '(keep the old moves)'} — {why[:120]}",
+                      flush=True)
+                return (f if f in known else None), why
+
+            for mv, at, forget, why, asked in walk_member(m, mine, answer):
+                if asked:
+                    rows[f"{sp}|{mv}"] = {"forget": forget, "why": why, "level": at}
+        if rows:
+            table[name] = rows
+        else:
             table.pop(name, None)
     if not a.dry_run:
         OUT.write_text(json.dumps(table, indent=1, sort_keys=True) + "\n")
