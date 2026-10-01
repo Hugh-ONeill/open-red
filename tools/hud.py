@@ -44,6 +44,7 @@ from PIL import Image
 
 import events as feed     # tools/events.py: the run's event feed
 import townmap            # tools/townmap.py: drafts drawn on the Kanto map
+import worldmap           # tools/worldmap.py: the whole overworld under the fog
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OBS = os.path.join(HERE, "..", "run", "obs.json")
@@ -831,6 +832,21 @@ def render(obs, status_text, painter, layout="side", height=None, width=None,
     layout "stack": team over status, the status filling down to `height`.
     `width` (1x pixels) widens the status column to fill it; the team column
     keeps its size, since its rows have nothing more to say."""
+    if layout == "world":
+        # authoring, the hybrid: the whole overworld under the fog takes the
+        # game's place (caves and buildings at their doors). Drawn at the
+        # window's own size after the HUD is scaled (frame_bytes), so the box
+        # here is left empty and its place remembered.
+        cols = COLS if (width or 0) >= 900 else MIN_COLS
+        col = framed(render_status(status_text, painter, (height or 456) - 2 * FR, cols, act), painter)
+        h = col.height
+        mw = max(200, (width or 900) - col.width - GUTTER)
+        img = Image.new("RGB", (mw + GUTTER + col.width, h), BG)
+        painter.box(img, 0, 0, mw, h, title="KANTO")
+        img.paste(col, (mw + GUTTER, 0))
+        global WORLD_BOX
+        WORLD_BOX = (FR, FR + 4, mw - 2 * FR, h - 2 * FR - 4)
+        return img
     if layout.startswith("map"):
         # authoring: the game is closed, so the town map with the drafts on it
         # takes the game's place, beside the authoring column (the team does
@@ -879,6 +895,38 @@ def window_pixels():
         return (xpx, ypx) if xpx and ypx else None
     except OSError:
         return None
+
+
+WORLD_BOX = None
+_world_cache = {}
+
+
+def fit_world(win):
+    """Authoring, the hybrid: the biggest text scale that leaves the overworld
+    a box at least 480 px across beside a minimum-width status column."""
+    xpx, ypx = win
+    for scale in (3, 2, 1):
+        col = (MIN_COLS * 8 + 8 + 2 * FR) * scale
+        if xpx - col - GUTTER * scale >= 480 and ypx // scale >= 30 * LINE:
+            return "world", scale, ypx // scale, xpx // scale
+    return None
+
+
+def world_view(size):
+    """The overworld picture for the KANTO box, at `size` real pixels; drawn
+    again only when what it shows changed (it takes ~0.7 s)."""
+    phase = feed.read_phase() or {}
+    hist = townmap.run_history()
+    here = worldmap.where()
+    try:
+        seen_t = os.stat(worldmap.SEEN).st_mtime_ns
+    except OSError:
+        seen_t = 0
+    key = json.dumps([phase.get("drafts"), phase.get("picked"), len(hist), here, size, seen_t])
+    if _world_cache.get("key") != key:
+        start = (here or [None])[0]
+        _world_cache.update(key=key, img=worldmap.authoring_view(phase, hist, here, size, start_map=start))
+    return _world_cache["img"]
 
 
 def fit_map(win):
@@ -969,13 +1017,17 @@ def main():
     def frame_bytes(obs, status_text, win=None, act=None):
         team_h = TOP + CARD_H * 6 + FOE_H              # room for a battle's foe card too
         phase = feed.read_phase() or {}
-        fitted = fit_map(win) if (win and phase.get("phase") == "authoring") else None
+        fitted = (fit_world(win) or fit_map(win)) if (win and phase.get("phase") == "authoring") else None
         layout, scale, height, width = fitted or fit(win, team_h)
         if args.scale:
             scale = args.scale
             height, width = (win[1] // scale, win[0] // scale) if win else (None, None)
         img = render(obs, status_text, painter, layout, height, width, act)
         img = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
+        if layout == "world" and WORLD_BOX:
+            bx, by, bw, bh = (v * scale for v in WORLD_BOX)
+            view = world_view((bw, bh))
+            img.paste(view, (bx + (bw - view.width) // 2, by + (bh - view.height) // 2))
         buf = io.BytesIO()
         img.save(buf, "PNG")
         return buf.getvalue()

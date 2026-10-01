@@ -64,7 +64,18 @@ for name in pairs(used) do
   for i = 1, #t.blocks do b[i] = arr(t.blocks[i]) end
   ts[#ts + 1] = q(name) .. ':{"image":' .. q(t.image) .. ',"per":' .. t.tilesPerRow .. ',"blocks":[' .. table.concat(b, ",") .. ']}'
 end
-print('{"maps":{' .. table.concat(out, ",") .. '},"tilesets":{' .. table.concat(ts, ",") .. '}}')
+local doors = {}
+for name, m in pairs(maps) do
+  if type(m) == "table" and m.warps then
+    for _, w in ipairs(m.warps) do
+      if w.destMap and w.destMap ~= "LAST_MAP" then
+        doors[#doors + 1] = '[' .. q(name) .. ',' .. w.x .. ',' .. w.y .. ',' .. q(w.destMap) .. ']'
+      end
+    end
+  end
+end
+print('{"maps":{' .. table.concat(out, ",") .. '},"tilesets":{' .. table.concat(ts, ",") ..
+      '},"doors":[' .. table.concat(doors, ",") .. ']}')
 """
 
 
@@ -74,7 +85,9 @@ def load():
     try:
         if os.path.getmtime(CACHE) >= src:
             with open(CACHE) as f:
-                return json.load(f)
+                data = json.load(f)
+            if "doors" in data:              # an older cache has no doors
+                return data
     except OSError:
         pass
     for lua in ("lua5.4", "lua", "luajit", "lua5.1"):
@@ -205,6 +218,149 @@ def render(scale=0.25, seen=None, here=None):
         spr = player_sprite(max(0.5, scale * 2))
         out.paste(spr, (cx - spr.width // 2, cy - spr.height + spr.height // 4), spr)
     return out
+
+
+def anchors(data):
+    """{INTERIOR: [(OUTDOOR_MAP, x, y), ...]}: where each cave floor or
+    building sits on the overworld, found by walking back up the doors that
+    lead into it until an outdoor map is reached (Rock Tunnel B1F <- 1F <- the
+    two doors on Route 10). Interiors' own exits mostly say LAST_MAP, so the
+    search reads the doors pointing IN. All the doors at the shallowest depth
+    are kept; a place with two entrances sits between them."""
+    outdoor = set(data["maps"])
+    into = {}
+    for src, x, y, dst in data.get("doors") or []:
+        into.setdefault(dst, []).append((src, x, y))
+    out = {}
+
+    def find(mid):
+        frontier, seen = [mid], {mid}
+        while frontier:
+            found, nxt = [], []
+            for m in frontier:
+                for src, x, y in into.get(m, []):
+                    if src in outdoor:
+                        found.append((src, x, y))
+                    elif src not in seen:
+                        seen.add(src)
+                        nxt.append(src)
+            if found:
+                return found
+            frontier = nxt
+        return []
+    for mid in into:
+        if mid not in outdoor:
+            out[mid] = find(mid)
+    return out
+
+
+def authoring_view(phase, history, here, size, start_map=None):
+    """The overworld under the fog, fitted to `size` (w, h) px, with the run's
+    walk (earlier legs gray to white, the last attempt in gold) through the
+    cells it actually entered, every draft from where the party is (picked in
+    green, the rest faded), and Red. Caves and buildings sit at their doors on
+    the overworld (anchors), so nothing the run or a draft names falls off."""
+    sys.path.insert(0, HERE)
+    import townmap as tm
+    data = load()
+    pos = layout(data)
+    anc = anchors(data)
+    full_w = max(pos[k][0] + data["maps"][k]["w"] for k in pos) * 32
+    full_h = max(pos[k][1] + data["maps"][k]["h"] for k in pos) * 32
+    scale = min(size[0] / full_w, size[1] / full_h)
+    img = render(scale, here=None)
+    from PIL import ImageDraw
+    d = ImageDraw.Draw(img)
+    k = 16 * scale
+    lw = max(2, int(round(3 * scale * 4)))           # ~3 px at a quarter scale
+
+    def pt(mid, xy=None, near=None):
+        """A map (and optionally a cell in it) as a point on the picture. A
+        cave or building is its door; with several doors (Diglett's Cave
+        opens on Route 2 AND Route 11) the one nearest `near`, the point
+        the line arrives from, else their middle."""
+        if mid in pos:
+            bx, by = pos[mid]
+            x, y = xy if xy else (data["maps"][mid]["w"], data["maps"][mid]["h"])
+            return (int((bx * 2 + x) * k + k / 2), int((by * 2 + y) * k + k / 2))
+        a = anc.get(mid)
+        if a:
+            xs = [pt(m, (x, y)) for m, x, y in a]
+            if near:
+                return min(xs, key=lambda q: (q[0] - near[0]) ** 2 + (q[1] - near[1]) ** 2)
+            return (sum(p[0] for p in xs) // len(xs), sum(p[1] for p in xs) // len(xs))
+        return None
+
+    def walk(stops, start=None):
+        """[(MAP, xy-or-None), ...] -> points, each place resolved near the last."""
+        out, last = [], start
+        for mid, xy in stops:
+            q = pt(mid, xy if mid in pos else None, near=last)
+            out.append(q)
+            last = q or last
+        return out
+
+    def trail(points, col, width):
+        p = []
+        for q in points:
+            if q and (not p or p[-1] != q):
+                p.append(q)
+        if len(p) > 1:
+            d.line(p, fill=col, width=width, joint="curve")
+        return p
+
+    # the walk so far
+    if history:
+        last = history[-1][1]
+        legs = sorted({h[0] for h in history if h[1] != last})
+        shade = {leg: tm.ramp(i, len(legs)) for i, leg in enumerate(legs)}
+        # a building or cave entered from the map its door is on is a visit,
+        # not a move: on the walk it would draw a spoke to the door and back
+        # (a star over every town), so the walk leaves it out
+        rows, outside = [], None
+        for h in history:
+            leg, att, m, xy = (*h, None)[:4]
+            if m in pos:
+                if m == outside:
+                    continue         # back out of a door onto the same street: no move
+                outside = m
+            elif outside and any(a[0] == outside for a in anc.get(m, [])):
+                continue
+            rows.append((leg, att, m, xy))
+        if not rows:
+            rows = [(*history[-1], None)[:4]]
+        points = walk([(m, xy) for _, _, m, xy in rows])
+        prev = None
+        for (leg, att, _, _), q in zip(rows, points):
+            if att == last:
+                break
+            if q and prev and q != prev:
+                d.line((prev, q), fill=shade.get(leg, tm.PAST_NEW), width=max(1, lw - 1))
+            prev = q or prev
+        first = next(i for i, r in enumerate(rows) if r[1] == last)
+        trail(points[max(0, first - 1):], tm.LAST_ATTEMPT, lw + 1)
+    # the drafts
+    drafts = phase.get("drafts") or []
+    picked = (phase.get("picked") or {}).get("n")
+    origin = pt(here[0], (here[1], here[2]) if here and here[0] in pos else None) if here else \
+        (pt(start_map) if start_map else None)
+    for dr in [x for x in drafts if x["n"] != picked] + [x for x in drafts if x["n"] == picked]:
+        on = dr["n"] == picked
+        col = tm.PICKED if on else tm.DRAFT_COLORS[(dr["n"] - 1) % len(tm.DRAFT_COLORS)]
+        if picked and not on:
+            col = tuple(int(c * 0.55 + 20) for c in col)
+        p = trail([origin] + walk([(m, None) for m in tm.to_ids(dr["route"])], origin),
+                  col, lw + (2 if on else 0))
+        r = lw + 2
+        for x, y in p[1:]:
+            d.rectangle((x - r, y - r, x + r, y + r), fill=col)
+    # Red: on his cell outdoors, at the door of the cave or building he is in
+    if here:
+        q = pt(here[0], (here[1], here[2]) if here[0] in pos else None)
+        if q:
+            spr = player_sprite(max(2.0, scale * 6))       # findable at any zoom (32 px at least)
+            img.paste(spr, (q[0] - spr.width // 2, q[1] - spr.height + spr.height // 4), spr)
+    return img
 
 
 def where():
