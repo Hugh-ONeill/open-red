@@ -337,8 +337,12 @@ def authoring_view(phase, history, here, size, start_map=None):
             if q and prev and q != prev:
                 d.line((prev, q), fill=shade.get(leg, tm.PAST_NEW), width=max(1, lw - 1))
             prev = q or prev
-        first = next(i for i, r in enumerate(rows) if r[1] == last)
-        trail(points[max(0, first - 1):], tm.LAST_ATTEMPT, lw + 1)
+        # the last attempt can collapse away entirely (a gym and its city:
+        # every entry a building or the same street again), which means it
+        # never left that street: nothing to draw in gold
+        first = next((i for i, r in enumerate(rows) if r[1] == last), None)
+        if first is not None:
+            trail(points[max(0, first - 1):], tm.LAST_ATTEMPT, lw + 1)
     # the drafts
     drafts = phase.get("drafts") or []
     picked = (phase.get("picked") or {}).get("n")

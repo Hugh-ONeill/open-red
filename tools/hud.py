@@ -50,6 +50,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OBS = os.path.join(HERE, "..", "run", "obs.json")
 STATUS = os.path.join(HERE, "..", "run", "status.txt")
 TITLE = "red-recomp HUD"
+ERROR_LOG = os.path.expanduser("~/.local/state/red-recomp/hud_errors.log")
 JOURNAL = os.path.join(HERE, "..", "run", "executor_log.jsonl")
 ASSETS = os.path.expanduser(
     "~/.local/share/love/pokemon-love2d/red/assets/generated/")
@@ -1071,7 +1072,22 @@ def main():
                 fresh = read_obs()
                 obs = fresh if fresh is not None else obs
                 if obs is not None:
-                    kitty_show(frame_bytes(obs, read_status(), win, act))
+                    # A FRAME THAT FAILS MUST NOT TAKE THE HUD DOWN. Whatever the
+                    # run throws at it (a new badge left the world map's trail
+                    # empty, 2026-10-01), the last good frame stays up, the
+                    # traceback goes to a log, and the next change tries again.
+                    try:
+                        kitty_show(frame_bytes(obs, read_status(), win, act))
+                    except (BrokenPipeError, KeyboardInterrupt):
+                        raise
+                    except Exception:
+                        import traceback
+                        try:
+                            os.makedirs(os.path.dirname(ERROR_LOG), exist_ok=True)
+                            with open(ERROR_LOG, "a") as f:
+                                f.write(time.strftime("%Y-%m-%d %H:%M:%S ") + traceback.format_exc() + "\n")
+                        except OSError:
+                            pass
                     last = stamps
             time.sleep(args.poll)
     except KeyboardInterrupt:
