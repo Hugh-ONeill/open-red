@@ -176,6 +176,50 @@ class Painter:
                     img.putpixel((xx, yy), BG)
             self.text(img, x + 16, y, title, title_col or ACCENT)
 
+    # THE TRAINER CARD'S FRAME: trainer_info.png's 3x3 sheet, laid out as the
+    # game's own TrainerCard.lua reads it (0 bottom, 1 right, 2 top-left,
+    # 3 top, 4 top-right, 5 left, 6 bottom-left, 7 bottom-right, 8 fill).
+    # A pattern made for a white card, so its shades are mapped for a dark one:
+    # the white band becomes the background and the texture stays texture.
+    CARD_SHADES = {"plain": {170: (112, 124, 112), 85: (66, 74, 68), 0: (40, 44, 42)},
+                   "out": {170: (124, 196, 155), 85: (64, 116, 88), 0: (38, 62, 48)},
+                   "empty": {170: (66, 72, 68), 85: (44, 48, 46), 0: (32, 35, 34)}}
+
+    def card_tiles(self, look):
+        key = ("card", look)
+        if key not in self.glyphs:
+            sheet = Image.open(ASSETS + "trainer_card/trainer_info.png").convert("L")
+            shades = self.CARD_SHADES[look]
+            tiles = []
+            for i in range(9):
+                t = sheet.crop(((i % 3) * 8, (i // 3) * 8, (i % 3) * 8 + 8, (i // 3) * 8 + 8))
+                tiles.append([(x, y, shades[min(shades, key=lambda s: abs(s - t.getpixel((x, y))))])
+                              for y in range(8) for x in range(8) if t.getpixel((x, y)) < 230])
+            self.glyphs[key] = tiles
+        return self.glyphs[key]
+
+    def card_frame(self, inner, look="plain"):
+        """`inner` inside the trainer card's patterned frame, one tile all round."""
+        out = Image.new("RGB", (inner.width + 16, inner.height + 16), BG)
+        out.paste(inner, (8, 8))
+        t = self.card_tiles(look)
+        w, h = out.width, out.height
+
+        def put(i, x, y):
+            for gx, gy, c in t[i]:
+                out.putpixel((x + gx, y + gy), c)
+        for x in list(range(8, w - 8, 8)) + [w - 16]:
+            put(3, x, 0)
+            put(0, x, h - 8)
+        for y in list(range(8, h - 8, 8)) + [h - 16]:
+            put(5, 0, y)
+            put(1, w - 8, y)
+        put(2, 0, 0)
+        put(4, w - 8, 0)
+        put(6, 0, h - 8)
+        put(7, w - 8, h - 8)
+        return out
+
     def text(self, img, x, y, s, col=FG):
         for ch in s:
             ch = SUBST.get(ch, ch)
@@ -239,53 +283,61 @@ def draw_moves(img, painter, y, moves):
             painter.text(img, ppx, yy, tail, col)
 
 
+CARD_H = ROW + 16                  # a card in its trainer-card frame, and a 2 px gap
+
+
 def render_team(obs, painter):
+    """The team as six trainer-card-framed cards (W + 16 wide)."""
     party = obs.get("party") or []
     battle = obs.get("battle") if isinstance(obs.get("battle"), dict) else None
     me = (battle or {}).get("me") or {}
     foe = (battle or {}).get("foe") or {}
     out_slot = me.get("slot")          # 1-based party slot of the mon that is out
-    height = TOP + ROW * 6 + (ROW + 12 if foe else 0)
-    img = Image.new("RGB", (W, height), BG)
+    tw = W + 16
+    height = TOP + CARD_H * 6 + (ROW + 12 if foe else 0)
+    img = Image.new("RGB", (tw, height), BG)
 
     badges = len(obs.get("badges") or [])
     painter.text(img, 4, 4, "TEAM", ACCENT)
-    painter.text_right(img, 4, "%d BADGE%s" % (badges, "" if badges == 1 else "S"), DIM)
+    painter.text_right(img, 4, "%d BADGE%s" % (badges, "" if badges == 1 else "S"), DIM, right=tw)
 
     for i in range(6):
-        y = TOP + i * ROW
+        c = Image.new("RGB", (W, ROW - 2), BG)
+        y = 0
         if i >= len(party):
-            painter.text(img, 58, y + 24, "-", DIM)
+            painter.text(c, 58, y + 24, "-", DIM)
+            img.paste(painter.card_frame(c, "empty"), (0, TOP + i * CARD_H))
             continue
         p = party[i]
-        img.paste(painter.card(p["species"]), (3, y + 2))
+        c.paste(painter.card(p["species"]), (3, y + 2))
         is_out = out_slot == i + 1
         hp, max_hp = p.get("hp", 0), p.get("max_hp") or 1
         status = me.get("status") if is_out else None
         if is_out:
             hp = me.get("hp", hp)
-            painter.frame(img, 1, y, W - 2, ROW - 2, ACCENT)
-        painter.text(img, 58, y + 6, (p.get("nickname") or p["species"])[:10])
-        painter.text(img, 58, y + 16, p["species"][:10], DIM)
-        painter.text_right(img, y + 6, ":L%d" % p.get("level", 0), ACCENT)
+        painter.text(c, 58, y + 6, (p.get("nickname") or p["species"])[:10])
+        painter.text(c, 58, y + 16, p["species"][:10], DIM)
+        painter.text_right(c, y + 6, ":L%d" % p.get("level", 0), ACCENT)
         if hp <= 0:
-            painter.text_right(img, y + 16, "FNT", RED)
+            painter.text_right(c, y + 16, "FNT", RED)
         elif status:
-            painter.text_right(img, y + 16, str(status)[:3], YELLOW)
-        painter.bar(img, 58, y + 30, W - 58 - 6, hp / max_hp)
-        painter.text(img, 58, y + 38, "/".join(t[:3] for t in p.get("types") or []), DIM)
-        painter.text_right(img, y + 38, "%d/%d" % (hp, max_hp), DIM)
-        draw_moves(img, painter, y + 57, p.get("moves") or [])
+            painter.text_right(c, y + 16, str(status)[:3], YELLOW)
+        painter.bar(c, 58, y + 30, W - 58 - 6, hp / max_hp)
+        painter.text(c, 58, y + 38, "/".join(t[:3] for t in p.get("types") or []), DIM)
+        painter.text_right(c, y + 38, "%d/%d" % (hp, max_hp), DIM)
+        draw_moves(c, painter, y + 57, p.get("moves") or [])
+        # the one that is out in battle gets its frame in the accent colour
+        img.paste(painter.card_frame(c, "out" if is_out else "plain"), (0, TOP + i * CARD_H))
 
     if foe:
-        y = TOP + ROW * 6
+        y = TOP + CARD_H * 6
         painter.text(img, 4, y + 2, "FOE", RED)
-        img.paste(painter.card(foe.get("species") or "?"), (3, y + 14))
-        painter.text(img, 58, y + 20, (foe.get("species") or "?")[:10])
+        img.paste(painter.card(foe.get("species") or "?"), (11, y + 14))
+        painter.text(img, 66, y + 20, (foe.get("species") or "?")[:10])
         if foe.get("status"):
-            painter.text_right(img, y + 20, str(foe["status"])[:3], YELLOW)
+            painter.text_right(img, y + 20, str(foe["status"])[:3], YELLOW, right=tw - 8)
         frac = (foe.get("hp") or 0) / (foe.get("maxhp") or 1)
-        painter.bar(img, 58, y + 36, W - 58 - 6, frac)
+        painter.bar(img, 66, y + 36, W - 58 - 6, frac)
     return img
 
 
@@ -712,7 +764,7 @@ def render(obs, status_text, painter, layout="side", height=None, width=None,
         img.paste(col, (mw + GUTTER, 0))
         return img
     if layout == "stack":
-        team = framed(render_team(obs, painter), painter)
+        team = render_team(obs, painter)          # its cards carry their own frames
         cols = max(MIN_COLS, ((width or stack_width(COLS)) - 8 - 2 * FR) // 8)
         rest = max((height or 0) - team.height, 30 * LINE)
         col = framed(render_status(status_text, painter, rest - 2 * FR, cols, act), painter)
@@ -720,12 +772,11 @@ def render(obs, status_text, painter, layout="side", height=None, width=None,
         img.paste(team, (0, 0))
         img.paste(col, (0, team.height))
         return img
-    inner_team = render_team(obs, painter)
+    inner_team = render_team(obs, painter)        # W + 16 wide, cards framed
     cols = max(MIN_COLS, ((width or side_width(COLS)) - (W + 2 * FR) - GUTTER - 8 - 2 * FR) // 8)
-    h = max(inner_team.height + 2 * FR, height or 0)
-    team_in = Image.new("RGB", (inner_team.width, h - 2 * FR), BG)
-    team_in.paste(inner_team, (0, 0))
-    team = framed(team_in, painter)
+    h = max(inner_team.height, height or 0)
+    team = Image.new("RGB", (inner_team.width, h), BG)
+    team.paste(inner_team, (0, 0))
     col = framed(render_status(status_text, painter, h - 2 * FR, cols, act), painter)
     img = Image.new("RGB", (max(side_width(cols), width or 0), h), BG)
     img.paste(team, (0, 0))
@@ -832,7 +883,7 @@ def main():
     painter = Painter()
 
     def frame_bytes(obs, status_text, win=None, act=None):
-        team_h = TOP + ROW * 7 + 12 + 2 * FR
+        team_h = TOP + CARD_H * 6 + ROW + 12
         phase = feed.read_phase() or {}
         fitted = fit_map(win) if (win and phase.get("phase") == "authoring") else None
         layout, scale, height, width = fitted or fit(win, team_h)
