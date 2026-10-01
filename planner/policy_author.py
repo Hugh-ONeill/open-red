@@ -908,6 +908,15 @@ class Gym:
         them."""
         roster = [n for n, _x, _y in
                   sorted(room_roster(here), key=lambda t: -t[2])]
+        # THE LEADER LAST (2026-10-01). The walk pressed whoever was in
+        # reach, so it went to ERIKA the moment the bush was down and to
+        # KOGA by the first gap in his maze; the trial ended on the badge
+        # with two trainers never met, read "6/8" and "5/7" as if two
+        # fights were lost, and spared the party the attrition a gym is
+        # (user: "how are any trainers 'optional'..."). Everybody else in
+        # reach first, then the ground and the bushes, then the leader.
+        leaders = [n for n in roster if n.endswith(_GYM_LEADERS)]
+        roster = [n for n in roster if n not in leaders]
         pressed, cut = set(), set()
         for _ in range(tries or (6 * max(1, len(roster)) + 8)):
             obs = self._note_down(self._ride(self.ex.settle()))
@@ -990,6 +999,21 @@ class Gym:
             if busy:
                 self.b.send("wait", frames=30)
                 continue
+            if not hit:
+                for who in leaders:
+                    if who in pressed:
+                        continue
+                    r = self.b.send("interact", name=who, answer="no")
+                    if self._ok(r):
+                        pressed.add(who)
+                        hit = True
+                        break
+                    if self._mid_sequence(r):
+                        busy = True
+                        break
+                if busy:
+                    self.b.send("wait", frames=30)
+                    continue
             if not hit:
                 break            # nobody in reach and nowhere to look
         return self._ride(self.ex.settle())
@@ -2277,6 +2301,10 @@ ARENAS.update({
 # seen — so the roster can be read here and pressed by name. Check-side
 # only: this never reaches a prompt, and nothing the model plays with is
 # told where anyone stands.
+_GYM_LEADERS = ("_BROCK", "_MISTY", "_LT_SURGE", "_ERIKA", "_KOGA", "_SABRINA",
+                "_BLAINE", "_GIOVANNI")
+
+
 def room_roster(map_id: str) -> list:
     """[(name, x, y)] for one map, from the engine's own map table."""
     src = Path.home() / "Developer/gen1recomp/data/generated/maps.lua"
