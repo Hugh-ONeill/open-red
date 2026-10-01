@@ -1697,22 +1697,52 @@ local function draw_tiles(G, ow, map, mask, W, H)
   local function cell_xy(cx, cy)
     return wox + (cx * 16 - cam.x) * S, woy + (cy * 16 - cam.y) * S
   end
-  local x0 = math.max(0, math.floor(cam.x / 16) - 1)
-  local y0 = math.max(0, math.floor(cam.y / 16) - 1)
-  local x1 = math.min(W - 1, math.floor((cam.x + wvw) / 16) + 1)
-  local y1 = math.min(H - 1, math.floor((cam.y + wvh) / 16) + 1)
-  love.graphics.setColor(0, 0, 0, 0.5)
-  for cy = y0, y1 do
-    for cx = x0, x1 do
-      if not mask[cx .. "," .. cy] then
-        local X, Y = cell_xy(cx, cy)
-        love.graphics.rectangle("fill", X, Y, c, c)
+  -- what the camera can see, in this map's cells (unclamped: it can run
+  -- past the map's edge onto the neighbours the game draws there)
+  local vx0 = math.floor(cam.x / 16) - 1
+  local vy0 = math.floor(cam.y / 16) - 1
+  local vx1 = math.floor((cam.x + wvw) / 16) + 1
+  local vy1 = math.floor((cam.y + wvh) / 16) + 1
+  -- one map's footprint: its mask, size, and where its cell (0,0) sits in
+  -- this map's cells
+  local function paint(m, mW, mH, ox, oy)
+    local x0, y0 = math.max(0, vx0 - ox), math.max(0, vy0 - oy)
+    local x1, y1 = math.min(mW - 1, vx1 - ox), math.min(mH - 1, vy1 - oy)
+    if x0 > x1 or y0 > y1 then return end
+    local function at(cx, cy) return cell_xy(ox + cx, oy + cy) end
+    love.graphics.setColor(0, 0, 0, 0.5)
+    for cy = y0, y1 do
+      for cx = x0, x1 do
+        if not m[cx .. "," .. cy] then
+          local X, Y = at(cx, cy)
+          love.graphics.rectangle("fill", X, Y, c, c)
+        end
       end
     end
+    love.graphics.setColor(1, 0.15, 0.15, 0.95)
+    love.graphics.setLineWidth(math.max(1, S))
+    draw_boundary(m, mW, mH, at, c, x0, y0, x1, y1)
   end
-  love.graphics.setColor(1, 0.15, 0.15, 0.95)
-  love.graphics.setLineWidth(math.max(1, S))
-  draw_boundary(mask, W, H, cell_xy, c, x0, y0, x1, y1)
+  paint(mask, W, H, 0, 0)
+  -- ...AND THE NEIGHBOURS ON SCREEN (user, 2026-10-01: extend the shading
+  -- to the other overworld maps). The game draws each connected map past
+  -- the edge, placed by the connection's offset in blocks; their footprint
+  -- is in SEEN already, so shade and outline it where the game draws it.
+  local md = G.data and G.data.maps and G.data.maps[map.id]
+  for d, cn in pairs((md and md.connections) or {}) do
+    local nd = cn and cn.map and G.data.maps[cn.map]
+    -- a neighbour never seen at all has no entry: all of it is fog
+    local nmask = nd and (SEEN[cn.map] or {})
+    if nd and nmask and nd.width and nd.height then
+      local nW, nH, off = nd.width * 2, nd.height * 2, (cn.offset or 0) * 2
+      local ox, oy
+      if d == "north" then ox, oy = off, -nH
+      elseif d == "south" then ox, oy = off, H
+      elseif d == "west" then ox, oy = -nW, off
+      elseif d == "east" then ox, oy = W, off end
+      if ox then paint(nmask, nW, nH, ox, oy) end
+    end
+  end
   love.graphics.setColor(1, 0.85, 0.1, 0.9)
   for _, f in ipairs(last_frontier or {}) do
     local X, Y = cell_xy(f.x, f.y)
