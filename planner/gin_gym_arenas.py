@@ -330,13 +330,14 @@ _LEAGUE_CLEAR_TRAINERS = [
 _DOORS = json.loads((REPO / "plans/arena_real_doors.json").read_text())
 
 
-def _door(room: str) -> dict:
+def _door(room: str, note: str = "") -> dict:
     d = _DOORS[room]
     return dict(party=[dict(species=m["species"], level=m["level"], moves=m["moves"])
                        for m in d["party"]],
                 bag=dict(d["bag"]), money=d["money"], badges=list(d.get("badges") or []),
-                note=f"Run 19 at the door: checkpoint {d['checkpoint']} (its last "
-                     f"save before it first stood in this room, on {d['map']}).")
+                note=note or (f"Run 19 at the door: checkpoint {d['checkpoint']} "
+                              f"(its last save before it first stood in this room, "
+                              f"on {d['map']})."))
 
 
 GYMS = [
@@ -493,7 +494,17 @@ GYMS = [
          league=True, base=REPO / "run/arena_e4.lua", door=(4, 11),
          puzzle=False, hms=["SURF"],
          paths=dict(
-             real=_door("e4"))),
+             real=_door("e4"),
+             # THE LEAGUE AT ITS EDGE (2026-10-01). Run 19 as it walked in
+             # loses to levels whatever the policy: every spec, the plain
+             # baseline included, cleared 10-14 rooms of 30. After seven laps
+             # (12:27) it reached the Champion on each of its next four and
+             # lost there, then won from 13:14 a few levels on; a room parked
+             # at that edge is decided by how it fights, which is what a
+             # policy is scored on.
+             late=_door("e4_late", note="Run 19 after seven lost laps of the "
+                       "league: checkpoint leg_52_..20260930-122755 (it reached the "
+                       "Champion on each of its next four laps and won from 13:14)"))),
 ]
 
 
@@ -824,7 +835,7 @@ def main():
                     help="say what would be built and stop")
     ap.add_argument("--only", default="",
                     help="one room by name (pewter ... viridian, e4)")
-    ap.add_argument("--path", choices=["real", "ideal", "both"],
+    ap.add_argument("--path", choices=["real", "ideal", "late", "both"],
                     default="both", help="which path's rooms to build")
     a = ap.parse_args()
     rc = 0
@@ -893,7 +904,7 @@ def main():
     for g in GYMS:
         if a.only and g["name"] != a.only:
             continue
-        for path in (("real", "ideal") if a.path == "both" else (a.path,)):
+        for path in ((list(g["paths"]) if a.path == "both" else (a.path,))):
             p = g["paths"].get(path)
             if p is None:
                 continue        # the league's ideal party is a hand file

@@ -715,5 +715,104 @@
    "THUNDERBADGE",
    "VOLCANOBADGE"
   ]
+ },
+ "e4_late": {
+  "party": [
+   {
+    "species": "POLIWHIRL",
+    "level": 60,
+    "moves": [
+     "BLIZZARD",
+     "SURF",
+     "HYPNOSIS",
+     "BODY_SLAM"
+    ]
+   },
+   {
+    "species": "KADABRA",
+    "level": 53,
+    "moves": [
+     "RECOVER",
+     "THUNDER_WAVE",
+     "PSYCHIC_M",
+     "REFLECT"
+    ]
+   },
+   {
+    "species": "PIDGEOT",
+    "level": 50,
+    "moves": [
+     "RAZOR_WIND",
+     "WING_ATTACK",
+     "QUICK_ATTACK",
+     "WHIRLWIND"
+    ]
+   },
+   {
+    "species": "VENUSAUR",
+    "level": 53,
+    "moves": [
+     "CUT",
+     "TOXIC",
+     "LEECH_SEED",
+     "RAZOR_LEAF"
+    ]
+   },
+   {
+    "species": "GRAVELER",
+    "level": 66,
+    "moves": [
+     "EARTHQUAKE",
+     "MEGA_PUNCH",
+     "EXPLOSION",
+     "STRENGTH"
+    ]
+   },
+   {
+    "species": "DUGTRIO",
+    "level": 55,
+    "moves": [
+     "SLASH",
+     "TAKE_DOWN",
+     "EARTHQUAKE",
+     "DOUBLE_TEAM"
+    ]
+   }
+  ],
+  "bag": {
+   "GUARD_SPEC": 1,
+   "OLD_ROD": 1,
+   "HM_STRENGTH": 1,
+   "CARBOS": 1,
+   "FULL_HEAL": 1,
+   "CARD_KEY": 1,
+   "SECRET_KEY": 1,
+   "SILPH_SCOPE": 1,
+   "HM_CUT": 1,
+   "ULTRA_BALL": 7,
+   "HM_SURF": 1,
+   "TM_SUBMISSION": 1,
+   "TM_MEGA_KICK": 1,
+   "BICYCLE": 1,
+   "TM_EXPLOSION": 1,
+   "POKE_FLUTE": 1,
+   "MAX_POTION": 4,
+   "LIFT_KEY": 1,
+   "IRON": 1,
+   "GOOD_ROD": 1
+  },
+  "money": 6263,
+  "map": "BRUNOS_ROOM",
+  "checkpoint": "leg_52_defeat_the_rival_in_the_final_sho.20260930-122755",
+  "badges": [
+   "BOULDERBADGE",
+   "CASCADEBADGE",
+   "EARTHBADGE",
+   "MARSHBADGE",
+   "RAINBOWBADGE",
+   "SOULBADGE",
+   "THUNDERBADGE",
+   "VOLCANOBADGE"
+  ]
  }
 }

@@ -90,6 +90,18 @@
    "why": "Thunder has lower accuracy and PP than Thunderbolt, and Jolteon's other attacking moves are very weak."
   }
  },
+ "e4_late": {
+  "PIDGEOT|MIRROR_MOVE": {
+   "forget": null,
+   "level": 54,
+   "why": "Mirror Move is too situational for the Elite Four compared to reliable damage and utility moves."
+  },
+  "VENUSAUR|SLEEP_POWDER": {
+   "forget": "CUT",
+   "level": 55,
+   "why": "Sleep Powder is essential for crowd control against the Elite Four, and Cut is a weak HM move."
+  }
+ },
  "e4_real": {
   "PIDGEOT|MIRROR_MOVE": {
    "forget": null,

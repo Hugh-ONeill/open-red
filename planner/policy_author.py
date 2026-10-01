@@ -2152,6 +2152,9 @@ for _room in GYM_ROOMS:
 for _path in PATHS:
     ARENAS[f"e4_{_path}"] = ("e4", REPO / f"run/arena_e4_{_path}.lua",
                              REPO / f"plans/arena_e4_{_path}.json")
+# the league at its edge: run 19 after seven laps (gin_gym_arenas, "late")
+ARENAS["e4_late"] = ("e4", REPO / "run/arena_e4_late.lua",
+                     REPO / "plans/arena_e4_late.json")
 # THE CATCH ROOMS (2026-09-16): a patch of grass and a want, built by
 # gin_gym_arenas.py (CATCHES). They score the spec's `catch` block, which
 # no gym or league room ever reaches.

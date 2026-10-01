@@ -1,0 +1,139 @@
+{
+  "party": [
+    {
+      "species": "POLIWHIRL",
+      "level": 60,
+      "moves": [
+        "BLIZZARD",
+        "SURF",
+        "HYPNOSIS",
+        "BODY_SLAM"
+      ],
+      "nickname": "POLIWHIRL"
+    },
+    {
+      "species": "KADABRA",
+      "level": 53,
+      "moves": [
+        "RECOVER",
+        "THUNDER_WAVE",
+        "PSYCHIC_M",
+        "REFLECT"
+      ],
+      "nickname": "KADABRA"
+    },
+    {
+      "species": "PIDGEOT",
+      "level": 50,
+      "moves": [
+        "RAZOR_WIND",
+        "WING_ATTACK",
+        "QUICK_ATTACK",
+        "WHIRLWIND"
+      ],
+      "nickname": "PIDGEOT"
+    },
+    {
+      "species": "VENUSAUR",
+      "level": 53,
+      "moves": [
+        "CUT",
+        "TOXIC",
+        "LEECH_SEED",
+        "RAZOR_LEAF"
+      ],
+      "nickname": "VENUSAUR"
+    },
+    {
+      "species": "GRAVELER",
+      "level": 66,
+      "moves": [
+        "EARTHQUAKE",
+        "MEGA_PUNCH",
+        "EXPLOSION",
+        "STRENGTH"
+      ],
+      "nickname": "GRAVELER"
+    },
+    {
+      "species": "DUGTRIO",
+      "level": 55,
+      "moves": [
+        "SLASH",
+        "TAKE_DOWN",
+        "EARTHQUAKE",
+        "DOUBLE_TEAM"
+      ],
+      "nickname": "DUGTRIO"
+    }
+  ],
+  "bag": {
+    "GUARD_SPEC": 1,
+    "OLD_ROD": 1,
+    "HM_STRENGTH": 1,
+    "CARBOS": 1,
+    "FULL_HEAL": 1,
+    "CARD_KEY": 1,
+    "SECRET_KEY": 1,
+    "SILPH_SCOPE": 1,
+    "HM_CUT": 1,
+    "ULTRA_BALL": 7,
+    "HM_SURF": 1,
+    "TM_SUBMISSION": 1,
+    "TM_MEGA_KICK": 1,
+    "BICYCLE": 1,
+    "TM_EXPLOSION": 1,
+    "POKE_FLUTE": 1,
+    "MAX_POTION": 4,
+    "LIFT_KEY": 1,
+    "IRON": 1,
+    "GOOD_ROD": 1
+  },
+  "money": 6263,
+  "badges": [
+    "BOULDERBADGE",
+    "CASCADEBADGE",
+    "EARTHBADGE",
+    "MARSHBADGE",
+    "RAINBOWBADGE",
+    "SOULBADGE",
+    "THUNDERBADGE",
+    "VOLCANOBADGE"
+  ],
+  "bag_exact": true,
+  "start": {
+    "map": "LORELEIS_ROOM",
+    "x": 4,
+    "y": 11,
+    "facing": "up"
+  },
+  "clear_flags": [
+    "EVENT_BEAT_LORELEIS_ROOM_TRAINER_0",
+    "EVENT_BEAT_BRUNOS_ROOM_TRAINER_0",
+    "EVENT_BEAT_AGATHAS_ROOM_TRAINER_0",
+    "EVENT_BEAT_LANCE",
+    "EVENT_BEAT_CHAMPION_RIVAL",
+    "EVENT_BEAT_LORELEI",
+    "EVENT_BEAT_BRUNO",
+    "EVENT_BEAT_AGATHA",
+    "EVENT_BEAT_CHAMPION_RIVAL_THIS_RUN",
+    "EVENT_LANCES_ROOM_LOCK_DOOR",
+    "EVENT_AUTOWALKED_INTO_LORELEIS_ROOM",
+    "EVENT_AUTOWALKED_INTO_BRUNOS_ROOM",
+    "EVENT_AUTOWALKED_INTO_AGATHAS_ROOM",
+    "EVENT_BEAT_LANCES_ROOM_TRAINER_0",
+    "EVENT_STARTED_ELITE_4"
+  ],
+  "clear_trainers": [
+    "AGATHAS_ROOM_obj_1",
+    "AGATHAS_ROOM_obj_2",
+    "BRUNOS_ROOM_obj_1",
+    "BRUNOS_ROOM_obj_2",
+    "CHAMPIONS_ROOM_obj_1",
+    "CHAMPIONS_ROOM_obj_2",
+    "LANCES_ROOM_obj_1",
+    "LANCES_ROOM_obj_2",
+    "LORELEIS_ROOM_obj_1",
+    "LORELEIS_ROOM_obj_2"
+  ]
+}
