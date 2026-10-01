@@ -64,7 +64,8 @@ CARD = (224, 228, 208)
 HPLINE = (200, 206, 196)           # the HP bar's outline, light on the dark card
 FRAME = (104, 116, 104)            # the border tiles: quiet, the game's own green-gray
 
-W, ROW, TOP = 248, 80, 16          # the team column (a card: pic, lines, HP, then two lines of moves)
+W, ROW, TOP = 248, 80, 22          # the team column (a card: pic, lines, HP, then two lines of moves);
+                                   # TOP holds the header with its row of badges
 COLS = 46                          # the status column, in 8px characters, when
                                    # nothing asks for more (--png, no window)
 MIN_COLS = 36                      # the narrowest status column a fit will use
@@ -232,6 +233,29 @@ class Painter:
     def text_right(self, img, y, s, col=FG, pad=4, right=W):
         self.text(img, right - 8 * len(s) - pad, y, s, col)
 
+    # THE TRAINER CARD'S BADGES: badges.png is 8 stacked [leader face, badge]
+    # 16x16 pairs in the game's order. Earned: the badge on a light tile, as
+    # the sprite cards; not yet: the badge's outline, faint, so the row reads
+    # as eight slots the way the card does.
+    BADGE_ORDER = ["BOULDERBADGE", "CASCADEBADGE", "THUNDERBADGE", "RAINBOWBADGE",
+                   "SOULBADGE", "MARSHBADGE", "VOLCANOBADGE", "EARTHBADGE"]
+
+    def badge(self, i, earned):
+        key = ("badge", i, earned)
+        if key not in self.glyphs:
+            sheet = Image.open(ASSETS + "trainer_card/badges.png").convert("L")
+            b = sheet.crop((0, i * 32 + 16, 16, i * 32 + 32))
+            tile = Image.new("RGB", (16, 16), CARD if earned else BG)
+            for y in range(16):
+                for x in range(16):
+                    v = b.getpixel((x, y))
+                    if earned and v < 250:
+                        tile.putpixel((x, y), (int(v * 0.88 + 20),) * 3)
+                    elif not earned and v < 40:
+                        tile.putpixel((x, y), (62, 68, 64))
+            self.glyphs[key] = tile
+        return self.glyphs[key]
+
     def card(self, species):
         """The front pic on a light card, centred (pics are 40, 48 or 56)."""
         if species not in self.pics:
@@ -321,6 +345,7 @@ def draw_moves(img, painter, y, moves):
 
 
 CARD_H = ROW + 16                  # a card in its trainer-card frame, and a 2 px gap
+FOE_H = 12 + 56 + 16               # "FOE", then its framed card
 
 
 def render_team(obs, painter):
@@ -331,12 +356,13 @@ def render_team(obs, painter):
     foe = (battle or {}).get("foe") or {}
     out_slot = me.get("slot")          # 1-based party slot of the mon that is out
     tw = W + 16
-    height = TOP + CARD_H * 6 + (12 + 56 + 16 if foe else 0)
+    height = TOP + CARD_H * 6 + (FOE_H if foe else 0)
     img = Image.new("RGB", (tw, height), BG)
 
-    badges = len(obs.get("badges") or [])
-    painter.text(img, 4, 4, "TEAM", ACCENT)
-    painter.text_right(img, 4, "%d BADGE%s" % (badges, "" if badges == 1 else "S"), DIM, right=tw)
+    have = set(obs.get("badges") or [])
+    painter.text(img, 4, 7, "TEAM", ACCENT)
+    for i, name in enumerate(painter.BADGE_ORDER):
+        img.paste(painter.badge(i, name in have), (tw - 8 * 18 - 2 + i * 18, 3))
 
     for i in range(6):
         c = Image.new("RGB", (W, ROW - 2), BG)
@@ -924,7 +950,7 @@ def main():
     painter = Painter()
 
     def frame_bytes(obs, status_text, win=None, act=None):
-        team_h = TOP + CARD_H * 6 + ROW + 12
+        team_h = TOP + CARD_H * 6 + FOE_H              # room for a battle's foe card too
         phase = feed.read_phase() or {}
         fitted = fit_map(win) if (win and phase.get("phase") == "authoring") else None
         layout, scale, height, width = fitted or fit(win, team_h)
