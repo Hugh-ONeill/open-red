@@ -40,10 +40,11 @@ ck("...before any A is pressed on that menu",
 ck("...but not in the middle of a teach's forget list", "and not t.newMoveId" in loop)
 ne = ui[ui.index("-- ...AND ONLY WHEN THE POKEMON AND THE BAG AGREE."):]
 ck("a no-effect message is believed only when the party and the bag did not move",
-   ne.index('return true, ("used %s on %s: HP %d -> %d%s")')
+   ne.index('return true, ("used %s on %s:%s HP %d -> %d%s")')
    < ne.index('" and NOTHING HAPPENED — the game said'))
 ck("a use that worked says what it did to whom",
-   ui.count('("used %s on %s: HP %d -> %d%s")') == 2)
+   ui.count('("used %s on %s:%s HP %d -> %d%s")') == 2
+   and ui.count('(mon.level ~= _pre.level) and (" L"') == 2)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, det in checks:

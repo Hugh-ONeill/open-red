@@ -8719,7 +8719,8 @@ function OPS.use_item(G, c)
   -- WHAT THE TARGET AND THE BAG WERE BEFORE THE ITEM, so the verdict can be
   -- read off the party, not off the words (see the no-effect branch).
   local _pre = party[slot] and { hp = party[slot].hp,
-                                 status = party[slot].status } or nil
+                                 status = party[slot].status,
+                                 level = party[slot].level } or nil
   local _n_pre = bag_count(G, c.item)
   if #party > 0 and slot > #party then
     ui_back_out(G)
@@ -8984,8 +8985,10 @@ function OPS.use_item(G, c)
       if c.slot and mon and _pre and ((mon.hp or 0) ~= (_pre.hp or 0)
           or mon.status ~= _pre.status
           or bag_count(G, c.item) < _n_pre) then
-        return true, ("used %s on %s: HP %d -> %d%s"):format(
+        return true, ("used %s on %s:%s HP %d -> %d%s"):format(
           c.item, tostring(mon.species or ("slot " .. tostring(c.slot))),
+          (mon.level ~= _pre.level) and (" L" .. tostring(_pre.level)
+            .. " -> L" .. tostring(mon.level) .. ",") or "",
           tonumber(_pre.hp) or 0, tonumber(mon.hp) or 0,
           (mon.status ~= _pre.status)
             and (" (status " .. tostring(_pre.status or "none") .. " -> "
@@ -9010,9 +9013,12 @@ function OPS.use_item(G, c)
     end
   end
   if c.slot and mon and _pre and ((mon.hp or 0) ~= (_pre.hp or 0)
-                               or mon.status ~= _pre.status) then
-    return true, ("used %s on %s: HP %d -> %d%s"):format(
+                               or mon.status ~= _pre.status
+                               or mon.level ~= _pre.level) then
+    return true, ("used %s on %s:%s HP %d -> %d%s"):format(
       c.item, tostring(mon.species or ("slot " .. tostring(c.slot))),
+      (mon.level ~= _pre.level) and (" L" .. tostring(_pre.level)
+        .. " -> L" .. tostring(mon.level) .. ",") or "",
       tonumber(_pre.hp) or 0, tonumber(mon.hp) or 0,
       (mon.status ~= _pre.status)
         and (" (status " .. tostring(_pre.status or "none") .. " -> "
