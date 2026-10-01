@@ -13783,6 +13783,25 @@ function OPS.checkpoint_restore(G, c)
       love.math.setRandomSeed(os.time() * 1000 + reseed_counter)
     end)
   end
+  -- A MAP WHOSE TILES ARE DRAWN FROM THE SAVE IS DRAWN AGAIN. Cinnabar's
+  -- gym rewrites its gate blocks from the gate flags (story6
+  -- applyGymGates) on entry and after each fight, and a restore puts the
+  -- save back without either: the next arena trial walked trial one's open
+  -- gates past guardians it never had to beat, scored 4/8 where the first
+  -- scored 8/8, and every Cinnabar room read 75% whatever the policy or the
+  -- level (2026-10-01). Only the maps whose entry hook does nothing but
+  -- redraw: another room's entry can start an event (a league room's
+  -- auto-walk), which a restore must not.
+  do
+    local _redraw = { CINNABAR_GYM = true }
+    local _ow = G.overworld
+    local _mid = _ow and _ow.map and _ow.map.id
+    if _mid and _redraw[_mid] then
+      local okms, MS = pcall(require, "src.script.MapScripts")
+      local hooks = okms and MS and MS.get(_mid)
+      if hooks and hooks.onEnter then pcall(hooks.onEnter, G, _ow, _mid) end
+    end
+  end
   return true, "restored " .. (c.token or "default")
       .. (c.reseed and " (rng reseeded)" or "")
 end
