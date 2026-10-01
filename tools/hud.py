@@ -61,6 +61,7 @@ TRACK = (51, 51, 47)
 YELLOW = (230, 200, 90)
 RED = (227, 138, 115)
 CARD = (224, 228, 208)
+HPLINE = (200, 206, 196)           # the HP bar's outline, light on the dark card
 FRAME = (104, 116, 104)            # the border tiles: quiet, the game's own green-gray
 
 W, ROW, TOP = 248, 80, 16          # the team column (a card: pic, lines, HP, then two lines of moves)
@@ -183,7 +184,8 @@ class Painter:
     # the white band becomes the background and the texture stays texture.
     CARD_SHADES = {"plain": {170: (112, 124, 112), 85: (66, 74, 68), 0: (40, 44, 42)},
                    "out": {170: (124, 196, 155), 85: (64, 116, 88), 0: (38, 62, 48)},
-                   "empty": {170: (66, 72, 68), 85: (44, 48, 46), 0: (32, 35, 34)}}
+                   "empty": {170: (66, 72, 68), 85: (44, 48, 46), 0: (32, 35, 34)},
+                   "foe": {170: (200, 118, 104), 85: (112, 60, 54), 0: (60, 34, 32)}}
 
     def card_tiles(self, look):
         key = ("card", look)
@@ -246,6 +248,41 @@ class Painter:
             self.pics[species] = card
         return self.pics[species]
 
+    # THE GAME'S OWN HP BAR (home/pokemon.asm DrawHPBar, via gen1recomp's
+    # HudTiles): "HP" $71 + ":[" $62, 8 px cells $63..$6B (n px of fill each),
+    # then the cap: $6D double bar on your own side, $6C nub on the foe's.
+    # Colour at GetHealthBarColor's thresholds (27 / 10 px of 48), scaled when
+    # the bar is stretched over more cells, as the widescreen battle does.
+    # The sheet is black outline + one gray fill on white: outline drawn
+    # light, fill in the bar colour, white left see-through.
+    def hp_tile(self, code):
+        key = ("hp", code)
+        if key not in self.glyphs:
+            if not hasattr(self, "battle_extra"):
+                self.battle_extra = Image.open(ASSETS + "battle/font_battle_extra.png").convert("L")
+            k = code - 0x62
+            t = self.battle_extra.crop(((k % 15) * 8, (k // 15) * 8, (k % 15) * 8 + 8, (k // 15) * 8 + 8))
+            self.glyphs[key] = [(x, y, "line" if t.getpixel((x, y)) < 40 else "fill")
+                                for y in range(8) for x in range(8) if t.getpixel((x, y)) < 200]
+        return self.glyphs[key]
+
+    def hpbar(self, img, x, y, width, frac, cap=0x6D):
+        cells = max(1, (width - 24) // 8)
+        px = 0 if frac <= 0 else max(1, int(frac * cells * 8))
+        green, yellow = -(-27 * cells // 6), -(-10 * cells // 6)
+        fill = ACCENT if px >= green else YELLOW if px >= yellow else RED
+        cols = {"line": HPLINE, "fill": fill}
+
+        def put(code, tx):
+            for gx, gy, kind in self.hp_tile(code):
+                img.putpixel((tx + gx, y + gy), cols[kind])
+        put(0x71, x)
+        put(0x62, x + 8)
+        for i in range(cells):
+            seg = min(8, max(0, px - i * 8))
+            put(0x6B if seg >= 8 else 0x63 + seg, x + 16 + i * 8)
+        put(cap, x + 16 + cells * 8)
+
     def bar(self, img, x, y, w, frac, h=4, col=None):
         """An HP-style bar; `col` pins the colour (progress is not health)."""
         col = col or (ACCENT if frac > 0.5 else YELLOW if frac > 0.2 else RED)
@@ -294,7 +331,7 @@ def render_team(obs, painter):
     foe = (battle or {}).get("foe") or {}
     out_slot = me.get("slot")          # 1-based party slot of the mon that is out
     tw = W + 16
-    height = TOP + CARD_H * 6 + (ROW + 12 if foe else 0)
+    height = TOP + CARD_H * 6 + (12 + 56 + 16 if foe else 0)
     img = Image.new("RGB", (tw, height), BG)
 
     badges = len(obs.get("badges") or [])
@@ -322,7 +359,7 @@ def render_team(obs, painter):
             painter.text_right(c, y + 16, "FNT", RED)
         elif status:
             painter.text_right(c, y + 16, str(status)[:3], YELLOW)
-        painter.bar(c, 58, y + 30, W - 58 - 6, hp / max_hp)
+        painter.hpbar(c, 58, y + 28, W - 58 - 2, hp / max_hp)
         painter.text(c, 58, y + 38, "/".join(t[:3] for t in p.get("types") or []), DIM)
         painter.text_right(c, y + 38, "%d/%d" % (hp, max_hp), DIM)
         draw_moves(c, painter, y + 57, p.get("moves") or [])
@@ -332,12 +369,16 @@ def render_team(obs, painter):
     if foe:
         y = TOP + CARD_H * 6
         painter.text(img, 4, y + 2, "FOE", RED)
-        img.paste(painter.card(foe.get("species") or "?"), (11, y + 14))
-        painter.text(img, 66, y + 20, (foe.get("species") or "?")[:10])
+        c = Image.new("RGB", (W, 56), BG)
+        c.paste(painter.card(foe.get("species") or "?"), (3, 2))
+        painter.text(c, 58, 6, (foe.get("species") or "?")[:10])
+        if foe.get("level"):
+            painter.text_right(c, 6, ":L%s" % foe["level"], RED)
         if foe.get("status"):
-            painter.text_right(img, y + 20, str(foe["status"])[:3], YELLOW, right=tw - 8)
+            painter.text_right(c, 16, str(foe["status"])[:3], YELLOW)
         frac = (foe.get("hp") or 0) / (foe.get("maxhp") or 1)
-        painter.bar(img, 66, y + 36, W - 58 - 6, frac)
+        painter.hpbar(c, 58, 30, W - 58 - 2, frac, cap=0x6C)   # Red shows the foe no HP numbers
+        img.paste(painter.card_frame(c, "foe"), (0, y + 12))
     return img
 
 
