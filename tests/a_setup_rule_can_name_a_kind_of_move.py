@@ -60,6 +60,26 @@ ck("the first name of the accuracy class still reads", B.setup_move("accuracy_do
    [mv(4, "SAND_ATTACK", "ACCURACY_DOWN1_EFFECT")]) is not None
    and "accuracy_down" not in B.SETUP_DOC)
 
+ck("a move a class covers knows its class",
+   B.class_of_move("GROWTH") == "raise_special" and B.class_of_move("HYPNOSIS") == "sleep"
+   and B.class_of_move("SCREECH") == "lower_defense")
+ck("...and a move no class covers has none (it may still be named)",
+   B.class_of_move("LEECH_SEED") is None and B.class_of_move("RECOVER") is None
+   and B.class_of_move("BODY_SLAM") is None)
+probs = B.class_name_problems(dict(B.DEFAULT_SPEC, setup=[{"move": "GROWTH"},
+                                                          {"move": "LEECH_SEED"},
+                                                          {"move": "sleep"}]))
+ck("an authored rule naming a covered move is told its class; the others pass",
+   len(probs) == 1 and '"raise_special"' in probs[0], probs)
+ck("...asked of authored candidates only, so the policies on disk still load",
+   B.validate_spec(dict(B.DEFAULT_SPEC, setup=[{"move": "GROWTH"}])) == []
+   and "battle_policy.class_name_problems(spec)" in (ROOT / "planner/policy_author.py").read_text())
+ck("the author is told to name the class", "the rule names the class" in B.SETUP_DOC)
+import inspect as _i  # noqa: E402
+import executor as _E  # noqa: E402
+ck("the run does not ask for a rule for a move a class rule already reaches",
+   "battle_policy.setup_move(n, [mv])" in _i.getsource(_E.Executor._ask_setup_rules))
+
 spec = dict(B.DEFAULT_SPEC, setup=[{"move": "sleep", "max_uses": 1, "per_foe": True,
                                     "only_if_foe_clear": True, "vs": "any"}])
 ck("a class validates", B.validate_spec(spec) == [], B.validate_spec(spec))

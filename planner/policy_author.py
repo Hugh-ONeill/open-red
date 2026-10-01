@@ -2559,6 +2559,8 @@ def main():
              {"role": "user", "content": user}], args.model)
         spec = _parse_spec(reply)
         probs = battle_policy.validate_spec(spec) if spec else ["no JSON"]
+        if spec and not probs:
+            probs = battle_policy.class_name_problems(spec)
         if probs:
             print(f"[round {rnd}] invalid spec: {probs}")
             feedback += f"\ncandidate #{rnd}: INVALID ({probs}) — fix these."

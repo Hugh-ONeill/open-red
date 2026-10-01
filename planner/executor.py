@@ -23616,6 +23616,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             for mv in (m.get("moves") or []):
                 mid = str((mv or {}).get("id") or "")
                 if (mid and not (mv.get("power") or 0) and mid not in named
+                        # ...nor a class rule reaches (a "sleep" rule is a
+                        # rule for HYPNOSIS)
+                        and not any(n in battle_policy.MOVE_CLASSES
+                                    and battle_policy.setup_move(n, [mv])
+                                    for n in named)
                         and mid not in book
                         and mid not in [t[0] for t in todo]):
                     todo.append((mid, mv, m))

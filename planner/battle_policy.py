@@ -1419,15 +1419,17 @@ SETUP_DOC = """  setup: list of deliberate status-move rules, each:
      A stat class takes a sharp (two-stage) move before a mild one; add
      "_sharply" ("raise_attack_sharply", "lower_defense_sharply", ...)
      and it takes ONLY a sharp one, so a rule can spend a turn on a big
-     change and never on a small one. A rule naming SLEEP_POWDER does nothing for a party
-     member that knows a different sleep move; a rule naming "sleep" works
-     for both, and for whoever joins the party later. max_uses and the
-     first_turns window are counted per class.)
+     change and never on a small one. A rule naming SLEEP_POWDER does
+     nothing for a party member that knows a different sleep move; a rule
+     naming "sleep" works for both, and for whoever joins the party later.
+     max_uses and the first_turns window are counted per class. When a
+     class covers a move, the rule names the class: a move NAME is only
+     for a move no class covers.)
     (A MOVE WITH NO POWER IS NEVER PICKED BY SCORE while any damaging move
      has PP: it scores 0, so the only way one is used is a rule here that
-     NAMES it. Name
-     every such move you would want used if a party member had it — a
-     rule for a move nobody knows costs nothing and waits.)
+     names it or its class. Write a rule for every such kind of move you
+     would want used if a party member had one — a rule nobody can use
+     costs nothing and waits.)
     (per_foe: what a move puts on a foe leaves with that foe. Without
      per_foe, max_uses and first_turns are counted from the start of the
      BATTLE, so a trainer's second Pokemon comes out after the window has
@@ -1481,6 +1483,56 @@ MOVE_CLASSES = {
 }
 # the first name this class had (c0438ca); still read, no longer printed
 MOVE_CLASSES["accuracy_down"] = MOVE_CLASSES["lower_accuracy"]
+
+
+_EFFECT_OF = None
+
+
+def _move_effects() -> dict:
+    """move id -> (effect, power), from the game's own move table."""
+    global _EFFECT_OF
+    if _EFFECT_OF is None:
+        try:
+            from gin_save import load_lua, GEN
+            mv = load_lua(GEN / "moves.lua")
+            _EFFECT_OF = {str(k): (str(v.get("effect") or "").upper(),
+                                   v.get("power") or 0)
+                          for k, v in mv.items() if isinstance(v, dict)}
+        except Exception:
+            _EFFECT_OF = {}
+    return _EFFECT_OF
+
+
+def class_of_move(name) -> str | None:
+    """The class a status move belongs to ("GROWTH" -> "raise_special"), or
+    None for a move no class covers (LEECH_SEED, DISABLE, RECOVER...)."""
+    eff, power = _move_effects().get(str(name), ("", 0))
+    if power or not eff:
+        return None
+    for cls, effs in MOVE_CLASSES.items():
+        if cls == "accuracy_down" or cls.endswith("_sharply"):
+            continue
+        if eff in effs:
+            return cls
+    return None
+
+
+def class_name_problems(spec: dict) -> list:
+    """WHEN A CLASS COVERS A MOVE, A POLICY NAMES THE CLASS (user, 2026-10-01:
+    "i thought we werent doing just move buffs anymore"). v19's GROWTH rule
+    was a name written before the stat classes existed, and no member of the
+    run it was meant for knew GROWTH. Asked of an AUTHORED candidate only
+    (policy_author), so every policy already on disk still loads."""
+    out = []
+    for i, r in enumerate((spec or {}).get("setup") or []):
+        if not isinstance(r, dict):
+            continue
+        cls = class_of_move(r.get("move"))
+        if cls:
+            out.append(f"setup[{i}].move: {r.get('move')} is the class "
+                       f"\"{cls}\" — name the class, so the rule fires for "
+                       f"whichever such move the Pokemon in the fight knows")
+    return out
 
 
 def setup_move(name, moves):

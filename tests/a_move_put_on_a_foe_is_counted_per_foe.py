@@ -169,7 +169,7 @@ ck("the author is told every word",
                         '"min_foe_level_ratio": 0.0-3.0',
                         '"only_if_leader": true/false')))
 ck("...and that a move with no power is only ever used by a rule that names it",
-   "NEVER PICKED BY SCORE" in D and "a rule here that NAMES it" in D)
+   "NEVER PICKED BY SCORE" in D and "a rule here that names it or its class" in D)
 _new = D[D.index("A MOVE WITH NO POWER"):D.index("switch: list of mid-battle")]
 ck("...without being told which move is worth a turn",
    not any(w in _new.upper() for w in ("LEECH", "SLEEP_POWDER", "HYPNOSIS",
