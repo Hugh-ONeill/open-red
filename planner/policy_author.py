@@ -1002,6 +1002,72 @@ class Gym:
         + tuple(i for lad in battle_policy.CURE_LADDERS.values()
                 for i in lad)))
 
+    _PP_OF = None
+
+    def _add_cost(self, res: dict, rows: list, obs: dict) -> None:
+        """WHAT THE TRIAL'S FIGHTS COST, beside what they won (user,
+        2026-10-01: "hp and pp counts, most damage for least cost"). Read
+        off the trial's own battle turns: damage dealt is every drop in the
+        foe's HP plus the last HP of each foe that went down (a new foe
+        came out); damage taken is every drop in our active member's HP
+        plus the last HP of each member that fainted (a replacement was
+        picked), counted afresh after a switch. PP used is one a move
+        turn, against the PP the room's party carries; medicine used is
+        what left the bag, against what the room's bag held. A blackout
+        refills PP and HP, which is why none of this is read off the
+        party at the end."""
+        dealt = taken = moves = 0
+        pf = pm = None
+        for d in rows or []:
+            k = d.get("kind")
+            if k == "battle_start":
+                pf = pm = None
+                continue
+            if k != "battle_turn":
+                continue
+            op = d.get("op")
+            if op == "battle_move":
+                moves += 1
+            f, m = d.get("foe_hp"), d.get("me_hp")
+            if f is not None:
+                if pf is not None:
+                    if f < pf:
+                        dealt += pf - f
+                    elif f > pf:
+                        dealt += pf          # the last foe went down
+                pf = f
+            if op == "pick_party":
+                if pm is not None:
+                    taken += pm              # the member out fainted
+                pm = None
+                continue
+            if m is not None:
+                if pm is not None and m < pm:
+                    taken += pm - m
+                pm = None if op == "battle_switch" else m
+        if Gym._PP_OF is None:
+            try:
+                from gin_save import load_lua, GEN
+                Gym._PP_OF = {str(k): int(v.get("pp") or 0) for k, v in
+                              load_lua(GEN / "moves.lua").items()
+                              if isinstance(v, dict)}
+            except Exception:
+                Gym._PP_OF = {}
+        try:
+            spec = json.loads(Path(self.arena_spec).read_text()) if self.arena_spec else {}
+        except (OSError, ValueError):
+            spec = {}
+        had = sum(Gym._PP_OF.get(str(mv), 0) for m in spec.get("party") or []
+                  for mv in m.get("moves") or [])
+        bag0 = spec.get("bag") or {}
+        end = (obs or {}).get("bag") or {}
+        med_had = sum(int(bag0.get(i, 0) or 0) for i in self._MEDICINE)
+        med_used = sum(max(0, int(bag0.get(i, 0) or 0) - int(end.get(i, 0) or 0))
+                       for i in self._MEDICINE if bag0.get(i))
+        for k, v in (("dealt", dealt), ("taken", taken), ("pp_used", moves),
+                     ("pp_had", had), ("med_used", med_used), ("med_had", med_had)):
+            res[k] = res.get(k, 0) + v
+
     def _spent(self, obs: dict) -> str:
         """WHAT THE TRIAL SPENT AND WHAT IT LEFT. v13 went down to the
         Champion twice with a FULL_RESTORE still in the bag, and the model
@@ -1165,6 +1231,7 @@ class Gym:
                     res["scored"] += 1
                     res["agree"] += 1 if d.get("agree") else 0
                     res["dmg_gap"] += d.get("dmg_gap") or 0.0
+            self._add_cost(res, self._log_delta(start), obs)
         return res
 
     @staticmethod
@@ -1731,6 +1798,7 @@ class Gym:
                     res["scored"] += 1
                     res["agree"] += 1 if d.get("agree") else 0
                     res["dmg_gap"] += d.get("dmg_gap") or 0.0
+            self._add_cost(res, self._log_delta(start), obs)
         return res
 
     def prepare(self):
@@ -1865,6 +1933,7 @@ class Gym:
                     res["scored"] += 1
                     res["agree"] += 1 if d.get("agree") else 0
                     res["dmg_gap"] += d.get("dmg_gap") or 0.0
+            self._add_cost(res, self._log_delta(start), obs)
         return res
 
 
@@ -2028,6 +2097,18 @@ def arena_quality(r: dict) -> float:
         clean = 1.0 - ((r.get("spill") or 0) / earned) if earned else 0.0
         return max(0.0, min(0.999, 0.5 * max(0.0, left) + 0.3 * clean
                             + 0.2 * bodies))
+    # MOST DAMAGE FOR LEAST COST (user, 2026-10-01): the damage race
+    # (dealt against taken) and thrift (PP and medicine left), from the
+    # trial's own turns (Gym._add_cost). It reads inside a LOSS too, which
+    # is all most league trials are: how far the fight got and what it
+    # paid. Rooms without the counts keep the old reading.
+    if r.get("dealt") or r.get("taken"):
+        race = r.get("dealt", 0) / max(1, r.get("dealt", 0) + r.get("taken", 0))
+        pp = min(1.0, r.get("pp_used", 0) / max(1, r.get("pp_had", 0)))
+        med = (min(1.0, r.get("med_used", 0) / r["med_had"])
+               if r.get("med_had") else 0.0)
+        thrift = 1.0 - 0.5 * pp - 0.5 * med
+        return max(0.0, min(0.999, 0.4 * bodies + 0.35 * race + 0.25 * thrift))
     scored = max(1, r.get("scored") or 0)
     # agreement with the move oracle, which is the only per-turn measure
     # of play quality the arena has
@@ -2077,6 +2158,11 @@ def cross_text(name: str, rows) -> str:
         out.append(f"  {an}: {arena_fraction(r):.0%} of that arena, "
                    f"blackouts {r.get('blackouts', 0)}, party left "
                    f"{(r.get('bodies') or 0.0) / max(1, r.get('gauntlet_trials') or 1):.0%}")
+        if r.get("dealt") or r.get("taken"):
+            out[-1] += (f", damage dealt {r.get('dealt', 0)} for {r.get('taken', 0)} "
+                        f"taken, PP {r.get('pp_used', 0)}/{r.get('pp_had', 0)}"
+                        + (f", medicine {r.get('med_used', 0)}/{r['med_had']}"
+                           if r.get("med_had") else ""))
         for g in (r.get("gauntlet_detail") or []):
             out.append(f"    {g}")
         if r.get("rival_detail"):
