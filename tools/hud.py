@@ -235,8 +235,8 @@ class Painter:
         self.text(img, right - 8 * len(s) - pad, y, s, col)
 
     # THE TRAINER CARD'S BADGES: badges.png is 8 stacked [leader face, badge]
-    # 16x16 pairs in the game's order. Earned: the badge on a dark tile, its
-    # shades turned over to read on it; not yet: the outline, faint, so the row reads
+    # 16x16 pairs in the game's order. Earned: the badge on a dark tile in its
+    # own shading, lifted to read there; not yet: the outline, faint, so the row reads
     # as eight slots the way the card does.
     BADGE_ORDER = ["BOULDERBADGE", "CASCADEBADGE", "THUNDERBADGE", "RAINBOWBADGE",
                    "SOULBADGE", "MARSHBADGE", "VOLCANOBADGE", "EARTHBADGE"]
@@ -256,9 +256,10 @@ class Painter:
                     continue
                 outside.add((x, y))
                 todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
-            # on a dark tile the shades turn over: the black outline is drawn
-            # light, the grays stay mid-tones, the highlights stay bright
-            shade = {0: (210, 214, 204), 85: (112, 120, 112), 170: (168, 176, 164), 255: (236, 236, 230)}
+            # the game's own order of shades (outline darkest, highlights
+            # brightest), lifted so the outline still shows on the dark tile;
+            # turning them over read as a photo negative
+            shade = {0: (96, 104, 98), 85: (150, 158, 148), 170: (196, 202, 190), 255: (238, 238, 232)}
             tile = Image.new("RGB", (16, 16), BADGE_TILE if earned else BG)
             for y in range(16):
                 for x in range(16):
