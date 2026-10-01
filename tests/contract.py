@@ -171,6 +171,7 @@ BATTLE = [
     Field("battle.me.moves[].accuracy", "score_move accuracy weight",
           required=False),
     Field("battle.me.moves[].category", "setup only_if_best_physical"),
+    Field("battle.me.moves[].effect", "setup move classes; only_if_foe_clear"),
     Field("battle.me.disabledSlot", "the DISABLE deadlock guard",
           required=False,
           note="nil until something uses DISABLE -- cannot be sampled"),

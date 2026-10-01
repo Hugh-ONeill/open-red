@@ -546,6 +546,11 @@ def validate_spec(spec) -> list:
                 if not isinstance(r, dict) or not r.get("move"):
                     probs.append(f"setup[{i}] needs a move name")
                     continue
+                if (str(r["move"]) != str(r["move"]).upper()
+                        and r["move"] not in MOVE_CLASSES):
+                    probs.append(f"setup[{i}].move: a move class is one of "
+                                 + ", ".join(MOVE_CLASSES)
+                                 + " (a move name is in capitals)")
                 if r.get("vs") not in (None, "trainer", "wild", "any"):
                     probs.append(f"setup[{i}].vs must be trainer/wild/any")
                 if "only_if_best_physical" in r and not isinstance(
@@ -1401,6 +1406,14 @@ SETUP_DOC = """  setup: list of deliberate status-move rules, each:
      only against that battle kind; only_if_best_physical limits the rule
      to fights where our best damage move is PHYSICAL — a Defense-drop
      like TAIL_WHIP does nothing for a special move like BUBBLE)
+    (A MOVE CLASS IS A DECISION, A MOVE NAME IS ONE POKEMON. "move" may be
+     a class in lower case instead of a name: "sleep", "paralyze",
+     "confuse", "poison" or "accuracy_down" — whichever move the Pokemon
+     in the fight knows that puts that on the foe, the surest of them when
+     it knows two. A rule naming SLEEP_POWDER does nothing for a party
+     member that knows a different sleep move; a rule naming "sleep" works
+     for both, and for whoever joins the party later. max_uses and the
+     first_turns window are counted per class.)
     (A MOVE WITH NO POWER IS NEVER PICKED BY SCORE while any damaging move
      has PP: it scores 0, so the only way one is used is a rule here that
      NAMES it. Name
@@ -1422,6 +1435,38 @@ SETUP_DOC = """  setup: list of deliberate status-move rules, each:
      keep a turn that does no damage for a fight long enough to repay it;
      which fights those are is yours to judge.)
 """
+
+
+# MOVE CLASSES (user, 2026-10-01: "thats kind of silly isnt it?"). A setup
+# rule named one move, so v18's SLEEP_POWDER rule did nothing for run 19's
+# POLIWHIRL and its HYPNOSIS: the policy is authored against the arena's
+# party and played by another. A class resolves, when the rule fires,
+# against the game's own effect field on the moves the active Pokemon knows
+# (the same field foe_carries reads), exactly as an item class resolves
+# against the bag. Status moves only: a damaging move with a side effect is
+# a damaging move.
+MOVE_CLASSES = {
+    "sleep": "SLEEP_EFFECT",
+    "paralyze": "PARALYZE_EFFECT",
+    "confuse": "CONFUSION_EFFECT",
+    "poison": "POISON_EFFECT",
+    "accuracy_down": "ACCURACY_DOWN1_EFFECT",
+}
+
+
+def setup_move(name, moves):
+    """The move a setup rule reaches for among `moves` (usable, with PP):
+    the named one, or for a class the surest status move with that effect."""
+    n = str(name or "")
+    if n in MOVE_CLASSES:
+        eff = MOVE_CLASSES[n]
+        cand = [m for m in moves or []
+                if not m.get("power")
+                and str(m.get("effect") or "").upper() == eff]
+        if not cand:
+            return None
+        return max(cand, key=lambda m: (m.get("accuracy") or 0, m.get("pp") or 0))
+    return next((m for m in moves or [] if m.get("id") == n), None)
 
 
 # WHAT THE SCREEN SAID THE FOE NOW CARRIES. The status box shows SLP / PSN
@@ -1846,7 +1891,7 @@ def choose(obs: dict, spec: dict | None = None,
     used = ctx.setdefault("used", {})
     for rule in spec.get("setup") or []:
         mid = rule.get("move")
-        mv = next((m for m in moves if m.get("id") == mid), None)
+        mv = setup_move(mid, moves)
         if not mv:
             continue
         # WHAT A MOVE PUTS ON A FOE LEAVES WITH IT. Counted per battle, a
@@ -1881,7 +1926,9 @@ def choose(obs: dict, spec: dict | None = None,
             continue
         used[_key] = used.get(_key, 0) + 1
         return {"op": "battle_move", "index": mv["index"],
-                "_why": f"setup {mid} (use {used[_key]}"
+                "_why": f"setup {mv.get('id')}"
+                        + (f" [{mid}]" if mid in MOVE_CLASSES else "")
+                        + f" (use {used[_key]}"
                         + (f" on foe {_foe_n}" if _per else "") + ")"}
     pool = damaging or scored     # only status moves left -> use them
     if spec.get("avoid_status_moves", True) and damaging:
