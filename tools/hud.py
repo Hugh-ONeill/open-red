@@ -985,18 +985,28 @@ def read_status():
         return None
 
 
+_shown_id = [0]
+
+
 def kitty_show(png_bytes):
-    """Replace image id 1 at the top-left, through kitty's graphics protocol,
-    so a redraw swaps the picture in place instead of scrolling."""
+    """Show a frame at the top-left through kitty's graphics protocol,
+    DOUBLE-BUFFERED: the new frame goes up under the other image id and only
+    then is the old one deleted. Deleting first left the window empty while a
+    big frame (the overworld map) was still on its way, and it flashed."""
+    old = _shown_id[0]
+    new = 2 if old == 1 else 1
     data = base64.b64encode(png_bytes).decode()
-    out = ["\x1b[H", "\x1b_Ga=d,d=i,i=1,q=2\x1b\\"]
+    out = ["\x1b[H"]
     chunks = [data[i:i + 4096] for i in range(0, len(data), 4096)] or [""]
     for n, chunk in enumerate(chunks):
         more = 1 if n < len(chunks) - 1 else 0
-        head = "a=T,f=100,i=1,C=1,q=2," if n == 0 else ""
+        head = f"a=T,f=100,i={new},C=1,q=2," if n == 0 else ""
         out.append(f"\x1b_G{head}m={more};{chunk}\x1b\\")
+    if old:
+        out.append(f"\x1b_Ga=d,d=i,i={old},q=2\x1b\\")
     sys.stdout.write("".join(out))
     sys.stdout.flush()
+    _shown_id[0] = new
 
 
 def stamp_of(path):
@@ -1067,7 +1077,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        sys.stdout.write("\x1b_Ga=d,d=i,i=1,q=2\x1b\\\x1b[?25h\n")
+        sys.stdout.write("\x1b_Ga=d,d=i,i=1,q=2\x1b\\\x1b_Ga=d,d=i,i=2,q=2\x1b\\\x1b[?25h\n")
 
 
 if __name__ == "__main__":
