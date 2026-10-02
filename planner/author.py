@@ -2596,6 +2596,7 @@ def validate(plan: dict) -> list:
                  for p in probs]
     probs += inserted_leg_problems(plan)
     probs += same_failed_walk_problems(plan)
+    probs += pc_step_problems(plan)
     if not any("this is the same walk" in p for p in probs):
         probs += new_ground_problems(plan)
     return probs
@@ -2659,6 +2660,26 @@ def untried_leads(run: Path = Path("run"), skip_maps=(), cap: int = 6) -> list:
     order = sorted(rows, key=lambda r: (0 if r.split("|")[0] == here
                                         else 1 if r.split("|")[0] in near else 2, r))
     return [f"{r} ({', '.join(rows[r][:3])})" for r in order[:cap]]
+
+
+def pc_step_problems(plan: dict, goal: str | None = None) -> list:
+    """A step that only puts a Pokemon in the PC, in a plan whose objective
+    says nothing of the PC. Run 24's "Reach Cerulean City" grew
+    "visit_mt_moon_pc: pc_holds 1" to get past another refusal, and the
+    executor boxed Geodude, its Mega Punch user, "to satisfy the goal"
+    (2026-10-02). A party member leaves the party only when the objective
+    is about the PC itself."""
+    goal = goal if goal is not None else _AUTHORING_GOAL
+    if re.search(r"\b(pc|box|boxes|deposit|withdraw|store|storage)\b", str(goal or ""), re.I):
+        return []
+    for i, s in enumerate(plan.get("subgoals") or []):
+        dw = (s or {}).get("done_when") or {}
+        if isinstance(dw, dict) and "pc_holds" in pred_keys(dw):
+            return [f"subgoal[{i}] ({(s or {}).get('id')}) ends on the PC holding a "
+                    f"Pokemon, and this objective ({goal}) says nothing about the PC: "
+                    f"putting a party member in the box takes it out of the party. "
+                    f"Remove this step."]
+    return []
 
 
 def same_failed_walk_problems(plan: dict, goal: str | None = None,
