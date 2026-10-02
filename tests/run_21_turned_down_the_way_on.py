@@ -58,9 +58,13 @@ ck("the arrival refusal asks it", "and not _visits_a_person(ins):" in src)
 
 g = ("WHAT CHANGED WHILE THIS LEG RAN — events that fired: EVENT_BEAT_ROUTE_24_TRAINER_0; "
      "2 place(s) entered for the first time — by map: ROUTE_24 x1, ROUTE_25 x1; "
+     "1 map(s) never stood on before: ROUTE_25; "
      "levels gained: IVYSAUR 21->22; joined the party: ODDISH")
 ground = A._momentum_ground(g)
-ck("momentum's ground holds places and events", "ROUTE_25" in ground and "EVENT_BEAT_ROUTE_24" in ground)
+ck("momentum's ground holds new maps and events", "ROUTE_25" in ground and "EVENT_BEAT_ROUTE_24" in ground)
+ck("...not a new part of a map already walked (run 25: CELADON_CITY, then a cleared Game Corner)",
+   "CELADON_CITY" not in A._momentum_ground(
+       "4 place(s) entered for the first time — by map: CELADON_CITY x1, GAME_CORNER x3"))
 ck("...not levels or party changes", "IVYSAUR" not in ground and "ODDISH" not in ground, ground)
 A.chat_json = lambda m, mo: json.dumps({"why": "x", "leg": 16, "from": "IVYSAUR 21->22"})
 ck("a pick resting on a level line is refused",

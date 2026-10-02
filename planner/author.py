@@ -11050,9 +11050,10 @@ the run stands beats going back to the objective you were on? A person
 playing who wanders into the next dungeon while looking for something else
 often finishes the dungeon first.
 
-Only objectives still on the list, by number. Name the place or event from
-WHAT THE ATTEMPT DID that shows you are partway into it, written exactly as
-it is written there. If what the attempt did was not part of another
+Only objectives still on the list, by number. Name the new map, event or item
+from WHAT THE ATTEMPT DID that shows you are partway into it, written exactly
+as it is written there. A new part of a map you had already walked is not new
+ground. If what the attempt did was not part of another
 objective, or going back is better, answer null; the objective you were on
 stays where it is either way.
 
@@ -11082,14 +11083,19 @@ def momentum_worth_asking(gained: str) -> bool:
 
 
 def _momentum_ground(gained: str) -> str:
-    """The parts of an attempt's yield that are GROUND: places entered,
-    events fired, items and badges gained. Levels, party changes and tiles
+    """The parts of an attempt's yield that are GROUND: maps never stood on
+    before, events fired, items and badges gained. Levels, party changes and tiles
     seen are not: run 21 rolled onto a party leg "from IVYSAUR 21->22"
     (2026-10-02)."""
     keep = []
     for part in re.split(r";\s*", str(gained or "")):
+        # ...AND OF PLACES, ONLY MAPS NEW AT ALL. "Entered for the first time"
+        # counts new PARTS, so a new corner of Celadon passed as ground and
+        # the run rolled back into a Game Corner it had already cleared (run
+        # 25, 2026-10-02; user: "the roll-with-it is supposed to be for new
+        # areas not already searched ones").
         if re.search(r"events that fired:|items gained:|badges earned:|"
-                     r"entered for the first time", part):
+                     r"map\(s\) never stood on before", part):
             keep.append(part)
     return "; ".join(keep)
 

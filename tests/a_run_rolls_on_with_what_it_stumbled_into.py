@@ -29,7 +29,9 @@ def ck(n, ok, d=""):
 
 gained = ("WHAT CHANGED WHILE THIS LEG RAN — events that fired: EVENT_BEAT_ROCKET_HIDEOUT_1_TRAINER_0; "
           "items gained: LIFT_KEY x1; 4 place(s) entered for the first time — by map: GAME_CORNER x1, "
-          "ROCKET_HIDEOUT_B1F x1, ROCKET_HIDEOUT_B2F x1, ROCKET_HIDEOUT_B3F x1")
+          "ROCKET_HIDEOUT_B1F x1, ROCKET_HIDEOUT_B2F x1, ROCKET_HIDEOUT_B3F x1; "
+          "4 map(s) never stood on before: GAME_CORNER, ROCKET_HIDEOUT_B1F, ROCKET_HIDEOUT_B2F, "
+          "ROCKET_HIDEOUT_B3F")
 ahead = [(17, "Exit Rock Tunnel"), (26, "Infiltrate the Team Rocket secret base in Celadon City"),
          (27, "Retrieve the Secret Key from the Game Corner")]
 asked = []

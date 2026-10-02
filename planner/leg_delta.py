@@ -152,6 +152,16 @@ def main() -> int:
         bits.append(f"{len(new_areas)} place(s) entered for the first time"
                     " — by map: "
                     + ", ".join(f"{m} x{c}" for m, c in _by_map.most_common(10)))
+        # ...AND WHICH OF THOSE MAPS ARE NEW AT ALL. A new corner of a map
+        # stood on for hours reads the same as a map never seen by region
+        # count; the roll-with-it question needs the difference (run 25 rolled
+        # onto "the Secret Key from the Game Corner" on "CELADON_CITY", a new
+        # part of a city it had walked all afternoon; 2026-10-02).
+        _old_maps = {a.split("|")[0] for a in before.get("areas", [])}
+        _new_maps = sorted({a.split("|")[0] for a in new_areas} - _old_maps)
+        if _new_maps:
+            bits.append(f"{len(_new_maps)} map(s) never stood on before: "
+                        + ", ".join(_new_maps[:10]))
     # TILES SEEN FOR THE FIRST TIME, by map: the amount of new ground,
     # not just the number of new regions.
     _sb, _sn = before.get("seen") or {}, now.get("seen") or {}
