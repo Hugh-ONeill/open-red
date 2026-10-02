@@ -1,14 +1,15 @@
 # open-red
 
-**An open-weights LLM that plays Pokémon Red from a new game to the Hall of Fame, on one local GPU.**
+**Working toward the first unassisted finish of Pokémon Red by an open-weights LLM, on one local GPU.**
 
 ![Model: Gemma 4 31B](https://img.shields.io/badge/model-Gemma%204%2031B%20(Q4)-4285F4)
 ![Runs locally](https://img.shields.io/badge/runs-100%25%20local%2C%20no%20API-2ea44f)
-![Hall of Fame](https://img.shields.io/badge/Hall%20of%20Fame-5%20finishes-ffcb05)
+![Status](https://img.shields.io/badge/unassisted%20finish-not%20yet-lightgrey)
 ![Tests](https://img.shields.io/badge/tests-674-blue)
 
-open-red is a harness and planner that let a 31B open-weights model (Gemma 4, Q4,
-served by Ollama on a single Radeon AI PRO R9700) play the whole of Pokémon Red.
+open-red is a harness and planner built so that a 31B open-weights model (Gemma 4,
+Q4, served by Ollama on a single Radeon AI PRO R9700) can play the whole of Pokémon
+Red on its own.
 The model writes its own list of objectives, plans each one, chooses every move in
 the overworld, writes its own battle policy, and decides what to do when it is
 stuck. Nothing goes over the network.
@@ -17,10 +18,13 @@ The harness has one job: **tell the model the truth about what is on screen, and
 then get out of the way.** It drives the game and reports what happened. It never
 decides where to go or what to do next.
 
-> **Results so far:** five Hall of Fame finishes on outlines the model wrote itself,
-> the first on 2026-08-28. Every one of them was *assisted*: the harness was fixed
-> between relaunches when a run exposed a bug. A fully hands-off finish is the
-> current goal.
+> **Where it stands:** the goal, a run that goes from a new game to the Hall of Fame
+> with nobody touching it, **has not been reached yet.** Five runs have reached the
+> Hall of Fame on outlines the model wrote itself (the first on 2026-08-28), but all
+> five were assisted: they were stopped mid-run so the harness could be fixed, then
+> relaunched, and some needed hand corrections to the outline or the run's records.
+> They show the capability is there; they are not the claim. Each run since is an
+> attempt at the untouched finish, and each stop has turned into a fix.
 
 ---
 
@@ -29,7 +33,7 @@ decides where to go or what to do next.
 Frontier models have finished Pokémon (Claude, Gemini and GPT all have). A local
 31B model on consumer hardware is a different problem: it has a smaller window,
 weaker spatial reasoning and far less world knowledge, and it cannot be prompted
-past its limits with more tokens. Getting it to the Hall of Fame came down to
+past its limits with more tokens. Getting it this far has come down to
 engineering the *information*, not the model:
 
 - **No hidden state, no game knowledge.** The model sees only what a player could
