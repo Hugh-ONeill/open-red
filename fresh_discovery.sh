@@ -116,6 +116,21 @@ if [ "$done_legs" = 0 ]; then
   [ -f run/executor_log.jsonl ] && mv run/executor_log.jsonl "run/executor_log.${ts}.pre-discovery.jsonl"
   # the whole prompts of the last chain's rounds go with its journal
   [ -f run/prompts.jsonl.gz ] && mv run/prompts.jsonl.gz "run/prompts.${ts}.pre-discovery.jsonl.gz"
+  # ...AND THE VIEWER'S EVENT FEED STARTS OVER WITH THE GAME. tools/events.py
+  # keeps one feed outside run/ across runs and the HUD shows its last
+  # entries, so a new game opened under the last game's events (user,
+  # 2026-10-02: "when starting a new game we should clear out the events
+  # queue"). The follower reopens the feed for each write, so a rotation is
+  # safe while it runs; the old feed is kept beside it.
+  _feed="${RED_EVENTS:-$HOME/.local/state/red-recomp/events.jsonl}"
+  if [ -s "$_feed" ]; then
+    mv "$_feed" "${_feed%.jsonl}.${ts}.jsonl"
+    printf '{"t": %s, "kind": "chain", "tone": "info", "level": 2, "text": "a new game begins"}\n' \
+        "$(date +%s)" > "$_feed"
+  fi
+  # the world map's breadcrumbs are this game's path, not the last one's
+  _trail="$(dirname "$_feed")/trail.jsonl"
+  [ -s "$_trail" ] && mv "$_trail" "${_trail%.jsonl}.${ts}.jsonl"
   [ -f "$SAVE" ] && cp "$SAVE" "run/slot1.${ts}.pre-discovery.lua"
   # ...and RETIRE it. Copying alone left the save in place, so the game
   # auto-loaded it and bootstrap's new_game hit CONTINUE instead: a "fresh"
