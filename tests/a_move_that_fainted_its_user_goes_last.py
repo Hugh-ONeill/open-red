@@ -55,8 +55,10 @@ ck("the enemy fainting alone is not",
    not E._journal_self_ko(BEFORE, after("SAGE used EARTHQUAKE! / Enemy ZUBAT fainted!"), "EARTHQUAKE"))
 ck("the enemy's own selfdestruct is not ours",
    not E._journal_self_ko(BEFORE, after("Enemy GEODUDE used SELFDESTRUCT! / Enemy GEODUDE fainted!"), "MEGA_PUNCH"))
-ck("a two-word move is matched as the screen spells it",
-   E._journal_self_ko(BEFORE, after("SAGE used MEGA PUNCH! / SAGE fainted!"), "MEGA_PUNCH"))
+# since 2026-10-02 only a move the game's table says faints its user is
+# journaled at all (run 25's record had thirty ordinary attacks in it)
+ck("an ordinary move is never journaled, whatever faints after it",
+   not E._journal_self_ko(BEFORE, after("SAGE used MEGA PUNCH! / SAGE fainted!"), "MEGA_PUNCH"))
 ck("a mon already down records nothing",
    not E._journal_self_ko({"me": {"hp": 0}, "foe": {}}, after("SAGE used SELFDESTRUCT! / SAGE fainted!"), "SELFDESTRUCT"))
 
