@@ -2882,6 +2882,17 @@ def _check_pred(dw: dict, tag: str, sid, probs: list):
         probs.append(f"{tag} ({sid}) no_battle alone is true whenever you "
                      f"are not fighting, so it marks nothing — name what "
                      f"the fight CHANGES (a flag, a badge, an item)")
+    # ...AND THE SAME OF "THE OVERWORLD". {"mode": "overworld"} is true the
+    # moment no box, menu or fight is up, which is where a plan starts: run
+    # 26's "Battle the rival for the first time" ended on it twice and both
+    # plans "completed" standing in Oak's Lab without a fight (2026-10-02);
+    # 26 of the 33 archived uses were that same leg, the rest fights and a
+    # dialog, none of them marking anything.
+    if dw == {"mode": "overworld"}:
+        probs.append(f"{tag} ({sid}) {{\"mode\": \"overworld\"}} alone is true "
+                     f"whenever no box, menu or fight is up, so it marks "
+                     f"nothing — name what the step CHANGES (a flag, a badge, "
+                     f"an item, a map you could not stand in before)")
     for k, v in dw.items():
             if k not in VALID_KEYS:
                 probs.append(f"{tag} ({sid}) unknown predicate '{k}'")
