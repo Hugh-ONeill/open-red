@@ -8816,6 +8816,28 @@ _ARRIVAL_VERBS = ("visit", "enter", "go to", "return to", "head to",
                   "walk to", "travel to", "get to")
 
 
+def _visits_a_person(ins: str) -> bool:
+    """"Visit Bill in his house on Route 25" is a meeting, not an arrival:
+    the thing after the verb is someone, not somewhere. Run 21's missing
+    rung offered exactly the step run 20 had escaped with ("Help Bill in his
+    house on Route 25") and had it turned down as "met by arriving"
+    (2026-10-02). Someone, here, is a capitalised name right after the verb
+    that is no word of any map's name (OAKS_LAB keeps "Visit Oak's lab" a
+    place)."""
+    m = re.match(r"\s*(?:visit|go to|return to|head to|walk to|travel to|get to)\s+"
+                 r"(?:(?:mr|mrs|ms|professor|prof|old|the)\.?\s+)?([A-Za-z'\u2019]+)",
+                 str(ins or ""), re.I)
+    if not m:
+        return False
+    w = m.group(1)
+    if not w[:1].isupper() or w.lower() in ("the", "a", "an"):
+        return False
+    word = re.sub(r"[^A-Z]", "", w.upper())
+    map_words = {part for mid in list(ROUTE_MAPS) + list(ENGINE_MAPS or ())
+                 for part in str(mid).split("_")}
+    return bool(word) and word not in map_words
+
+
 def inserts_that_did_not_unblock(goal: str, behind: list) -> list:
     """Objectives the missing rung inserted for THIS objective that the run
     has since finished, while this one still fails: they were not the gate,
@@ -9132,7 +9154,8 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
                                 + (f" as \"{_same}\"" if _same else "")))
             continue
         _first = _norm_obj(ins)
-        if any(_first == v or _first.startswith(v + " ") for v in _ARRIVAL_VERBS):
+        if any(_first == v or _first.startswith(v + " ") for v in _ARRIVAL_VERBS) \
+                and not _visits_a_person(ins):
             print(f"[missing] turned down {ins!r}: it is met by arriving — "
                   f"{_why}", file=sys.stderr)
             turned_down.append((ins, "it only says to get somewhere, which is "
