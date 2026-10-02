@@ -17,6 +17,9 @@ OUT=$(mktemp -d)
 # from a checkpoint. Every test here gets a throwaway bridge dir.
 export RED_BRIDGE_DIR="$(mktemp -d)"
 mkdir -p "$RED_BRIDGE_DIR"
+# the names past runs had (planner/executor.py NAMES_USED) are a real run's
+# record; a test's names go to a throwaway file
+export RED_NAMES_USED="$RED_BRIDGE_DIR/names_used"
 ls tests/*.py | grep -Ev "$BOOTS" | xargs -P "${JOBS:-10}" -I{} bash -c \
   'n=$(basename {} .py); timeout 300 python3 {} > '"$OUT"'/$n.log 2>&1 || echo "$n" >> '"$OUT"'/FAILED'
 echo "ran $(ls "$OUT"/*.log | wc -l) tests (logs in $OUT)"

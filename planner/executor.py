@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import sys
 import time
 import types
@@ -28048,6 +28049,72 @@ NAME_SYS_OWN = (
     "or anything else you like. A short one is fine. A joke is fine."
 )
 
+# FIVE NAMES, AND ONE DRAWN. Sampled 2026-10-01 (8 draws each): temperature
+# changes nothing (the starter was SPROUT at 1.3 eight times in eight, the
+# rival JERK six), and run after run read SPROUT, JERK, SAGE, KAI. Asked for
+# five it would be happy with, the model offers a real spread (MOCHI, PESTO,
+# PIPPIN, TRUFFLE; LEO, BIFF, MILO, ZEKE), and the draw among them is ours.
+# The framing changes per screen (user, 2026-10-01: "id be fine with a bulba
+# named carl its just like naming a pet ... just like its named rival jerk
+# every time"): a Pokemon is named like a pet, the rival like a kid from your
+# town; the player's own name keeps the wording that gave ZELDA.
+_NAME_FIVE = ('{\"names\":[\"...\",\"...\",\"...\",\"...\",\"...\"]} '
+              '— five different names you would be happy with')
+NAME_SYS_PET = NAME_SYS_OWN.replace(
+    "so choose it the way a player naming their own team "
+    "would — after what it is, what it did, what you mean it to become, "
+    "or anything else you like.",
+    "so choose it the way a person names a pet: it does NOT have to "
+    "describe the Pokemon, its type or its looks at all — people name pets "
+    "after people they know, foods, places, songs, in-jokes, or just a name "
+    "they like.")
+NAME_SYS_RIVAL = NAME_SYS_OWN.replace(
+    "so choose it the way a player naming their own team "
+    "would — after what it is, what it did, what you mean it to become, "
+    "or anything else you like.",
+    "and this one is your rival: a kid from your own town you grew up "
+    "next to. Name them like a person, or by a nickname a kid would get.")
+assert NAME_SYS_PET != NAME_SYS_OWN and NAME_SYS_RIVAL != NAME_SYS_OWN
+
+# NAMES PAST RUNS HAVE HAD, turned away like the menu's presets, so each run
+# gets names it has not had. Kept under plans/ (a fresh chain archives run/),
+# one "kind<TAB>NAME" a line; KAI is on it from the start (user, 2026-10-01:
+# "the only one ive disliked is kai").
+# A test sets RED_BRIDGE_DIR (tests never touch the live run), and its
+# names go there with it, never into the record a real run reads.
+NAMES_USED = Path(os.environ.get("RED_NAMES_USED")
+                  or (Path(os.environ["RED_BRIDGE_DIR"]) / "names_used"
+                      if os.environ.get("RED_BRIDGE_DIR") else "plans/names_used"))
+_NAMES_NEVER = {"KAI"}
+
+
+def _name_kind(title: str) -> str:
+    t = str(title or "").upper()
+    if "NICKNAME" in t:
+        return "nickname"
+    if "YOUR NAME" in t:
+        return "player"
+    if "HIS NAME" in t or "RIVAL" in t:
+        return "rival"
+    return "other"
+
+
+def _names_used() -> set:
+    try:
+        return {l.split("\t")[-1].strip().upper()
+                for l in NAMES_USED.read_text().splitlines() if l.strip()} | _NAMES_NEVER
+    except OSError:
+        return set(_NAMES_NEVER)
+
+
+def _note_name_used(kind: str, name: str) -> None:
+    try:
+        NAMES_USED.parent.mkdir(parents=True, exist_ok=True)
+        with NAMES_USED.open("a") as fh:
+            fh.write(f"{kind}\t{name}\n")
+    except OSError:
+        pass
+
 
 def _naming_prompt(obs: dict, insist: str = "") -> str:
     """What is being named, in the game's own words plus what is on
@@ -28138,10 +28205,14 @@ def ask_name(obs: dict, model, log=None) -> str:
             # empty reply (2026-09-14, user: "then itll come up with
             # different names each time instead of the prompt determining
             # the name").
+            _kind = _name_kind(nm.get("title"))
+            _sys = (NAME_SYS if not NICKNAMES_REQUIRED else
+                    NAME_SYS_PET if _kind == "nickname" else
+                    NAME_SYS_RIVAL if _kind == "rival" else NAME_SYS_OWN)
+            if NICKNAMES_REQUIRED:
+                _sys = _sys.replace('{"name":"..."}', _NAME_FIVE)
             reply = brock_probe.chat(
-                [{"role": "system", "content": (NAME_SYS_OWN
-                                                if NICKNAMES_REQUIRED
-                                                else NAME_SYS)},
+                [{"role": "system", "content": _sys},
                  {"role": "user",
                   "content": _naming_prompt(obs, insist)}], model,
                 temp=NAME_TEMP)
@@ -28149,10 +28220,22 @@ def ask_name(obs: dict, model, log=None) -> str:
             if log:
                 log("name_chat_error", err=str(e)[:200])
             return ""
-        _obj = Executor._first_object(reply or "")
-        name = str((_obj or {}).get("name") or "")
-        name = "".join(ch for ch in name.strip()
-                       if ch.isalnum() or ch in " -?!.,():;")[:cap]
+        _obj = Executor._first_object(reply or "") or {}
+
+        def _clean(x):
+            return "".join(ch for ch in str(x or "").strip()
+                           if ch.isalnum() or ch in " -?!.,():;")[:cap].upper()
+        _cands = [_clean(x) for x in (_obj.get("names") or []) if _clean(x)]
+        if not _cands and _obj.get("name"):
+            _cands = [_clean(_obj.get("name"))]
+        _used = _names_used() if NICKNAMES_REQUIRED else set()
+        _fresh = [c for c in _cands if c.strip() not in off_menu
+                  and c.strip() not in _used]
+        name = (random.choice(_fresh) if _fresh else
+                (_cands[0] if _cands else ""))
+        if _fresh and log:
+            log("name_drawn", title=str(nm.get("title")), drawn=name,
+                offered=_cands, turned_away=[c for c in _cands if c not in _fresh])
         # ...AND THE PROMPT SAYS NOTHING ABOUT IT. Asking for capitals in
         # words was an unnecessary change to a prompt whose job is the
         # CHOICE, and at the rounds' old temperature it moved every name
@@ -28173,15 +28256,23 @@ def ask_name(obs: dict, model, log=None) -> str:
                 attempt=attempt + 1, reply=str(reply)[:200])
         if not NICKNAMES_REQUIRED:
             return name
-        if name and name.strip().upper() not in off_menu:
+        if name and name.strip().upper() not in off_menu \
+                and name.strip().upper() not in _used:
+            _note_name_used(_kind, name.strip().upper())
             return name
         # ...AND A NAME MUST NEVER WEDGE A RUN. That rule is older than this
         # one and it still wins: after three tries the game's own default
         # stands rather than a naming screen nobody can get past.
-        insist = repr(name) if name else "empty"
+        insist = (repr(name) + " (that one, and every other you offered, is "
+                  "off the menu, the default, or a name an earlier run already had)"
+                  if name else "empty")
         if log:
             log("name_refused", title=str(nm.get("title")), name=name,
                 attempt=attempt + 1)
+    # ...AND THE NAMES NEVER TO TAKE STAY UNTAKEN even then: the game's
+    # default beats one of those.
+    if name.strip().upper() in _NAMES_NEVER:
+        return ""
     return name
 
 

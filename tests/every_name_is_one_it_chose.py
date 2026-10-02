@@ -58,7 +58,11 @@ PLAYER = {"naming": {"title": "YOUR NAME?", "max": 7,
 
 
 def stub(*replies):
-    """A model that says these things in order, recording what it was told."""
+    """A model that says these things in order, recording what it was told.
+    Each starts with no names from earlier runs: the record of those is
+    tests/a_name_is_drawn_from_five_and_never_repeats_a_run.py's."""
+    import tempfile as _tf
+    E.NAMES_USED = Path(_tf.mkdtemp()) / "names_used"
     seen = []
     it = iter(replies)
 
