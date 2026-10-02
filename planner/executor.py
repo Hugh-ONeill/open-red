@@ -3351,7 +3351,7 @@ class Executor:
         if _kd and not rec.get("kind"):
             rec["kind"] = _kd
         last = note.split(": ", 1)[1] if ": " in note else note
-        rec["last"] = speech_excerpt(last.strip(), 200)   # head AND tail
+        rec["last"] = speech_excerpt(self._shelf_words(last.strip()), 200)   # head AND tail
         # WHAT IT SAID, EVERY DISTINCT TIME — AND IN WHAT ORDER. The page
         # showed each of Vermilion Gym's cans with the LAST thing it said,
         # so "the electric locks were reset!" read as a property of cans 0,
@@ -5780,6 +5780,11 @@ class Executor:
             self._last_map = str(_m)
         self._mark_now = self._world_mark(obs)
         self._drop_what_a_thrown_away_world_did(obs)
+        _bag = (obs or {}).get("bag") or {}
+        if isinstance(_bag, dict) and any(str(k).startswith("TM_") for k in _bag):
+            if not isinstance(getattr(self, "_machines_owned", None), set):
+                self._machines_owned = set()
+            self._machines_owned |= {str(k) for k in _bag if str(k).startswith("TM_")}
         if (obs or {}).get("party"):
             try:
                 self._clear_hm_blockers(obs)
@@ -6186,6 +6191,7 @@ class Executor:
             self._detour = data.get("detour") or None
             self._door_over_water = data.get("door_over_water") or {}
             self._shelves = data.get("shelves") or {}
+            self._machines_owned = set(data.get("machines_owned") or [])
             self._shelf_reads = data.get("shelf_reads") or {}
             self._shelf_machine = set(data.get("shelf_machine") or [])
             self._stow = [str(x) for x in (data.get("stow") or [])]
@@ -6718,6 +6724,7 @@ class Executor:
                  "detour": getattr(self, "_detour", None),
                  "door_over_water": getattr(self, "_door_over_water", {}),
                  "shelves": getattr(self, "_shelves", {}),
+                 "machines_owned": sorted(getattr(self, "_machines_owned", None) or []),
                  "shelf_reads": getattr(self, "_shelf_reads", {}),
                  "shelf_machine": sorted(getattr(self, "_shelf_machine",
                                                  set())),
@@ -16625,6 +16632,32 @@ class Executor:
             return f"{MACHINE_NUMBERS[k]} ({k})"
         return k
 
+    def _disp_shelf(self, item: str) -> str:
+        """What a SHELF calls an item: a TM the run has never owned is its
+        number alone. The shelf's own screen says "TM01" and nothing about
+        the move; _disp_item's "TM01 (TM_MEGA_PUNCH)" put the move beside it
+        because the op wants the id, but a buy takes the number too
+        (canon_item). A TM this run has held before keeps its move name:
+        holding one is, by the run's own rules, having booted it (user,
+        2026-10-01: "has to be tm01 unless its already used tm01 in which
+        case it can be shown to be megapunch since thats knowledge")."""
+        k = str(item or "")
+        if (k.startswith("TM_") and k in MACHINE_NUMBERS
+                and k not in (getattr(self, "_machines_owned", None) or set())
+                and k not in (getattr(self, "_item_from", None) or {})):
+            return MACHINE_NUMBERS[k]
+        return self._disp_item(k)
+
+    _SELLS = _re.compile(r"(THIS COUNTER SELLS: )([^.]*)")
+
+    def _shelf_words(self, text: str) -> str:
+        """The shim's "THIS COUNTER SELLS: ..." line, with each item as a
+        shelf shows it (see _disp_shelf)."""
+        return self._SELLS.sub(
+            lambda m: m.group(1) + ", ".join(self._disp_shelf(x.strip())
+                                             for x in m.group(2).split(",")),
+            str(text or ""))
+
     @staticmethod
     def _stone_note(item: str) -> str:
         """A stone in the bag names how it is used and what a wrong try
@@ -18435,7 +18468,7 @@ class Executor:
                            if _sm in _mach else "")
                         + (f", {_h} walked leg(s) away" if _h < 99
                            else ", no walked route from here")
-                        + ": " + ", ".join(self._disp_item(x) for x in _it[:10]) + _seen_note(_sm)
+                        + ": " + ", ".join(self._disp_shelf(x) for x in _it[:10]) + _seen_note(_sm)
                         for _h, _sm, _it in _shops[:8])
                     + ". A counter takes {\"op\":\"buy\"}; a machine is "
                       "pressed and a row picked. Shops you have never "
@@ -26864,7 +26897,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         f"has exits you have NEVER taken, and where you were "
                         f"had none. Take one of them now.")
             feedback = ("Per-step results of your last macro:\n"
-                        + "\n".join(f"  {i + 1}. {t}"
+                        + "\n".join(f"  {i + 1}. {self._shelf_words(t)}"
                                     for i, t in enumerate(trace))
                         + f"\nAfter it, DONE_WHEN was NOT met. You are STILL "
                         f"at that end state (no reset): map="
