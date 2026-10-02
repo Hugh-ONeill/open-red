@@ -34,6 +34,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SEEN = os.path.join(HERE, "..", "run", "seen.json")
 OBS = os.path.join(HERE, "..", "run", "obs.json")
 PLAYER = GEN + "assets/generated/sprites/red.png"
+JOURNAL = os.path.join(HERE, "..", "run", "executor_log.jsonl")
+TRAIL = STATE + "trail.jsonl"            # tools/events.py writes a breadcrumb per cell the player stands on
 
 # the four DMG greys -> a muted green-gray, the HUD's own map shades
 SHADES = {0: (26, 29, 28), 85: (58, 66, 61), 170: (96, 108, 98), 255: (140, 152, 138)}
@@ -300,7 +302,7 @@ def authoring_view(phase, history, here, size, start_map=None):
             last = q or last
         return out
 
-    def trail(points, col, width):
+    def trail_(points, col, width):
         p = []
         for q in points:
             if q and (not p or p[-1] != q):
@@ -309,8 +311,35 @@ def authoring_view(phase, history, here, size, start_map=None):
             d.line(p, fill=col, width=width, joint="curve")
         return p
 
-    # the walk so far
-    if history:
+    # the walk so far: the actual path (trail()) when there is one, cell by
+    # cell outdoors; a cave or building is its door, and a visit to one from
+    # its own street is left out as before
+    path = trail()
+    if path:
+        last = path[-1][1]
+        legs = sorted({p_[0] for p_ in path if p_[1] != last})
+        shade = {leg: tm.ramp(i, len(legs)) for i, leg in enumerate(legs)}
+        pts, outside = [], None
+        for leg, att, m, x, y in path:
+            if m in pos:
+                outside = m
+                q = pt(m, (x, y))
+            elif outside and any(a[0] == outside for a in anc.get(m, [])):
+                continue
+            else:
+                q = pt(m, None, near=pts[-1][2] if pts else None)
+            if q and (not pts or pts[-1][2] != q):
+                pts.append((leg, att, q))
+        for (l0, a0, q0), (l1, a1, q1) in zip(pts, pts[1:]):
+            if a1 == last:
+                continue
+            d.line((q0, q1), fill=shade.get(l1, tm.PAST_NEW), width=max(1, lw - 1))
+        gold = [q for l_, a_, q in pts if a_ == last]
+        i0 = next((i for i, (l_, a_, q) in enumerate(pts) if a_ == last), None)
+        if i0:
+            gold = [pts[i0 - 1][2]] + gold
+        trail_(gold, tm.LAST_ATTEMPT, lw + 1)
+    elif history:
         last = history[-1][1]
         legs = sorted({h[0] for h in history if h[1] != last})
         shade = {leg: tm.ramp(i, len(legs)) for i, leg in enumerate(legs)}
@@ -342,7 +371,7 @@ def authoring_view(phase, history, here, size, start_map=None):
         # never left that street: nothing to draw in gold
         first = next((i for i, r in enumerate(rows) if r[1] == last), None)
         if first is not None:
-            trail(points[max(0, first - 1):], tm.LAST_ATTEMPT, lw + 1)
+            trail_(points[max(0, first - 1):], tm.LAST_ATTEMPT, lw + 1)
     # the drafts
     drafts = phase.get("drafts") or []
     picked = (phase.get("picked") or {}).get("n")
@@ -353,7 +382,7 @@ def authoring_view(phase, history, here, size, start_map=None):
         col = tm.PICKED if on else tm.DRAFT_COLORS[(dr["n"] - 1) % len(tm.DRAFT_COLORS)]
         if picked and not on:
             col = tuple(int(c * 0.55 + 20) for c in col)
-        p = trail([origin] + walk([(m, None) for m in tm.to_ids(dr["route"])], origin),
+        p = trail_([origin] + walk([(m, None) for m in tm.to_ids(dr["route"])], origin),
                   col, lw + (2 if on else 0))
         r = lw + 2
         for x, y in p[1:]:
@@ -365,6 +394,76 @@ def authoring_view(phase, history, here, size, start_map=None):
             spr = player_sprite(max(2.0, scale * 6))       # findable at any zoom (32 px at least)
             img.paste(spr, (q[0] - spr.width // 2, q[1] - spr.height + spr.height // 4), spr)
     return img
+
+
+def _cell(key):
+    """'ROUTE_4|24,5' -> ('ROUTE_4', 24, 5), or None."""
+    try:
+        m, xy = key.split("|", 1)
+        x, y = xy.split(",")
+        return m, int(x), int(y)
+    except (AttributeError, ValueError):
+        return None
+
+
+def trail(journal=JOURNAL, crumbs=TRAIL):
+    """The run's actual path, [(leg, attempt, MAP, x, y)] in order. Before
+    breadcrumbs exist it is approximate: the journal's region-to-region moves
+    (explored frm -> to), each region pinned to one real cell. From the first
+    breadcrumb on (tools/events.py records the player's cell whenever it
+    changes) it is cell by cell, straight between two readings. A fresh run
+    starts a fresh journal, so the journal is this run; breadcrumbs older than
+    it belong to an earlier one and are left out. Leg and attempt come from
+    the journal's plan_start records (leg from the plan's file name, a new
+    attempt at every plan_start)."""
+    starts, hops, first_t = [], [], None
+    leg, attempt = 0, 0
+    try:
+        with open(journal) as f:
+            for line in f:
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                t = d.get("t") or 0
+                first_t = first_t or t
+                k = d.get("kind")
+                if k == "plan_start":
+                    m = re.match(r"leg_(\d+)", str(d.get("plan") or ""))
+                    leg = int(m.group(1)) if m else leg
+                    attempt += 1
+                    starts.append((t, leg, attempt))
+                elif k == "explored":
+                    for key in (d.get("frm"), d.get("to")):
+                        c = _cell(key)
+                        if c:
+                            hops.append((t, leg, attempt, *c))
+    except OSError:
+        pass
+    crumbs_ = []
+    try:
+        with open(crumbs) as f:
+            for line in f:
+                try:
+                    c = json.loads(line)
+                except ValueError:
+                    continue
+                if first_t and c.get("t", 0) >= first_t and c.get("map"):
+                    crumbs_.append((c["t"], c["map"], c["x"], c["y"]))
+    except OSError:
+        pass
+
+    def tag(t):
+        lg, at = 0, 0
+        for st, l, a in starts:
+            if st > t:
+                break
+            lg, at = l, a
+        return lg, at
+    cut = crumbs_[0][0] if crumbs_ else None
+    out = [(lg, at, m, x, y) for t, lg, at, m, x, y in hops if cut is None or t < cut]
+    out += [(*tag(t), m, x, y) for t, m, x, y in crumbs_]
+    return out
 
 
 def where():

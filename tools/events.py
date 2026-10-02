@@ -170,6 +170,7 @@ CHAIN = os.path.join(RUN, "chain.log")
 LIVE = os.path.join(RUN, "thinking_live.txt")     # brock_probe writes it while a call thinks
 MODEL_LIVE = os.path.join(RUN, "model_live.txt")  # ...and this for EVERY call (stream-all patch)
 PHASE = os.path.join(os.path.dirname(FEED), "phase.json")
+TRAIL = os.path.join(os.path.dirname(FEED), "trail.jsonl")   # breadcrumbs: the player's cell as it changes
 
 LEG_AUTHOR = re.compile(r"^=== leg (\d+)/(\d+): authoring \S+ (.+)$")
 REWRITE = re.compile(r"^--- rewriting (\S+) from evidence ---")
@@ -420,6 +421,19 @@ def follow(poll=0.5):
             obs_stamp = s
             fresh = read_obs()
             if fresh is not None:
+                # a breadcrumb whenever the player's map or cell changes, for
+                # the world map's trail of the actual path
+                pl = fresh.get("player") or {}
+                here = ((fresh.get("map") or {}).get("id"), pl.get("x"), pl.get("y"))
+                if here[0] and isinstance(here[1], int) and isinstance(here[2], int) \
+                        and here != state.get("crumb"):
+                    state["crumb"] = here
+                    try:
+                        with open(TRAIL, "a") as f:
+                            f.write(json.dumps({"t": time.time(), "map": here[0],
+                                                "x": here[1], "y": here[2]}) + "\n")
+                    except OSError:
+                        pass
                 new_party = party_of(fresh)
                 new_badges = list(fresh.get("badges") or [])
                 for tone, text in from_party(party, new_party, badges, new_badges):
