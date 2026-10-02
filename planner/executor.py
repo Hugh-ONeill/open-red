@@ -5198,17 +5198,6 @@ class Executor:
         _map = str(where or "").split("|")[0]
         if str(kind or "") == "trainer" and self._is_gym_leader(n, _map):
             return "this gym's LEADER — a badge fight"
-        # A STARTER'S POKE BALL IS THE CHOICE OF STARTER. Run 26's room sweep
-        # pressed two of Oak's balls after the escort, left the last one's
-        # question open ("So! You want the water POKeMON, SQUIRTLE?"), and the
-        # model, shown that one question, said yes: the harness had decided
-        # which Pokemon it saw first, and it never read the other two
-        # (2026-10-02; user: "did it see all the mons the way its supposed
-        # to?"). Until a starter is chosen, the balls on Oak's table are the
-        # model's to press, each answering with its own question.
-        if (_map == "OAKS_LAB" and n.startswith("ITEM_")
-                and "EVENT_GOT_STARTER" not in (getattr(self, "_flags_now", None) or [])):
-            return "a Poke Ball on this table is a choice of starter; pressing it is yours"
         return ""
 
     @staticmethod
