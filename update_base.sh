@@ -68,8 +68,21 @@ if [ -n "$SAVE" ] && [ -f "${SAVE}slot1.lua" ]; then
 fi
 echo "--- boot tests"
 BOOTS=$(grep "^BOOTS=" tests/run_suite.sh | sed "s/^BOOTS='//; s/'\$//")
+# pc_box needs two party members, and the live save is whatever the last run
+# left (a fresh run has one): give it the newest checkpoint that has two
+PCSAVE=$(python3 - <<'PY'
+import re
+from pathlib import Path
+for d in sorted(Path("run/saves").glob("*/"), key=lambda p: p.stat().st_mtime, reverse=True):
+    f = d / "slot1.lua"
+    if f.exists() and len(re.findall(r'species\s*=', f.read_text(errors="ignore"))) >= 2:
+        print(f); break
+PY
+)
 for t in $(ls tests/*.py | grep -E "$BOOTS" | grep -v "contract.py"); do
-  if POKEPORT_GAME=red RED_BRIDGE_DIR="$(mktemp -d)" timeout 600 python3 "$t" >/dev/null 2>&1; then
+  _args=()
+  [ "$(basename "$t")" = "pc_box.py" ] && [ -n "$PCSAVE" ] && _args=(--save "$PCSAVE")
+  if POKEPORT_GAME=red RED_BRIDGE_DIR="$(mktemp -d)" timeout 600 python3 "$t" "${_args[@]}" >/dev/null 2>&1; then
     :
   else
     echo "  FAIL $(basename "$t" .py)"; fail=1
