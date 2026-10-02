@@ -24,7 +24,9 @@ fi
 # sounds are an accidental but genuinely useful progress channel (a loop
 # SOUNDS like a loop). RED_MUTE=1 silences it for unattended runs.
 [ "${RED_MUTE:-0}" = "1" ] && export SDL_AUDIODRIVER=dummy
-COMMON=(POKEPORT_DRIVER="$HOME/Developer/red-recomp/harness/shim.lua" POKEPORT_SPEED="$SPEED")
+# The base game opens a launcher (Gen 1/2/3) unless told which game to boot.
+COMMON=(POKEPORT_DRIVER="$HOME/Developer/red-recomp/harness/shim.lua" POKEPORT_SPEED="$SPEED"
+        POKEPORT_GAME="${POKEPORT_GAME:-red}")
 if [ "$HEADED" = 1 ]; then
   exec env "${COMMON[@]}" love .
 else
