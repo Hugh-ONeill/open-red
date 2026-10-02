@@ -6188,6 +6188,8 @@ class Executor:
             # Oak for hours after. Lines recorded before this existed have
             # no stamp and are shown undated.
             self.hints_at = data.get("hints_at") or {}
+            self._fired_at = data.get("fired_at") or {}
+            self._fire_seq = int(data.get("fire_seq") or 0)
             self._item_from = data.get("item_from") or {}
             self._offered = data.get("offered") or {}
             self._met_types = data.get("met_types") or {}
@@ -6731,6 +6733,8 @@ class Executor:
                  "blockers_backfilled": bool(getattr(
                      self, "_blockers_backfilled", False)),
                  "hints_at": getattr(self, "hints_at", {}),
+                 "fired_at": getattr(self, "_fired_at", {}) or {},
+                 "fire_seq": int(getattr(self, "_fire_seq", 0) or 0),
                  "item_from": getattr(self, "_item_from", {}),
                  "offered": getattr(self, "_offered", {}),
                  "leg_goal": getattr(self, "_leg_goal", None),
@@ -6898,6 +6902,12 @@ class Executor:
             if self.flag_sites.get(f) == here:
                 continue
             self.flag_sites[f] = here
+            # THE ORDER THINGS HAPPENED IN, so a heard line can be dated
+            # against a particular event (see _notable_text)
+            self._fire_seq = int(getattr(self, "_fire_seq", 0) or 0) + 1
+            if not isinstance(getattr(self, "_fired_at", None), dict):
+                self._fired_at = {}
+            self._fired_at[f] = self._fire_seq
             self.log("flag_fired", flag=f, region=here)
         # something in the world moved: the next round boundary saves it
         self._flags_unsaved = sorted(set(getattr(self, "_flags_unsaved", [])
@@ -16673,6 +16683,116 @@ class Executor:
             return f"{MACHINE_NUMBERS[k]} ({k})"
         return k
 
+    # Words every other line of this game says, which name nothing in
+    # particular: a phrase made only of these points nowhere.
+    _HEARD_STOP = frozenset((
+        "POKéMON", "POKEMON", "POKéDEX", "POKEDEX", "POKé", "TRAINER", "TRAINERS",
+        "GYM", "LEADER", "BADGE", "BADGES", "CITY", "TOWN", "ROUTE", "CENTER",
+        "MART", "HM", "TM", "PC", "BALL", "BALLS", "THE", "AND", "YOU", "ITEM",
+        "ITEMS", "EXP", "HP", "PP", "LV", "TIPS", "NEW", "NOT", "OFF", "FOR",
+        "HEY", "OK", "YES", "NO", "WHAT", "OH", "HUH", "WOW"))
+
+    def _notable_text(self, obs=None) -> str:
+        """NOTABLE: WHAT MORE THAN ONE VOICE HAS MENTIONED, side by side.
+
+        Run 23 heard its rival in Cerulean ("I went to BILL's and got him to
+        show me his rare POKeMON!"), a Route 24 trainer ("You're going to see
+        BILL?") and a Route 25 sign ("SEA COTTAGE BILL lives here!", beside
+        a door it had not taken), each filed under its own room, and called
+        Route 25 a dead end (user, 2026-10-02: "itd be neat if it could
+        synthesize all the people basically telling the player to go visit
+        bill" ... "a notable ledger where things that keep getting mentioned
+        are grouped together like all the stuff about the silph scope").
+
+        A thing is a run of capitalised words as the game prints it (BILL,
+        SILPH SCOPE, TEAM ROCKET, S.S.ANNE), grouped under each word it
+        holds and labelled by its commonest phrase. Every thing two or more
+        different speakers mentioned, by how many; nothing chosen, nothing
+        said about what any of it means."""
+        hints = getattr(self, "hints", None) or {}
+        species = {str(k).upper() for k in (EVOLUTIONS or {})}
+        # the run's own names are in every other line it hears about itself
+        o = obs or {}
+        own = {str(o.get(k) or "").upper() for k in ("player_name", "rival_name")}
+        own |= {str(m.get("nickname") or "").upper()
+                for m in (o.get("party") or []) if isinstance(m, dict)}
+        stop = self._HEARD_STOP | species | {x for x in own if x}
+        # every phrase, with who said it
+        said = {}
+        for reg, lines in hints.items():
+            for l in lines or []:
+                if not self._hint_stands(reg, l):
+                    continue
+                who, _, text = str(l).partition(": ")
+                # a voice is something in the game; lines the harness filed
+                # under its own ops ("grind", "sweep", "menu") are not one
+                if not text or not who.isupper():
+                    continue
+                text = _re.sub(r"^" + _re.escape(who) + r":\s*", "", text)
+                for run in _re.findall(r"[A-Z][A-Z.'\u00e9]+(?:\s+[A-Z][A-Z.'\u00e9]+)*", text):
+                    words = [w.strip(".'") for w in run.split()]
+                    words = tuple(w[:-2] if w.endswith("'S") else w for w in words
+                                  if w and w not in ("THE", "AND", "HEY"))
+                    if not words or all(len(w) < 3 or w in stop for w in words):
+                        continue
+                    _st = ((getattr(self, "hints_at", {}) or {}).get(reg) or {}).get(l)
+                    _sq = int(_st.get("seq")) if isinstance(_st, dict) and _st.get("seq") is not None else None
+                    said.setdefault(words, {}).setdefault((who, str(reg).split("|")[0]), (text, _sq))
+
+        def _inside(q, p):
+            return any(p[k:k + len(q)] == q for k in range(len(p) - len(q) + 1))
+        # A LONGER PHRASE JOINS THE SHORTEST ONE IT HOLDS: "SEA COTTAGE BILL"
+        # is about BILL; "GAME FREAK" and "ROCKET GAME CORNER" hold no phrase
+        # in common and stay apart.
+        groups = {}
+        for p_ in said:
+            host = min((q for q in said if _inside(q, p_)),
+                       key=lambda q: (len(q), -len(said[q])))
+            groups.setdefault(host, {}).update(said[p_])
+        # WHAT HAS HAPPENED SINCE CLEARS WHAT WAS SAID BEFORE IT (user,
+        # 2026-10-02: "like the blocked ledger, clear things that have events
+        # tied to them completed ... itd help the buildup of gruft through
+        # the campaign"). A voice drops out once a story event whose name
+        # holds the thing (EVENT_MET_BILL for BILL; trainers beaten do not
+        # count) has fired after it was heard; what is said after that event
+        # keeps the thing alive. A thing that is an item leaves when the bag
+        # holds it. A line heard before firing order was kept is left as is.
+        _sq_name = lambda t: _re.sub(r"[^A-Z0-9]", "", str(t).upper().replace("\u00c9", "E"))
+        fired_at = getattr(self, "_fired_at", None) or {}
+        bag = {str(b).upper() for b in ((obs or {}).get("bag") or {})}
+        for k in list(groups):
+            if "_".join(k) in bag:
+                groups.pop(k)
+                continue
+            _key = _sq_name(" ".join(k))
+            _last = max((n for f, n in fired_at.items()
+                         if not _re.match(r"EVENT_BEAT_\w*TRAINER", str(f))
+                         and _re.search(_re.escape(_key) + r"(?![0-9])", _sq_name(f))),
+                        default=None)
+            if _last is None:
+                continue
+            groups[k] = {vk: vv for vk, vv in groups[k].items()
+                         if vv[1] is None or vv[1] >= _last}
+        groups = {k: {vk: vv[0] for vk, vv in v.items()} for k, v in groups.items()}
+        rows = [(" ".join(k), k[-1], v) for k, v in groups.items() if len(v) >= 2]
+        rows.sort(key=lambda r: (-len(r[2]), r[0]))
+        rows = rows[:8]
+        if not rows:
+            return ""
+        out = []
+        for label, w, v in rows:
+            quotes = []
+            for (who, mp), text in list(v.items())[:3]:
+                i = text.upper().find(w)
+                a = max(0, i - 40)
+                bit = ("…" if a else "") + text[a:i + len(w) + 50].strip() \
+                    + ("…" if i + len(w) + 50 < len(text) else "")
+                quotes.append(f'{who} ({mp}): "{bit}"')
+            out.append(f"  {label}, from {len(v)} different voices: " + "; ".join(quotes))
+        return ("\nNOTABLE — WHAT MORE THAN ONE VOICE HAS MENTIONED, side by side "
+                "(every such thing, by how many said it; the lines are theirs):\n"
+                + "\n".join(out))
+
     def _disp_shelf(self, item: str) -> str:
         """What a SHELF calls an item: a TM the run has never owned is its
         number alone. The shelf's own screen says "TM01" and nothing about
@@ -18200,6 +18320,9 @@ class Executor:
                           "its own gates out loud, so a sentence you heard "
                           "in another room is often the reason this one is "
                           "not working:\n" + "\n".join(_body))
+            _nh = self._notable_text(obs)
+            if _nh:
+                hint_line += _nh
         # ASK SOMEBODY. When a room stops yielding, the cheapest move left is
         # the one a person makes: talk to whoever is standing around. This
         # game states its own rules in dialogue, every line gets kept (see
@@ -22519,6 +22642,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         self.hints_at.setdefault(reg, {})[line] = {
                             "flags": len((obs or {}).get("flags") or []),
                             "keys": sorted((obs or {}).get("key_items") or []),
+                            "seq": int(getattr(self, "_fire_seq", 0) or 0),
                         }
                         self._save_memory()
             self._said_ready = True
