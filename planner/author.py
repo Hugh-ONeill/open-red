@@ -10963,6 +10963,99 @@ most three, and only ones that genuinely wait on it; leave it out
 otherwise."""
 
 
+MOMENTUM_SYS = """A Pokemon Red playthrough is working through a list of
+objectives. The last attempt at one of them did not achieve it, but it did
+other things on the way: new places entered, events fired. Those are listed.
+
+The question: were those things part of another objective still on your
+list, one you are now partway through, so that carrying THAT on from where
+the run stands beats going back to the objective you were on? A person
+playing who wanders into the next dungeon while looking for something else
+often finishes the dungeon first.
+
+Only objectives still on the list, by number. Name the place or event from
+WHAT THE ATTEMPT DID that shows you are partway into it, written exactly as
+it is written there. If what the attempt did was not part of another
+objective, or going back is better, answer null; the objective you were on
+stays where it is either way.
+
+Answer with ONLY {"why": "<one sentence>", "leg": N, "from": "<a place or
+event from WHAT THE ATTEMPT DID>"} or {"why": "...", "leg": null}."""
+
+
+def momentum_worth_asking(gained: str) -> bool:
+    """A LOT OF GROUND OR A REAL EVENT, not a step onto a new route. Asked
+    after one new route and two trainers, the model answered "entered
+    ROUTE_8, which is the path toward Celadon City" twice (2026-10-01):
+    a road toward a place is not being partway through it. Three or more
+    first-time places, an item or badge gained, or an event that is not a
+    trainer beaten."""
+    g = gained or ""
+    m = re.search(r"(\d+) place\(s\) entered for the first time", g)
+    if m and int(m.group(1)) >= 3:
+        return True
+    if re.search(r"items gained:|badges earned:", g):
+        return True
+    ev = re.search(r"events that fired: ([^;]*)", g)
+    if ev:
+        names = [e.strip() for e in ev.group(1).split(",") if e.strip()]
+        if any(not re.match(r"EVENT_BEAT_\w*TRAINER", e) for e in names):
+            return True
+    return False
+
+
+def check_momentum(goal: str, n: int, ahead: list, start: str, gained: str,
+                   model: str):
+    """Roll with what the run stumbled into: (leg, why) or None.
+
+    Run 20, the Flash leg (2026-10-01): heading for Fuchsia, the attempt
+    walked into the Game Corner, down the Rocket Hideout to B4F and took the
+    LIFT_KEY, which is its own leg 26. The rewrite, bound to the Flash goal,
+    planned "exit_rocket_hideout" and walked out (user: "accidentally
+    stumbling into doing the right thing, we want them to keep trying to do
+    that ... it would be better if the model could just roll with it").
+    Asked between attempts when the attempt gained new places or events;
+    the model picks from its own list, and the pick must cite a place or
+    event the attempt actually reached, so the switch rests on walked ground.
+    The leg it names is pulled to this position; the current one slides
+    behind it, not dropped."""
+    if not gained or not ahead or not momentum_worth_asking(gained):
+        return None
+    body = (f"THE OBJECTIVE YOU WERE ON (number {n}): {goal}\n\n"
+            f"WHAT THE ATTEMPT DID: {gained}\n\n"
+            f"WHERE THE RUN STANDS: {start}\n\n"
+            "STILL ON YOUR LIST AFTER IT, in order:\n"
+            + "\n".join(_leg_line(k, t) for k, t in ahead))
+    try:
+        reply = chat_json([{"role": "system", "content": MOMENTUM_SYS},
+                           {"role": "user", "content": body}], model)
+        m = re.search(r"\{.*\}", reply, re.S)
+        ans = json.loads(m.group(0)) if m else {}
+    except (ValueError, KeyError, OSError, AttributeError):
+        return None
+    why = str(ans.get("why") or "")[:200]
+    try:
+        k = int(ans.get("leg"))
+    except (TypeError, ValueError):
+        print(f"[momentum] none: {why}", file=sys.stderr)
+        return None
+    nums = {kk for kk, _ in ahead}
+    if k not in nums:
+        print(f"[momentum] refused: {k} is not on the list after {n} ({why})",
+              file=sys.stderr)
+        return None
+    frm = str(ans.get("from") or "").strip()
+    if len(frm) < 4 or frm.lower() not in gained.lower():
+        print(f"[momentum] refused: {frm!r} is not something the attempt "
+              f"did — the switch has to rest on ground it walked ({why})",
+              file=sys.stderr)
+        return None
+    text = dict(ahead)[k]
+    print(f"[momentum] roll on with {k} ({text}), from {frm}: {why}",
+          file=sys.stderr)
+    return k, why
+
+
 # The legs the last check_later said must move with the one it pushed, by
 # TEXT: positions shift as soon as the first push lands.
 LATER_WITH: list = []
@@ -11495,6 +11588,10 @@ def main():
     ap.add_argument("--deed", default=None,
                     help="a single objective for --check-already-done, "
                          "instead of sweeping the outline")
+    ap.add_argument("--check-momentum", action="store_true",
+                    help="after a failed attempt that gained new places or "
+                         "events: is the run partway into a later objective? "
+                         "prints its number (needs --outline-path, --leg, --gained)")
     ap.add_argument("--check-later", action="store_true",
                     help="ask whether the failed leg is right but too "
                          "early; prints the position it should follow")
@@ -11656,6 +11753,18 @@ def main():
         # the chain crosses the leg off instead of halting on it, either way
         sys.exit(4 if WORDING_SAYS_DONE[0] else 5 if WORDING_SAYS_VOID[0]
                  else 3)
+    if args.check_momentum:
+        if not (args.outline_path and args.leg):
+            ap.error("--check-momentum needs --outline-path and --leg")
+        lines = [l.strip() for l in args.outline_path.read_text()
+                 .splitlines() if l.strip()]
+        ahead = [(k, lines[k - 1]) for k in range(args.leg + 1, len(lines) + 1)]
+        got = check_momentum(args.goal, args.leg, ahead, args.start or "",
+                             args.gained or "", args.model)
+        if got:
+            print(got[0])
+            sys.exit(0)
+        sys.exit(3)
     if args.check_later:
         if not (args.outline_path and args.leg):
             ap.error("--check-later needs --outline-path and --leg")

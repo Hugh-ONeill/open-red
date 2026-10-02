@@ -819,8 +819,9 @@ while :; do
   # model this record; a run that gained nothing is written down as such.
   run_campaign() {
     python planner/leg_delta.py snap run/attempt_start.json 2>/dev/null || true
+    rm -f run/momentum_pick
     env RED_HEADED="${RED_HEADED:-1}" RED_SPEED="${RED_SPEED:-200}" \
-        RED_BUDGET_SCALE="${_budget_scale:-1}" \
+        RED_BUDGET_SCALE="${_budget_scale:-1}" RED_LEG_INDEX="$i" \
         RED_CONTINUE="$1" ./campaign.sh "$2" "$plan" -- --escalate
     _rc=$?
     _y=$(python planner/leg_delta.py diff run/attempt_start.json 2>/dev/null || true)
@@ -845,6 +846,24 @@ while :; do
       exit 3
     fi
     return $_rc
+  }
+  # ROLLING ON WITH WHAT THE RUN IS PARTWAY INTO (campaign.sh exit 7,
+  # author.py check_momentum): the leg the model named is pulled to this
+  # position and the one it was on slides behind it. A refused pull (it
+  # would jump ahead of what it was placed after) is an ordinary failed
+  # attempt. Returns 0 when the pull happened.
+  momentum_take() {
+    local _k _t
+    _k=$(head -1 run/momentum_pick 2>/dev/null || true)
+    [ -n "$_k" ] || return 1
+    _t=$(sed -n "${_k}p" plans/outline.txt)
+    if python planner/pull_leg.py pull "$i" "$_k"; then
+      disposed "rolled on with leg $_k, which the attempt was partway into: $_t"
+      echo "=== leg $i/${#LEGS[@]}: rolling on with $_t; $leg now follows it ==="
+      archive_plans_of "$leg"
+      return 0
+    fi
+    return 1
   }
   cont=0; [ "$i" -gt 1 ] && cont=1
   failed=0
@@ -874,6 +893,10 @@ while :; do
     crc=$?
     set -e
   fi
+  if [ "$crc" = 7 ]; then
+    if momentum_take; then continue; fi
+    crc=1
+  fi
   if [ "$crc" = 1 ] && [ "$_party" = 1 ]; then
     failed=1
   elif [ "$crc" = 1 ]; then
@@ -890,7 +913,12 @@ while :; do
     # the rewrite inside campaign.sh already produced the next version
     plan=$(python planner/find_plan.py "$leg" 2>/dev/null || echo "$plan")
     if [ "$ATTEMPTS" -gt 1 ]; then
-      run_campaign 1 $((ATTEMPTS - 1)) || failed=1
+      set +e
+      run_campaign 1 $((ATTEMPTS - 1))
+      _crc2=$?
+      set -e
+      if [ "$_crc2" = 7 ] && momentum_take; then continue; fi
+      [ "$_crc2" = 0 ] || failed=1
     else
       failed=1
     fi

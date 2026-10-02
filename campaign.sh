@@ -66,6 +66,9 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   # Brock leg was already done and start the mountain leg on a badgeless
   # game. Delete it so it can only ever describe the attempt just finished.
   rm -f run/last_state.json
+  # what THIS attempt gains, for the momentum ask below (the chain's own
+  # snapshot, run/attempt_start.json, spans the whole campaign)
+  python planner/leg_delta.py snap run/attempt_start_one.json 2>/dev/null || true
   cont=()
   [ $first = 1 ] || cont=(--continue)
   set +e
@@ -123,6 +126,32 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
       "$LOG"; then
     echo "=== campaign finished on attempt $attempt ===" | tee -a "$LOG"
     exit 0
+  fi
+
+  # ROLL WITH WHAT THE RUN STUMBLED INTO. An attempt that failed its own
+  # objective but entered new places or fired events may be partway into a
+  # later objective on the list: run 20's Flash leg walked down the Rocket
+  # Hideout to the LIFT_KEY (its leg 26) and the rewrite, bound to Flash,
+  # planned the way out (user, 2026-10-01: "if a run shows a lot of ground
+  # covered and events cleared it would be better if the model could just
+  # roll with it"). One question, the model's answer from its own list,
+  # resting on a place or event this attempt reached (author.py
+  # check_momentum). A yes hands the chain the leg to pull (exit 7).
+  if [ -n "${RED_LEG_INDEX:-}" ] && [ "${RED_MOMENTUM:-1}" != 0 ]; then
+    _mg=$(python planner/leg_delta.py diff run/attempt_start_one.json 2>/dev/null || true)
+    if printf '%s' "$_mg" | grep -qE "events that fired|entered for the first time"; then
+      _goal=$(python -c "import json,sys;print(json.load(open(sys.argv[1])).get('goal',''))" \
+              "${PLANS[0]}" 2>/dev/null || true)
+      if _mk=$(python planner/author.py --check-momentum --goal "$_goal" \
+              --outline-path plans/outline.txt --leg "$RED_LEG_INDEX" \
+              --gained "$_mg" --start "$(python planner/state_text.py)" \
+              --model "$AUTHOR_MODEL" 2> >(tee -a "$LOG" >&2)) && [ -n "$_mk" ]; then
+        printf '%s\n' "$_mk" > run/momentum_pick
+        echo "=== attempt $attempt: the run is partway into leg $_mk — rolling" \
+             "on with it ===" | tee -a "$LOG"
+        exit 7
+      fi
+    fi
   fi
 
   # A STEP THE MODEL DECLARED BLOCKED goes to the ladder, not the rewrite.
