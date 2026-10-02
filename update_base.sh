@@ -47,7 +47,7 @@ if [ "${1:-}" != "--check" ]; then
   [ -f "$ROM" ] || { echo "!! no ROM at $ROM (set RED_ROM)" >&2; exit 1; }
   for ident in pokemon-love2d red-contract; do
     ( cd "$BASE" && POKEPORT_IDENTITY="$ident" POKEPORT_IMPORT_ROM="$ROM" \
-        POKEPORT_IMPORT_ONLY=1 SDL_AUDIODRIVER=dummy timeout 900 \
+        POKEPORT_IMPORT_ONLY=1 POKEPORT_FORCE_IMPORT=1 SDL_AUDIODRIVER=dummy timeout 900 \
         xvfb-run -a env -u WAYLAND_DISPLAY SDL_VIDEODRIVER=x11 love . \
         >/dev/null 2>&1 ) && echo "ROM data imported for $ident" \
       || { echo "!! ROM import failed for $ident" >&2; exit 1; }
