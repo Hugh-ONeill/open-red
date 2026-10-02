@@ -27,8 +27,7 @@ def row(kind, dt, t=None, **kw):
         r["t"] = t
     return json.dumps(r) + "\n"
 
-tmp = Path(tempfile.mkdtemp(dir="/tmp/claude-1000/-home-wiz/"
-                            "b5fe8565-91da-4233-b62f-8b773e98e750/scratchpad"))
+tmp = Path(tempfile.mkdtemp())
 mem1 = "\nWHERE YOU STAND: PALLET_TOWN|10,0 — this map"
 mem2 = "\nWHERE YOU STAND: MT_MOON_1F|3,5 — indoors"
 

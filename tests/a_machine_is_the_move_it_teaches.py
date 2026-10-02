@@ -18,6 +18,7 @@ move".  Nothing here is our knowledge of the game: it is the game's table.
 """
 import json
 import sys
+import tempfile
 from pathlib import Path
 sys.path.insert(0, "planner")
 
@@ -68,7 +69,7 @@ legs = ["Retrieve the HM01 from the S.S. Anne", "a party Pokemon knows HM01",
 _real = A.brock_probe.chat
 A.brock_probe.chat = lambda msgs, model: json.dumps(
     [{"item": "a party Pokemon knows CUT", "after": 1}])
-scratch = Path("/tmp/claude-1000/-home-wiz/b5fe8565-91da-4233-b62f-8b773e98e750/scratchpad/upkeep.test")
+scratch = Path(tempfile.mkdtemp()) / "upkeep.test"
 _path = A.UPKEEP_PATH
 A.UPKEEP_PATH = scratch
 try:
@@ -112,8 +113,7 @@ ck("a TM in has_item takes its engine id",
 # the repass: the harness's own passes re-applied to a drawn outline, in
 # place, with the upkeep protection following to the surviving wording
 import shutil, tempfile
-tmp = Path(tempfile.mkdtemp(dir="/tmp/claude-1000/-home-wiz/"
-                            "b5fe8565-91da-4233-b62f-8b773e98e750/scratchpad"))
+tmp = Path(tempfile.mkdtemp())
 (tmp / "cand.txt").write_text("Retrieve the HM01 from the S.S. Anne\n"
                               "a party Pokemon knows HM01\n"
                               "a party Pokemon knows CUT\n"

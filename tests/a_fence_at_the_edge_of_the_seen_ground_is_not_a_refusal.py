@@ -41,8 +41,7 @@ ck("a proven wall is not", not E._footprint_ended(WALL))
 def fresh():
     ex = E.Executor.__new__(E.Executor)
     ex.blockers = {}; ex.explored = {}; ex._outcomes = {}; ex._cur_target = "map:ROUTE_2"
-    ex.hints = {}; ex.logf = open(Path(tempfile.mkdtemp(
-        dir="/tmp/claude-1000/-home-wiz/b5fe8565-91da-4233-b62f-8b773e98e750/scratchpad")) / "log.jsonl", "a")
+    ex.hints = {}; ex.logf = open(Path(tempfile.mkdtemp()) / "log.jsonl", "a")
     ex.t0 = 0
     ex._where = lambda o: "VIRIDIAN_CITY|17,0"
     return ex
@@ -64,8 +63,7 @@ ck("a walk that died against a bush still does",
    any("the walk was fenced" in (b.get("what") or "") for b in ex.blockers.values()))
 
 # the boot scrub: a stored fence whose journal says footprint goes; one with a wall stays
-tmp = Path(tempfile.mkdtemp(dir="/tmp/claude-1000/-home-wiz/"
-                            "b5fe8565-91da-4233-b62f-8b773e98e750/scratchpad"))
+tmp = Path(tempfile.mkdtemp())
 (tmp / "executor_log.jsonl").write_text(
     json.dumps({"kind": "escalate_feedback", "at": "VIRIDIAN_CITY|17,0", "trace": [FOOT]}) + "\n"
     + json.dumps({"kind": "escalate_feedback", "at": "ROUTE_9|0,8", "trace": [WALL.replace("north", "east")]}) + "\n")

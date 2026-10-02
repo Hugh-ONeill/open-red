@@ -29,15 +29,14 @@ rev = E.harness_rev()
 ck("the harness revision is a short git hash, marked + when the tree differs",
    len(rev.rstrip("+")) >= 7 and all(c in "0123456789abcdef" for c in rev.rstrip("+")))
 src = Path("planner/executor.py").read_text()
-ck("the plan_start row carries it", "rev=harness_rev())" in src
+ck("the plan_start row carries it", "rev=harness_rev()," in src
    and 'self.log("plan_start", goal=plan.get("goal"), escalate=self.can_escalate,' in src)
 ck("the checkpoint is taken after the saves, before the verdict",
    src.index("checkpoint_leg(ex.plan_path, complete=") > src.index("(after a failed plan, to keep what it earned)")
    and src.index("checkpoint_leg(ex.plan_path, complete=") < src.index('_verdict = ("ALL PLANS COMPLETE"'))
 
 # the checkpoint, on a scratch tree
-tmp = Path(tempfile.mkdtemp(dir="/tmp/claude-1000/-home-wiz/"
-                            "b5fe8565-91da-4233-b62f-8b773e98e750/scratchpad"))
+tmp = Path(tempfile.mkdtemp())
 (tmp / "run").mkdir(); (tmp / "plans").mkdir(); (tmp / "saves").mkdir()
 (tmp / "saves" / "slot1.lua").write_text("return {}")
 (tmp / "run" / "explored.json").write_text("{}")
