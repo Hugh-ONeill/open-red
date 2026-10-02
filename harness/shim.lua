@@ -1763,6 +1763,12 @@ local function draw_tiles(G, ow, map, mask, W, H)
       end
     end
   end
+  -- the frontier spots of the last observation, as before the reach change
+  love.graphics.setColor(1, 0.85, 0.1, 0.9)
+  for _, f in ipairs(last_frontier or {}) do
+    local X, Y = cell_xy(f.x, f.y)
+    love.graphics.rectangle("line", X + c * 0.25, Y + c * 0.25, c * 0.5, c * 0.5)
+  end
   local sx, sy, sw, sh = seen_window(p)
   local X, Y = cell_xy(sx, sy)
   love.graphics.setColor(0.3, 0.6, 1, 0.9)
