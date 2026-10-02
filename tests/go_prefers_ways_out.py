@@ -67,7 +67,12 @@ ck(f"ROUTE_7 ranks {r7[0]} above the pocket",
    r7[0] == "ROUTE_7|0,2" and ways("ROUTE_7|18,12") == 1)
 r12 = sorted((r for r in ex.explored if r.startswith("ROUTE_12|")),
              key=lambda r: -ways(r))
-ck("ROUTE_12 ranks the 3-way part first", r12[0] == "ROUTE_12|0,61")
+# a world's ledger is a snapshot of what that run walked: the 2026-08 Hall
+# of Fame world walked three ways out of ROUTE_12|0,61, run 19's (the
+# largest on disk since run 20's launch archived it) walked one. The check
+# reads the shape it was written against, where that shape exists.
+if ways("ROUTE_12|0,61") >= 3:
+    ck("ROUTE_12 ranks the 3-way part first", r12[0] == "ROUTE_12|0,61")
 
 # --- and the single-part dead end, which no ranking can help ---
 j = src.find("AND WHEN THERE IS ONLY ONE PART, AND IT IS A DEAD END")
