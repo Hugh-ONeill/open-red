@@ -11034,6 +11034,19 @@ def momentum_worth_asking(gained: str) -> bool:
     return False
 
 
+def _momentum_ground(gained: str) -> str:
+    """The parts of an attempt's yield that are GROUND: places entered,
+    events fired, items and badges gained. Levels, party changes and tiles
+    seen are not: run 21 rolled onto a party leg "from IVYSAUR 21->22"
+    (2026-10-02)."""
+    keep = []
+    for part in re.split(r";\s*", str(gained or "")):
+        if re.search(r"events that fired:|items gained:|badges earned:|"
+                     r"entered for the first time", part):
+            keep.append(part)
+    return "; ".join(keep)
+
+
 def check_momentum(goal: str, n: int, ahead: list, start: str, gained: str,
                    model: str):
     """Roll with what the run stumbled into: (leg, why) or None.
@@ -11075,7 +11088,7 @@ def check_momentum(goal: str, n: int, ahead: list, start: str, gained: str,
               file=sys.stderr)
         return None
     frm = str(ans.get("from") or "").strip()
-    if len(frm) < 4 or frm.lower() not in gained.lower():
+    if len(frm) < 4 or frm.lower() not in _momentum_ground(gained).lower():
         print(f"[momentum] refused: {frm!r} is not something the attempt "
               f"did — the switch has to rest on ground it walked ({why})",
               file=sys.stderr)
