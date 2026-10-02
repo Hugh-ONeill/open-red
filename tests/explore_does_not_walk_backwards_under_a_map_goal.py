@@ -42,8 +42,8 @@ ck("...and only when there is a candidate at all",
 ck("it refuses the walk rather than taking it",
    "return False, [" in blk)
 ck("the refusal names the goal", "nothing untried lies toward {_g}" in flat)
-ck("...and says where the nearest away area is, and how far back",
-   "the nearest is {best[1]}" in flat and "leg(s) back" in flat)
+ck("...and says where the nearest away area is, and how far (as a fact, not 'backwards': user, 2026-10-01)",
+   "the nearest is {best[1]}" in flat and "leg(s) from here" in flat)
 ck("...and names its source, gated on holding the town map",
    "on the printed map" in flat and "by the roads you have walked" in flat
    and "_held = self._holding_town_map(obs)" in blk)
