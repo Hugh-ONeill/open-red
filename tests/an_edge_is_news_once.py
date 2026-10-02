@@ -22,7 +22,7 @@ checks = []
 def ck(n, ok, d=""): checks.append((n, bool(ok), d))
 ck("the sweep remembers which sides were already on screen before this step",
    "local edge_before = {}" in shim and "for k, v in pairs(before or {}) do" in shim
-   and "if by == H - 1 then edge_before.south = true end" in shim)
+   and "if by == H - 1 and seam_open(G, \"south\", bx, by) then edge_before.south = true end" in shim)
 ck("...and reports an edge only when it is new",
    "if edge[d] and not edge_before[d] then" in shim)
 ck("until:door still counts a NEW edge as a way out",

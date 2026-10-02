@@ -61,7 +61,8 @@ def stub(answer, queue):
     o.log = lambda kind, **kw: o.logged.append((kind, kw))
     o.FORGET_SYS = E.Executor.FORGET_SYS
     o._is_question = E.Executor._is_question
-    for m in ("_maybe_forget", "_resolve_learn"):
+    o._forget_user = E.Executor._forget_user
+    for m in ("_maybe_forget", "_resolve_learn", "_forget_press"):
         setattr(o, m, types.MethodType(getattr(E.Executor, m), o))
     brock_probe.chat = lambda msgs, model, **kw: (asked.append(msgs) or answer)
     return o
