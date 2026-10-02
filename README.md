@@ -1,183 +1,193 @@
-# red-recomp
+# open-red
 
-A local LLM plays Pokémon Red, through a harness whose entire job is to
-**tell it the truth and then get out of the way**.
+**An open-weights LLM that plays Pokémon Red from a new game to the Hall of Fame, on one local GPU.**
 
-The model is [Gemma](https://ollama.com/library/gemma) running on Ollama on
-one local GPU (an RTX 3090 until 2026-09-02, a Radeon AI PRO R9700 since) — no
-frontier model, no API, nothing over the network. It
-decides where to go, what to do and what its own goals are. The harness
-drives the game, reports what is on screen, and refuses to decide anything.
+![Model: Gemma 4 31B](https://img.shields.io/badge/model-Gemma%204%2031B%20(Q4)-4285F4)
+![Runs locally](https://img.shields.io/badge/runs-100%25%20local%2C%20no%20API-2ea44f)
+![Hall of Fame](https://img.shields.io/badge/Hall%20of%20Fame-5%20finishes-ffcb05)
+![Tests](https://img.shields.io/badge/tests-674-blue)
 
-This repo is the harness and the planner. It drives
-[pokemon-gen1-recomp-project](https://github.com/bryanthaboi/pokemon-gen1-recomp-project)
-— a LÖVE reimplementation of Red, by someone else — which must be checked out
-separately at `~/Developer/gen1recomp`. `run.sh` launches it with
-`harness/shim.lua` as its driver. No ROM and no game assets live here.
+open-red is a harness and planner that let a 31B open-weights model (Gemma 4, Q4,
+served by Ollama on a single Radeon AI PRO R9700) play the whole of Pokémon Red.
+The model writes its own list of objectives, plans each one, chooses every move in
+the overworld, writes its own battle policy, and decides what to do when it is
+stuck. Nothing goes over the network.
+
+The harness has one job: **tell the model the truth about what is on screen, and
+then get out of the way.** It drives the game and reports what happened. It never
+decides where to go or what to do next.
+
+> **Results so far:** five Hall of Fame finishes on outlines the model wrote itself,
+> the first on 2026-08-28. Every one of them was *assisted*: the harness was fixed
+> between relaunches when a run exposed a bug. A fully hands-off finish is the
+> current goal.
+
+---
+
+## Why this is interesting
+
+Frontier models have finished Pokémon (Claude, Gemini and GPT all have). A local
+31B model on consumer hardware is a different problem: it has a smaller window,
+weaker spatial reasoning and far less world knowledge, and it cannot be prompted
+past its limits with more tokens. Getting it to the Hall of Fame came down to
+engineering the *information*, not the model:
+
+- **No hidden state, no game knowledge.** The model sees only what a player could
+  see: the screen, the bag, what people said, and the game's own manual. The
+  harness knows nothing about where things are in Kanto and will not hint.
+- **It plans for itself.** The model writes the outline (around 50 to 60 legs, from
+  "pick a starter" to "become the Champion"), then authors a plan for each leg
+  with machine-checkable completion conditions.
+- **It recovers from its own mistakes.** When a leg is stuck, a "ladder" of questions
+  lets the model decide whether the leg is already done, blocked by something else,
+  in the wrong place in the list, worded wrong, or not real. The harness only
+  carries out the answer.
+- **It writes its own battle strategy.** Fights are played by a policy the model
+  authors in a small DSL, scored against arena rooms built from real save states.
+
+## How it works
+
+```mermaid
+flowchart TD
+    A["Outline chain<br/>(fresh_discovery.sh)<br/>the model writes its own objectives"] --> B["Campaign<br/>(campaign.sh)<br/>author a plan for one leg, run it, rewrite on failure"]
+    B --> C["Executor<br/>(planner/executor.py)<br/>runs plan steps; when a step is stuck, asks the model round by round"]
+    C --> D["Shim<br/>(harness/shim.lua)<br/>drives the game through decision-free ops"]
+    D --> E["Pokémon Red<br/>(gen1recomp, a LÖVE/Lua reimplementation)"]
+    B -- "leg stuck" --> F["The ladder<br/>done already? blocked? missing a step?<br/>too early? worded wrong? not real?"]
+    F -- "the model's answer" --> A
+```
+
+**The model never presses a button.** It sends *ops* (31 of them: `walk_to`,
+`cross`, `interact`, `use_warp`, `explore`, `field_move`, `buy`, `use_item`,
+`elevator`, `blocked`, ...). Each op is decision-free: it does exactly what it
+says, or explains precisely why it could not.
+
+**Every round the model gets a page**, built from the run's own record:
+
+- where it stands, and what on this floor it has never tried;
+- the walls that turned it back, and what each one said;
+- its own recent plans quoted back to it, marked as what it *believed*, not as fact;
+- what people have told it, with "notable" things several voices mentioned grouped
+  together.
+
+Nothing on the page is a hint the run has not earned.
+
+## The rule everything is built on
+
+> **Stop lying, stop hiding, stop refusing, and never point.**
+
+Almost every bug worth fixing has been one of four things the harness was doing to
+the model:
+
+| Failure | What it looked like |
+| --- | --- |
+| **Lying** | Telling the model it had cleared Rock Tunnel when every exit it took led back the way it came. |
+| **Hiding** | A walked-map dump eating 21,958 of a 22,000-character budget, leaving 70 characters of what actually happened. |
+| **Refusing** | A validator rejecting "Pay the toll on Route 24" because "ROUTE2" appeared inside "ROUTE24" with the spaces stripped. |
+| **Pointing** | An auto-sweep walking the party across a city to cut a tree that blocked nothing. |
+
+Pointing counts as a bug even when it helps. A run that only succeeds because the
+harness steers is not the thing being built. Two working rules follow from this:
+
+- **An illogical choice is a harness gap.** Wrong *facts* are the model's problem. A
+  choice that is illogical *given what it was shown* is ours to fix.
+- **Prove the model can before saying it won't.** Five separate times, "the model
+  just won't do X" turned out to be a signal that never reached it.
+
+## Engineering highlights
+
+- **A visibility mask, not a map.** A tile counts as seen only once it has been inside
+  the game's own 10×9 viewport. The mask persists across reboots, and every route, door
+  and "untried" claim is gated on it.
+- **An exploration ledger.** It records what was walked, what was pressed and what said
+  what, plus the ways that turned the run back. Blockers clear themselves when the party
+  can deal with them (a Cut tree stops counting once someone knows Cut and has the
+  badge).
+- **A recovery ladder with guards.** Every rung's answer is the model's, but each one is
+  checked against the run's own record. A leg cannot be voided while the person it
+  names stands there unspoken-to, and a pull cannot jump ahead of what it waits on.
+- **"Roll with it."** After an attempt that covered real ground, the model is asked
+  whether it has stumbled into a later objective. If so, that objective moves to the
+  front.
+- **A model-authored battle policy.** A small DSL (move classes, item rules, switching,
+  training), authored by the model and scored in arenas built from real save files of
+  past runs.
+- **Run analytics.** Every prompt is journaled whole (`run/prompts.jsonl.gz`). There are
+  tools to compare runs leg by leg (`planner/arc.py`), replay from any leg boundary
+  (`replay_from.sh`), and measure which page sections actually change decisions
+  (`tools/page_ablation.py`).
+- **674 tests, named as sentences.** Most were written the day a run failed, and each
+  docstring is the incident report: what the model was told, what it did, and what it
+  should have been told.
+
+  ```
+  a_round_can_say_its_step_is_blocked.py
+  a_void_waits_for_the_person_it_names.py
+  a_run_rolls_on_with_what_it_stumbled_into.py
+  new_ground_is_progress_and_a_won_fight_does_not_end_a_look.py
+  ```
 
 ## Watching a run
 
-`run/status.txt` is the whole run in one screen — the leg being attempted, the
-step and its machine-checkable condition, the model's reasoning in its own
-words, the op in flight, what the game said back, and where the party is:
+`run/status.txt` is the whole run on one screen: the leg, the current step and its
+completion condition, the model's reasoning in its own words, the op in flight, and
+what the game said back.
 
-![The run's live status line: PLAN, SUBGOAL, GOAL, DONE_WHEN, THINKS, DOING,
-LAST, WHERE, PARTY, MONEY and BAG, refreshed every second](status.png)
+![The live status view: PLAN, SUBGOAL, GOAL, DONE_WHEN, THINKS, DOING, LAST, WHERE, PARTY, MONEY and BAG](status.png)
 
-`watch -n1 cat run/status.txt`. `THINKS` is the model's plan for the round,
-quoted rather than summarised, and `LAST` is the harness's answer to the
-previous op — the two lines that say whether a stuck run is the model's
-mistake or ours.
+For viewers, the game window shows the model's knowledge: ground it has seen is lit,
+ground it has never seen is dimmed, and a red line marks the edge. The shading
+carries on across every connected map in view.
 
-## Status
+![The seen overlay in Cerulean City: seen ground lit, unseen ground dimmed, with a red boundary continuing onto Route 4 and the roads north and south](docs/seen-overlay.png)
 
-Reached the Hall of Fame on 2026-08-28, on a model-authored outline, with a
-few hand tweaks along the way. Not a hands-off single run.
+## Running it
 
-Paused from 2026-08-30 to 2026-09-02 while the 3090 that ran the model was
-replaced. Back on a Radeon AI PRO R9700 (32 GB), which holds the 31B model
-at a 32k window with room to spare; the author's review prompt had outgrown
-the 24k the old card could fit.
+**Requirements**
 
-## The rule the whole thing is built on
+- [Ollama](https://ollama.com) with `gemma4:31b-it-q4_K_M` (about 23 GB of VRAM at a
+  32k context).
+- [pokemon-gen1-recomp-project](https://github.com/bryanthaboi/pokemon-gen1-recomp-project),
+  a LÖVE reimplementation of Red by someone else, checked out at `~/Developer/gen1recomp`.
+- LÖVE 11, Python 3.11+, LuaJIT.
 
-> **Stop lying, stop hiding, stop refusing — and never point.**
+**Start a fresh run** (the chain authors an outline if none is banked):
 
-Every bug worth fixing in this project has turned out to be one of four
-things the harness was doing to the model:
-
-- **lying** — asserting something false ("you have already cleared Rock
-  Tunnel", when every way out of it the run ever took led back to the side it
-  came in by);
-- **hiding** — knowing something and not saying it (the walked graph ate
-  21958 characters of a 22000-character budget, and seventy characters of the
-  causal journal survived);
-- **refusing** — rejecting a thing the model was entitled to do (two
-  validator rules that between them told it to "end on a place the run has
-  never reached" and then rejected a place of any kind);
-- **pointing** — deciding for it (the room sweep used to walk the party
-  across a city to cut down a tree that blocked nothing).
-
-The first three are harness bugs. The fourth is a harness bug *even when it
-helps*, because a run that only succeeds when the harness steers is not the
-thing being built.
-
-Two corollaries fall out of that, and most of the code obeys them:
-
-- **An illogical choice is a harness gap.** Wrong *facts* are the model's
-  problem. A choice that is illogical *given what it was shown* is ours — it
-  was shown the wrong thing, or not shown enough.
-- **Prove the model can before saying it won't.** Five separate times, "the
-  model just won't do X" turned out to be a signal that never reached it.
-
-## What the harness may say
-
-Roughly: the **manual tier** and the **on-screen tier**. What a player could
-read off the screen, or out of the box the game came in. What is in the bag,
-what the party knows, which doorways are on this floor, what an NPC just
-said, that it is dark in here and FLASH lights it.
-
-What it may **not** say: where things are, what to do next, which road leads
-where it has not walked. It does not know that Fresh Water is sold in Celadon
-and it will not tell you. It *will* tell you, four times over, that the
-counter you are standing at sells seven things and none of them is water —
-because the party read that shelf itself.
-
-## How a run works
-
-```
-fresh_discovery.sh   the outline chain: the model writes its own list of
-      │              objectives ("legs"), and this walks them
-      ├─ campaign.sh        one leg: author a plan, run it, re-author on failure
-      │     └─ fresh_run.sh → planner/executor.py
-      │                          │
-      │                          └─ harness/shim.lua   (LÖVE/LuaJIT driver)
-      └─ the ladder        when a leg is stuck: is it already done? is
-                           something else needed first? should it move later?
-                           is it worded wrong? is it VOID?
+```bash
+rm -f run/outline_leg
+RED_NUM_CTX=32768 ./fresh_discovery.sh 4
+watch -n1 cat run/status.txt      # follow along
+./stop_all.sh                     # stop everything this rig started, and verify it
 ```
 
-The model never presses a button. It sends **ops** — `walk_to`, `cross`,
-`interact`, `use_warp`, `field_move`, `explore`, `buy`, `use_item`,
-`party_swap`, `skip`, and about a dozen more — and every op is
-decision-free: it does exactly what it says or explains precisely why it
-could not.
+**Tests:**
 
-The **ladder** is how a run survives its own mistakes. A leg that cannot be
-finished is not a dead end: the model is asked whether it is already done
-under another name, whether something has to happen first, whether it belongs
-later in the list, whether it is worded wrong, or whether it was never real.
-Every one of those answers is the model's; the harness only crosses things
-off and moves them.
-
-## Tests
-
-```
-tests/run_suite.sh      # every no-game test, in parallel
+```bash
+tests/run_suite.sh    # every no-game test, in parallel (about 10 seconds)
 ```
 
-A few tests boot a second copy of the game (listed in the script); never run
-those beside a live chain.
+A few tests boot a second copy of the game (listed in the script); never run those
+next to a live chain.
 
-Over 550 of them, and they are named as sentences, because each one is a claim
-about what the harness owes the model:
+## Repository map
 
-```
-a_bush_is_cut_when_it_is_in_the_way.py
-walking_in_is_not_walking_through.py
-the_causal_story_is_not_starved_by_the_graph.py
-a_leg_counted_is_not_a_leg_confirmed.py
-not_standing_somewhere_is_not_a_deed.py
-a_question_is_not_answered_by_asking_again.py
-```
+| Path | What it is |
+| --- | --- |
+| `fresh_discovery.sh` | The outline chain and the recovery ladder |
+| `campaign.sh` | One leg: run, rewrite from evidence on failure |
+| `planner/executor.py` | Runs plans; builds each round's page; talks to the model |
+| `planner/author.py` | Outline and plan authoring, the validator, and every ladder rung |
+| `planner/ledger.py` | The per-floor candidate list (what is untried, what is done) |
+| `planner/battle_policy.py` | The battle policy DSL |
+| `planner/policy_author.py` | Arena evaluation of authored policies |
+| `harness/shim.lua` | The in-game driver: ops, observation, visibility mask, overlay |
+| `tools/` | Analysis: arena tables, calibration, page ablation, world map |
+| `SPD_DESIGN.md`, `EXPLORE_DESIGN.md` | Design notes |
 
-Most were written the day a run failed, and the docstring is the incident
-report: what the model was told, what it did, and what it should have been
-told instead.
+## Credits
 
-## Where it has got to
-
-Run 15 has five badges — Boulder, Cascade, Thunder, Rainbow, Marsh — with a
-Charizard, a Pidgeot, a Gloom, a Hitmonlee, a Dugtrio, and a Gyarados raised
-from a ¥500 Magikarp the model bought for itself. Along the way it took the
-Rocket Hideout for the Silph Scope, cleared the Pokémon Tower and got the Poké
-Flute from Mr. Fuji, worked its way up Silph Co. with the Card Key for the
-Master Ball, and woke both Snorlax. An earlier run reached the Hall of Fame on
-a model-authored outline.
-
-The interesting number is not the badge count. It is that when the run gets
-stuck, the fix is almost never in the model.
-
-## Is it getting better?
-
-```
-planner/arc.py --diff        # the last two runs, side by side
-planner/arc.py --phases      # each run split into quarters by leg
-planner/arc.py --areas A B   # where each run spent its rounds, by building and by stage
-planner/arc.py --legs 15 A B # rounds, clock time and harness revision per leg
-./replay_from.sh run/saves/<leg>.<time>   # put the run back to a leg boundary and
-                             # play the legs after it on the harness as it stands
-planner/splits.py            # the quickest each leg has ever been played, and the
-                             # sum of those best splits; --keep marks a leg's split
-                             # (name the two journals: the newest by date
-                             #  are usually restart fragments)
-```
-
-Every fix here is checked twice: an offline test written the day it was
-found, and watching the live run at the spot it was stuck. Both are blind
-to the arc of a run, so a change that helps at leg 12 and hurts at leg 42
-stays invisible until some later run reaches leg 42. `arc.py` reads the
-archived journals — no model, no game — and puts the runs beside each
-other. It prints its denominators and where each run did its walking,
-because a routing rate is also a statement about whether the run spent its
-time in towns or in a cave split by water. A number that moved is a
-question, not a verdict.
-
-## Design notes
-
-- `SPD_DESIGN.md` — the three-tier architecture (executor / authored plans /
-  refinement) and why the mechanics live outside the model
-- `EXPLORE_DESIGN.md` — the exploration ledger: what counts as ground the run
-  has seen, what counts as a way out it has never taken
-- `AUDIT_TODO.md` — the running list of things the harness is still not
-  honest enough about
+The game itself is [pokemon-gen1-recomp-project](https://github.com/bryanthaboi/pokemon-gen1-recomp-project)
+by bryanthaboi. open-red only drives it, and is not involved in or affiliated with that
+project; it uses it because Lua source is far easier to read and instrument than
+emulator RAM. No ROM and no game assets are in this repository. Pokémon is © Nintendo,
+Creatures Inc. and GAME FREAK inc.
