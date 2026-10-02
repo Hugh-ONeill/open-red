@@ -10724,6 +10724,14 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
     except (ValueError, KeyError, OSError, AttributeError):
         return ""
     new = str(ans.get("reword") or "").strip()
+    # THE NOTE IS THE PAGE'S, NOT THE OBJECTIVE'S. The goal is shown with
+    # its outline note riding along ("... (you added this when outlining,
+    # for: ...)"), and run 19 answered with the note rewritten and the
+    # objective untouched. That went into the outline AND outline.upkeep,
+    # and at run 20's launch the one line no longer matched the banked
+    # wording, so the whole upkeep list was archived and every party leg
+    # became fatal (2026-10-01). A rewording is of the objective alone.
+    new = _DOUBT_NOTE.sub("", new).strip()
     why = str(ans.get("why") or "")[:160]
     if (not new or new.lower() in ("none", "null")) and ans.get("void"):
         _no = ""
@@ -10784,7 +10792,7 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
         print(f"[wording] refused a rewrite ({no_reword}): {new!r} — "
               f"the wording stands", file=sys.stderr)
         return ""
-    if _norm_obj(new) == _norm_obj(goal):
+    if _norm_obj(new) in (_norm_obj(goal), _norm_obj(_DOUBT_NOTE.sub("", goal))):
         print("[wording] refused: that is the same sentence",
               file=sys.stderr)
         return ""

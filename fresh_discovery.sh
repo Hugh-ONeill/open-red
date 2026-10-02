@@ -182,16 +182,15 @@ if [ "$done_legs" = 0 ]; then
   # (a WATER or GRASS type before Brock, and the rest) would each have
   # been fatal in a world where the first is unsatisfiable (2026-09-16).
   # A sidecar naming a leg the banked outline does not have still goes.
+  # ...BUT ONLY THAT LINE, AND OUT LOUD. One stale line used to archive the
+  # whole file without a word: run 19's wording rung baked the page's
+  # outline note into one upkeep line, and run 20 launched with NO upkeep
+  # list, so every party leg was fatal (2026-10-01). planner/sidecar_keep.py
+  # strips the note, keeps the banked lines and names the ones it drops.
   for _f in plans/outline.stages plans/outline.upkeep; do
     [ -f "$_f" ] || continue
-    if [ -s plans/outline.authored ] \
-        && awk -F'\t' 'NR==FNR { a[$0]=1; next }
-             NF { l = (NF > 1 ? $2 : $1); if (!(l in a)) bad=1 }
-             END { exit bad }' plans/outline.authored "$_f"; then
-      echo "kept $_f: every leg it names is the banked wording"
-      continue
-    fi
-    mv -f "$_f" "plans/archive/${ts}-pre-discovery-$(basename "$_f")"
+    python planner/sidecar_keep.py "$_f" plans/outline.authored \
+        "plans/archive/${ts}-pre-discovery-$(basename "$_f")" || true
   done
   echo "archived ${ts}.pre-discovery; ledgers cleared"
 fi

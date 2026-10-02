@@ -31,6 +31,7 @@ positions shift under the sweep and the reorder rungs.
 
 Usage: reword_leg.py N "the objective, said accurately"
 """
+import re
 import sys
 from pathlib import Path
 
@@ -80,6 +81,11 @@ def main(argv):
     if len(argv) < 2:
         sys.exit(__doc__)
     n, new = int(argv[0]), argv[1].strip()
+    # the goal's outline note is page furniture, never part of the wording
+    # (run 19 wrote one into outline.upkeep, which then failed the banked-
+    # wording check at run 20's launch and took the whole list with it)
+    new = re.sub(r"\s*\((?:a doubt you recorded when outlining:|you added this "
+                 r"when outlining,).*$", "", new).strip()
     if not new:
         sys.exit("reword_leg: empty objective")
 

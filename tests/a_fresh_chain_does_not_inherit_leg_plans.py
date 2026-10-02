@@ -22,9 +22,8 @@ ck("the fresh block archives this world's leg plans",
    and 'mv -f "$_p" "plans/archive/${ts}-pre-discovery-$(basename "$_p")"' in blk)
 ck("...and the sidecars that name legs by this chain's wordings",
    "for _f in plans/outline.stages plans/outline.upkeep" in blk)
-ck("...unless every leg a sidecar names is the banked wording",
-   "every leg it names is the banked wording" in blk
-   and "plans/outline.authored \"$_f\"" in blk)
+ck("...keeping the lines that name the banked wording (planner/sidecar_keep.py)",
+   'python planner/sidecar_keep.py "$_f" plans/outline.authored' in blk)
 ck("...but NOT the outline's own notes, which belong to the list that is kept",
    "plans/outline.notes; do" not in blk)
 ck("...archived, never deleted", "rm -f plans/leg_" not in blk)
