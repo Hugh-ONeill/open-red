@@ -12304,11 +12304,34 @@ function OPS.interact(G, c)
       -- A NAME IS NOT A BOX TO TAP THROUGH: every A here would type a
       -- letter. Stop with the screen open and say what it asks.
       if naming_on_stack(G) then return true, naming_words(G) end
-      if t == seen_top and (t and t.pageIndex) == seen_idx then
+      -- A CEREMONY SCREEN COUNTS ITS OWN PAGES. The updated base shows a
+      -- starter's Pokedex entry (DexEntryMenu, `page` of `pageCount`) when
+      -- its ball is pressed, before "So! You want ...?", and this loop read
+      -- only a text box's pageIndex: the entry looked frozen, the loop gave
+      -- up with "dialog still open", the question was never reported as
+      -- one, and the survey that lays every starter side by side never ran
+      -- (runs 26 and 27, 2026-10-02). Its page is progress too.
+      local _pg = t and (t.pageIndex or t.page)
+      -- ...AND IT TAKES NO KEY WHILE THE POKEMON CRIES. DexEntryMenu:update
+      -- returns early while its cry plays, and the cry is real audio, so it
+      -- lasts real seconds however fast the frames go; the stall count ran
+      -- out long before it ended. Wait the cry out in wall time (capped),
+      -- the way the lift waits out its chime, without counting it a stall.
+      if t and type(t.crying) == "function" then
+        local _clock = love and love.timer and love.timer.getTime
+        local _t0 = _clock and _clock()
+        while true do
+          local _okc, _cr = pcall(t.crying, t)
+          if not (_okc and _cr) then break end
+          if not _t0 or _clock() - _t0 > 6 then break end
+          coroutine.yield()
+        end
+      end
+      if t == seen_top and _pg == seen_idx then
         stall = stall + 1
         if stall > SETTLE_STALL then return true, "dialog still open" end
       else
-        stall, seen_top, seen_idx = 0, t, (t and t.pageIndex)
+        stall, seen_top, seen_idx = 0, t, _pg
       end
       note_page()
       -- STOP AT A COUNTER'S OWN MENU. This loop taps A on anything that is
