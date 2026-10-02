@@ -2697,10 +2697,18 @@ def same_failed_walk_problems(plan: dict, goal: str | None = None,
                     f"this objective's last plan failed walking to {tgt}; every "
                     f"step before it is only travel, so this is the same walk. "
                     f"Do something first that changes what that walk meets, or "
-                    f"go somewhere else."
+                    f"go somewhere else. Ground never stood on counts as "
+                    f"something: a step ending on a part of a map you have not "
+                    f"stood in ({{\"new_part\": \"MAP\"}}) or on a map never "
+                    f"stood on. Healing or putting a Pokemon in the PC does not."
                     + (" PLACES THIS RUN HAS WALKED THAT STILL HAVE SOMETHING "
                        "NEVER TRIED: " + "; ".join(_leads) + "." if _leads else "")]
-        if not keys <= _TRAVEL_KEYS:
+        # A BOXED POKEMON IS NOT A DEED THE WALK MEETS. Refused this rule five
+        # rounds running inside Mt Moon, run 24's author added "visit_mt_moon_pc:
+        # pc_holds 1" to get past it, and the executor deposited Geodude, Mega
+        # Punch and all, "to satisfy the goal" (2026-10-02). Healing was
+        # already only travel; putting a member in the PC is the same.
+        if not keys <= (_TRAVEL_KEYS | {"pc_holds"}):
             return []                 # a deed comes first: the walk may follow
         # ...AND SO DOES NEW GROUND. The same walk from the same place meets
         # the same wall; a step onto ground never stood on changes what it
