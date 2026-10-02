@@ -1632,8 +1632,12 @@ GOT_AWAY: dict = {}
 SELF_KO_PATH = RUN / "self_ko.json"
 SELF_KO: dict = {}
 try:
+    # only moves the game's own table says faint their user; a record
+    # written by the old reading carried ordinary attacks (see
+    # battle_policy.faints_its_user)
     SELF_KO.update({str(k): int(v) for k, v in
-                    json.loads(SELF_KO_PATH.read_text() or "{}").items()})
+                    json.loads(SELF_KO_PATH.read_text() or "{}").items()
+                    if battle_policy.faints_its_user(k)})
 except (OSError, ValueError, AttributeError):
     pass
 
@@ -1644,6 +1648,12 @@ def _journal_self_ko(before_b: dict, after_obs: dict, move_id: str) -> bool:
     no "Enemy ... used" between them (the foe's lines carry "Enemy")."""
     me = (before_b or {}).get("me") or {}
     if not move_id or (me.get("hp") or 0) <= 0:
+        return False
+    # ...AND ONLY A MOVE THAT CAN DO IT. "Wild VOLTORB fainted!" is not
+    # "ENEMY ..." and was read as our THUNDERBOLT fainting its user; the
+    # game's move table says which moves faint the user, and only those
+    # are journaled (battle_policy.faints_its_user).
+    if not battle_policy.faints_its_user(move_id):
         return False
     # THE RUN OF BOXES, NOT THE LAST ONE. recent_text is the single last
     # box ("ROCKY fainted!"), so "used EXPLOSION" was never in it and this
@@ -1668,7 +1678,7 @@ def _journal_self_ko(before_b: dict, after_obs: dict, move_id: str) -> bool:
     for b in boxes[at + 1:]:
         if b.startswith("ENEMY ") and " USED " in b:
             return False
-        if "FAINTED" in b and not b.startswith("ENEMY "):
+        if "FAINTED" in b and not b.startswith(("ENEMY ", "WILD ")):
             SELF_KO[str(move_id)] = SELF_KO.get(str(move_id), 0) + 1
             try:
                 SELF_KO_PATH.write_text(json.dumps(SELF_KO, indent=0))

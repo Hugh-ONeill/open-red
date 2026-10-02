@@ -292,8 +292,24 @@ DRINKS = ("FRESH_WATER", "SODA_POP", "LEMONADE")
 SELF_KO_MOVES = frozenset({"SELFDESTRUCT", "EXPLOSION"})
 
 
+def faints_its_user(move_id) -> bool:
+    """Does the game's own move table say this move faints the one who uses
+    it (EXPLODE_EFFECT: SELFDESTRUCT, EXPLOSION)? The run's self-KO record
+    learned from battle text, and it counted "Wild VOLTORB fainted!" after
+    our THUNDERBOLT as THUNDERBOLT fainting its user: run 25's record named
+    thirty ordinary attacks (Thunderbolt, Psybeam, Mega Punch, Earthquake,
+    Surf, Fly...), so the demotion had nothing left to prefer and Electrode
+    used SELFDESTRUCT 106 times with Thunderbolt untouched (2026-10-02)."""
+    m = str(move_id or "")
+    if m in SELF_KO_MOVES:
+        return True
+    eff = (_move_effects().get(m) or ("", 0))[0]
+    return eff == "EXPLODE_EFFECT"
+
+
 def self_ko_moves(ctx) -> set:
-    return set(SELF_KO_MOVES) | {str(k) for k in ((ctx or {}).get("self_ko") or {})}
+    return set(SELF_KO_MOVES) | {str(k) for k in ((ctx or {}).get("self_ko") or {})
+                                 if faints_its_user(k)}
 
 
 def spendable(bag: dict) -> dict:
