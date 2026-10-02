@@ -1724,29 +1724,44 @@ local function draw_tiles(G, ow, map, mask, W, H)
     draw_boundary(m, mW, mH, at, c, x0, y0, x1, y1)
   end
   paint(mask, W, H, 0, 0)
-  -- ...AND THE NEIGHBOURS ON SCREEN (user, 2026-10-01: extend the shading
-  -- to the other overworld maps). The game draws each connected map past
-  -- the edge, placed by the connection's offset in blocks; their footprint
-  -- is in SEEN already, so shade and outline it where the game draws it.
-  local md = G.data and G.data.maps and G.data.maps[map.id]
-  for d, cn in pairs((md and md.connections) or {}) do
-    local nd = cn and cn.map and G.data.maps[cn.map]
-    -- a neighbour never seen at all has no entry: all of it is fog
-    local nmask = nd and (SEEN[cn.map] or {})
-    if nd and nmask and nd.width and nd.height then
-      local nW, nH, off = nd.width * 2, nd.height * 2, (cn.offset or 0) * 2
-      local ox, oy
-      if d == "north" then ox, oy = off, -nH
-      elseif d == "south" then ox, oy = off, H
-      elseif d == "west" then ox, oy = -nW, off
-      elseif d == "east" then ox, oy = W, off end
-      if ox then paint(nmask, nW, nH, ox, oy) end
+  -- ...AND EVERY OTHER MAP ON SCREEN (user, 2026-10-01: extend the shading
+  -- to the other overworld maps; 2026-10-02: "sometimes you can see more
+  -- than" the adjacent ones). The game draws the connected maps past the
+  -- edge, and zoomed out the camera reaches their neighbours too. Walk the
+  -- connections outward from this map, each placed from the one it was
+  -- reached through by the connection's offset in blocks, and paint every
+  -- map whose footprint is in view. Kanto's connections loop (round
+  -- Saffron), so a map is placed once, by the first way reached; three steps
+  -- out is past anything the camera shows. A map never seen is fog whole.
+  local maps = G.data and G.data.maps
+  if maps then
+    local placed = { [map.id] = true }
+    local queue = { { id = map.id, ox = 0, oy = 0, w = W, h = H, depth = 0 } }
+    local qi = 1
+    while queue[qi] do
+      local cur = queue[qi]
+      qi = qi + 1
+      local md = maps[cur.id]
+      if cur.depth < 3 then
+        for d, cn in pairs((md and md.connections) or {}) do
+          local nd = cn and cn.map and maps[cn.map]
+          if nd and not placed[cn.map] and nd.width and nd.height then
+            placed[cn.map] = true
+            local nW, nH, off = nd.width * 2, nd.height * 2, (cn.offset or 0) * 2
+            local ox, oy
+            if d == "north" then ox, oy = cur.ox + off, cur.oy - nH
+            elseif d == "south" then ox, oy = cur.ox + off, cur.oy + cur.h
+            elseif d == "west" then ox, oy = cur.ox - nW, cur.oy + off
+            elseif d == "east" then ox, oy = cur.ox + cur.w, cur.oy + off end
+            if ox then
+              paint(SEEN[cn.map] or {}, nW, nH, ox, oy)
+              queue[#queue + 1] = { id = cn.map, ox = ox, oy = oy, w = nW, h = nH,
+                                    depth = cur.depth + 1 }
+            end
+          end
+        end
+      end
     end
-  end
-  love.graphics.setColor(1, 0.85, 0.1, 0.9)
-  for _, f in ipairs(last_frontier or {}) do
-    local X, Y = cell_xy(f.x, f.y)
-    love.graphics.rectangle("line", X + c * 0.25, Y + c * 0.25, c * 0.5, c * 0.5)
   end
   local sx, sy, sw, sh = seen_window(p)
   local X, Y = cell_xy(sx, sy)
