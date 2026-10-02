@@ -10015,6 +10015,24 @@ def void_refused_why(goal: str, observed, plans_dir="plans", why: str = "") -> s
     judgment, it is not lying to yourself. The other answers (stands,
     reword, done under another name) stay the model's.
     """
+    # A LEG WHOSE PERSON STANDS THERE UNSPOKEN-TO IS NOT DONE WITH. Run 23's
+    # "Visit Bill in his house on Route 25" met Bill and ran the Cell
+    # Separator, and check-done refused it twice because the restored Bill
+    # (BILLSHOUSE_BILL1, who hands over the S.S. Ticket) had never been
+    # spoken to; then this rung VOIDed it on "the run has already met Bill
+    # and used the cell separator", true events and all, and the run walked
+    # out one press from the ticket (2026-10-02; run of record 14 did the
+    # same on 2026-09-28). The check that stopped the leg comes first here,
+    # before a reason's fired events can wave it through.
+    try:
+        _un = untouched_named(goal, observed)
+    except Exception:
+        _un = []
+    if _un:
+        return (f"this objective names {_un[0][1]}, seen in {_un[0][0]} and never "
+                f"spoken to or pressed — what it names is standing there, so the "
+                f"leg cannot be struck out until that has been tried. The wording "
+                f"stands.")
     # ...UNLESS THE REASON RESTS ON THE RECORD. "Wake Snorlax to clear the
     # path" was struck out with "the run has already triggered
     # EVENT_BEAT_ROUTE16_SNORLAX and EVENT_BEAT_ROUTE12_SNORLAX" — both
