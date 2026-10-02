@@ -3933,7 +3933,32 @@ class Executor:
             except Exception:
                 _near = ""
             _pre_sweep = obs
+            _flags0 = set(getattr(self, "_flags_now", None) or [])
             ok, tr, cl = self._run_traced(sg, [_st], ignore_done=ignore_done)
+            # A TRAINER BEATEN ON THE WAY DOES NOT END THE LOOK. Each trainer
+            # whose sight line the sweep crossed stopped it, so Route 25 came
+            # on screen about ten cells a round and the far end, where Bill
+            # lives, kept falling to the next round (run 20, 2026-10-01).
+            # When the stop was a battle the party won (a new trainer-beaten
+            # flag), on the same map, the sweep goes on, up to three times.
+            # A script's words still end it, as does a loss or a map change.
+            for _resume in range(3):
+                if ok or not any("interrupted (battle or script)" in str(t) for t in tr[-2:]):
+                    break
+                _now_s = self.settle() or {}
+                _won = {f for f in (getattr(self, "_flags_now", None) or [])
+                        if f not in _flags0 and _re.match(r"EVENT_BEAT_\w*TRAINER", str(f))}
+                if (not _won or _now_s.get("mode") != "overworld"
+                        or ((_now_s.get("map") or {}).get("id")
+                            != ((_pre_sweep or {}).get("map") or {}).get("id"))):
+                    break
+                _flags0 |= _won
+                self.log("sweep_resumed_after_trainer", subgoal=sg.get("id"),
+                         beaten=sorted(_won)[:4])
+                tr = list(tr) + [f"(a trainer stopped the sweep and was beaten "
+                                 f"({', '.join(sorted(_won)[:2])}); the sweep went on)"]
+                ok2, tr2, cl2 = self._run_traced(sg, [dict(_st)], ignore_done=ignore_done)
+                ok, tr, cl = ok2, tr + list(tr2), list(cl) + list(cl2)
             # A DOOR IS A DOOR WHOEVER OPENED IT — and a sweep opens them.
             # A sweep walks toward the nearest ground never on screen, and
             # if that walk crosses a cave mouth the MAP CHANGES on a step
