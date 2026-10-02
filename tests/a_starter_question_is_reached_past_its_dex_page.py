@@ -26,6 +26,12 @@ def ck(n, ok):
 ck("a ceremony screen's own page counts as progress", "local _pg = t and (t.pageIndex or t.page)" in blk)
 ck("...and the cry is waited out in wall time, capped", "pcall(t.crying, t)" in blk
    and "_clock() - _t0 > 6" in blk)
+j = sh.index("-- ...BUT NOT WHILE THE NEW SPECIES CRIES.")
+ck("a catch waits the new species' cry out before pressing toward the nickname question",
+   "pcall(t.crying, t)" in sh[j:j + 900])
+fd = (ROOT / "fresh_discovery.sh").read_text()
+ck("a fresh start rotates the viewer's event feed and trail",
+   'mv "$_feed" "${_feed%.jsonl}.${ts}.jsonl"' in fd and 'trail.jsonl' in fd)
 failed = [n for n, ok in checks if not ok]
 for n, ok in checks:
     print(("ok   " if ok else "FAIL ") + n)

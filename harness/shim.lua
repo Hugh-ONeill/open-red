@@ -12830,6 +12830,21 @@ function OPS.throw_ball(G, c)
       -- RATTATA and PARAS went un-named (2026-08-29). Only the overworld
       -- on top ends the ride; everything else is advanced with A until
       -- the question (answered YES above) or the naming screen appears.
+      -- ...BUT NOT WHILE THE NEW SPECIES CRIES. Its Pokedex page takes no
+      -- key until the cry ends, and the cry is real audio: the presses
+      -- fell on nothing, the loop ran out, and the nickname question was
+      -- backed out of — run 27's PIDGEY (2026-10-02). Wait the cry out in
+      -- wall time (capped), then press.
+      if t and type(t.crying) == "function" then
+        local _clock = love and love.timer and love.timer.getTime
+        local _t0 = _clock and _clock()
+        while true do
+          local _okc, _cr = pcall(t.crying, t)
+          if not (_okc and _cr) then break end
+          if not _t0 or _clock() - _t0 > 6 then break end
+          coroutine.yield()
+        end
+      end
       U.tap(G, "a"); U.wait(4)
     end
   end
