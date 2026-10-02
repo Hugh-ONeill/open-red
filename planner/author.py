@@ -87,8 +87,12 @@ def _engine_screens() -> tuple:
             src += p.read_text(errors="ignore")
     except OSError:
         src = ""
+    # ...AND THE ONES A MENU OPENS THROUGH ITS OWN HELPER. The updated base
+    # opens the PC's halves with openSub("BoxMenu") / openSub("PlayerPC")
+    # rather than Screens.push, and BoxMenu fell off this list (2026-10-02).
     found = tuple(sorted(set(
-        re.findall(r'Screens\.push\(\s*\w+\s*,\s*"([A-Za-z]+)"', src))))
+        re.findall(r'Screens\.push\(\s*\w+\s*,\s*"([A-Za-z]+)"', src))
+        | set(re.findall(r'openSub\(\s*"([A-Za-z]+)"\s*\)', src))))
     # an unreadable engine must not silently accept anything
     return found or ("BoxMenu", "DexEntryMenu", "PlayerPC", "ShopMenu",
                      "SlotMachine", "StartMenu")

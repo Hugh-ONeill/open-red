@@ -167,7 +167,8 @@ def main():
     if root.is_dir():
         for p in root.rglob("*.lua"):
             eng += p.read_text(errors="ignore")
-    live = set(re.findall(r'Screens\.push\(\s*\w+\s*,\s*"([A-Za-z]+)"', eng))
+    live = (set(re.findall(r'Screens\.push\(\s*\w+\s*,\s*"([A-Za-z]+)"', eng))
+            | set(re.findall(r'openSub\(\s*"([A-Za-z]+)"\s*\)', eng)))
     ok = bool(live) and live == set(A.UI_SCREENS)
     print(f"  {'ok  ' if ok else 'FAIL'}  the screen list is read from the "
           f"engine, not copied ({len(live)} screens)")
