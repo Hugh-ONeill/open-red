@@ -38,21 +38,31 @@ def fake(names):
 
 
 E.NAMES_USED = td / "used"
-E.NAMES_USED.write_text("nickname\tSPROUT\nrival\tJERK\n")
+CLING = "nickname\tSPROUT\n" * 3 + "rival\tJERK\n" * 3 + "nickname\tTRIPLE-T\n"
+E.NAMES_USED.write_text(CLING)
 starter = {"naming": {"title": "NICKNAME?", "max": 10, "for_species": "BULBASAUR"},
            "party": [{"species": "BULBASAUR", "level": 5}]}
 E.brock_probe.chat = fake(["Sprout", "Bulby", "Carl", "Mochi", "BULBASAUR"])
 got = set()
 for _ in range(30):
-    E.NAMES_USED.write_text("nickname\tSPROUT\nrival\tJERK\n")
+    E.NAMES_USED.write_text(CLING)
     got.add(E.ask_name(starter, "m"))
 ck("the name is drawn from the five offered", got <= {"BULBY", "CARL", "MOCHI"} and len(got) >= 2, got)
 ck("...never a name an earlier run had, nor the species", "SPROUT" not in got and "BULBASAUR" not in got)
 ck("...and each name drawn is written down for the next run",
-   E.NAMES_USED.read_text().count("nickname\t") > 1)
+   E.NAMES_USED.read_text().count("nickname\t") > 4)
+E.NAMES_USED.write_text(CLING)
+E.brock_probe.chat = fake(["Triple-T"])
+ck("a one-off chosen before stays open (only a name chosen 3+ times is turned away)",
+   E.ask_name(starter, "m") == "TRIPLE-T")
+E.NAMES_USED.write_text("nickname\tCARL\n")
+held = dict(starter, party=[{"species": "PIDGEY", "nickname": "CARL"}, {"species": "BULBASAUR"}])
+E.brock_probe.chat = fake(["Carl", "Dot"])
+ck("a name worn in this run's party is not drawn twice", E.ask_name(held, "m") == "DOT")
 ck("a Pokemon is named like a pet", "names a pet" in sent[0] and "five different names" in sent[0])
 
 rival = {"naming": {"title": "HIS NAME?", "max": 7, "presets": ["GARY", "JOHN"]}, "party": []}
+E.NAMES_USED.write_text(CLING)
 E.brock_probe.chat = fake(["JERK", "GARY", "Dusty"])
 ck("the rival is a kid from your town, and JERK is turned away",
    E.ask_name(rival, "m") == "DUSTY" and "kid from your own town" in sent[-1])

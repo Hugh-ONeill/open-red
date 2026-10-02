@@ -28150,10 +28150,14 @@ NAME_SYS_RIVAL = NAME_SYS_OWN.replace(
     "next to. Name them like a person, or by a nickname a kid would get.")
 assert NAME_SYS_PET != NAME_SYS_OWN and NAME_SYS_RIVAL != NAME_SYS_OWN
 
-# NAMES PAST RUNS HAVE HAD, turned away like the menu's presets, so each run
-# gets names it has not had. Kept under plans/ (a fresh chain archives run/),
-# one "kind<TAB>NAME" a line; KAI is on it from the start (user, 2026-10-01:
-# "the only one ive disliked is kai").
+# NAMES THE MODEL CLINGS TO, turned away like the menu's presets. The record
+# is every name ever chosen, one "kind<TAB>NAME" line per choice, kept under
+# plans/ (a fresh chain archives run/). Only a name chosen NAME_CLING times
+# or more is turned away: JERK (55), SAGE (32), SPROUT (31), KAI, ZAP...
+# while a one-off stays open to come round again (user, 2026-10-02: "mostly
+# just ones it clings to ... while keeping possibilities open for Triple-T
+# and Hard Candy funny one-offs"). KAI is turned away always (user,
+# 2026-10-01: "the only one ive disliked is kai").
 # A test sets RED_BRIDGE_DIR (tests never touch the live run), and its
 # names go there with it, never into the record a real run reads.
 NAMES_USED = Path(os.environ.get("RED_NAMES_USED")
@@ -28173,12 +28177,29 @@ def _name_kind(title: str) -> str:
     return "other"
 
 
+NAME_CLING = int(os.environ.get("RED_NAME_CLING") or 3)
+
+
 def _names_used() -> set:
+    """The names turned away: chosen NAME_CLING times or more, and KAI."""
+    from collections import Counter
     try:
-        return {l.split("\t")[-1].strip().upper()
-                for l in NAMES_USED.read_text().splitlines() if l.strip()} | _NAMES_NEVER
+        n = Counter(l.split("\t")[-1].strip().upper()
+                    for l in NAMES_USED.read_text().splitlines() if l.strip())
     except OSError:
-        return set(_NAMES_NEVER)
+        n = Counter()
+    return {k for k, c in n.items() if c >= NAME_CLING} | _NAMES_NEVER
+
+
+def _names_held(obs) -> set:
+    """Names already worn in THIS run, as the save shows them: the party's
+    nicknames and the player's and rival's names. Two MOCHIs in one party is
+    a repeat whatever the record says."""
+    o = obs or {}
+    out = {str(m.get("nickname") or "").strip().upper()
+           for m in (o.get("party") or []) if isinstance(m, dict)}
+    out |= {str(o.get(k) or "").strip().upper() for k in ("player_name", "rival_name")}
+    return {x for x in out if x}
 
 
 def _note_name_used(kind: str, name: str) -> None:
@@ -28302,7 +28323,7 @@ def ask_name(obs: dict, model, log=None) -> str:
         _cands = [_clean(x) for x in (_obj.get("names") or []) if _clean(x)]
         if not _cands and _obj.get("name"):
             _cands = [_clean(_obj.get("name"))]
-        _used = _names_used() if NICKNAMES_REQUIRED else set()
+        _used = (_names_used() | _names_held(obs)) if NICKNAMES_REQUIRED else set()
         _fresh = [c for c in _cands if c.strip() not in off_menu
                   and c.strip() not in _used]
         name = (random.choice(_fresh) if _fresh else
