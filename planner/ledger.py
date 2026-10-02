@@ -2733,6 +2733,42 @@ def _since_reset(pl: list) -> tuple:
     return None, ""
 
 
+def _items_lying_text(cands: list, obs: dict) -> str:
+    """ITEMS LYING ON THIS FLOOR, on their own line near the top. A ball on
+    the ground sat in the never-pressed list beside signs, people and
+    doors, and a step that went smoothly never detoured for one: run 19 took
+    7 of its 52 deliberate pickups in a step's first three rounds and most
+    at round 7 or later, when stuck and hunting; run 20 crossed Mt Moon in
+    a quarter of an hour, took 1 of 7 balls and walked past one holding
+    TM01 (user, 2026-10-01: "it should pick up the balls it sees because
+    theyre free and useful"). The count and the nearest, from what is on
+    screen; whether to take them is the model's."""
+    its = [c for c in cands if c.kind == "item" and c.status == "untouched"]
+    if not its:
+        return ""
+    pl = (obs or {}).get("player") or {}
+    px, py = pl.get("x"), pl.get("y")
+    near = [c for c in its if c.reachable]
+
+    def _d(c):
+        if px is None or c.x is None:
+            return 999
+        return abs(int(c.x) - int(px)) + abs(int(c.y) - int(py))
+    near.sort(key=_d)
+    out = f"ITEMS LYING ON THIS FLOOR, never taken: {len(near)} you can walk to"
+    if near:
+        c = near[0]
+        out += (f" (nearest: {c.key}" + (f" at ({c.x},{c.y})" if c.x is not None else "")
+                + (f", about {_d(c)} steps" if _d(c) < 999 else "") + ")")
+    if len(its) > len(near):
+        out += f", {len(its) - len(near)} you cannot walk to from here"
+    if len(((obs or {}).get("bag") or {})) >= 20:
+        return (out + ". Your bag holds 20 kinds of thing, the most it can: a "
+                "kind it does not already hold will not fit until one goes.")
+    return (out + ". An {\"op\":\"interact\",\"name\":...} takes one, and it "
+            "can ride along in any macro.")
+
+
 _NEVER_WAY = ("untried",)
 _NEVER_THING = ("untouched", "unspoken", "unbeaten")
 
@@ -3690,6 +3726,9 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                  "first door of that route, so it can only start if a "
                  "walk from where you stand reaches THAT door")
     lines = [head + "."]
+    _items = _items_lying_text(cands, obs)
+    if _items:
+        lines.append(_items)
     # EXITS ARE NEVER CUT. The cap is for the long tail of things and
     # people; a door or a seam is a way out and every one is shown.
     exits = [c for c in cands if c.kind in ("door", "seam", "op")]
