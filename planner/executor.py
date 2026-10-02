@@ -2288,6 +2288,7 @@ class Executor:
         # visible to the one who is doing it. Its words, unedited.
         self._plans_said: list = []
         self._skipped = None        # subgoal id the model declared moot
+        self._step_blocked = None   # {"subgoal","wall","where","why"} from {"op":"blocked"}
         self._entered_map: dict = {}   # "target|map" -> entries for target
         self._revisit_refusals: dict = {}   # target -> refusals spent
         self._battle_regions: set = set()   # "target|region" a fight ran in
@@ -3029,6 +3030,7 @@ class Executor:
                 else w[:260]
         b["cleared"] = False
         b["last"] = self._cur_target or ""
+        b["t"] = round(time.time(), 1)     # when it last turned the run back
         # THE WORLD IT HAPPENED IN. Refused again, it is refused in the world
         # as it is now, so the date moves with every bump (see _since_words).
         if getattr(self, "_mark_now", None) is not None:
@@ -3073,6 +3075,61 @@ class Executor:
             b["cleared"] = True
             b["cleared_how"] = (how or "")[:160]
             self.log("blocker_cleared", where=area, key=str(key), how=how)
+
+    # Which badge lets a field move be used outside battle: the gym
+    # leaders say it out loud, and the party menu lists the move only once
+    # the badge is in the case (harness/shim.lua's _gate holds the same).
+    FIELD_MOVE_BADGE = {"CUT": "CASCADEBADGE", "SURF": "SOULBADGE",
+                        "STRENGTH": "RAINBOWBADGE"}
+    # what a row's recorded words name, for each of those moves
+    _FIELD_WALL = (("CUT", "CUT_TREE"), ("STRENGTH", "BOULDER"),
+                   ("SURF", "WATER"))
+
+    def _clear_hm_blockers(self, obs) -> list:
+        """A wall the party can now clear in the field is no longer a way
+        that turns the run back. A cut tree grows back when its map
+        reloads, so "cleared when cut" would have it on and off the ledger
+        for the rest of the run; once a member knows CUT and the badge
+        that lets it be used outside battle is worn, every tree is a step,
+        not a wall (user, 2026-10-01: "cut trees would just stop being on
+        the ledger after obtaining hm cut / teaching it"). Same for a
+        BOULDER and STRENGTH, WATER and SURF. Only rows whose own words
+        name that thing; the tile stays on the map. Returns keys cleared."""
+        badges = {str(b) for b in ((obs or {}).get("badges") or [])}
+        out = []
+        for mv, thing in self._FIELD_WALL:
+            if self.FIELD_MOVE_BADGE[mv] not in badges or not self._knows_move(obs, mv):
+                continue
+            for bk, b in (getattr(self, "blockers", None) or {}).items():
+                if (isinstance(b, dict) and not b.get("cleared")
+                        and thing in str(b.get("what") or "")):
+                    self._clear_blocker(b.get("where"), b.get("key"),
+                                        f"the party can {mv} it now: a member knows "
+                                        f"{mv} and the {self.FIELD_MOVE_BADGE[mv]} is worn")
+                    out.append(bk)
+        return out
+
+    def _wall_in_record(self, wall: str):
+        """(where, key, what) for a wall the run's record holds, matched as
+        the page writes it: a ledger row by its key, its "AREA KEY" line, or
+        a name inside its words; else a thing the run has pressed (its
+        name). None when the record has no such wall."""
+        w = str(wall or "").strip()
+        if not w:
+            return None
+        wl = w.lower()
+        for bk, b in (getattr(self, "blockers", None) or {}).items():
+            if not isinstance(b, dict) or b.get("cleared"):
+                continue
+            where, key = str(b.get("where") or ""), str(b.get("key") or "")
+            if wl in (bk.lower(), key.lower(), f"{where} {key}".lower()) \
+                    or (len(wl) >= 4 and wl in str(b.get("what") or "").lower()):
+                return where, key, b.get("what") or ""
+        for book in (getattr(self, "_outcomes", None) or {}).values():
+            for key, rec in (book or {}).items():
+                if str(key).lower() == wl:
+                    return ("", str(key), (rec or {}).get("last") or "")
+        return None
 
     def _declare_blockers(self, decls, obs) -> list:
         """The MODEL's word on blockers, from its reply's "blockers" key:
@@ -3321,6 +3378,13 @@ class Executor:
             # thing in fifteen says something different (Vermilion's gym)
             # needs more than twelve presses of history to show the turn.
             del _pl[:-60]
+            # A THING THAT SAYS IT BLOCKS THE WAY IS A WALL, in its own
+            # words. Only use_warp and cross wrote rows, so Route 12's
+            # "A sleeping POKeMON blocks the way!" was pressed, quoted on
+            # the page, and never on the ledger, and a round could not name
+            # it as what stopped it (run 20, 2026-10-01).
+            if _sm and _re.search(r"\bblock(?:s|ing|ed)?\b", _sm.group(1), _re.I):
+                self._note_blocker(here, key, "said", f'{key} said: "{_sd_txt}"')
         # A WAY THAT SPOKE AND DID NOT OPEN turned you back: the fixed
         # ghost, a guard's line, a sleeping thing's — evidence for the
         # blockers ledger, in the words the game used.
@@ -5715,6 +5779,11 @@ class Executor:
             self._last_map = str(_m)
         self._mark_now = self._world_mark(obs)
         self._drop_what_a_thrown_away_world_did(obs)
+        if (obs or {}).get("party"):
+            try:
+                self._clear_hm_blockers(obs)
+            except Exception:
+                pass
         if (obs or {}).get("flags") is not None:
             self._flags_now = sorted(str(f) for f in _announced(obs.get("flags") or []))
         # ...AND WHERE IT WAS CARRIED. The mark at the last time the run stood
@@ -8265,15 +8334,24 @@ class Executor:
                     continue
                 _shut.append((int(_b.get("n") or 0),
                               f"{_b.get('where')} {_b.get('key')} — "
-                              f"\"{str(_b.get('what'))[:90]}\""))
+                              f"\"{str(_b.get('what'))[:90]}\"",
+                              float(_b.get("t") or 0)))
             _shut.sort(reverse=True)
+            # ...AND THE NEWEST, WHATEVER ITS COUNT. Ranked by count alone,
+            # three old turn-backs at Viridian and the Tower held the line
+            # while the Route 7 guard and Route 12's wall, met that hour,
+            # never showed (run 20, 2026-10-01).
+            if len(_shut) > 3:
+                _new = max(_shut[3:], key=lambda r: r[2])
+                if _new[2] > max(r[2] for r in _shut[:3]):
+                    _shut = _shut[:2] + [_new]
             _paper = (" The map draws the LAYOUT, not which roads are open: "
                       "a gate can be shut and the map still draws the road "
                       "through it, and a number on paper is not a route you "
                       "have walked.")
             if _shut:
                 _paper += (" Ways that have turned you back so far: "
-                           + "; ".join(t for _, t in _shut[:3]) + ".")
+                           + "; ".join(t for _, t, _ in _shut[:3]) + ".")
         note = (f"\nHOW FAR OFF YOU ARE: "
                 + ("on the printed map " if _held
                    else "by your own walking, and by nothing else — you "
@@ -20418,6 +20496,12 @@ another name. Say why in your plan; the reason is recorded. It is refused
 on a plan's LAST step, which is the objective itself, and the plan is
 judged on the objective at the end regardless — skipping does not make
 anything true),
+{"op":"blocked","wall":"<a wall from the run's record>","why":"..."} (this
+step cannot be done from where the run is, and here is what stops it: ends
+this attempt, and your sentence goes to the passes that reorder and reword
+your list. The wall is named as the page writes it: a way that turned you
+back, or a thing you have pressed; one the record does not hold is
+refused),
 {"op":"explore"} (the systematic search step, done for you. YOU ONLY KNOW
 WHAT HAS BEEN ON SCREEN: doors, people and things exist in the ledger
 once they have been in view. If this floor still has ground you have not
@@ -24714,6 +24798,43 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                       f"{(self._plan_said or '')[:120]})")
                 self._skipped = sg["id"]
                 return True, []
+            # {"op":"blocked","wall":...,"why":...} — THE MODEL SAYS THIS STEP
+            # CANNOT BE DONE FROM HERE, AND NAMES WHAT STOPS IT. Run 20 found
+            # Route 12 shut by a sleeping Snorlax, reasoned its way back into
+            # the Rocket Hideout, and the next round re-derived "go to
+            # Fuchsia" from the step header and walked out again: nothing
+            # could end the attempt on its word, or carry that word to the
+            # rungs that reorder the list (user, 2026-10-01). The wall is
+            # named from the run's own record, which is the guard: a step is
+            # blocked by something the run walked into or pressed, not by a
+            # guess. The attempt ends; the journal carries the sentence.
+            _bl = next((s2 for s2 in (macro or [])
+                        if isinstance(s2, dict) and s2.get("op") == "blocked"), None)
+            if _bl is not None:
+                _wall = str(_bl.get("wall") or "").strip()
+                _why = str(_bl.get("why") or self._plan_said or "").strip()
+                _hit = self._wall_in_record(_wall)
+                if not _hit:
+                    feedback = (f"BLOCKED needs a wall from this run's own record, and "
+                                f"{_wall or 'nothing'} is not in it. A wall is a way "
+                                f"that turned the run back (the rows under \"Ways that "
+                                f"have turned you back\" and the doors and crossings "
+                                f"marked as refused), or a thing the run has pressed. "
+                                f"Name it as the page writes it, or keep working the "
+                                f"step.")
+                    self.log("step_blocked_refused", subgoal=sg["id"], round=rnd,
+                             wall=_wall, why=_why[:200])
+                    spent += 1
+                    continue
+                _where, _key, _what = _hit
+                self.log("step_blocked", subgoal=sg["id"], round=rnd,
+                         want=sg.get("done_when"), wall=_key, where=_where,
+                         what=str(_what)[:160], why=_why[:300])
+                self._step_blocked = {"subgoal": sg["id"], "wall": _key,
+                                      "where": _where, "why": _why[:300]}
+                print(f"   (the model says {sg['id']} is blocked by {_key} at "
+                      f"{_where}: {_why[:140]} — ending the attempt)")
+                return False, sg.get("macro", [])
             if not macro:
                 self.log("escalate_bad_proposal", subgoal=sg["id"], round=rnd,
                          reply=reply[:600])
@@ -27492,6 +27613,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # back to fulfil the redo goal"). The step failed; let the plan
             # end and be rewritten from where the party stands.
             _walked_off = bool(getattr(self, "_left_target", None))
+            # A STEP THE MODEL DECLARED BLOCKED ENDS THE PLAN: re-opening the
+            # step before it would walk back toward the wall it just named.
+            if not ok and (getattr(self, "_step_blocked", None) or {}).get("subgoal") == sg.get("id"):
+                self.log("plan_failed_at", subgoal=sg["id"])
+                self.failed_subgoal = sg["id"]
+                return False
             if not ok and _walked_off:
                 self.log("backtrack_skipped", failed=sg["id"],
                          candidate=subgoals[idx - 1]["id"] if idx > 0 else None,
@@ -28443,6 +28570,10 @@ def main():
     _verdict = ("ALL PLANS COMPLETE" if ok and not _carried else
                 (f"PLANS ENDED WITH UNMET SUBGOALS ({', '.join(_carried)})"
                  if ok else "PLAN FAILED"))
+    _sb = getattr(ex, "_step_blocked", None)
+    if not ok and _sb:
+        _verdict = (f"STEP BLOCKED ({_sb.get('subgoal')}: the model named "
+                    f"{_sb.get('wall')} at {_sb.get('where') or 'the place it pressed'})")
     if ex.finished:
         _verdict = (f"GAME FINISHED — the party was entered into the Hall "
                     f"of Fame ({ex.hall_of_fame_seen} induction(s)); the "

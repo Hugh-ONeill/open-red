@@ -125,6 +125,19 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     exit 0
   fi
 
+  # A STEP THE MODEL DECLARED BLOCKED goes to the ladder, not the rewrite.
+  # The rewrite is bound to the same objective and re-derives the same walk
+  # (run 20: "exit_rocket_hideout" -> Fuchsia, with Route 12 shut); the
+  # rungs that reorder, insert and reword are what can act on "this cannot
+  # be done from here, and here is what stops it". Its sentence and wall
+  # reach them through the journal (author.py journal_text).
+  if grep -qE "RESULT: STEP BLOCKED" "$LOG"; then
+    echo "=== attempt $attempt: the model declared a step blocked — handing the" \
+         "leg to the ladder ===" | tee -a "$LOG"
+    echo "=== campaign exhausted $attempt attempts ===" | tee -a "$LOG"
+    exit 1
+  fi
+
   # A BOOTSTRAP failure is not a failed leg. Nothing was walked, so there is
   # no evidence to audit, and the rewrite ends up describing a world that
   # was never established: a leftover save made new_game hit CONTINUE and

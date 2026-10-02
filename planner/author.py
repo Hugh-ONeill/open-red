@@ -4797,7 +4797,7 @@ def journal_text(path: Path, limit: int = 60) -> str:
                 pass
     tried = tried_text(recs)
     if not events and not unreach and not tried:
-        return ""
+        return _blocked_text(seg)
     # Collapse consecutive repeats before taking the tail: 27 identical
     # wander lines told the reviewer nothing 26 times, and cost the window
     # 26 lines of story.
@@ -4825,7 +4825,27 @@ def journal_text(path: Path, limit: int = 60) -> str:
             who = f", with {', '.join(objs)} right there" if objs else ""
             out += (f"  during {sg}: could not get {tgt} in {reg} — "
                     f"{n} attempts{who}\n")
-    return out + tried
+    return out + _blocked_text(seg) + tried
+
+
+def _blocked_text(recs: list) -> str:
+    """A STEP A ROUND SAID WAS BLOCKED ({"op":"blocked"}), with the wall it
+    named from the run's own record. Run 20 knew Route 12 was shut by
+    Snorlax and still re-derived "go to Fuchsia" every round from the step
+    header, because nothing could end the attempt on its word or carry that
+    word to the rungs that reorder the list (2026-10-01)."""
+    blk = [r for r in recs if r.get("kind") == "step_blocked"][-3:]
+    if not blk:
+        return ""
+    out = ("\n\nA STEP YOUR OWN ROUNDS DECLARED BLOCKED, each naming a wall in "
+           "the run's record (the wall and what it said are the record's; why "
+           "it blocks this step is what you wrote):\n")
+    for r in blk:
+        out += (f"  during {r.get('subgoal')} (wanted: {r.get('want') or '?'}): "
+                f"the wall {r.get('wall')} at {r.get('where')}"
+                + (f" — it said: \"{r.get('what')}\"" if r.get("what") else "")
+                + f"; you wrote: \"{str(r.get('why') or '')[:220]}\"\n")
+    return out
 
 
 def _canon_op(step: dict) -> str:
