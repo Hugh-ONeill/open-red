@@ -149,7 +149,7 @@ carries on across every connected map in view.
   32k context).
 - [pokemon-gen1-recomp-project](https://github.com/bryanthaboi/pokemon-gen1-recomp-project),
   a LÖVE reimplementation of Red by someone else, checked out at `~/Developer/gen1recomp`.
-- LÖVE 11, Python 3.11+, LuaJIT.
+- LÖVE 11.5, Python 3.10+ (developed on 3.14), LuaJIT.
 
 **Start a fresh run** (the chain authors an outline if none is banked):
 
