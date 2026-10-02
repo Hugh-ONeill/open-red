@@ -8316,8 +8316,23 @@ class Executor:
                      f"walked and what people have told you."), False)
         st = self._drift.setdefault(sg.get("id"), {"best": d, "since": 0,
                                                    "at": here_map})
+        # NEW GROUND IS PROGRESS, WHEREVER IT LIES ON PAPER. Run 20's step
+        # "travel to Route 9" (east of Cerulean, behind a Cut tree) gave up
+        # on the round explore first carried the run onto Route 25, three
+        # maps from Route 9 and the very place Bill and the way on were:
+        # the attempt ended there and the rewrite walked it back to
+        # Cerulean (2026-10-01). A map stood on for the first time this
+        # subgoal resets the count; the distance itself is still reported.
+        _drift_r = self._where(obs)
+        _first = bool(_drift_r) and "None" not in str(_drift_r) \
+            and int((getattr(self, "visits", {}) or {}).get(_drift_r, 0) or 0) <= 1 \
+            and here_map not in st.setdefault("new", [])
+        if _first:
+            st["new"].append(here_map)
         if d < st["best"]:
             st["best"], st["since"], st["at"] = d, 0, here_map
+        elif _first:
+            st["since"] = 0
         else:
             st["since"] += 1
         # GENEROUS, because a real route can lead AWAY first: Rock Tunnel
