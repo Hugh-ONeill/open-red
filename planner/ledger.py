@@ -2733,6 +2733,48 @@ def _since_reset(pl: list) -> tuple:
     return None, ""
 
 
+_NEVER_WAY = ("untried",)
+_NEVER_THING = ("untouched", "unspoken", "unbeaten")
+
+
+def _note_floor(ex, here: str, cands: list) -> None:
+    """Keep what the last overworld page said was never tried here, for the
+    page that a box or menu replaces."""
+    ways = [(f"{c.look} ({c.key})" if "," in str(c.key) else str(c.key))
+            for c in cands if c.status in _NEVER_WAY and c.key != "explore"
+            and c.kind not in ("op",)]
+    things = [str(c.key) for c in cands if c.status in _NEVER_THING]
+    try:
+        ex._floor_last = {"here": here, "ways": ways, "things": things}
+    except Exception:
+        pass
+
+
+def _floor_under_text(ex) -> str:
+    """THE FLOOR UNDER THE MENU, AS LAST READ. A box or menu page cannot
+    read the floor, and the decision to leave got made on exactly that
+    page: Celadon Mart 5F listed "stairs up (12,1) -> UNKNOWN — never taken"
+    the round before and the round after, and on the clerk's BUY/SELL menu
+    between them the model wrote "the Department Store has been exhausted"
+    and then took the stairs down; the roof sells the Fresh Water it was
+    there for (run 20, 2026-10-01). The same facts, one line, from the last
+    page that could read them."""
+    f = getattr(ex, "_floor_last", None) or {}
+    if not f.get("here"):
+        return ""
+    ways, things = f.get("ways") or [], f.get("things") or []
+    if not ways and not things:
+        return (f" UNDER IT, the floor you stand on ({f['here']}), as the last "
+                f"page that could read it said: nothing there untried.")
+    bits = []
+    if ways:
+        bits.append(f"{len(ways)} way(s) never taken ({', '.join(ways[:4])})")
+    if things:
+        bits.append(f"{len(things)} thing(s) never pressed ({', '.join(things[:4])})")
+    return (f" UNDER IT, the floor you stand on ({f['here']}), as the last page "
+            f"that could read it said: " + " and ".join(bits) + ".")
+
+
 def render(cands: list[Candidate], ex, obs: dict, target: str = "",
            limit: int = 24) -> str:
     """The ledger as the model reads it: numbered, local, ranked, bounded.
@@ -2759,6 +2801,7 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                 "count has risen the game is finished.")
     if "None" in str(here):
         _said = str(obs.get("recent_text") or obs.get("last_text") or "").strip()
+        _under = _floor_under_text(ex)
         # THE ROWS ON SCREEN ARE ON THE PAGE. At the Celadon roof machine
         # the game window showed FRESH WATER / SODA POP / LEMONADE and
         # this line said only "a box is up, saying: 'Hi there! May I help
@@ -2779,7 +2822,8 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                     + ". {\"op\":\"menu\",\"index\":N} picks row N; "
                       "{\"op\":\"tap\",\"btn\":\"b\"} closes it without "
                       "picking. Where you stand and what is untried cannot "
-                      "be read until it closes; which row, if any, is yours.")
+                      "be read until it closes; which row, if any, is yours."
+                    + _under)
         # ...AND WHAT THE OUTLINE STILL ASKS, WHEN THE BOX NAMES A POKEMON
         # (see Executor._road_ahead_text): the starter was answered here.
         _ahead = ""
@@ -2793,7 +2837,8 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                 + ". Where you stand and what is untried cannot be read "
                   "until it closes: answer it if it is asking, or "
                   "{\"op\":\"tap\",\"btn\":\"b\"} to close it."
-                + _ahead)
+                + _under + _ahead)
+    _note_floor(ex, here, cands)
     sides = sorted((m.get("connections") or {}).keys())
     been = (getattr(ex, "visits", {}) or {}).get(here, 0)
     head = f"WHERE YOU STAND: {here}"
