@@ -10888,8 +10888,19 @@ function OPS.elevator(G, c)
   -- and the round after that walked out (user, 2026-09-09: "is it still
   -- actually having the b-press elevator issue or are we just still
   -- telling it that"). Nothing to press. Wait for the clock, then leave.
-  for _ = 1, 900 do
-    if not _is_fade(G.stack:top()) then break end
+  -- ...AND THE CLOCK IS THE WALL'S, NOT THE FRAME COUNT'S. "pa" holds on
+  -- Sound.isPlaying("Safari_Zone_PA"), a real audio source that plays in
+  -- seconds however fast frames are stepped, so 900 yields ran out before
+  -- the chime did on every ride of run 20 (5 of 5 "still IN the car", each
+  -- with a phase=pa clock in the verdict; user, 2026-10-01: "clean up the
+  -- whole press b rigamarole message with the elevator"). Wait for the
+  -- frames AND for up to ten seconds of wall time, whichever is longer.
+  local _clock = love and love.timer and love.timer.getTime
+  local _t0 = _clock and _clock()
+  local _n = 0
+  while _is_fade(G.stack:top()) do
+    _n = _n + 1
+    if _n >= 900 and (not _t0 or _clock() - _t0 >= 10) then break end
     coroutine.yield()
   end
   -- ...AND THEN WALK OUT, BECAUSE THAT IS THE SAME INTENT. "Rode to 3F —
@@ -10939,11 +10950,8 @@ function OPS.elevator(G, c)
             #_mine > 0 and ("its door " .. table.concat(_mine, " or "))
               or "its door",
             table.concat(offer, ", "),
-            _stuck and (". A screen is still up ("
-              .. _screen_name(G) .. ") — if it names a phase and a frame "
-              .. "count it is a CLOCK, not a box: nothing answers to a "
-              .. "keypress and it clears itself, so the next op lands. "
-              .. "Send the walk out")
+            _stuck and (". The arrival chime is still playing; it ends "
+              .. "on its own, and the walk out lands after it")
               or "")
 end
 

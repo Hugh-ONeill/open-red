@@ -13,6 +13,11 @@ round after (user, 2026-09-09: "is it still actually having the b-press
 elevator issue or are we just still telling it that"). Now the op waits for
 the clock before it reports, and if a timed state somehow survives that, the
 words say it is a clock rather than inviting a keypress.
+
+The clock is an audio source, so it runs in wall time: 900 frames ran out
+before it on all five rides of run 20, and every one handed the model the
+phase=pa jargon (user, 2026-10-01: "clean up the whole press b rigamarole
+message with the elevator"). The wait now also holds for wall time.
 """
 from __future__ import annotations
 
@@ -32,10 +37,12 @@ def ck(name, cond):
 
 i = sh.index("function OPS.elevator")
 blk = sh[i:sh.index("-- CHOOSE WHO GOES OUT FIRST", i)]
-ck("the op drains a timed state before it gives up", "A TIMED STATE IS NOT A STUCK BOX: SIT IT OUT." in blk and "for _ = 1, 900 do" in blk and "if not _is_fade(G.stack:top()) then break end" in blk)
-ck("...before the step-out, which is gated on the overworld", blk.index("for _ = 1, 900 do") < blk.index("AND THEN WALK OUT"))
+ck("the op drains a timed state before it gives up", "A TIMED STATE IS NOT A STUCK BOX: SIT IT OUT." in blk and "while _is_fade(G.stack:top()) do" in blk)
+ck("...for its frames AND for wall time, since the chime is real audio",
+   "_n >= 900 and (not _t0 or _clock() - _t0 >= 10)" in blk and "love.timer.getTime" in blk)
+ck("...before the step-out, which is gated on the overworld", blk.index("while _is_fade(G.stack:top()) do") < blk.index("AND THEN WALK OUT"))
 ck("the old would-not-close verdict is gone from what the model is TOLD",
-   'A screen is STILL up that would not close ("' not in blk and '. A screen is still up ("' in blk)
-ck("a surviving timed state is named as a clock, not a box", "it is a CLOCK, not a box" in blk and "clears itself, so the next op lands" in blk)
+   'A screen is STILL up that would not close ("' not in blk and 'A screen is still up' not in blk)
+ck("a surviving timed state is named as the chime, in plain words", "The arrival chime is still playing; it ends " in blk and "phase=" not in blk.split("AND IF IT IS STILL UP")[1])
 ck("...and no longer asks for a B press", '{\\"op\\":\\"tap\\",\\"btn\\":\\"b\\"} "\n              .. "before walking out"' not in blk)
 sys.exit(1 if fails else 0)
