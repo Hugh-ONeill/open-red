@@ -10703,7 +10703,14 @@ def _reword_points_at_what_failed(new_goal: str, journal) -> str | None:
             if all(w in words for w in _pre):
                 return "_".join(_pre)
             _pre_sq = _sq("_".join(_pre))
-            if len(_pre_sq) >= 6 and _pre_sq in _goal_sq:
+            # ...BUT A NUMBER ENDS WHERE ITS DIGITS DO. Squashed, "ROUTE2"
+            # sits inside "...ONROUTE24", and run 21's missing rung turned
+            # "Pay the toll ... on Route 24" down three times as naming
+            # ROUTE_2, the very road it had just failed to walk (2026-10-02).
+            # A name ending in a digit matches only where no digit follows.
+            if len(_pre_sq) >= 6 and re.search(
+                    re.escape(_pre_sq) + (r"(?!\d)" if _pre_sq[-1].isdigit() else ""),
+                    _goal_sq):
                 return "_".join(_pre)
     return None
 
