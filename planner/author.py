@@ -4797,7 +4797,7 @@ def journal_text(path: Path, limit: int = 60) -> str:
                 pass
     tried = tried_text(recs)
     if not events and not unreach and not tried:
-        return _blocked_text(seg)
+        return _blocked_text(seg) + _circular_text(seg)
     # Collapse consecutive repeats before taking the tail: 27 identical
     # wander lines told the reviewer nothing 26 times, and cost the window
     # 26 lines of story.
@@ -4825,7 +4825,29 @@ def journal_text(path: Path, limit: int = 60) -> str:
             who = f", with {', '.join(objs)} right there" if objs else ""
             out += (f"  during {sg}: could not get {tgt} in {reg} — "
                     f"{n} attempts{who}\n")
-    return out + _blocked_text(seg) + tried
+    return out + _blocked_text(seg) + _circular_text(seg) + tried
+
+
+_CIRCULAR = re.compile(r"circular|paradox|deadlock|chicken[- ]and[- ]egg|needs? itself", re.I)
+
+
+def _circular_text(recs: list) -> str:
+    """WHEN THE RUN'S OWN ROUNDS CALL THE SITUATION CIRCULAR, say what that
+    means as logic, in its words. Run 20 (2026-10-01) wrote "This is a
+    paradox" in about twenty rounds of the Silph Scope leg ("the Ghost needs
+    the Scope, and Mr. Fuji, behind the Ghost, gives the Scope") and every
+    rewrite and rung re-planned the same premise. A requirement that needs
+    itself means one of the facts under it is false; which one is the
+    model's to find. Nothing here says which."""
+    said = [str(r.get("plan") or "") for r in recs
+            if r.get("kind") == "escalate_proposal" and _CIRCULAR.search(str(r.get("plan") or ""))]
+    if not said:
+        return ""
+    return ("\n\nYOUR OWN ROUNDS CALLED THIS CIRCULAR, " + str(len(said))
+            + " time(s); the newest: \"" + said[-1][:240] + "\". A thing that "
+            "can only be had by already having it cannot be how the game works: "
+            "one of the facts that argument rests on is false. Which of them has "
+            "the run actually seen, and which only believed?")
 
 
 def _blocked_text(recs: list) -> str:
@@ -4910,6 +4932,7 @@ def tried_text(recs: list, top_subgoals: int = 4, top_ops: int = 5) -> str:
             pl = (r.get("plan") or "").strip()
             if pl:
                 d["plans"][pl] = d["plans"].get(pl, 0) + 1
+                d["plan_last"] = pl
         elif k == "escalate_feedback":
             for t in (r.get("trace") or []):
                 head = t.split(":", 1)[0]
@@ -4957,7 +4980,9 @@ def tried_text(recs: list, top_subgoals: int = 4, top_ops: int = 5) -> str:
     rows.sort(key=lambda kv: -kv[1]["rounds"])
     out = ["\n\nWHAT EACH STEP OF THAT PLAN TRIED, counted over all its "
            "attempts — the executor's own ops and, in quotes, what it "
-           "said it was doing. A step that proposes the same thing again "
+           "said it was doing. What it said is what it BELIEVED then, not "
+           "something the game showed: a belief said many times is still one "
+           "belief. A step that proposes the same thing again "
            "and again with the same result is a step whose IDEA is wrong, "
            "not one that needs another go:"]
     for sg, d in rows[:top_subgoals]:
@@ -4977,8 +5002,20 @@ def tried_text(recs: list, top_subgoals: int = 4, top_ops: int = 5) -> str:
                            + fin[0]
                            + (f" — and the same verdict for: {_rest}"
                               if _rest else ""))
-        for pl, n in sorted(d["plans"].items(), key=lambda kv: -kv[1])[:3]:
-            out.append(f"      it said (x{n}): \"{pl[:240]}\"")
+        # MOST REPEATED, AND THE NEWEST. Ranked by count alone, the belief
+        # restated every round ("the Silph Scope is given by Mr. Fuji")
+        # outranked the one round that reasoned past it ("I must obtain the
+        # Silph Scope from another source first"), and the wording rung
+        # read the repetition as "the executor's logs confirm" it (run 20,
+        # 2026-10-01).
+        _top = sorted(d["plans"].items(), key=lambda kv: -kv[1])[:2]
+        _new = d.get("plan_last")
+        if _new and _new not in dict(_top):
+            _top.append((_new, d["plans"].get(_new, 1)))
+        for pl, n in _top:
+            out.append(f"      it said (x{n}"
+                       + (", the newest" if pl == _new else "")
+                       + f"): \"{pl[:240]}\"")
     return "\n".join(out)
 
 
@@ -8891,12 +8928,19 @@ def words_text(path) -> str:
         w = (r.get("plan") or "").strip()
         if w:
             said[w[:240]] = said.get(w[:240], 0) + 1
+            last_w = w[:240]
     if not said:
         return ""
     out = ("\n\nWHAT THE RUN SAID WHILE IT TRIED THIS OBJECTIVE, in its own "
-           "words, most repeated first:")
-    for w, n in sorted(said.items(), key=lambda kv: -kv[1])[:6]:
-        out += f"\n  - (x{n}) \"{w}\""
+           "words, most repeated first and then the newest. These are what it "
+           "BELIEVED as it went, not what the game showed; a belief said many "
+           "times is still one belief:")
+    _top = sorted(said.items(), key=lambda kv: -kv[1])[:5]
+    _new = last_w
+    if _new not in dict(_top):
+        _top.append((_new, said[_new]))
+    for w, n in _top:
+        out += f"\n  - (x{n}{', the newest' if w == _new else ''}) \"{w}\""
     return out
 
 

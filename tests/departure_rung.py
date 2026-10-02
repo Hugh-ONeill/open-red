@@ -47,7 +47,7 @@ rows2 = [
 ]
 j2 = Path(d) / "words.jsonl"; j2.write_text("\n".join(json.dumps(r) for r in rows2) + "\n")
 w = author.words_text(j2)
-ck("the run's own words reach the missing rung, counted", '(x2) "Mr. Fuji is not in his house. I will go back to the tower."' in w and '(x1) "He should be home now."' in w)
+ck("the run's own words reach the missing rung, counted", '(x2) "Mr. Fuji is not in his house. I will go back to the tower."' in w and ('(x1) "He should be home now."' in w or '(x1, the newest) "He should be home now."' in w))
 ck("people-said on a missing record is empty, not an error", author.people_said_text(Path(d) / "nope.json") == "")
 bad = [n for n, ok in checks if not ok]
 for n, ok in checks: print(("ok  " if ok else "FAIL"), n)
