@@ -361,8 +361,23 @@ IDEAS_SYS = ("You help plan a Pokemon Red run. You do NOT write a plan here. Giv
 IDEAS_NOTE = ("\n\nBEFORE YOU PLAN: name three DIFFERENT ideas for how this goal could be "
               "reached, each one sentence saying where you would go first and why. The ideas "
               "must not be rewordings of each other. Reply with JSON only: "
-              "{{\"ideas\": [\"...\", \"...\", \"...\"]}}")
+              "{\"ideas\": [\"...\", \"...\", \"...\"]}")
 IDEA_NOTE = "\n\nPLAN THIS IDEA, and only this one: {idea}"
+# "premise": the ideas come from the goal's own assumptions, not from routes to it. hypo's ideas
+# only ever varied the path (2026-10-03: every S.S. Ticket idea was a way to reach the ship), so
+# a wrong belief about WHERE the goal is met was never on the table. Generic: the harness names
+# no place, person or answer; it only asks the model to separate what it saw from what it assumes.
+PREMISE_SYS = ("You help plan a Pokemon Red run. You do NOT write a plan here. Before anyone plans, "
+               "you check the beliefs a goal rests on, the way a player stops and asks 'wait, how do I "
+               "actually know that?'. Reply with JSON only.")
+PREMISE_NOTE = ("\n\nBEFORE YOU PLAN: this goal was worded earlier in the run and may rest on a belief "
+                "that is wrong. List what reaching it ASSUMES: where the thing is or happens, who gives "
+                "it or what triggers it, what has to be done first. For each, say where the belief comes "
+                "from: something this run saw or was told (quote it), or only memory of the game. Then "
+                "name three ideas for reaching the goal that each rest on a DIFFERENT answer to the "
+                "assumption you are least sure of, one sentence each saying where you would go first. "
+                "Reply with JSON only: {\"assumptions\": [{\"belief\": \"...\", \"source\": \"...\"}], "
+                "\"ideas\": [\"...\", \"...\", \"...\"]}")
 
 
 def target(name, maps):
@@ -408,20 +423,21 @@ def draws(name, n, methods, k=3, force=False):
                 return
             drafts, ideas, ideas_raw, calls, wall = [], None, None, 0, 0.0
             try:
-                if method == "hypo":
+                if method in ("hypo", "premise"):
                     t0 = time.time()
-                    reply = B.chat([{"role": "system", "content": IDEAS_SYS},
-                                    {"role": "user", "content": user + IDEAS_NOTE}], MODEL, temp=temp)
+                    isys, inote = (IDEAS_SYS, IDEAS_NOTE) if method == "hypo" else (PREMISE_SYS, PREMISE_NOTE)
+                    reply = B.chat([{"role": "system", "content": isys},
+                                    {"role": "user", "content": user + inote}], MODEL, temp=temp)
                     calls, wall = calls + 1, wall + time.time() - t0
                     m = re.search(r"\{.*\}", reply, re.S)
                     try:
                         ideas = [str(x) for x in json.loads(m.group(0)).get("ideas", [])][:k] if m else []
                     except ValueError:
                         ideas = []
-                    ideas_raw = reply[:1500]
+                    ideas_raw = reply[:3000]
                     if not ideas:
                         # no ideas means this pass did not test the method: say so, do not draft plain
-                        print(f"{name} hypo #{i + 1}: NO IDEAS PARSED; reply began: {reply[:200]!r}", flush=True)
+                        print(f"{name} {method} #{i + 1}: NO IDEAS PARSED; reply began: {reply[:200]!r}", flush=True)
                         with open(out, "a") as f:
                             f.write(json.dumps({"t": time.time(), "method": method, "i": i, "k": k,
                                                 "failed": "no ideas", "ideas_raw": ideas_raw}) + "\n")
@@ -447,7 +463,7 @@ def draws(name, n, methods, k=3, force=False):
             routes = {tuple(x["route"]) for x in drafts}
             firsts = {x["route"][0] if x["route"] else None for x in drafts}
             rec = {"t": time.time(), "method": method, "i": i, "k": k, "calls": calls, "wall": round(wall, 1),
-                   "ideas": ideas, "ideas_raw": ideas_raw if method == "hypo" else None, "drafts": drafts, "distinct_routes": len(routes),
+                   "ideas": ideas, "ideas_raw": ideas_raw, "drafts": drafts, "distinct_routes": len(routes),
                    "distinct_first": len(firsts), "any_hit": any(x["hit"] for x in drafts),
                    "valid": sum(x["valid"] for x in drafts)}
             with open(out, "a") as f:
@@ -476,7 +492,7 @@ def report_draws(names):
                     dr["hit"] = bool(hit_any & set(dr["route"]))
             x["any_hit"] = any(dr.get("hit") for dr in x.get("drafts") or [])
         print(f"\n== {name}: {meta['goal']}   (hit = through any of {meta.get('hit_any')})")
-        for method in ("sample", "exclude", "hypo"):
+        for method in ("sample", "exclude", "hypo", "premise"):
             failed = [x for x in rows if x["method"] == method and x.get("failed")]
             r = [x for x in rows if x["method"] == method and not x.get("failed")]
             if failed:
