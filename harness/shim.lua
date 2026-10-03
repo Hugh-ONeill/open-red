@@ -2010,6 +2010,46 @@ local function map_fixtures(G, map_id)
 end
 
 local function observe(G, seq, result)
+  -- One side of a fight as the battle screen shows it (see the battle branch
+  -- of observe for what is and is not reported, and why).
+  local function battle_side(G, s, mine)
+    if not s then return nil end
+    local d = scalars(s, 0)
+    local mon = s.mon or {}
+    d.species = mon.species or (s.def and s.def.id)
+    d.level = mon.level
+    d.hp = s.shownHP or mon.hp
+    d.maxhp = (s.curStats and s.curStats.hp)
+    d.types = s.curTypes
+    d.status = s.shownStatus or mon.status   -- scalar "SLP"/"PSN"/... or nil
+    d.moves = {}
+    for i, mv in ipairs(s.curMoves or mon.moves or {}) do
+      local def = G.data and G.data.moves and G.data.moves[mv.id] or {}
+      -- gen1: physical vs special is decided by the move's TYPE, not a
+      -- per-move flag. NORMAL/FIGHTING/FLYING/GROUND/ROCK/BUG/GHOST/POISON
+      -- are physical; the rest are special.
+      local PHYS = { NORMAL=1, FIGHTING=1, FLYING=1, GROUND=1, ROCK=1,
+                     BUG=1, GHOST=1, POISON=1 }
+      d.moves[i] = { index = i, id = mv.id,
+                     pp = mine and mv.pp or nil,
+                     type = def.type, power = def.power,
+                     accuracy = def.accuracy, effect = def.effect,
+                     category = def.type and (PHYS[def.type] and "physical"
+                                or "special") }
+    end
+    d.stats = s.curStats            -- effective in-battle stats
+    d.boosts = s.stages             -- stat stage modifiers
+    -- WHICH PARTY SLOT IS OUT. The party screen marks it; without it
+    -- the policy matched the active mon to the party by species, and
+    -- two of a kind (or a trainee the same species as the lead) read
+    -- as the wrong one.
+    if mine then
+      for i, pm in ipairs(((G.save or {}).party) or {}) do
+        if pm == mon then d.slot = i break end
+      end
+    end
+    return d
+  end
   hb_write("observe")
   local top = G.stack and G.stack:top()
   local o = { seq = seq, result = result, events = events, frame = U.frame() }
@@ -3801,46 +3841,8 @@ local function observe(G, seq, result)
     -- number that never moves and never was right is worse than no
     -- number: drop it, and the foe's moves carry what a player can
     -- actually watch happen -- which move, of what type and power.
-    local function side(s, mine)
-      if not s then return nil end
-      local d = scalars(s, 0)
-      local mon = s.mon or {}
-      d.species = mon.species or (s.def and s.def.id)
-      d.level = mon.level
-      d.hp = s.shownHP or mon.hp
-      d.maxhp = (s.curStats and s.curStats.hp)
-      d.types = s.curTypes
-      d.status = s.shownStatus or mon.status   -- scalar "SLP"/"PSN"/... or nil
-      d.moves = {}
-      for i, mv in ipairs(s.curMoves or mon.moves or {}) do
-        local def = G.data and G.data.moves and G.data.moves[mv.id] or {}
-        -- gen1: physical vs special is decided by the move's TYPE, not a
-        -- per-move flag. NORMAL/FIGHTING/FLYING/GROUND/ROCK/BUG/GHOST/POISON
-        -- are physical; the rest are special.
-        local PHYS = { NORMAL=1, FIGHTING=1, FLYING=1, GROUND=1, ROCK=1,
-                       BUG=1, GHOST=1, POISON=1 }
-        d.moves[i] = { index = i, id = mv.id,
-                       pp = mine and mv.pp or nil,
-                       type = def.type, power = def.power,
-                       accuracy = def.accuracy, effect = def.effect,
-                       category = def.type and (PHYS[def.type] and "physical"
-                                  or "special") }
-      end
-      d.stats = s.curStats            -- effective in-battle stats
-      d.boosts = s.stages             -- stat stage modifiers
-      -- WHICH PARTY SLOT IS OUT. The party screen marks it; without it
-      -- the policy matched the active mon to the party by species, and
-      -- two of a kind (or a trainee the same species as the lead) read
-      -- as the wrong one.
-      if mine then
-        for i, pm in ipairs(((G.save or {}).party) or {}) do
-          if pm == mon then d.slot = i break end
-        end
-      end
-      return d
-    end
-    o.battle.me = side(top.player, true)
-    o.battle.foe = side(top.enemy, false)
+    o.battle.me = battle_side(G, top.player, true)
+    o.battle.foe = battle_side(G, top.enemy, false)
     -- WHO YOU ARE FIGHTING, AS THE SCREEN SAYS IT: "BROCK wants to fight!"
     -- and the leader's music. `leader` is the fight a stretch of the road
     -- is FOR — a gym's badge fight (the engine's own isGymLeader, badge
@@ -3907,6 +3909,17 @@ local function observe(G, seq, result)
     o.mode = "battle"
     o.battle = scalars(_bf, 0)
     o.battle.behind_a_menu = _screen_name(G)
+    -- ...AND WHO IS IN IT. Without the two sides a menu over a fight read
+    -- as a fight with nobody in it: the policy's out-of-PP rule saw no
+    -- moves and called the Pokemon out dry, switched to "the best
+    -- matchup" -- the one already out -- and the executor read the
+    -- refusal's party menu, with no `me`, as a faint's forced pick. It sent
+    -- the same Pokemon a hundred times across BROCK's gym and ROUTE 3
+    -- (run 28, 2026-10-02, user: "something odd in the gym its trying to
+    -- switch or get out of a switch", "now its stuck again in a battle
+    -- state"). What the battle screen under the menu shows is said.
+    o.battle.me = battle_side(G, _bf.player, true)
+    o.battle.foe = battle_side(G, _bf.enemy, false)
   elseif top then
     o.mode = "ui"
     o.ui = scalars(top, 0)
@@ -11776,6 +11789,22 @@ local function battle_menu_to(G, battle, want)
   return battle.menuIndex == want
 end
 
+-- "Will RED change POKeMON?" -- the SHIFT style's offer after a trainer's
+-- Pokemon faints. The text loops below advance turn text with A, and A on
+-- this box is YES: it opened a party menu nobody asked for, the executor
+-- read the menu as a forced pick after a faint, and sent the Pokemon
+-- already out ("OLIVE is already out!") six times a fight, all through
+-- BROCK's gym (run 28, 2026-10-02, user: "something odd in the gym its
+-- trying to switch or get out of a switch"). B is NO: who stays out is
+-- unchanged, and the policy's own switch rule still has its turn.
+function U.battle_advance(G, b, frames)
+  local t, cur = G.stack:top(), b and b.current
+  local s = type(cur) == "table" and cur.text
+  local offer = t and t ~= b and t.index ~= nil and t.items == nil
+    and type(s) == "string" and s:find("change POK", 1, true) ~= nil
+  U.tap(G, offer and "b" or "a"); U.wait(frames or 3)
+end
+
 local function in_battle(G)
   local b = G.stack:top()
   if b and (b.enemy or b.kind) then return b end
@@ -11803,7 +11832,7 @@ function OPS.battle_move(G, c)
   -- advance any pending text until the action menu is up
   for _ = 1, 40 do
     if b.phase == "menu" then break end
-    U.tap(G, "a"); U.wait(3)
+    U.battle_advance(G, b)
   end
   if b.phase ~= "menu" then return false, "menu never appeared" end
   if not battle_menu_to(G, b, 1) then return false, "couldn't reach FIGHT" end
@@ -11870,7 +11899,7 @@ function OPS.battle_move(G, c)
       return true, "a Pokemon is trying to learn a move — the choice is "
         .. "on screen and nothing will be pressed for you"
     end
-    U.tap(G, "a"); U.wait(3)
+    U.battle_advance(G, nb)
   end
   return true, "turn resolved (timeout advancing text)"
 end
@@ -11922,7 +11951,7 @@ function OPS.battle_run(G)
   if not b then return false, "not in battle" end
   for _ = 1, 40 do
     if b.phase == "menu" then break end
-    U.tap(G, "a"); U.wait(3)
+    U.battle_advance(G, b)
   end
   if not battle_menu_to(G, b, 4) then return false, "couldn't reach RUN" end
   U.tap(G, "a"); U.wait(3)
@@ -11936,9 +11965,19 @@ end
 function OPS.battle_switch(G, c)
   local b = in_battle(G)
   if not b then return false, "not in battle" end
+  -- THE ONE ALREADY OUT IS NOT A SWITCH. The game says "X is already
+  -- out!" and leaves its party menu standing over the fight; refuse here,
+  -- with nothing pressed, so no menu is left for anyone to misread.
+  do
+    local pm = (((G.save or {}).party) or {})[c.slot or 1]
+    if pm and b.player and pm == b.player.mon then
+      return false, tostring(pm.nickname or pm.species or "that Pokemon")
+        .. " is already out"
+    end
+  end
   for _ = 1, 40 do
     if b.phase == "menu" then break end
-    U.tap(G, "a"); U.wait(3)
+    U.battle_advance(G, b)
   end
   if not battle_menu_to(G, b, 2) then return false, "couldn't reach PKMN" end
   U.tap(G, "a"); U.wait(4)
@@ -12703,7 +12742,7 @@ function OPS.battle_item(G, c)
   end
   for _ = 1, 40 do                                 -- reach the action menu
     if b.phase == "menu" then break end
-    U.tap(G, "a"); U.wait(3)
+    U.battle_advance(G, b)
   end
   if b.phase ~= "menu" then return false, "no battle action menu" end
   if not battle_menu_to(G, b, 3) then return false, "couldn't reach ITEM" end
@@ -12767,7 +12806,7 @@ function OPS.throw_ball(G, c)
   local party0 = #((G.save and G.save.party) or {})
   for _ = 1, 40 do
     if b.phase == "menu" then break end
-    U.tap(G, "a"); U.wait(3)
+    U.battle_advance(G, b)
   end
   if b.phase ~= "menu" then return false, "no battle action menu" end
   if not battle_menu_to(G, b, 3) then return false, "couldn't reach ITEM" end

@@ -27,14 +27,14 @@ def ck(name, ok):
     print(("  ok   " if ok else "  FAIL ") + name)
 
 
-i = src.find("local function side(s")
+i = src.find("local function battle_side(G, s")
 blk = src[i:i + 1400] if i > 0 else ""
 ck("the two sides are built by one function that knows which is which",
-   "local function side(s, mine)" in src)
+   "local function battle_side(G, s, mine)" in src)
 ck("...and PP is published only for ours",
    "pp = mine and mv.pp or nil" in blk)
-ck("our side asks for it", "side(top.player, true)" in src)
-ck("the foe's side does not", "side(top.enemy, false)" in src)
+ck("our side asks for it", "battle_side(G, top.player, true)" in src)
+ck("the foe's side does not", "battle_side(G, top.enemy, false)" in src)
 ck("nothing else hands the foe a pp field",
    len(re.findall(r"pp\s*=\s*mv\.pp\b", src)) == 1)
 

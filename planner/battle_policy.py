@@ -1192,7 +1192,12 @@ def should_switch(obs: dict, spec: dict | None = None,
         # stopped taking turns entirely and neither side could move a
         # point of HP. Fifty minutes, foe HP frozen at 74/151. The bench
         # was five deep and one of them was untouched.
+        # ...but NO MOVES SHOWN IS NOT NO PP. A menu over the fight once
+        # came with no `me` at all, any() of nothing read as "dry", and
+        # this rule fired every turn of BROCK's gym (run 28, 2026-10-02).
         if rule.get("out_of_pp"):
+            if not me.get("moves"):
+                continue
             if any((m.get("pp") or 0) > 0 for m in (me.get("moves") or [])):
                 continue
         lead = rule.get("only_if_lead")
@@ -1206,6 +1211,8 @@ def should_switch(obs: dict, spec: dict | None = None,
             continue
         if cand.get("species") == me.get("species"):
             continue        # already out
+        if to == active_slot(obs):
+            continue        # already out, by the slot the screen marks
         used[n] = used.get(n, 0) + 1
         return to
     return None
