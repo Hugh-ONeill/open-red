@@ -1774,9 +1774,16 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
         # said "not in battle", and the round spun eight fights of nothing
         # in Victory Road with KABUTO and CHARIZARD both at 0 (2026-08-28).
         _bb = obs.get("battle") or {}
+        # ...BUT A PARTY MENU OVER A STANDING POKEMON IS NOT A FAINT. The
+        # shim now says who is out under the menu; only one at 0 HP (or
+        # none) owes a pick. Sending the one already out was refused as
+        # "already out!" and re-sent six times a fight, a hundred times
+        # across BROCK's gym and ROUTE 3 (run 28, 2026-10-02); the policy's
+        # next op backs out of the menu with B instead.
+        _me = _bb.get("me") or {}
         _forced = (obs.get("mode") == "battle"
                    and str(_bb.get("behind_a_menu") or "") == "PartyMenu"
-                   and not _bb.get("me"))
+                   and (not _me or (_me.get("hp") or 0) <= 0))
         if obs.get("mode") != "battle" or _forced:
             # the active mon may have fainted into the forced party pick
             # ("Use next POKeMON?" -> party menu). With a backup alive,
@@ -16273,6 +16280,17 @@ class Executor:
             det = str(res.get("detail") or "")
             obs = self.settle() or obs
             ok = bool(res.get("ok"))
+            # WHAT THE BAG GAINED IS WHAT WAS BOUGHT. The counter sells only
+            # what the money covers, and the price is not always known
+            # beforehand: asked for ten POKE BALLs with 231 left, Pewter's
+            # clerk sold one, and the round and the event feed both said
+            # ten (run 28, 2026-10-02, user: "it attempted to buy 10
+            # pokeballs but actually only bought 1").
+            got = int(((obs or {}).get("bag") or {}).get(item) or 0) - have
+            if ok and 0 < got < cnt and not trimmed:
+                trimmed = f" (asked for {cnt}; the money left covered {got})"
+            if ok and got > 0:
+                cnt = got
             self.log("buy_done", subgoal=(sg or {}).get("id"), item=item,
                      count=cnt, clerk=clerk, ok=ok, why=why,
                      trimmed=trimmed.strip(), detail=det[:160])
@@ -19915,6 +19933,7 @@ class Executor:
             words = sorted(w for w in rec["eff"] if w)
             parts.append(f"{mv} x{rec['n']}"
                          + (f" ({' / '.join(words)})" if words else ""))
+        _prev_fight = getattr(self, "_last_fight", None)
         self._last_fight = {
             "who": bb.get("trainer") or "a trainer",
             "where": getattr(self, "_last_overworld_map", None) or "",
@@ -19934,7 +19953,18 @@ class Executor:
             "foes": foes_seen,
             "party": [f"{m.get('species')} L{m.get('level')}" for m in party],
         }
-        self.log("fight_recap", **{k: v for k, v in self._last_fight.items()})
+        # A FIGHT NOBODY WAS SEEN IN IS NOT A FIGHT WON. A battle read with
+        # no foe, no move and no loss is the battle loop entered on a
+        # screen it could not read; logged, each became "beat a trainer"
+        # in the event feed, twenty times over one BROCK fight (run 28,
+        # 2026-10-02, user: "its repeating that a trainer battle was won").
+        if not (parts or foes_seen or lost):
+            self.log("fight_unread", who=self._last_fight["who"],
+                     where=self._last_fight["where"])
+            self._last_fight = _prev_fight
+        else:
+            self.log("fight_recap",
+                     **{k: v for k, v in self._last_fight.items()})
         # A GIFT AFTER THE FIGHT THAT A FULL BAG REFUSED. A leader's TM is
         # handed over at the end of the badge fight, and with 20 kinds in
         # the bag the game says "You should make room for this." instead —
