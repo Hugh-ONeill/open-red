@@ -1109,6 +1109,29 @@ _HEARD_NOISE = ("saved the game", "saving", "got potion", "put it in", "found ",
                  "critical hit", "sent out", "wants to fight", "for winning")
 
 
+def said_region(pre_obs, obs, pre_mapped=None) -> str:
+    """The room a line was said in: before the op, else after it, else the
+    last view that had a map.
+
+    A press that starts a fight is often made from a view with a box still
+    up (a field heal, a lead swap, a question just answered: map.id None),
+    and the fight ends on another box, so both ends read None and the
+    trainer's line was dropped from the hints while the verdict still
+    quoted it: run 25's "The GHOSTs can be identified by the SILPH SCOPE."
+    never reached the NOTABLE ledger (POKEMON_TOWER_3F, three runs). The
+    room after comes before it: an answer to a question asked with no map
+    up is said in the room after the answer (Bill's reply, run 14), and
+    the last view with a map may be the room before a warp."""
+    def at(o):
+        m = (o or {}).get("map") or {}
+        return f"{m.get('id')}|{m.get('region')}"
+    for o in (pre_obs, obs, pre_mapped):
+        r = at(o)
+        if "None" not in r:
+            return r
+    return at(pre_obs)
+
+
 def split_heard(said: str):
     """(main, first_name, extra) from a run of text boxes joined by " / ".
 
@@ -22724,9 +22747,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     self._last_talker = str(step.get("name"))
                 elif op == "menu" and getattr(self, "_last_talker", None):
                     who = self._last_talker
-                reg = self._where(pre_obs)
-                if "None" in reg:
-                    reg = self._where(obs)
+                reg = said_region(pre_obs, obs, _pre_mapped)
                 # The harness's own noise is not a hint: saving, using an
                 # item and buying all print a line the game addressed to
                 # nobody. Keep what a NAMED thing said, and anything else
@@ -22759,6 +22780,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _gained = sorted(k for k in _b1 if isinstance(_b0, dict)
                                  and (_b1.get(k) or 0) > (_b0.get(k) or 0))
                 _kept = speech_excerpt(said, 480 if _gained else 220)
+                if said and "None" in reg and len(said) > 12:
+                    self.log("hint_unplaced", subgoal=sg.get("id"), op=op,
+                             who=str(who), said=_kept[:160])
                 if said and "None" not in reg and len(said) > 12:
                     lst = self.hints.setdefault(reg, [])
                     line = f"{who}: {_kept}"

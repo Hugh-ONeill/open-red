@@ -72,8 +72,11 @@ ex = (ROOT / "planner/executor.py").read_text()
 ck("an answer is filed under whoever was pressed last",
    'elif op == "menu" and getattr(self, "_last_talker", None):\n'
    '                    who = self._last_talker' in ex)
+import executor as _E  # noqa: E402
 ck("...in the room after the answer when the one before had no map",
-   'if "None" in reg:\n                    reg = self._where(obs)' in ex)
+   "reg = said_region(pre_obs, obs, _pre_mapped)" in ex
+   and _E.said_region({"mode": "ui"}, {"map": {"id": "BILLS_HOUSE", "region": "3,4"}},
+                      {"map": {"id": "ROUTE_25", "region": "10,2"}}) == "BILLS_HOUSE|3,4")
 
 # 4 --------------------------------------------------------------- failed walk
 (tmp / "executor_log.jsonl").write_text("\n".join(json.dumps(r) for r in [
