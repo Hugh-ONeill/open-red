@@ -32,6 +32,13 @@ local DLG_TRACE = os.getenv("RED_DIALOG_TRACE") == "1"
 -- "until something appears"). Instrumentation: the arena reads the
 -- difference; nothing model-facing prints it.
 local STEPS_WALKED = 0
+-- EVERY CELL THE PLAYER STANDS ON, for watchers (user, 2026-10-03: "tracking
+-- the literal step-path of the bot to reproduce on the map"). The frame hook
+-- below sees the player every frame an op runs; each time the map or cell
+-- changes, a line "epoch-seconds MAP x y" is buffered, and written out to
+-- $RED_BRIDGE_DIR/steps.log every 64 lines and whenever an observation is
+-- written. Viewer-only: nothing in the harness or planner reads it back, and
+-- a write that fails is dropped, never an op.
 local function dlg_trace(G, where, i)
   if not DLG_TRACE then return end
   local f = io.open(BRIDGE .. "/dialog_trace.log", "a")
@@ -71,6 +78,30 @@ end
 local RAW_YIELD = coroutine.yield
 local UNPACK = table.unpack or unpack
 local wd = { co = nil, budget = nil, frames = 0, label = "?" }
+-- the step path's recorder (see STEPS_WALKED's note) lives on wd: the main
+-- chunk is at Lua's 200-local limit, so it cannot have a name of its own
+wd.steps = { buf = {}, last = nil }
+function wd.steps.flush()
+  local S = wd.steps
+  if #S.buf == 0 or not BRIDGE then return end
+  local buf = S.buf
+  S.buf = {}
+  pcall(function()
+    local f = io.open(BRIDGE .. "/steps.log", "a")
+    if f then f:write(table.concat(buf)); f:close() end
+  end)
+end
+function wd.steps.note(g)
+  local S = wd.steps
+  local ow = g and g.overworld
+  local p, m = ow and ow.player, ow and ow.map
+  if not (p and m and m.id and p.cellX and p.cellY) then return end
+  local key = m.id .. " " .. p.cellX .. " " .. p.cellY
+  if key == S.last then return end
+  S.last = key
+  S.buf[#S.buf + 1] = os.time() .. " " .. key .. "\n"
+  if #S.buf >= 64 then S.flush() end
+end
 -- HEARTBEAT: brock19/20 wedged with the frame watchdog SILENT — either the
 -- wall frame-rate collapsed (yields still flow, slowly) or something spins
 -- without yielding; the watchdog counts yields so it is blind to both.
@@ -127,6 +158,7 @@ coroutine.yield = function(...)
     -- THE SCREEN IS PAINTED EVERY FRAME THE PARTY IS ON IT. What has been
     -- on screen is the footprint; nothing else is "seen".
     if g and seen_paint then seen_paint(g) end
+    if g then pcall(wd.steps.note, g) end  -- the step path (steps.log)
     local top = g and g.stack and g.stack:top()
     if top and top.pages and top.pageIndex and note_text
         and (top ~= wd.pagetop or top.pageIndex ~= wd.pageidx) then
@@ -4262,6 +4294,7 @@ local function observe(G, seq, result)
   seen_save()
   o.money = G.save and G.save.money
   o.steps_walked = STEPS_WALKED
+  wd.steps.flush()               -- the step path goes out with every observation
   -- Set event flags, for the EXECUTOR's done_when predicates (SPD tier 0).
   -- Instrumentation, not model eyes: the model-facing obs builder must strip
   -- this per CLAIM_RULES ("milestone/event flags are instrumentation").
