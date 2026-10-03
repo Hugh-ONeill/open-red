@@ -36,6 +36,7 @@ OBS = os.path.join(HERE, "..", "run", "obs.json")
 PLAYER = GEN + "assets/generated/sprites/red.png"
 JOURNAL = os.path.join(HERE, "..", "run", "executor_log.jsonl")
 TRAIL = STATE + "trail.jsonl"            # tools/events.py writes a breadcrumb per cell the player stands on
+STEPS = os.path.join(HERE, "..", "run", "steps.log")   # the shim writes every cell stepped on
 
 # the four DMG greys -> a muted green-gray, the HUD's own map shades
 SHADES = {0: (26, 29, 28), 85: (58, 66, 61), 170: (96, 108, 98), 255: (140, 152, 138)}
@@ -320,7 +321,7 @@ def authoring_view(phase, history, here, size, start_map=None):
         legs = sorted({p_[0] for p_ in path if p_[1] != last})
         shade = {leg: tm.ramp(i, len(legs)) for i, leg in enumerate(legs)}
         pts, outside = [], None
-        for leg, att, m, x, y in path:
+        for leg, att, m, x, y, kind in path:
             if m in pos:
                 outside = m
                 q = pt(m, (x, y))
@@ -329,16 +330,24 @@ def authoring_view(phase, history, here, size, start_map=None):
             else:
                 q = pt(m, None, near=pts[-1][2] if pts else None)
             if q and (not pts or pts[-1][2] != q):
-                pts.append((leg, att, q))
-        for (l0, a0, q0), (l1, a1, q1) in zip(pts, pts[1:]):
-            if a1 == last:
+                pts.append((leg, att, q, kind))
+        # recorded steps are a cell apart; a longer gap between two of them is
+        # a warp (a door, a hole, Fly) and is not walked, so no line crosses it
+        gap = 3 * k + 2
+
+        def joined(a, b):
+            return not (b[3] == "step" and a[3] == "step"
+                        and abs(a[2][0] - b[2][0]) + abs(a[2][1] - b[2][1]) > gap)
+        for p0, p1 in zip(pts, pts[1:]):
+            if p1[1] == last or not joined(p0, p1):
                 continue
-            d.line((q0, q1), fill=shade.get(l1, tm.PAST_NEW), width=max(1, lw - 1))
-        gold = [q for l_, a_, q in pts if a_ == last]
-        i0 = next((i for i, (l_, a_, q) in enumerate(pts) if a_ == last), None)
-        if i0:
-            gold = [pts[i0 - 1][2]] + gold
-        trail_(gold, tm.LAST_ATTEMPT, lw + 1)
+            d.line((p0[2], p1[2]), fill=shade.get(p1[0], tm.PAST_NEW), width=max(1, lw - 1))
+        i0 = next((i for i, p_ in enumerate(pts) if p_[1] == last), None)
+        if i0 is not None:
+            run = pts[max(0, i0 - 1):]
+            for p0, p1 in zip(run, run[1:]):
+                if joined(p0, p1):
+                    d.line((p0[2], p1[2]), fill=tm.LAST_ATTEMPT, width=lw + 1)
     elif history:
         last = history[-1][1]
         legs = sorted({h[0] for h in history if h[1] != last})
@@ -406,14 +415,16 @@ def _cell(key):
         return None
 
 
-def trail(journal=JOURNAL, crumbs=TRAIL):
+def trail(journal=JOURNAL, crumbs=TRAIL, steps=STEPS):
     """The run's actual path, [(leg, attempt, MAP, x, y)] in order. Before
     breadcrumbs exist it is approximate: the journal's region-to-region moves
     (explored frm -> to), each region pinned to one real cell. From the first
     breadcrumb on (tools/events.py records the player's cell whenever it
     changes) it is cell by cell, straight between two readings. A fresh run
     starts a fresh journal, so the journal is this run; breadcrumbs older than
-    it belong to an earlier one and are left out. Leg and attempt come from
+    it belong to an earlier one and are left out. Finest of all, from the
+    first line of run/steps.log on: every cell the shim saw the player stand
+    on. Each item carries its source ("hop", "crumb", "step"). Leg and attempt come from
     the journal's plan_start records (leg from the plan's file name, a new
     attempt at every plan_start)."""
     starts, hops, first_t = [], [], None
@@ -460,9 +471,28 @@ def trail(journal=JOURNAL, crumbs=TRAIL):
                 break
             lg, at = l, a
         return lg, at
-    cut = crumbs_[0][0] if crumbs_ else None
-    out = [(lg, at, m, x, y) for t, lg, at, m, x, y in hops if cut is None or t < cut]
-    out += [(*tag(t), m, x, y) for t, m, x, y in crumbs_]
+    steps_ = []
+    try:
+        with open(steps) as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) == 4:
+                    try:
+                        t, m, x, y = int(parts[0]), parts[1], int(parts[2]), int(parts[3])
+                    except ValueError:
+                        continue
+                    if first_t and t >= int(first_t):
+                        steps_.append((t, m, x, y))
+    except OSError:
+        pass
+    # each source covers the stretch before the next, finer one starts
+    step_cut = steps_[0][0] if steps_ else None
+    crumb_cut = crumbs_[0][0] if crumbs_ else step_cut
+    out = [(lg, at, m, x, y, "hop") for t, lg, at, m, x, y in hops
+           if crumb_cut is None or t < crumb_cut]
+    out += [(*tag(t), m, x, y, "crumb") for t, m, x, y in crumbs_
+            if step_cut is None or t < step_cut]
+    out += [(*tag(t), m, x, y, "step") for t, m, x, y in steps_]
     return out
 
 
