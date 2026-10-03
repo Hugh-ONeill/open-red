@@ -466,6 +466,15 @@ def report_draws(names):
             continue
         meta = json.loads((d / "case.json").read_text())
         rows = [json.loads(l) for l in open(d / "results_draws.jsonl")]
+        # score hits against today's target, so tightening it re-reads the passes already drawn
+        hit_any = set(meta.get("hit_any") or [])
+        for x in rows:
+            if x.get("failed"):
+                continue
+            for dr in x.get("drafts") or []:
+                if "route" in dr:
+                    dr["hit"] = bool(hit_any & set(dr["route"]))
+            x["any_hit"] = any(dr.get("hit") for dr in x.get("drafts") or [])
         print(f"\n== {name}: {meta['goal']}   (hit = through any of {meta.get('hit_any')})")
         for method in ("sample", "exclude", "hypo"):
             failed = [x for x in rows if x["method"] == method and x.get("failed")]

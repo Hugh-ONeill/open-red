@@ -5,7 +5,7 @@
 ![Model: Gemma 4 31B](https://img.shields.io/badge/model-Gemma%204%2031B%20(Q4)-4285F4)
 ![Runs locally](https://img.shields.io/badge/runs-100%25%20local%2C%20no%20API-2ea44f)
 ![Status](https://img.shields.io/badge/unassisted%20finish-not%20yet-lightgrey)
-![Tests](https://img.shields.io/badge/tests-674-blue)
+![Tests](https://img.shields.io/badge/tests-680%2B-blue)
 
 open-red is a harness and planner built so that a 31B open-weights model (Gemma 4,
 Q4, served by Ollama on a single Radeon AI PRO R9700) can play the whole of Pokémon
@@ -120,7 +120,7 @@ harness steers is not the thing being built. Two working rules follow from this:
   tools to compare runs leg by leg (`planner/arc.py`), replay from any leg boundary
   (`replay_from.sh`), and measure which page sections actually change decisions
   (`tools/page_ablation.py`).
-- **674 tests, named as sentences.** Most were written the day a run failed, and each
+- **Over 680 tests, named as sentences.** Most were written the day a run failed, and each
   docstring is the incident report: what the model was told, what it did, and what it
   should have been told.
 
@@ -133,11 +133,31 @@ harness steers is not the thing being built. Two working rules follow from this:
 
 ## Watching a run
 
-`run/status.txt` is the whole run on one screen: the leg, the current step and its
-completion condition, the model's reasoning in its own words, the op in flight, and
-what the game said back.
+`tools/hud.py` is the run on half a screen, made to sit beside the game in a
+[kitty](https://sw.kovidgoyal.net/kitty/) window. On the left is the team: each
+Pokémon's picture, level, types, HP bar and moves, under the badges earned so far.
+On the right is what the model is doing: the leg, the current step and its completion
+condition, the model's reasoning in its own words, the op in flight, and what the game
+said back. A MODEL line says what the model is doing this second (reading its prompt,
+writing, thinking, or waiting while the harness plays), and an events feed underneath
+keeps the run's recent history: legs finished, plans drafted and picked, steps that
+failed.
 
-![The live status view: PLAN, SUBGOAL, GOAL, DONE_WHEN, THINKS, DOING, LAST, WHERE, PARTY, MONEY and BAG](status.png)
+<!-- The HUD screenshot goes here, as docs/hud.png. `tools/hud.py --png docs/hud.png` writes one frame. -->
+
+```bash
+tools/events.py --follow &    # writes the events feed the HUD shows
+tools/hud.py                  # live, in this kitty window
+```
+
+Both only read the run, so they are safe beside a live chain. The HUD draws the team
+with the pictures and the font the game extracted from your own ROM, so none of that is
+in this repository.
+
+Without kitty, `run/status.txt` is the same status as plain text
+(`watch -n1 cat run/status.txt`):
+
+![The plain-text status view: PLAN, SUBGOAL, GOAL, DONE_WHEN, THINKS, DOING, LAST, WHERE, PARTY, MONEY and BAG](status.png)
 
 For viewers, the game window shows the model's knowledge: ground it has seen is lit,
 ground it has never seen is dimmed, and a red line marks the edge. The shading
@@ -154,13 +174,14 @@ carries on across every connected map in view.
 - [pokemon-gen1-recomp-project](https://github.com/bryanthaboi/pokemon-gen1-recomp-project),
   a LÖVE reimplementation of Red by someone else, checked out at `~/Developer/gen1recomp`.
 - LÖVE 11.5, Python 3.10+ (developed on 3.14), LuaJIT.
+- For the HUD only: a kitty terminal and [Pillow](https://python-pillow.github.io).
 
 **Start a fresh run** (the chain authors an outline if none is banked):
 
 ```bash
 rm -f run/outline_leg
 RED_NUM_CTX=32768 ./fresh_discovery.sh 4
-watch -n1 cat run/status.txt      # follow along
+tools/hud.py                      # follow along (or: watch -n1 cat run/status.txt)
 ./stop_all.sh                     # stop everything this rig started, and verify it
 ```
 
@@ -185,6 +206,7 @@ next to a live chain.
 | `planner/battle_policy.py` | The battle policy DSL |
 | `planner/policy_author.py` | Arena evaluation of authored policies |
 | `harness/shim.lua` | The in-game driver: ops, observation, visibility mask, overlay |
+| `tools/hud.py`, `tools/events.py` | The run HUD and the events feed it shows |
 | `tools/` | Analysis: arena tables, calibration, page ablation, world map |
 | `SPD_DESIGN.md`, `EXPLORE_DESIGN.md` | Design notes |
 
