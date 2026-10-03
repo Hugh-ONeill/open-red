@@ -447,6 +447,15 @@ FLOOR = re.compile(r"^(.+?)_(B?\d+F|ROOF|ELEVATOR|EAST|WEST|NORTH|CENTER)(_.*)?$
 
 
 DUNGEON_MIN_BLOCKS = 90       # floors' total size: houses, gates and the Museum stay out
+# by hand, for watchers (user, 2026-10-03): the three gyms the size rule let in
+# and the Underground Path's corridors are not dungeons; the Elite Four's rooms
+# are one dungeon run through in order; the Game Corner is the way down into
+# the Rocket Hideout. Stitched groups keep the order given, then their floors.
+DUNGEON_EXCLUDE = {"CINNABAR_GYM", "SAFFRON_GYM", "VIRIDIAN_GYM", "UNDERGROUND_PATH"}
+DUNGEON_STITCH = {
+    "ELITE_FOUR": ["LORELEIS_ROOM", "BRUNOS_ROOM", "AGATHAS_ROOM", "LANCES_ROOM", "CHAMPIONS_ROOM"],
+    "ROCKET_HIDEOUT": ["GAME_CORNER", "GAME_CORNER_PRIZE_ROOM"],
+}
 
 
 _groups = {}
@@ -481,15 +490,22 @@ def dungeons(data):
                 break
 
     def order(r):
+        # entry first: 1F and up, then the basements going down, then the rest
         f = FLOOR.match(r)
         tag = f.group(2) if f else ""
         n = re.match(r"(B?)(\d+)F", tag)
         if n:
-            return (0, -int(n.group(2)) if n.group(1) else int(n.group(2)), r)
-        return (1, 0, r)
+            return (1 if n.group(1) else 0, int(n.group(2)), r)
+        return (2, 0, r)
+    stitched = {m for ms in DUNGEON_STITCH.values() for m in ms}
     for k, v in raw.items():
-        if size[k] >= DUNGEON_MIN_BLOCKS:
+        if k in DUNGEON_EXCLUDE or size[k] < DUNGEON_MIN_BLOCKS:
+            continue
+        v = [r for r in v if r not in stitched]
+        if v:
             _groups[k] = sorted(v, key=order)
+    for k, members in DUNGEON_STITCH.items():
+        _groups[k] = [m for m in members if m in rooms] + [r for r in _groups.get(k, []) if r not in members]
     return _groups
 
 
@@ -536,7 +552,12 @@ def dungeon_view(data, key, floors, size, path, here, label=None):
             if 0 <= x < r["w"] * 2 and 0 <= y < r["h"] * 2:
                 mask.putpixel((x, y), 255)
         img.paste(Image.composite(full, dark, mask.resize(full.size, Image.NEAREST)), (ox, oy))
-        name = f[len(key) + 1:].replace("_", " ") if f.startswith(key + "_") else f.replace("_", " ")
+        name = f[len(key) + 1:] if f.startswith(key + "_") else f
+        for other in floors:                   # GAME_CORNER_PRIZE_ROOM -> PRIZE ROOM
+            if other != f and f.startswith(other + "_"):
+                name = f[len(other) + 1:]
+        name = re.sub(r"S?_ROOM$", "", name) if name.endswith("S_ROOM") else name   # LORELEIS_ROOM -> LORELEI
+        name = name.replace("_", " ")
         if label:
             label(img, ox, max(0, oy - 12), name or key.replace("_", " "), full.width)
         else:
