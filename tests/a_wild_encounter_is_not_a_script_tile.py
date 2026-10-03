@@ -30,7 +30,7 @@ SHIM = (ROOT / "harness/shim.lua").read_text()
 checks = []
 def ck(name, cond): checks.append((name, bool(cond)))
 
-i = SHIM.index("local function walk(G, dir, steps)")
+i = SHIM.index("local function walk(G, dir, steps, keep)")
 w = SHIM[i:i + 5000]
 ck("walk() still files a script tile for a non-battle screen after a step",
    "local t = trigger_cells(G)" in w and "t[k] = (t[k] or 0) + 1" in w)

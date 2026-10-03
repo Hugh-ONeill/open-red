@@ -38,7 +38,9 @@ ck("walk_to is a wrapper round its body", "local function walk_to_body(G, c)" in
 w = sh[sh.index("function OPS.walk_to(G, c)"):sh.index("local function yield_ground(G)")]
 ck("the brake is decided by the slope map list and the bike", ".slopeMaps" in w and 'if mm == mid and (G.save or {}).onBike then _brake = true end' in w)
 ck("it is held as state only — no press edge that could close a box", 'if _brake then G.input.state["b"] = true end' in w and 'pressQueue' not in w)
-ck("...and let go on the way out, whatever the body returned", 'local ok, why = walk_to_body(G, c)\n  if _brake then G.input.state["b"] = false end\n  return ok, why' in w)
+ck("...and let go on the way out, whatever the body returned", 'local ok, why = walk_to_body(G, c)\n' in w
+   and 'if _brake then G.input.state["b"] = false end\n  return ok, why' in w
+   and w.index("walk_to_body(G, c)\n") < w.index('if _brake then G.input.state["b"] = false end'))
 body = sh[sh.index("local function walk_to_body(G, c)"):sh.index("function OPS.walk_to(G, c)")]
 ck("the body re-holds it at every step, since a tap elsewhere releases state", 'G.input.state["b"] = true       -- the brake, re-held (see OPS.walk_to)' in body)
 ck("the reason is written where the next reader will look", "A SLOPE IS CLIMBED WITH THE BRAKE ON" in sh and "settle_slide waits for the player to stand still" in sh)

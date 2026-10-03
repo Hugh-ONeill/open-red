@@ -74,9 +74,14 @@ hyprctl -q keyword windowrule "match:title ^(red-recomp HUD)$, move $RX $RY"
 
 if ! pgrep -f "tools/hud.py" >/dev/null; then
   setsid kitty --title "red-recomp HUD" python3 tools/hud.py >/dev/null 2>&1 < /dev/null &
+else
+  # a HUD already open was placed before the rules existed: put it there too
+  hyprctl -q dispatch setfloating "title:^(red-recomp HUD)$" || true
+  hyprctl -q dispatch resizewindowpixel exact "$W" "$H",title:"^(red-recomp HUD)$" || true
+  hyprctl -q dispatch movewindowpixel exact "$RX" "$RY",title:"^(red-recomp HUD)$" || true
 fi
 pkill -f "tools/shadow/play.py --live" 2>/dev/null || true
 since=()
-[ "$MODE" = new ] && since=(--since "$(date +%s)")
+[ "$MODE" != attach ] && since=(--since "$(date +%s)")   # only this launch's boots
 setsid nohup python3 -u tools/shadow/play.py --live "${since[@]}" >> run/shadow.log 2>&1 < /dev/null &
 echo "[stream] HUD and 1x copy up (copy log: run/shadow.log)"
