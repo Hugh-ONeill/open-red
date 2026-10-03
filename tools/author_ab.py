@@ -390,12 +390,17 @@ def target(name, maps):
     print(f"{name}: a draft hits when its route goes through any of {maps}")
 
 
-def draws(name, n, methods, k=3, force=False):
+def draws(name, n, methods, k=3, force=False, said=False):
     """N authoring passes per method, each of k drafts from the case's exact
     prompt at the draft temperature, interleaved by method:
       sample   k independent drafts, as author.py draws them today
       exclude  each draft is shown the routes already drafted and asked to differ
       hypo     one call for k different ideas, then one draft per idea
+      premise  one call listing the goal's assumptions and where each comes from, then
+               k ideas on different answers to the shakiest, one draft per idea
+    said=True appends the walked record's WHAT PEOPLE HAVE SAID section to every call
+    (rows tagged "<method>+said"). The draft call never carries it today; only the
+    review after drafting does (author.review via evidence_text), 2026-10-03.
     The harness never says WHAT to do differently: every idea is the model's.
     Each draft is scored by the author's own checks, its route, and whether it
     goes through the case's hit_any maps (author_ab.py target)."""
@@ -410,6 +415,12 @@ def draws(name, n, methods, k=3, force=False):
     import brock_probe as B
     temp = prompt.get("temp")
     sys_msg, user = prompt["messages"][0], prompt["messages"][-1]["content"]
+    if said:
+        import author
+        block = author.people_said_text(str(d / "run" / "explored.json"))
+        if not block:
+            sys.exit(f"{name}: the walked record has no WHAT PEOPLE HAVE SAID section")
+        user += block
     out = d / "results_draws.jsonl"
 
     def ask(text):
@@ -422,6 +433,7 @@ def draws(name, n, methods, k=3, force=False):
                 print("the chain came up; stopping here so it has the GPU", flush=True)
                 return
             drafts, ideas, ideas_raw, calls, wall = [], None, None, 0, 0.0
+            tag = method + ("+said" if said else "")
             try:
                 if method in ("hypo", "premise"):
                     t0 = time.time()
@@ -439,7 +451,7 @@ def draws(name, n, methods, k=3, force=False):
                         # no ideas means this pass did not test the method: say so, do not draft plain
                         print(f"{name} {method} #{i + 1}: NO IDEAS PARSED; reply began: {reply[:200]!r}", flush=True)
                         with open(out, "a") as f:
-                            f.write(json.dumps({"t": time.time(), "method": method, "i": i, "k": k,
+                            f.write(json.dumps({"t": time.time(), "method": tag, "i": i, "k": k,
                                                 "failed": "no ideas", "ideas_raw": ideas_raw}) + "\n")
                         continue
                 for j in range(k):
@@ -462,13 +474,13 @@ def draws(name, n, methods, k=3, force=False):
                 continue
             routes = {tuple(x["route"]) for x in drafts}
             firsts = {x["route"][0] if x["route"] else None for x in drafts}
-            rec = {"t": time.time(), "method": method, "i": i, "k": k, "calls": calls, "wall": round(wall, 1),
+            rec = {"t": time.time(), "method": tag, "i": i, "k": k, "calls": calls, "wall": round(wall, 1),
                    "ideas": ideas, "ideas_raw": ideas_raw, "drafts": drafts, "distinct_routes": len(routes),
                    "distinct_first": len(firsts), "any_hit": any(x["hit"] for x in drafts),
                    "valid": sum(x["valid"] for x in drafts)}
             with open(out, "a") as f:
                 f.write(json.dumps(rec) + "\n")
-            print(f"{name} {method:7s} #{i + 1}: {len(routes)} distinct routes, {len(firsts)} first maps, "
+            print(f"{name} {tag:12s} #{i + 1}: {len(routes)} distinct routes, {len(firsts)} first maps, "
                   f"hit {'YES' if rec['any_hit'] else 'no '}, valid {rec['valid']}/{k}, {wall:5.0f}s", flush=True)
             for x in drafts:
                 print(f"     {'*' if x['hit'] else ' '}{'ok ' if x['valid'] else 'BAD'} {' > '.join(x['route'])[:110]}")
@@ -492,15 +504,15 @@ def report_draws(names):
                     dr["hit"] = bool(hit_any & set(dr["route"]))
             x["any_hit"] = any(dr.get("hit") for dr in x.get("drafts") or [])
         print(f"\n== {name}: {meta['goal']}   (hit = through any of {meta.get('hit_any')})")
-        for method in ("sample", "exclude", "hypo", "premise"):
+        for method in dict.fromkeys(x["method"] for x in rows):
             failed = [x for x in rows if x["method"] == method and x.get("failed")]
             r = [x for x in rows if x["method"] == method and not x.get("failed")]
             if failed:
-                print(f"  {method:7s} {len(failed)} pass(es) FAILED ({failed[0]['failed']}), left out below")
+                print(f"  {method:12s} {len(failed)} pass(es) FAILED ({failed[0]['failed']}), left out below")
             if not r:
                 continue
             same = sum(1 for x in r if x["distinct_routes"] == 1)
-            print(f"  {method:7s} passes={len(r)}  distinct routes/pass {statistics.mean(x['distinct_routes'] for x in r):.2f}"
+            print(f"  {method:12s} passes={len(r)}  distinct routes/pass {statistics.mean(x['distinct_routes'] for x in r):.2f}"
                   f"  all-identical {same}/{len(r)}  any draft hits {sum(x['any_hit'] for x in r)}/{len(r)}"
                   f"  valid drafts {sum(x['valid'] for x in r)}/{sum(x['k'] for x in r)}"
                   f"  {statistics.median(x['wall'] for x in r):.0f}s/pass")
@@ -555,6 +567,7 @@ def main():
     dr.add_argument("--k", type=int, default=3, help="drafts per pass")
     dr.add_argument("--methods", default="sample,exclude,hypo")
     dr.add_argument("--force", action="store_true")
+    dr.add_argument("--said", action="store_true", help="give every call the WHAT PEOPLE HAVE SAID section")
     tg = sub.add_parser("target", help="the case's right answer: maps a hitting draft goes through")
     tg.add_argument("case")
     tg.add_argument("maps", nargs="+")
@@ -568,7 +581,7 @@ def main():
     elif a.cmd == "prompts":
         prompts(a.case)
     elif a.cmd == "draws":
-        draws(a.case, a.n, a.methods.split(","), a.k, a.force)
+        draws(a.case, a.n, a.methods.split(","), a.k, a.force, a.said)
     elif a.cmd == "target":
         target(a.case, a.maps)
     elif a.cmd == "report-draws":
