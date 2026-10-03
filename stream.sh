@@ -98,7 +98,7 @@ since=()
 [ "$MODE" != attach ] && since=(--since "$(date +%s)")   # only this launch's boots
 setsid nohup python3 -u tools/shadow/play.py --live "${since[@]}" >> run/shadow.log 2>&1 < /dev/null &
 # the HUD across the whole screen while the model authors and the copy is idle
-pkill -f "tools/stream_layout.py" 2>/dev/null || true
+pkill -f "^python3 tools/stream_layout.py" 2>/dev/null || true
 setsid nohup python3 tools/stream_layout.py "$W" "$H" "$LX" "$LY" "$RX" "$RY" "$FW" \
   >/dev/null 2>&1 < /dev/null &
 echo "[stream] HUD and 1x copy up (copy log: run/shadow.log)"

@@ -9,6 +9,11 @@ comes and goes with every boot of the game, so the HUD only widens once the
 phase says authoring AND the copy has been gone a few seconds, and narrows the
 moment the copy is back. Viewer-only: reads phase.json and the window list.
 
+It also KEEPS both windows where they belong, checking every second: the
+window rules stream.sh adds are runtime only (a `hyprctl reload` drops them)
+and the copy opens a new window at every boot, so one landed off screen at
+(-1592,-145) with the HUD left wherever it was (2026-10-03).
+
   tools/stream_layout.py W H LX LY RX RY FW
 """
 from __future__ import annotations
@@ -38,30 +43,39 @@ def authoring() -> bool:
         return False
 
 
-def place(w: int, h: int, x: int, y: int) -> None:
-    for args in (["setfloating", HUD],
-                 ["resizewindowpixel", f"exact {w} {h},{HUD}"],
-                 ["movewindowpixel", f"exact {x} {y},{HUD}"]):
-        subprocess.run(["hyprctl", "-q", "dispatch", *args], timeout=5)
+def place(c: dict, w: int, h: int, x: int, y: int) -> None:
+    """Float the window at exactly (x, y) w x h, unless it already is."""
+    at, size = c.get("at") or [0, 0], c.get("size") or [0, 0]
+    if (c.get("floating") and abs(at[0] - x) <= 1 and abs(at[1] - y) <= 1
+            and abs(size[0] - w) <= 1 and abs(size[1] - h) <= 1):
+        return
+    target = f"address:{c['address']}"
+    if not c.get("floating"):
+        subprocess.run(["hyprctl", "-q", "dispatch", "setfloating", target], timeout=5)
+    subprocess.run(["hyprctl", "-q", "dispatch", "resizewindowpixel", f"exact {w} {h},{target}"], timeout=5)
+    subprocess.run(["hyprctl", "-q", "dispatch", "movewindowpixel", f"exact {x} {y},{target}"], timeout=5)
 
 
 def main() -> None:
     w, h, lx, ly, rx, ry, fw = (int(v) for v in sys.argv[1:8])
-    wide = None                   # what the HUD is now: None until first placed
     gone_since = None
     while True:
         cs = clients()
-        hud = [c for c in cs if c.get("title") == "red-recomp HUD"]
-        copy_up = any(c.get("class") == "love" for c in cs)
+        huds = [c for c in cs if c.get("title") == "red-recomp HUD"]
+        copies = [c for c in cs if c.get("class") == "love"]
         now = time.time()
-        gone_since = None if copy_up else (gone_since or now)
-        want = (not copy_up) and authoring() and now - gone_since >= GRACE
-        if hud and want != wide:
-            if want:
-                place(fw, h, lx, ly)
-            else:
-                place(w, h, rx, ry)
-            wide = want
+        gone_since = None if copies else (gone_since or now)
+        wide = (not copies) and authoring() and now - gone_since >= GRACE
+        try:
+            for c in copies:
+                place(c, w, h, lx, ly)
+            for c in huds:
+                if wide:
+                    place(c, fw, h, lx, ly)
+                else:
+                    place(c, w, h, rx, ry)
+        except (OSError, subprocess.SubprocessError, KeyError):
+            pass
         time.sleep(1)
 
 
