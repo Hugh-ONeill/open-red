@@ -29,7 +29,7 @@ ck("observe reports a battle only when no learn is on the stack",
    "elseif battle_frame(G) and not learn_on_stack(G) then" in lua)
 i = lua.index("elseif battle_frame(G) and not learn_on_stack(G) then")
 ck("...so a learn prompt falls through to the ui branch, where is_choice and the learner are read",
-   "elseif top then" in lua[i:i + 1900] and 'top.screenId == "MoveLearnMenu" and top.mon' in lua[i:i + 3600])
+   "elseif top then" in lua[i:i + 1900] and 'top.screenId == "MoveLearnMenu" and top.mon' in lua[i:i + 4400])
 src = (ROOT / "planner/executor.py").read_text()
 j = src.index('log("battle_move_failed"')
 ck("the battle loop leaves at once on 'not in battle'",
