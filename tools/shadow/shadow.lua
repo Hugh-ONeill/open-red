@@ -789,6 +789,7 @@ local function set_volume(speed)
 end
 
 local speed, carry, snap_n = PLAY, 0, 0
+local last_done_check = nil
 return function(G)
   local last_read = 0
   while true do
@@ -800,7 +801,16 @@ return function(G)
     -- when its game has gone (a later segment, or not following)
     while n > L.horizon do
       local now = love.timer.getTime()
-      if not FOLLOW or (now - last_read > 0.25 and segment_done()) then
+      -- has the run's game restarted (a newer boot beside this one)? Its own
+      -- clock: the log re-read below reset the shared one at the very moment
+      -- it came due, so this never asked and the copy waited at the end of
+      -- an old boot for hours (2026-10-03)
+      local ended = false
+      if FOLLOW and now - (last_done_check or 0) > 1 then
+        last_done_check = now
+        ended = segment_done()
+      end
+      if not FOLLOW or ended then
         read_more()
         if n > L.horizon then
           HOLD.on = false
