@@ -377,6 +377,16 @@ local naming_driver = false
 -- can see it.
 local learn_on_stack
 local learn_driver = false
+-- a cancelable evolution still running, anywhere on the stack
+function U.evolving(game)
+  for _, st in ipairs(((game or {}).stack or {}).states or {}) do
+    if type(st) == "table" and st.newSpecies ~= nil and st.cancelable
+       and not st.done and not st.canceled then
+      return true
+    end
+  end
+  return false
+end
 do
   local _tap = U.tap
   U.tap = function(game, btn)
@@ -385,6 +395,18 @@ do
       if DLG_TRACE then
         dlg_trace(game, "REFUSED-LEARN:" .. tostring(btn), 0)
       end
+      return
+    end
+    -- AN EVOLUTION RUNS UNLESS SOMEONE MEANS TO STOP IT. The new base
+    -- cancels on one B PRESS once 80 frames have passed (EvolutionState,
+    -- #968/#1031; it used to take B HELD), and at campaign speed every
+    -- harness loop that closes boxes with B pressed it: GULLIVER the
+    -- BULBASAUR "stopped evolving" at the start of a grind and was still
+    -- one at L18 (run 36, 2026-10-03, user: "it stopped bulba from
+    -- evolving for some reason"). A player who presses nothing gets the
+    -- evolution; no B lands while one is running.
+    if btn == "b" and U.evolving(game) then
+      if DLG_TRACE then dlg_trace(game, "REFUSED-EVOLVE:b", 0) end
       return
     end
     if not naming_driver and naming_on_stack(game) then
@@ -7960,6 +7982,16 @@ local function release_held_sound(G, t)
 end
 
 ui_back_out = function(G)
+  -- an evolution is not a box to close: let it finish (B is refused while
+  -- it runs, see U.tap), in wall time, because its cries are real audio
+  do
+    local _clock = love and love.timer and love.timer.getTime
+    local _t0 = _clock and _clock()
+    while U.evolving(G) do
+      U.wait(5)
+      if not _t0 or _clock() - _t0 > 20 then break end
+    end
+  end
   local stall, seen_top, seen_idx = 0, nil, nil
   for i = 1, 400 do
     local t = ui_top(G)
