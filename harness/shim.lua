@@ -10185,6 +10185,24 @@ end
 -- whichever one you want — it was written inline in the item path and had
 -- to come out whole before the boxes could reuse it rather than grow a
 -- second copy of the same twelve taps.
+-- ...AND WAIT FOR IT. After the row is chosen the new base shows its
+-- storage menu only once the PC's text and sound have played out, and the
+-- single check ten frames later said "the boxes never opened" with the box
+-- menu coming up behind it (base update, 2026-10-02: pc_box failed the
+-- first time it ran inside a Center). Advance text with A, never press A
+-- on a menu, and give it up to six seconds of wall time.
+function U.pc_wait_for_row(G, want)
+  local clock = love and love.timer and love.timer.getTime
+  local t0 = clock and clock()
+  for _ = 1, 400 do
+    if ui_row_labelled(G, want) then return true end
+    if not ui_is_menu(G) then U.tap(G, "a") end
+    U.wait(3)
+    if t0 and clock() - t0 > 6 then break end
+  end
+  return ui_row_labelled(G, want) ~= nil
+end
+
 local function pc_open_storage(G)
   local ok, why = pc_open_menu(G)
   if not ok then return false, why end
@@ -10202,7 +10220,7 @@ local function pc_open_storage(G)
     ui_cursor_to(G, "index", own)
     U.tap(G, "a"); U.wait(10)
   end
-  if not ui_row_labelled(G, "DEPOSIT ITEM") then
+  if not U.pc_wait_for_row(G, "DEPOSIT ITEM") then
     ui_back_out(G); return false, "item storage never opened"
   end
   return true
@@ -10231,7 +10249,7 @@ local function pc_open_boxes(G)
     ui_cursor_to(G, "index", want)
     U.tap(G, "a"); U.wait(10)
   end
-  if not ui_row_labelled(G, "WITHDRAW") then
+  if not U.pc_wait_for_row(G, "WITHDRAW") then
     ui_back_out(G); return false, "the boxes never opened"
   end
   return true
