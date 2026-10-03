@@ -82,7 +82,13 @@ else
   hyprctl -q dispatch resizewindowpixel exact "$W" "$H",title:"^(red-recomp HUD)$" || true
   hyprctl -q dispatch movewindowpixel exact "$RX" "$RY",title:"^(red-recomp HUD)$" || true
 fi
-pkill -f "tools/shadow/play.py --live" 2>/dev/null || true
+# the old copy with its game: play.py runs under setsid, so its group is both
+# (never this script's own group, in case a pattern ever matches it)
+me=$(ps -o pgid= -p $$ | tr -d ' ')
+for p in $(pgrep -f "^python3 -u tools/shadow/play.py --live" || true); do
+  g=$(ps -o pgid= -p "$p" | tr -d ' ')
+  [ -n "$g" ] && [ "$g" != "$me" ] && kill -TERM -- "-$g" 2>/dev/null || true
+done
 since=()
 [ "$MODE" != attach ] && since=(--since "$(date +%s)")   # only this launch's boots
 setsid nohup python3 -u tools/shadow/play.py --live "${since[@]}" >> run/shadow.log 2>&1 < /dev/null &
