@@ -375,7 +375,8 @@ local function snapshot(game)
   table.sort(o.badges)
   local ow = game.overworld
   local p = ow and ow.player
-  o.map = { id = ow and ow.map and ow.map.id }
+  local mid = ow and ow.map and ow.map.id
+  o.map = mid and { id = mid } or nil          -- no map yet (the title): leave it out
   o.player = p and { x = p.cellX, y = p.cellY, facing = p.facing } or nil
   local top = game.stack and game.stack:top()
   if top and (top.enemy or top.kind) and top.player then
