@@ -76,6 +76,8 @@ return function(BRIDGE)
     local game = os.getenv("POKEPORT_GAME") or "red"
     copy_file(base .. "/saves/" .. game .. "/slot1.lua", seg .. "/slot1.lua")
   end)
+  -- and the ground seen so far, so the copy's fog starts where this boot's did
+  copy_file(BRIDGE .. "/seen.json", seg .. "/seen.json")
   put(string.format("B %d %d %s", os.time(), Game.logicStep or 0, rng()))
 
   -- the step being run, and the driver's jumps to apply before the next
