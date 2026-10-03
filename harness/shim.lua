@@ -14328,7 +14328,9 @@ return function(G)
       -- and use_item drives a machine's own learn list with its forget=.
       learn_driver = (cmd.op == "menu" or cmd.op == "tap"
                       or cmd.op == "use_item")
+      if wd.rec then pcall(wd.rec.op, cmd.op) end
       local ok, detail = wd_run(G, cmd.op, OP_FRAME_BUDGET, op, G, cmd)
+      if wd.rec then pcall(wd.rec.op, nil) end
       naming_driver = false
       learn_driver = false
       result = { op = cmd.op, ok = ok and true or false,

@@ -288,6 +288,12 @@ return function(BRIDGE)
       return o_ws(self, ...)
     end
   end
+  -- WHICH OP EACH STRETCH OF STEPS BELONGS TO: "O step name" when an op
+  -- starts, "O step -" when it ends. The copy skips the ops it is told to
+  -- (a grind is minutes of pacing in grass), the way it skips wild battles.
+  R.op = function(name)
+    put(string.format("O %d %s", next_step(), name and tostring(name):gsub("%s", "_") or "-"))
+  end
   -- the map a restore lands on may redraw from its flags (the shim's
   -- CINNABAR_GYM onEnter after a restore): the copy does the same itself
   -- written out at every observation: a run of identical audio answers

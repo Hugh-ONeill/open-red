@@ -51,6 +51,16 @@ local FOLLOW = os.getenv("SHADOW_FOLLOW") == "1"   -- wait for the log to grow
 --   none      nothing
 local SHOW = os.getenv("SHADOW_SHOW_BATTLES") or "trainers"
 local SKIP_SPEED = tonumber(os.getenv("SHADOW_SKIP_SPEED") or "400") or 400
+-- WHICH OPS ARE SKIPPED, the same way: a grind is minutes of pacing in grass
+-- that the 200x run makes in seconds, and played at 1x it put the copy over an
+-- hour behind (2026-10-03, ROUTE_4). Comma list of op names; "" skips none.
+local SKIP_OPS = {}
+for name in (os.getenv("SHADOW_SKIP_OPS") or "grind"):gmatch("[^,%s]+") do SKIP_OPS[name] = true end
+-- CATCHING UP: once the copy is more than CATCHUP_AFTER seconds of play
+-- behind the log, plain walking (the overworld with nothing on screen to
+-- read) plays at CATCHUP_SPEED; text, menus and shown battles stay at 1x.
+local CATCHUP_AFTER = (tonumber(os.getenv("SHADOW_CATCHUP_AFTER") or "180") or 180) * 60
+local CATCHUP_SPEED = tonumber(os.getenv("SHADOW_CATCHUP_SPEED") or "3") or 3
 -- what this copy shows, for the HUD (tools/hud.py reads it before obs.json)
 local SNAP = os.getenv("SHADOW_SNAPSHOT")
   or ((os.getenv("HOME") or ".") .. "/.local/state/red-recomp/shadow_obs.json")
@@ -68,6 +78,7 @@ local L = {
   checks = {}, ck_i = 1,          -- {step, rng, map, x, y}
   views = {}, vw_i = 1,           -- {step, window w, h, view w, h}
   times = {}, tm_i = 1,           -- {step, epoch}: when the run ran that step
+  ops = {}, op_i = 1,             -- {start, stop or nil, name}
   ended = false,
 }
 local function split(s, sep)
@@ -125,6 +136,18 @@ local function read_more()
       if s then
         L.checks[#L.checks + 1] = { tonumber(s), r, m, x, y }
         L.horizon = math.max(L.horizon, tonumber(s) - 1)
+      end
+    elseif kind == "O" then
+      local s, name = rest:match("^(%d+) (%S+)$")
+      if s then
+        s = tonumber(s)
+        if name == "-" then
+          local last = L.ops[#L.ops]
+          if last and not last[2] then last[2] = s end
+        else
+          L.ops[#L.ops + 1] = { s, nil, name }
+        end
+        L.horizon = math.max(L.horizon, s - 1)
       end
     elseif kind == "T" then
       local s, t = rest:match("^(%d+) (%d+)$")
@@ -297,6 +320,7 @@ pcall(function()
         or "wild battle"
       skip = { battle = battle, what = what }
       skipped_n = skipped_n + 1
+      if op_skip then op_skip.battles = op_skip.battles + 1 end
       if not QUIET then print(("[shadow] skipping a %s (%d so far)"):format(what, skipped_n)) end
     end
     return o_push(self, battle, npc, ...)
@@ -304,7 +328,17 @@ pcall(function()
 end)
 -- skipping lasts while the battle (or the wipe before it) is on the stack;
 -- what comes after it, an evolution say, is shown
+-- the op the run was in at step n, if it is one to skip
+local function skipped_op(n)
+  while L.ops[L.op_i] and L.ops[L.op_i][2] and L.ops[L.op_i][2] <= n do L.op_i = L.op_i + 1 end
+  local o = L.ops[L.op_i]
+  if o and o[1] <= n and (not o[2] or n < o[2]) and SKIP_OPS[o[3]] then return o end
+  return nil
+end
+local op_skip = nil              -- { op = record, battles = n, map = id } while one is skipped
+
 local function skipping(game)
+  if op_skip then return true end
   if not skip then return false end
   local st = game.stack and game.stack.states or {}
   for _, s_ in ipairs(st) do
@@ -402,28 +436,58 @@ local function snapshot(game)
   if f then f:write(jstr(o)); f:close(); os.rename(tmp, SNAP) end
 end
 
--- the card over a skipped battle, drawn on top of the game's own frame
-local card_font, card_font_size
+-- THE CARD over whatever is being skipped: the game keeps running underneath,
+-- fast, dimmed, so the screen is a fast-forward and not a black hole, and a
+-- Game Boy text box in the game's own font and frame says what it is (user,
+-- 2026-10-03: "well have to have a cooler looking card showing"). The HUD
+-- beside it keeps counting levels as they come.
+local function pretty(id)
+  return (tostring(id or ""):gsub("_", " "))
+end
+local function card_lines()
+  local ow = Game.overworld
+  local where = pretty(op_skip and op_skip.map or (ow and ow.map and ow.map.id))
+  if op_skip then
+    local name = op_skip.op[3] == "grind" and "TRAINING" or op_skip.op[3]:upper()
+    local n = op_skip.battles
+    return { name, where, n == 1 and "1 BATTLE" or (n .. " BATTLES") }
+  end
+  local what = skip and skip.what or ""
+  local head = what:match("^trainer") and "TRAINER BATTLE" or "WILD BATTLE"
+  local who = what:match(": (.+)$")
+  return { head, who and who:upper() or where, "" }
+end
 pcall(function()
+  local Font = require("src.render.Font")
   local o_draw = love.draw
   love.draw = function(...)
     if o_draw then o_draw(...) end
-    if skip then
-      local w, h = love.graphics.getDimensions()
-      love.graphics.push("all")
-      love.graphics.origin()
-      love.graphics.setColor(0.07, 0.07, 0.08, 1)
-      love.graphics.rectangle("fill", 0, 0, w, h)
-      love.graphics.setColor(0.85, 0.85, 0.8, 1)
-      local size = math.max(16, math.floor(h / 30))
-      if not card_font or card_font_size ~= size then
-        card_font, card_font_size = love.graphics.newFont(size), size
-      end
-      local font = card_font
-      love.graphics.setFont(font)
-      love.graphics.printf(skip.what .. " (skipped)", 0, h / 2 - font:getHeight(), w, "center")
-      love.graphics.pop()
+    if not (skip or op_skip) then return end
+    local w, h = love.graphics.getDimensions()
+    love.graphics.push("all")
+    love.graphics.origin()
+    love.graphics.setColor(0.04, 0.05, 0.06, 0.62)           -- the fast-forward, dimmed
+    love.graphics.rectangle("fill", 0, 0, w, h)
+    -- a 20x10-tile box in Game Boy pixels, scaled whole to the window
+    local k = math.max(1, math.floor(math.min(w / 176, h / 176)))
+    local tw, th = 20, 10
+    love.graphics.translate(math.floor((w - tw * 8 * k) / 2), math.floor((h - th * 8 * k) / 2))
+    love.graphics.scale(k, k)
+    love.graphics.setColor(1, 1, 1, 1)
+    Font.drawBox(0, 0, tw, th)
+    love.graphics.setColor(1, 1, 1, 1)
+    local lines = card_lines()
+    for i, line in ipairs(lines) do
+      line = tostring(line):sub(1, tw - 4)
+      local x = math.floor((tw * 8 - Font.width(line)) / 2)
+      Font.draw(line, x, 12 + (i - 1) * 16)
     end
+    -- the fast-forward mark, blinking at the game's own blink rate
+    if math.floor(love.timer.getTime() * 2) % 2 == 0 then
+      local ff = "▶▶ FAST FORWARD"
+      Font.draw(ff, math.floor((tw * 8 - Font.width(ff)) / 2), (th - 2) * 8 - 4)
+    end
+    love.graphics.pop()
   end
 end)
 
@@ -490,6 +554,14 @@ Game.step = function(self, dt, ...)
         n, c[3], c[4], c[5], ok_r and "same" or "differs", m, x, y, ok_r and "same" or "differs"), true)
     end
     L.ck_i = L.ck_i + 1
+  end
+  local o = skipped_op(n)
+  if o and not (op_skip and op_skip.op == o) then
+    local ow = self.overworld
+    op_skip = { op = o, battles = 0, map = ow and ow.map and ow.map.id }
+    if not QUIET then print(("[shadow] skipping a %s at %s"):format(o[3], tostring(op_skip.map))) end
+  elseif not o and op_skip then
+    op_skip = nil
   end
   in_step, cur_step, cur, cur_i = true, n, answers_for(n), 1
   STEP.on = true
@@ -575,12 +647,17 @@ return function(G)
       target = SKIP_SPEED              -- a skipped battle: through it under the card
     elseif busy_near(n) then
       target = PLAY
+      -- far behind: plain walking goes faster; text, menus, battles do not
+      local ow = G.overworld
+      if L.horizon - n > CATCHUP_AFTER and ow and G.stack and G.stack:top() == ow then
+        target = CATCHUP_SPEED
+      end
     else
       local d_ev = math.max(0, next_busy(n) - LOOKAHEAD - n)
       local d_h = math.max(0, L.horizon - n)
       target = math.min(IDLE_MAX, math.max(PLAY, math.sqrt(2 * ACCEL * math.min(d_ev, d_h))))
     end
-    if skip then
+    if skip or op_skip then
       speed = target                   -- under the card: no ramp to watch
     elseif target <= PLAY then
       speed = PLAY                     -- something is happening: show it now
@@ -601,7 +678,10 @@ return function(G)
       G:update(1 / 60)
     end
     snap_n = (snap_n or 0) + 1
-    if snap_n % 6 == 0 and not skip then pcall(snapshot, G) end
+    if (snap_n % 6 == 0 and not skip and not op_skip)
+        or (snap_n % 30 == 0 and op_skip and not skip) then
+      pcall(snapshot, G)
+    end
     G.driverSpeed = 1
     coroutine.yield()
   end
