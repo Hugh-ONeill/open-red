@@ -53,6 +53,13 @@ subs3 = [{"id": "leave_2f", "done_when": {"map": "VICTORY_ROAD_1F"}},
 ck("a non-waypoint step in between stops it", ex_with(subs3)._waypoint_passed(subs3[0], obs) is None)
 ck("the plan's last step is never passed this way",
    ex._waypoint_passed(subs[2], obs) is None)
+obs4 = dict(obs, map={"id": "ROUTE_4"})
+subs4 = [{"id": "explore_route_3_north",
+          "done_when": {"map": "ROUTE_3", "not_area": ["ROUTE_3|18,8", "ROUTE_3|57,0"]}},
+         {"id": "travel_to_route_4", "done_when": {"map": "ROUTE_4"}},
+         {"id": "enter_mt_moon", "done_when": {"map": "MT_MOON_1F"}}]
+ck("a new-part step (map + not_area) is a waypoint too",
+   ex_with(subs4)._waypoint_passed(subs4[0], obs4) == "travel_to_route_4")
 src = (ROOT / "planner/executor.py").read_text()
 ck("it runs at step entry", 'via="entry")' in src)
 ck("...before a replay", 'later=_past, at=self._where(obs), via="pre-check")' in src)

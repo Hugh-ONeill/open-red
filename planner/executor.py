@@ -2801,7 +2801,13 @@ class Executor:
         except (OSError, AttributeError):
             pass
 
-    WAYPOINT_KEYS = frozenset({"map", "area"})
+    # ...and not_area: "a part of ROUTE_3 I have not stood in" (new_part,
+    # frozen) is a place to pass through like any other. Run 29's Mt Moon
+    # leg wrote one for a Route 3 north that is not there, walked out onto
+    # ROUTE_4 -- the plan's next step -- and was sent back to Route 3 for
+    # ten rounds looking for it (2026-10-02, user: "its looking for a third
+    # area (that i dont think exists) as its done condition").
+    WAYPOINT_KEYS = frozenset({"map", "area", "not_area"})
 
     def _waypoint_passed(self, sg, obs):
         """The id of a LATER step that already holds, when the step in play
