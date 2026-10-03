@@ -7,6 +7,10 @@ SPEED="${1:-20}"
 export RED_BRIDGE_DIR="${RED_BRIDGE_DIR:-$HOME/Developer/red-recomp/run}"
 mkdir -p "$RED_BRIDGE_DIR"
 rm -f "$RED_BRIDGE_DIR"/obs.json "$RED_BRIDGE_DIR"/cmd.lua
+# the shim beside this script, so a worktree's boot runs the worktree's
+# shim (it ran the main checkout's, and a staged shim change was never
+# booted before it was applied, 2026-10-02)
+RIG="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HOME/Developer/gen1recomp"
 # THE PORT'S OWN SETTINGS ARE RIG CONFIG (TODO (a), 2026-08-25). The shim
 # refuses the presses that change them, but a value already changed lives
@@ -25,7 +29,7 @@ fi
 # SOUNDS like a loop). RED_MUTE=1 silences it for unattended runs.
 [ "${RED_MUTE:-0}" = "1" ] && export SDL_AUDIODRIVER=dummy
 # The base game opens a launcher (Gen 1/2/3) unless told which game to boot.
-COMMON=(POKEPORT_DRIVER="$HOME/Developer/red-recomp/harness/shim.lua" POKEPORT_SPEED="$SPEED"
+COMMON=(POKEPORT_DRIVER="$RIG/harness/shim.lua" POKEPORT_SPEED="$SPEED"
         POKEPORT_GAME="${POKEPORT_GAME:-red}")
 if [ "$HEADED" = 1 ]; then
   exec env "${COMMON[@]}" love .
