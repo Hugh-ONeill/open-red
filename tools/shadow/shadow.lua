@@ -307,6 +307,33 @@ local BOSS_CLASSES = { OPP_RIVAL1 = true, OPP_RIVAL2 = true, OPP_RIVAL3 = true,
   OPP_GIOVANNI = true, OPP_LORELEI = true, OPP_BRUNO = true, OPP_AGATHA = true,
   OPP_LANCE = true }
 local skip = nil                 -- { battle = obj, what = "wild battle" } while one is skipped
+-- ONE CARD FOR A STRETCH OF SKIPS. The run's grind op ends where a wild
+-- battle starts and the battle's own ops follow, so a grind is grind, battle,
+-- grind, battle: one card each made the text flip between TRAINING and WILD
+-- BATTLE (user, 2026-10-03: "the wild-battle and grinding cards write over
+-- eachother"). Now a card covers back-to-back skips: a grind anywhere in it
+-- makes it TRAINING, each skipped battle counts on it, and it lingers
+-- LINGER_STEPS of fast play after the last skip so the next one joins it; then
+-- it stays up until CARD_MIN seconds have passed, the copy holding still. A
+-- shown battle ends it at once.
+local LINGER_STEPS = 180
+local card = { active = false }
+local function card_touch(kind, info)
+  if not card.active then
+    local ow = Game.overworld
+    card = { active = true, since = love.timer.getTime(), battles = 0, gap = 0,
+             where = ow and ow.map and ow.map.id }
+    if not QUIET then print(("[shadow] card up at step %d"):format((Game.logicStep or 0) + 1)) end
+  end
+  card.gap = 0
+  if kind == "op" then
+    card.title = info == "grind" and "TRAINING" or tostring(info):upper()
+  else
+    card.battles = card.battles + 1
+    card.title = card.title or (kind == "trainer" and "TRAINER BATTLE" or "WILD BATTLE")
+    if kind == "trainer" and info then card.who = tostring(info):upper() end
+  end
+end
 local skipped_n = 0
 local function battle_shown(battle, npc)
   if SHOW == "all" then return true end
@@ -330,9 +357,11 @@ pcall(function()
         or "wild battle"
       skip = { battle = battle, what = what }
       skipped_n = skipped_n + 1
-      if op_skip then op_skip.battles = op_skip.battles + 1 end
+      card_touch(battle.kind == "trainer" and "trainer" or "wild",
+                 battle.trainer and battle.trainer.name)
       if not QUIET then print(("[shadow] skipping a %s (%d so far)"):format(what, skipped_n)) end
     end
+    if battle and battle_shown(battle, npc) then card.active = false end
     return o_push(self, battle, npc, ...)
   end
 end)
@@ -593,21 +622,12 @@ local function pretty(id)
   return (tostring(id or ""):gsub("_", " "))
 end
 local function card_lines()
-  local ow = Game.overworld
-  local where = pretty(op_skip and op_skip.map or (ow and ow.map and ow.map.id))
-  if op_skip then
-    local name = op_skip.op[3] == "grind" and "TRAINING" or op_skip.op[3]:upper()
-    local n = op_skip.battles
-    return { name, where, n == 1 and "1 BATTLE" or (n .. " BATTLES") }
-  end
-  local what = skip and skip.what or ""
-  local head = what:match("^trainer") and "TRAINER BATTLE" or "WILD BATTLE"
-  local who = what:match(": (.+)$")
-  return { head, who and who:upper() or where, "" }
+  local n = card.battles or 0
+  local count = (card.title == "TRAINING" or n > 1) and (n == 1 and "1 BATTLE" or (n .. " BATTLES")) or ""
+  return { card.title or "", card.who or pretty(card.where), count }
 end
-local card = { since = nil, lines = nil }    -- the card on screen: when it came up, what it says
 local function card_hold()
-  return card.since ~= nil and not (skip or op_skip)
+  return card.active and not (skip or op_skip) and card.gap >= LINGER_STEPS
     and love.timer.getTime() - card.since < CARD_MIN
 end
 pcall(function()
@@ -615,17 +635,12 @@ pcall(function()
   local o_draw = love.draw
   love.draw = function(...)
     if o_draw then o_draw(...) end
-    local holding = card_hold()
-    if FOG and not (skip or op_skip or holding) then
+    if FOG and not card.active then
       love.graphics.push("all")
       pcall(draw_fog, Game)
       love.graphics.pop()
     end
-    if not (skip or op_skip or holding) then card.since = nil; return end
-    if skip or op_skip then
-      card.since = card.since or love.timer.getTime()
-      card.lines = card_lines()
-    end
+    if not card.active then return end
     local w, h = love.graphics.getDimensions()
     love.graphics.push("all")
     love.graphics.origin()
@@ -639,7 +654,7 @@ pcall(function()
     love.graphics.setColor(1, 1, 1, 1)
     Font.drawBox(0, 0, tw, th)
     love.graphics.setColor(1, 1, 1, 1)
-    local lines = card.lines or card_lines()
+    local lines = card_lines()
     for i, line in ipairs(lines) do
       line = tostring(line):sub(1, tw - 4)
       local x = math.floor((tw * 8 - Font.width(line)) / 2)
@@ -730,9 +745,13 @@ Game.step = function(self, dt, ...)
   if o and not (op_skip and op_skip.op == o) then
     local ow = self.overworld
     op_skip = { op = o, battles = 0, map = ow and ow.map and ow.map.id }
+    card_touch("op", o[3])
     if not QUIET then print(("[shadow] skipping a %s at %s"):format(o[3], tostring(op_skip.map))) end
   elseif not o and op_skip then
     op_skip = nil
+  end
+  if card.active then
+    if op_skip or skip then card.gap = 0 else card.gap = card.gap + 1 end
   end
   in_step, cur_step, cur, cur_i = true, n, answers_for(n), 1
   STEP.on = true
@@ -829,7 +848,11 @@ return function(G)
       end
     end
     HOLD.on = false
-    -- a card still being read: hold the game still under it
+    -- a card done lingering: hold still until it has been up CARD_MIN, then drop it
+    if card.active and not (skip or op_skip) and card.gap >= LINGER_STEPS
+        and not card_hold() then
+      card.active = false
+    end
     if card_hold() then
       HOLD.on = true
       G.driverSpeed = 1
@@ -841,8 +864,8 @@ return function(G)
     -- IDLE_MAX at ACCEL, and capped so it can brake to PLAY by the next
     -- event (v^2 = 2*a*d) and by the end of what the log holds
     local target
-    if skipping(G) then
-      target = SKIP_SPEED              -- a skipped battle: through it under the card
+    if skipping(G) or card.active then
+      target = SKIP_SPEED              -- under the card: a skip, or the linger after one
     elseif busy_near(n) then
       target = PLAY
       -- plain walking goes quicker, and quicker still when far behind;
@@ -856,7 +879,7 @@ return function(G)
       local d_h = math.max(0, L.horizon - n)
       target = math.min(IDLE_MAX, math.max(PLAY, math.sqrt(2 * ACCEL * math.min(d_ev, d_h))))
     end
-    if skip or op_skip then
+    if skip or op_skip or card.active then
       speed = target                   -- under the card: no ramp to watch
     elseif target <= WALK_SPEED then
       speed = target                   -- 1x or walking pace: no ramp to wait through
