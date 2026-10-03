@@ -15,8 +15,13 @@ cd "$(dirname "$0")"
 . ./rig.sh
 rig_register run
 # RED_HEADED=1 opens a real window (run.sh --headed) and RED_SPEED sets the
-# clock: 200x is a blur to watch, 10-20x is followable by eye.
-setsid ./run.sh ${RED_HEADED:+--headed} "${RED_SPEED:-200}" &
+# clock: 200x is a blur to watch, 10-20x is followable by eye. RED_HEADED=0
+# (or unset) is headless: fresh_discovery always passes a value, so "set at
+# all" could never mean headless, and the stream wants the 200x game unseen
+# (stream.sh shows the 1x copy instead).
+_headed=()
+[ -n "${RED_HEADED:-}" ] && [ "${RED_HEADED}" != 0 ] && _headed=(--headed)
+setsid ./run.sh "${_headed[@]}" "${RED_SPEED:-200}" &
 GAME_PID=$!
 rig_register game "-$GAME_PID"     # setsid made it a group; kill the group
 # kill the whole process group: xvfb-run's cleanup does not reliably reach

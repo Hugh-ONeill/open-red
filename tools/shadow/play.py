@@ -11,6 +11,9 @@ reach the run's save.
   tools/shadow/play.py                 the newest boot, headed, 1x, following
   tools/shadow/play.py SEG --headless  verify a finished boot without a window
   tools/shadow/play.py --chain         every boot in order, one after another
+  tools/shadow/play.py --live          follow the run: each boot in order as the
+                                       game restarts, waiting for the next one
+                                       (--since EPOCH: only boots after then)
 
 Viewer-only: nothing here is read by the planner or the model.
 """
@@ -21,6 +24,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -73,6 +77,32 @@ def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = Tru
     return subprocess.call(cmd, cwd=GAME_DIR, env=env)
 
 
+def _started(seg: Path) -> float:
+    try:
+        return float(seg.name.split("-")[0])
+    except ValueError:
+        return 0.0
+
+
+def live(a) -> None:
+    """Each boot in order, then wait for the next. The shadow ends a boot
+    once a newer one exists and the old log is played out, so a restarted
+    game (every attempt boots afresh) carries straight on."""
+    last = None                             # the boot played last; only later ones follow
+    while True:
+        segs = [s for s in segments()
+                if (last is None or s.name > last) and (a.since is None or _started(s) >= a.since)]
+        if last is None and a.since is None and segs:
+            segs = segs[-1:]                # attaching: start with the newest
+        if not segs:
+            time.sleep(2)
+            continue
+        seg = segs[0]
+        print(f"[shadow] playing {seg}", flush=True)
+        play(seg, a.headless, a.speed, follow=True, quiet=a.quiet)
+        last = seg.name
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("seg", nargs="?", help="a replay/<boot> directory (default: the newest)")
@@ -81,7 +111,12 @@ def main() -> None:
     ap.add_argument("--no-follow", action="store_true", help="stop at the end of the log instead of waiting")
     ap.add_argument("--chain", action="store_true", help="play every boot in order")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--live", action="store_true", help="follow the run's boots as they come")
+    ap.add_argument("--since", type=float, default=None, help="with --live: only boots started after this epoch")
     a = ap.parse_args()
+    if a.live:
+        live(a)
+        return
     segs = segments()
     if a.chain:
         todo = segs

@@ -138,6 +138,7 @@ end
 
 -- the run's generator as it stood when its driver loaded: same point here
 pcall(love.math.setRandomState, L.boot[3])
+pcall(love.window.setTitle, os.getenv("SHADOW_TITLE") or "red-recomp 1x")
 
 -- this copy's own draws outside a step (its draw code runs every frame, the
 -- run's once per 200 steps) come from a generator of their own, so they can

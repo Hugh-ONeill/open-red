@@ -39,5 +39,8 @@ else
   # the X11 backend and clear WAYLAND_DISPLAY so love binds the Xvfb X server
   # instead. Xvfb supplies software GL (llvmpipe). NOTE: `env -u` must precede
   # the NAME=VALUE assignments or env treats -u as the command.
-  exec xvfb-run -a env -u WAYLAND_DISPLAY SDL_VIDEODRIVER=x11 "${COMMON[@]}" love .
+  # a screen big enough for RED_WINDOW (the default 640x480 clamps it): the
+  # window's size is logic in this port (tools/shadow/shadow.lua, THE VIEW IS
+  # LOGIC TOO), so a headless run must have the size the 1x copy is shown at
+  exec xvfb-run -a -s "-screen 0 3840x2160x24" env -u WAYLAND_DISPLAY SDL_VIDEODRIVER=x11 "${COMMON[@]}" love .
 fi

@@ -91,6 +91,17 @@ wd.rec = (function()
   local ok2, r = pcall(mk, BRIDGE)
   return ok2 and r or nil
 end)()
+-- THE WINDOW'S SIZE IS LOGIC: how much map it shows decides which neighbor
+-- maps load and wander and which NPCs a map entry resets. RED_WINDOW=WxH
+-- sets it at boot, before the first step, so a headless run can have
+-- exactly the size its 1x copy is shown at (stream.sh), whatever xvfb's own.
+pcall(function()
+  local w, h = (os.getenv("RED_WINDOW") or ""):match("^(%d+)x(%d+)$")
+  if w and love.window and love.window.setMode then
+    local _, _, flags = love.window.getMode()
+    love.window.setMode(tonumber(w), tonumber(h), flags or {})
+  end
+end)
 -- THE GAME HOLDS STILL WHILE THE MODEL THINKS. Between an observation and
 -- the next command nothing here is pressed, but the game kept stepping at
 -- 200x: NPCs wandered and drew from the random generator for the whole of

@@ -15,7 +15,10 @@ import notable as N
 
 # a file appended under run/ that records no decision about the outline.
 # Adding a name here is a claim; say why.
-EXCUSED = set()
+EXCUSED = {
+    "chain.log",    # the chain's own stdout (stream.sh starts it); the ladder's decisions go to sidecars
+    "shadow.log",   # the 1x copy's output (tools/shadow), viewer-only, never a decision
+}
 
 APPEND = re.compile(r'>>\s*"?run/([A-Za-z0-9_./$]+)')
 sites = {}
