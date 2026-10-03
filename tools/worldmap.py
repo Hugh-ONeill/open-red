@@ -554,7 +554,9 @@ def dungeon_view(data, key, floors, size, path, here, label=None):
         img.paste(Image.composite(full, dark, mask.resize(full.size, Image.NEAREST)), (ox, oy))
         name = f[len(key) + 1:] if f.startswith(key + "_") else f
         for other in floors:                   # GAME_CORNER_PRIZE_ROOM -> PRIZE ROOM
-            if other != f and f.startswith(other + "_"):
+            # only by a room stitched in from outside the dungeon's own name:
+            # SS_ANNE_1F_ROOMS keeps its 1F
+            if other != f and not other.startswith(key) and f.startswith(other + "_"):
                 name = f[len(other) + 1:]
         name = re.sub(r"S?_ROOM$", "", name) if name.endswith("S_ROOM") else name   # LORELEIS_ROOM -> LORELEI
         name = name.replace("_", " ")
