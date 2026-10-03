@@ -125,9 +125,14 @@ def run_history(path=CHAIN, tail_bytes=4_000_000):
             lines = f.read().decode("utf-8", "replace").splitlines()
     except OSError:
         return []
+    # A run starts at its new_game, or earlier at fresh_discovery's "archived
+    # ...; ledgers cleared": leg 1 is authored before the game boots, and
+    # until then the last new_game in the log is the previous run's, so the
+    # map drew that run's walk over the new one (user, 2026-10-03).
     start = 0
     for i in range(len(lines) - 1, -1, -1):
-        if lines[i].startswith("[bootstrap] new_game"):
+        if (lines[i].startswith("[bootstrap] new_game")
+                or (lines[i].startswith("archived ") and lines[i].rstrip().endswith("ledgers cleared"))):
             start = i
             break
     leg, attempt, out = 0, 0, []

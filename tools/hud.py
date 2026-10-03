@@ -758,12 +758,17 @@ def draw_authoring(img, painter, y, height, cols, phase):
     return y + 4
 
 
+# what a fresh run looks like before its game boots: nobody in the party
+NEW_RUN = {"party": [], "new_run": True}
+
+
 def render_status(text, painter, height, cols=COLS, act=None):
     img = Image.new("RGB", (cols * 8 + 8, height), BG)
-    if text is None:
-        painter.text(img, 4, 4, "NO STATUS YET", DIM)
-        return img
-    fields, order, elapsed = parse_status(text)
+    # no status.txt yet: a fresh run is writing its first plan before the
+    # game boots. Draw the header, the model line and the authoring box all
+    # the same; only the playing fields are missing (user, 2026-10-03:
+    # "the start just shows 'no status yet'").
+    fields, order, elapsed = parse_status(text or "")
     known = {k for k, _, _ in FIELDS}
     rows = [(k, lab, col) for k, lab, col in FIELDS if fields.get(k)]
     rows += [(k, k.replace("_", " "), DIM) for k in order
@@ -772,8 +777,10 @@ def render_status(text, painter, height, cols=COLS, act=None):
     painter.text(img, 4, y, "RUN", ACCENT)
     if elapsed:
         painter.text(img, 40, y, "t+" + clock(int(elapsed[:-1])), DIM)
-    age = file_age(STATUS)
-    if age is not None:
+    age = file_age(STATUS) if text is not None else None
+    if text is None:
+        painter.text_right(img, y, "no game yet", DIM, right=img.width)
+    elif age is not None:
         painter.text_right(img, y, "updated %s ago" % clock(age), YELLOW if age > 120 else DIM,
                            right=img.width)
     y += LINE + 4
@@ -1096,6 +1103,8 @@ def main():
 
     if args.png:
         obs = read_obs()
+        if obs is None and not os.path.exists(OBS) and read_status() is None:
+            obs = NEW_RUN
         if obs is None:
             sys.exit(f"cannot read {OBS}")
         with open(args.png, "wb") as f:
@@ -1121,6 +1130,10 @@ def main():
                       int(time.time()) // 5, activity_key(act))
             if stamps != last:
                 fresh = read_obs()
+                if fresh is None and not os.path.exists(OBS) and read_status() is None:
+                    # neither file at all is a fresh run (fresh_discovery clears
+                    # both), not a write in progress: drop the old run's team
+                    fresh = NEW_RUN
                 obs = fresh if fresh is not None else obs
                 if obs is not None:
                     # A FRAME THAT FAILS MUST NOT TAKE THE HUD DOWN. Whatever the
