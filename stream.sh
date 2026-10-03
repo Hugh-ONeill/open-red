@@ -35,7 +35,7 @@ if [ "$MODE" != attach ] && [ -n "$running" ]; then
 fi
 
 # the two tiles, from the focused monitor and the gaps/borders in use
-read -r W H LX LY RX RY < <(python3 - <<'EOF'
+read -r W H LX LY RX RY FW < <(python3 - <<'EOF'
 import json, subprocess
 def opt(name):
     d = json.loads(subprocess.check_output(["hyprctl", "getoption", name, "-j"]))
@@ -50,7 +50,9 @@ uw, uh = sw - rl - rr - 2 * go, sh - rt - rb - 2 * go
 col = (uw - 2 * gi) // 2
 w, h = col - 2 * b, uh - 2 * b
 w -= w % 2; h -= h % 2                       # the game keeps even sizes
-print(w, h, x0 + b, y0 + b, x0 + col + 2 * gi + b, y0 + b)
+fw = uw - 2 * b
+fw -= fw % 2
+print(w, h, x0 + b, y0 + b, x0 + col + 2 * gi + b, y0 + b, fw)
 EOF
 )
 echo "[stream] tiles ${W}x${H}: copy at ${LX},${LY}, HUD at ${RX},${RY}"
@@ -84,4 +86,8 @@ pkill -f "tools/shadow/play.py --live" 2>/dev/null || true
 since=()
 [ "$MODE" != attach ] && since=(--since "$(date +%s)")   # only this launch's boots
 setsid nohup python3 -u tools/shadow/play.py --live "${since[@]}" >> run/shadow.log 2>&1 < /dev/null &
+# the HUD across the whole screen while the model authors and the copy is idle
+pkill -f "tools/stream_layout.py" 2>/dev/null || true
+setsid nohup python3 tools/stream_layout.py "$W" "$H" "$LX" "$LY" "$RX" "$RY" "$FW" \
+  >/dev/null 2>&1 < /dev/null &
 echo "[stream] HUD and 1x copy up (copy log: run/shadow.log)"
