@@ -297,20 +297,28 @@ def main():
         # half a guard like this usually breaks. The release above emptied
         # the box, so put something back first — otherwise this would pass
         # or fail for a reason that has nothing to do with the guard.
-        b.send("pc_deposit", slot=n0 - 1)
+        _dep = (b.send("pc_deposit", slot=n0 - 1) or {}).get("result") or {}
         # measure right before, because what the party holds by now depends
         # on what this particular save started with — the last version
         # hard-coded n0-1 and failed on a deposit the PC had refused
         # (it will not take your last Pokemon)
         pre = len((b.obs() or {}).get("party") or [])
-        r = (b.send("pc_withdraw", index=1, box=1) or {}).get("result") or {}
-        o = b.obs() or {}
-        ok = r.get("ok") and len(o.get("party") or []) == pre + 1
-        print(f"  {'ok  ' if ok else 'FAIL'}  ...while pc_withdraw still "
-              f"drives the same screen")
-        if not ok:
-            print(f"          {r.get('detail')}")
-            fails.append("guard blocks real ops")
+        if not _dep.get("ok"):
+            # ...and with a two-member save the release above leaves one,
+            # the PC refuses it, and the box is empty: nothing to withdraw,
+            # for a reason that is not the guard (Mt Moon's Center,
+            # 2026-10-02)
+            print(f"  SKIPPED (withdraw) — the deposit before it was refused "
+                  f"({str(_dep.get('detail'))[:80]}), so the box is empty")
+        else:
+            r = (b.send("pc_withdraw", index=1, box=1) or {}).get("result") or {}
+            o = b.obs() or {}
+            ok = r.get("ok") and len(o.get("party") or []) == pre + 1
+            print(f"  {'ok  ' if ok else 'FAIL'}  ...while pc_withdraw still "
+                  f"drives the same screen")
+            if not ok:
+                print(f"          {r.get('detail')}")
+                fails.append("guard blocks real ops")
 
         # ================= THE COUNTER =================
         # This is where the guard was actually earned: fifteen POKE_BALLs
@@ -344,9 +352,17 @@ def main():
                      or {}).get("result") or {}
                 o = b.obs() or {}
                 ok = r.get("ok") and (o.get("money") or 0) > (money0 or 0)
-                print(f"  {'ok  ' if ok else 'FAIL'}  sell still drives the "
-                      f"counter ({_sell}: money {money0} -> {o.get('money')})")
-                if not ok:
+                # no mart outside this Center (Mt Moon's opens on Route 4):
+                # the refusal is the op telling the truth, not the guard
+                _nomart = (not r.get("ok")
+                           and "no shop clerk here" in str(r.get("detail") or ""))
+                if _nomart:
+                    print(f"  SKIPPED (sell) — no mart on "
+                          f"{(o.get('map') or {}).get('id')}")
+                else:
+                    print(f"  {'ok  ' if ok else 'FAIL'}  sell still drives the "
+                          f"counter ({_sell}: money {money0} -> {o.get('money')})")
+                if not ok and not _nomart:
                     print(f"          {r.get('detail')}")
                     fails.append("sell")
 
