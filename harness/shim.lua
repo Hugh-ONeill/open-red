@@ -4435,11 +4435,17 @@ local function settle_slide(G)
   end
 end
 
-local function walk(G, dir, steps)
+-- keep: leave the direction HELD on arriving (walk_to's smooth walking,
+-- below), so the game takes the next step without stopping; the caller lets
+-- go before it turns or ends. A walk that comes in still moving (wd.walk_held)
+-- turns by holding the new direction, as a player does, not by tap-to-face.
+local function walk(G, dir, steps, keep)
   local ow = G.overworld
+  local cont = keep and wd.walk_held ~= nil
+  wd.walk_held = nil
   for step = 1, steps do
     local p = ow.player
-    if p.facing ~= dir then
+    if p.facing ~= dir and not cont then
       U.tap(G, dir)            -- gen1 tap-to-face
       U.wait(4)
     end
@@ -4466,6 +4472,8 @@ local function walk(G, dir, steps)
     if _slope and dir == "up" and (G.save or {}).onBike then
       U.wait(4)                -- settle with the direction still held
       G.input.state[dir] = false
+    elseif keep and moved and step == steps then
+      wd.walk_held = dir       -- still held: the next step follows on
     else
       G.input.state[dir] = false
       U.wait(4)                -- settle into the cell
@@ -6513,8 +6521,24 @@ local function walk_to_body(G, c)
                       or {}) do
     if mm == startMap then _slope_map = true end
   end
+  -- SMOOTH WALKING. Each cell used to end with the direction let go, four
+  -- settle frames and twelve still frames for a slide that almost never
+  -- comes: a stop-start shuffle the 1x copy of the run shows plainly (user,
+  -- 2026-10-03: "5 presses of the left direction -> left-direction held for 5
+  -- steplengths"). Now the direction stays held while the path goes on, and
+  -- the next one is chosen at the arrival, before the game's next step, so a
+  -- held key can never carry the party a cell the path did not want. Off on
+  -- maps that move the party on their own (spinners, forced tiles, slopes)
+  -- and with RED_SMOOTH_WALK=0.
+  local _fm = (G.data and G.data.field and G.data.field.forcedMovement) or {}
+  local _smooth = os.getenv("RED_SMOOTH_WALK") ~= "0" and not _slope_map
+    and not ((G.data and G.data.field and G.data.field.spinners) or {})[startMap]
+    and not ((_fm.tiles or {})[startMap])
   local function _step(dir)
-    if not (_slope_map and dir == "up") then return walk(G, dir, 1) end
+    if wd.walk_held and wd.walk_held ~= dir then
+      G.input.state[wd.walk_held] = false   -- turning: let the old way go first
+    end
+    if not (_slope_map and dir == "up") then return walk(G, dir, 1, _smooth) end
     local y0, st = p.cellY, 0
     G.input.state["up"] = true
     for _ = 1, 240 do
@@ -6537,7 +6561,9 @@ local function walk_to_body(G, c)
     if _slope_map and (G.save or {}).onBike then
       G.input.state["b"] = true       -- the brake, re-held (see OPS.walk_to)
     end
-    settle_slide(G)                   -- let a slide or hop finish first
+    -- let a slide or hop finish first; a held step that just landed is
+    -- neither, and waiting here is the stop between cells
+    if not (wd.walk_held and not p.moving) then settle_slide(G) end
     if G.stack:top() ~= ow then
       return true, "interrupted (battle or script)"
     end
@@ -6667,6 +6693,11 @@ function OPS.walk_to(G, c)
   end
   if _brake then G.input.state["b"] = true end
   local ok, why = walk_to_body(G, c)
+  if wd.walk_held then                -- every way out lets go, then settles
+    G.input.state[wd.walk_held] = false
+    wd.walk_held = nil
+    U.wait(4)
+  end
   if _brake then G.input.state["b"] = false end
   return ok, why
 end
