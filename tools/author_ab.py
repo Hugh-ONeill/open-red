@@ -346,6 +346,122 @@ def run_full(name, n, arms, force=False):
                   f"route: {' > '.join(s['route'])[:90]}", flush=True)
 
 
+# ------- draws: do the drafts differ? three ways of asking for them
+
+EXCLUDE_NOTE = ("\n\nYOU HAVE ALREADY DRAFTED THESE PLANS FOR THIS GOAL (the maps each one goes "
+                "through):\n{routes}\nWrite a plan whose route is DIFFERENT from every one of "
+                "them: a different first place to go, or a different way through. Everything "
+                "else in the rules above still holds.")
+IDEAS_NOTE = ("\n\nBEFORE YOU PLAN: name three DIFFERENT ideas for how this goal could be "
+              "reached, each one sentence saying where you would go first and why. The ideas "
+              "must not be rewordings of each other. Reply with JSON only: "
+              "{{\"ideas\": [\"...\", \"...\", \"...\"]}}")
+IDEA_NOTE = "\n\nPLAN THIS IDEA, and only this one: {idea}"
+
+
+def target(name, maps):
+    """The case's right answer for draws: a draft 'hits' when its route goes
+    through any of these maps (set by hand from what finally worked)."""
+    d = case_dir(name)
+    meta = json.loads((d / "case.json").read_text())
+    meta["hit_any"] = maps
+    (d / "case.json").write_text(json.dumps(meta, indent=1))
+    print(f"{name}: a draft hits when its route goes through any of {maps}")
+
+
+def draws(name, n, methods, k=3, force=False):
+    """N authoring passes per method, each of k drafts from the case's exact
+    prompt at the draft temperature, interleaved by method:
+      sample   k independent drafts, as author.py draws them today
+      exclude  each draft is shown the routes already drafted and asked to differ
+      hypo     one call for k different ideas, then one draft per idea
+    The harness never says WHAT to do differently: every idea is the model's.
+    Each draft is scored by the author's own checks, its route, and whether it
+    goes through the case's hit_any maps (author_ab.py target)."""
+    if chain_up() and not force:
+        sys.exit("the chain is running; this needs the GPU to itself (--force to override)")
+    d = case_dir(name)
+    meta = json.loads((d / "case.json").read_text())
+    hit_any = set(meta.get("hit_any") or [])
+    prompt = json.loads((d / "prompt.json").read_text())
+    sys.path.insert(0, str(REPO / "planner"))
+    os.environ["RED_RUN_DIR"] = str(d / "run")
+    import brock_probe as B
+    temp = prompt.get("temp")
+    sys_msg, user = prompt["messages"][0], prompt["messages"][-1]["content"]
+    out = d / "results_draws.jsonl"
+
+    def ask(text):
+        t = time.time()
+        reply = B.chat([sys_msg, {"role": "user", "content": text}], MODEL, temp=temp)
+        return reply, time.time() - t
+    for i in range(n):
+        for method in methods:
+            if chain_up() and not force:
+                print("the chain came up; stopping here so it has the GPU", flush=True)
+                return
+            drafts, ideas, calls, wall = [], None, 0, 0.0
+            try:
+                if method == "hypo":
+                    reply, w = ask(user + IDEAS_NOTE)
+                    calls, wall = calls + 1, wall + w
+                    m = re.search(r"\{.*\}", reply, re.S)
+                    try:
+                        ideas = [str(x) for x in json.loads(m.group(0)).get("ideas", [])][:k] if m else []
+                    except ValueError:
+                        ideas = []
+                for j in range(k):
+                    if method == "sample":
+                        text = user
+                    elif method == "exclude":
+                        routes = "\n".join(f"{n_ + 1}. {' > '.join(x['route']) or '(no maps named)'}"
+                                            for n_, x in enumerate(drafts))
+                        text = user + (EXCLUDE_NOTE.format(routes=routes) if drafts else "")
+                    else:
+                        text = user + (IDEA_NOTE.format(idea=ideas[j]) if ideas and j < len(ideas) else "")
+                    reply, w = ask(text)
+                    calls, wall = calls + 1, wall + w
+                    sc = score(d, reply)
+                    drafts.append({"route": sc["route"], "valid": sc["parsed"] and not sc["problems"],
+                                   "problem": (sc["problems"] or [""])[0][:200],
+                                   "hit": bool(hit_any & set(sc["route"]))})
+            except Exception as e:
+                print(f"{name} {method} #{i + 1}: {type(e).__name__}: {e}", flush=True)
+                continue
+            routes = {tuple(x["route"]) for x in drafts}
+            firsts = {x["route"][0] if x["route"] else None for x in drafts}
+            rec = {"t": time.time(), "method": method, "i": i, "k": k, "calls": calls, "wall": round(wall, 1),
+                   "ideas": ideas, "drafts": drafts, "distinct_routes": len(routes),
+                   "distinct_first": len(firsts), "any_hit": any(x["hit"] for x in drafts),
+                   "valid": sum(x["valid"] for x in drafts)}
+            with open(out, "a") as f:
+                f.write(json.dumps(rec) + "\n")
+            print(f"{name} {method:7s} #{i + 1}: {len(routes)} distinct routes, {len(firsts)} first maps, "
+                  f"hit {'YES' if rec['any_hit'] else 'no '}, valid {rec['valid']}/{k}, {wall:5.0f}s", flush=True)
+            for x in drafts:
+                print(f"     {'*' if x['hit'] else ' '}{'ok ' if x['valid'] else 'BAD'} {' > '.join(x['route'])[:110]}")
+
+
+def report_draws(names):
+    names = names or sorted(p.name for p in ROOT.iterdir() if (p / "results_draws.jsonl").exists())
+    for name in names:
+        d = case_dir(name)
+        if not (d / "results_draws.jsonl").exists():
+            continue
+        meta = json.loads((d / "case.json").read_text())
+        rows = [json.loads(l) for l in open(d / "results_draws.jsonl")]
+        print(f"\n== {name}: {meta['goal']}   (hit = through any of {meta.get('hit_any')})")
+        for method in ("sample", "exclude", "hypo"):
+            r = [x for x in rows if x["method"] == method]
+            if not r:
+                continue
+            same = sum(1 for x in r if x["distinct_routes"] == 1)
+            print(f"  {method:7s} passes={len(r)}  distinct routes/pass {statistics.mean(x['distinct_routes'] for x in r):.2f}"
+                  f"  all-identical {same}/{len(r)}  any draft hits {sum(x['any_hit'] for x in r)}/{len(r)}"
+                  f"  valid drafts {sum(x['valid'] for x in r)}/{sum(x['k'] for x in r)}"
+                  f"  {statistics.median(x['wall'] for x in r):.0f}s/pass")
+
+
 def report(names):
     names = names or sorted(p.name for p in ROOT.iterdir()
                             if (p / "results.jsonl").exists() or (p / "results_full.jsonl").exists())
@@ -389,6 +505,17 @@ def main():
     r.add_argument("--force", action="store_true")
     r.add_argument("--full", action="store_true",
                    help="the whole authoring pass per sample (drafts, picker, review, retries)")
+    dr = sub.add_parser("draws", help="do the drafts differ? sample / exclude / hypo")
+    dr.add_argument("case")
+    dr.add_argument("--n", type=int, default=3, help="authoring passes per method")
+    dr.add_argument("--k", type=int, default=3, help="drafts per pass")
+    dr.add_argument("--methods", default="sample,exclude,hypo")
+    dr.add_argument("--force", action="store_true")
+    tg = sub.add_parser("target", help="the case's right answer: maps a hitting draft goes through")
+    tg.add_argument("case")
+    tg.add_argument("maps", nargs="+")
+    rd = sub.add_parser("report-draws")
+    rd.add_argument("cases", nargs="*")
     p = sub.add_parser("report")
     p.add_argument("cases", nargs="*")
     a = ap.parse_args()
@@ -396,6 +523,12 @@ def main():
         snapshot(a.case, a.goal, a.start, a.force, a.from_case)
     elif a.cmd == "prompts":
         prompts(a.case)
+    elif a.cmd == "draws":
+        draws(a.case, a.n, a.methods.split(","), a.k, a.force)
+    elif a.cmd == "target":
+        target(a.case, a.maps)
+    elif a.cmd == "report-draws":
+        report_draws(a.cases)
     elif a.cmd == "run" and a.full:
         run_full(a.case, a.n, a.arms.split(","), a.force)
     elif a.cmd == "run":
