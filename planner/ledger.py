@@ -1634,7 +1634,32 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
         # front of it"). The save knows, and so does any player: a
         # trainer you have beaten does not fight you again.
         if kind == "trainer" and o.get("beaten") is False:
-            c.status = "unbeaten"
+            # ...BUT ONE YOU CANNOT WALK TO IS STILL ONE YOU CANNOT WALK TO.
+            # "unbeaten" replaced "unreachable", so ROCKET4 on Mt Moon B2F
+            # read "still standing here" from both parts of the floor the
+            # run had stood in, neither of which reaches him, and the run
+            # shuttled between them for twenty rounds (run 29, 2026-10-02,
+            # user: "its just pingponging between the two incorrect bf2
+            # rooms"). Not beaten is said beside the verdict, not over it.
+            if c.status == "unreachable":
+                c.note = _join(c.note, "you have not beaten them")
+            else:
+                c.status = "unbeaten"
+        # WHICH PART OF THIS FLOOR REACHES IT, IF ANY — the doors' rule
+        # (see the warp rows above), for a person or thing: recall of
+        # walked ground only, never where an unwalked way starts.
+        if c.status == "unreachable" and kind not in ("boulder", "cut_tree"):
+            _ofr = [str(x) for x in (o.get("from") or []) if x]
+            _osp = int(o.get("stood_parts") or 0)
+            if _ofr:
+                c.note = _join(c.note, "the ground you stood on in "
+                               + ", ".join(_ofr[:2]) + " DOES reach it")
+            elif _osp:
+                c.note = _join(c.note,
+                               f"nor does any of the {_osp} other part(s) of "
+                               f"this floor you have stood in — its way in "
+                               f"is ground you have not stood on: unseen "
+                               f"ground on this floor, or another floor")
         out.append(c)
 
     # A SHUTTER THAT ASKED FOR A THING YOU NOW HOLD IS NOT DONE. Silph 9F

@@ -1583,11 +1583,29 @@ local function seen_filter(G, o)
               w.from[#w.from + 1] = m.id .. "|" .. name
             end
           end
+          -- ...AND FOR EVERY PERSON OR THING NO WALK FROM HERE REACHES.
+          -- ROCKET4 on Mt Moon B2F read "still standing here" from both
+          -- parts of the floor the run had stood in, and the run went
+          -- between them by B1F for twenty rounds, each part sure the
+          -- other reached him (run 29, 2026-10-02, user: "its just
+          -- pingponging between the two incorrect bf2 rooms").
+          for _, ob in ipairs(m.objects or {}) do
+            if ob.reachable == false and not ob.by_water
+               and near_in(d2, ob.x, ob.y) then
+              ob.from = ob.from or {}
+              ob.from[#ob.from + 1] = m.id .. "|" .. name
+            end
+          end
         end
       end
       for _, w in ipairs(m.warps or {}) do
         if w.reachable == false and not w.by_water then
           w.stood_parts = nparts
+        end
+      end
+      for _, ob in ipairs(m.objects or {}) do
+        if ob.reachable == false and not ob.by_water then
+          ob.stood_parts = nparts
         end
       end
       table.sort(from, function(a, b) return a.n > b.n end)
