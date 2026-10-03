@@ -521,6 +521,12 @@ PROG = re.compile(r"prompt processing, n_tokens =\s*(\d+), progress = ([\d.]+)")
 
 
 def model_activity():
+    if not VIEW["live"]:
+        return {"phase": "idle", "since": None}      # the copy is showing play, not the model now
+    return _model_activity()
+
+
+def _model_activity():
     """The model's current call, from the ollama service log: None when the
     log cannot be read, else a dict with phase reading / writing / idle."""
     try:
@@ -689,7 +695,7 @@ def draw_author_log(img, painter, y0, height, cols, log):
 def draw_events(img, painter, y0, height, cols):
     """The event feed (tools/events.py) in the column's free space, newest at
     the bottom like a chat, as many as fit."""
-    blocks = _stamped(feed.last_events(40, min_level=2), cols)
+    blocks = _stamped(feed.last_events(40, min_level=2, until=VIEW["t"]), cols)
     if not blocks:
         blocks = [[(None, "none yet (tools/events.py --follow)", DIM)]]
     bottom_panel(img, painter, y0, height, cols, "EVENTS", ACCENT, blocks)
@@ -786,7 +792,7 @@ def render_status(text, painter, height, cols=COLS, act=None):
     y += LINE + 4
     draw_activity(img, painter, y, act)
     y += LINE + 6
-    phase = feed.read_phase() or {}
+    phase = phase_now() or {}
     if phase.get("phase") == "authoring":
         y = draw_authoring(img, painter, y, height, cols, phase)
         rows = []                      # the playing fields are stale meanwhile
@@ -802,7 +808,7 @@ def render_status(text, painter, height, cols=COLS, act=None):
             painter.text(img, 12, y, line, col)
             y += LINE
         y += 4
-    lc = feed.live_call()
+    lc = feed.live_call() if VIEW["live"] else None
     if lc and not lc["done"] and (lc["think"] or phase.get("phase") == "authoring"):
         # a thinking call anywhere, or any call while a plan is written:
         # the words as they come (a plain round is too quick to be worth it)
@@ -863,7 +869,7 @@ def render(obs, status_text, painter, layout="side", height=None, width=None,
         # not change while a plan is written)
         k = int(layout[3:] or 2)
         start = ((obs or {}).get("map") or {}).get("id")
-        tm = framed(townmap.render(feed.read_phase() or {}, start, k), painter, "KANTO")
+        tm = framed(townmap.render(phase_now() or {}, start, k), painter, "KANTO")
         mw = tm.width + 4
         rest = (width or mw + GUTTER + COLS * 8 + 8 + 2 * FR) - mw - GUTTER
         cols = max(MIN_COLS, (rest - 8 - 2 * FR) // 8)
@@ -949,7 +955,7 @@ def world_view(size):
     never swaps the view and the way in or out stays on screen (user,
     2026-10-03, on swapping views: "the awkward exit also comes with an
     awkward entrance"). Drawn again only when what it shows changed."""
-    phase = feed.read_phase() or {}
+    phase = phase_now() or {}
     hist = townmap.run_history()
     here = worldmap.where()
     data = worldmap.load()
@@ -1033,10 +1039,35 @@ def read_obs():
     # fresh; the run's obs.json otherwise (no copy, or the copy idle while
     # the model authors, when the two agree). The shim rewrites obs.json in
     # place; a half-written file is skipped and the next change picks it up.
-    return worldmap.current_obs(OBS)
+    obs = worldmap.current_obs(OBS)
+    # ...AND THE WORDS BESIDE IT FROM THE SAME MOMENT. The copy says which
+    # second of the run it is showing (run_t); the status, the phase and the
+    # events are then read as they stood at that second, so the HUD never
+    # announces a fight the screen has not reached. Within LIVE_S of now the
+    # copy has caught up, and the live model line comes back.
+    t = (obs or {}).get("run_t") if (obs or {}).get("source") == "copy" else None
+    VIEW["t"] = t
+    VIEW["live"] = t is None or time.time() - t < LIVE_S
+    return obs
+
+
+VIEW = {"t": None, "live": True}
+LIVE_S = 20
+
+
+def phase_now():
+    if VIEW["t"] is not None:
+        p = feed.phase_at(VIEW["t"])
+        if p is not None:
+            return p
+    return feed.read_phase()
 
 
 def read_status():
+    if VIEW["t"] is not None:
+        past = feed.status_at(VIEW["t"])
+        if past is not None:
+            return past
     try:
         with open(STATUS) as f:
             return f.read()
@@ -1085,7 +1116,7 @@ def main():
 
     def frame_bytes(obs, status_text, win=None, act=None):
         team_h = TOP + CARD_H * 6 + FOE_H              # room for a battle's foe card too
-        phase = feed.read_phase() or {}
+        phase = phase_now() or {}
         fitted = (fit_world(win) or fit_map(win)) if (win and phase.get("phase") == "authoring") else None
         layout, scale, height, width = fitted or fit(win, team_h)
         if args.scale:

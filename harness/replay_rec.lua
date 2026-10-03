@@ -158,8 +158,22 @@ return function(BRIDGE)
   -- 3. the step itself: jumps first, then the check, then the step
   local o_step = Game.step
   local view_key = nil
+  -- WHEN EACH STEP RAN, to the second: "T step epoch" whenever the clock's
+  -- second moved since the last step (so also on the first step after the
+  -- model's thinking, when logic was held still), and at every observation.
+  -- The copy turns its step into the run's wall time with it, and the HUD
+  -- shows the events and status as they stood then, not the run's now.
+  local last_t = nil
+  R.stamp = function(n)
+    local t = os.time()
+    if t ~= last_t then
+      put(string.format("T %d %d", n, t))
+      last_t = t
+    end
+  end
   Game.step = function(self, dt, ...)
     local n = next_step()
+    R.stamp(n)
     -- the window's size every step (cheap); the view it gives when it moved,
     -- and every CHECK_EVERY steps in case a zoom option moved it alone
     local okd, pw, ph = pcall(love.graphics.getDimensions)
@@ -281,6 +295,7 @@ return function(BRIDGE)
   -- (every flush closes the open run first: the file is then complete up to
   -- its newest line, and the copy may play everything up to it)
   R.close = function()
+    pcall(R.stamp, next_step())
     R.closing = true
     close_run()
     R.closing = false

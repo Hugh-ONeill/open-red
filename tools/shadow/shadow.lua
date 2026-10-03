@@ -67,6 +67,7 @@ local L = {
   events = {}, ev_i = 1,          -- {step, kind, arg}
   checks = {}, ck_i = 1,          -- {step, rng, map, x, y}
   views = {}, vw_i = 1,           -- {step, window w, h, view w, h}
+  times = {}, tm_i = 1,           -- {step, epoch}: when the run ran that step
   ended = false,
 }
 local function split(s, sep)
@@ -123,6 +124,12 @@ local function read_more()
       local s, r, m, x, y = rest:match("^(%d+) (%S+) (%S+) (%S+) (%S+)$")
       if s then
         L.checks[#L.checks + 1] = { tonumber(s), r, m, x, y }
+        L.horizon = math.max(L.horizon, tonumber(s) - 1)
+      end
+    elseif kind == "T" then
+      local s, t = rest:match("^(%d+) (%d+)$")
+      if s then
+        L.times[#L.times + 1] = { tonumber(s), tonumber(t) }
         L.horizon = math.max(L.horizon, tonumber(s) - 1)
       end
     elseif kind == "V" then
@@ -332,9 +339,17 @@ local function jstr(v)
   end
   return "null"
 end
+-- the run's wall time at the step this copy is on (the latest T at or before it)
+local function run_time(n)
+  while L.times[L.tm_i + 1] and L.times[L.tm_i + 1][1] <= n do L.tm_i = L.tm_i + 1 end
+  local tm = L.times[L.tm_i]
+  return tm and tm[1] <= n and tm[2] or nil
+end
+
 local function snapshot(game)
   local save = game.save or {}
-  local o = { step = Game.logicStep or 0, seg = SEG, t = os.time(), source = "copy" }
+  local o = { step = Game.logicStep or 0, seg = SEG, t = os.time(), source = "copy",
+              run_t = run_time(Game.logicStep or 0) }
   o.player_name = save.player and save.player.name
   o.party = {}
   for i, mon in ipairs(save.party or {}) do

@@ -34,6 +34,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RUN = os.path.join(HERE, "..", "run")
 JOURNAL = os.path.join(RUN, "executor_log.jsonl")
 OBS = os.path.join(RUN, "obs.json")
+STATUS = os.path.join(RUN, "status.txt")
 FEED = os.environ.get("RED_EVENTS") or os.path.expanduser(
     "~/.local/state/red-recomp/events.jsonl")
 
@@ -241,6 +242,65 @@ def write_phase(phase):
     with open(tmp, "w") as f:
         json.dump(phase, f)
     os.replace(tmp, PHASE)
+    hist_append("phase", {"phase": phase})
+
+
+# WHAT THE HUD SHOWED AT A GIVEN TIME. On stream the game on screen is the 1x
+# copy, minutes behind the run; the status and the authoring phase the HUD
+# prints must be the ones from the moment the copy is showing, or it reads
+# out what is about to happen. Every change to either is kept here with its
+# time; status_at / phase_at read the latest one at or before a moment.
+HISTORY = os.path.join(os.path.dirname(FEED), "history.jsonl")
+HISTORY_MAX = 30_000_000
+
+
+def hist_append(kind, rec, t=None):
+    try:
+        os.makedirs(os.path.dirname(HISTORY), exist_ok=True)
+        with open(HISTORY, "a") as f:
+            f.write(json.dumps(dict(rec, kind=kind, t=t or time.time())) + "\n")
+        if os.path.getsize(HISTORY) > HISTORY_MAX:          # keep the newest third
+            with open(HISTORY, "rb") as f:
+                f.seek(-HISTORY_MAX // 3, 2)
+                tail = f.read().split(b"\n", 1)[-1]
+            with open(HISTORY + ".tmp", "wb") as f:
+                f.write(tail)
+            os.replace(HISTORY + ".tmp", HISTORY)
+    except OSError:
+        pass
+
+
+def _hist_at(kind, t, tail=6_000_000):
+    best = None
+    try:
+        with open(HISTORY, "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - tail))
+            lines = f.read().decode("utf-8", "replace").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        if f'"kind": "{kind}"' not in line:
+            continue
+        try:
+            r = json.loads(line)
+        except ValueError:
+            continue
+        if r.get("t", 0) <= t:
+            best = r
+        else:
+            break
+    return best
+
+
+def status_at(t):
+    r = _hist_at("status", t)
+    return r.get("text") if r else None
+
+
+def phase_at(t):
+    r = _hist_at("phase", t)
+    return r.get("phase") if r else None
 
 
 AUTHOR_LOG_MAX = 40
@@ -456,6 +516,18 @@ def follow(poll=0.5):
             if line and line != state.get("live_last"):
                 append("thinking", "round", "thinking (%ds in): %s" % (time.time() - lt[1], line))
                 state["live_last"], state["live_at"] = line, time.time()
+        # the status column, every change, for status_at
+        try:
+            st = os.stat(STATUS).st_mtime
+        except OSError:
+            st = None
+        if st and st != state.get("status_t"):
+            state["status_t"] = st
+            try:
+                with open(STATUS) as f:
+                    hist_append("status", {"text": f.read()}, t=st)
+            except OSError:
+                pass
         # the party
         try:
             s = os.stat(OBS).st_mtime_ns
@@ -581,7 +653,7 @@ def load_feed():
         return []
 
 
-def last_events(n, min_level=1):
+def last_events(n, min_level=1, until=None):
     """The last n events at or above min_level, newest last (the HUD asks for
     level 2; a record from before levels existed counts as 2)."""
     out = []
@@ -598,7 +670,7 @@ def last_events(n, min_level=1):
             e = json.loads(line)
         except ValueError:
             continue
-        if e.get("level", 2) >= min_level:
+        if e.get("level", 2) >= min_level and (until is None or (e.get("t") or 0) <= until):
             out.append(e)
     return out[-n:]
 
