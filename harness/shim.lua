@@ -81,6 +81,16 @@ local wd = { co = nil, budget = nil, frames = 0, label = "?" }
 -- the step path's recorder (see STEPS_WALKED's note) lives on wd: the main
 -- chunk is at Lua's 200-local limit, so it cannot have a name of its own
 wd.steps = { buf = {}, last = nil }
+-- the replay recorder (harness/replay_rec.lua): what a second copy of the
+-- game needs to play this run again at watching speed. Viewer-only; on wd
+-- for the same 200-local reason. RED_REPLAY_REC=0 turns it off.
+wd.rec = (function()
+  local here = (os.getenv("POKEPORT_DRIVER") or ""):gsub("shim%.lua$", "replay_rec.lua")
+  local ok, mk = pcall(dofile, here)
+  if not ok or type(mk) ~= "function" then return nil end
+  local ok2, r = pcall(mk, BRIDGE)
+  return ok2 and r or nil
+end)()
 function wd.steps.flush()
   local S = wd.steps
   if #S.buf == 0 or not BRIDGE then return end
@@ -4295,6 +4305,7 @@ local function observe(G, seq, result)
   o.money = G.save and G.save.money
   o.steps_walked = STEPS_WALKED
   wd.steps.flush()               -- the step path goes out with every observation
+  if wd.rec then pcall(wd.rec.close) end  -- and the replay log
   -- Set event flags, for the EXECUTOR's done_when predicates (SPD tier 0).
   -- Instrumentation, not model eyes: the model-facing obs builder must strip
   -- this per CLAIM_RULES ("milestone/event flags are instrumentation").
