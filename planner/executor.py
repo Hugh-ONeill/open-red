@@ -2847,6 +2847,49 @@ class Executor:
                 return None
         return None
 
+    def _new_part_ruled_out(self, sg, obs) -> str | None:
+        """Why a "part of MAP you have not stood in" step is answered, or None.
+
+        A new_part step (frozen to {"map", "not_area": [parts stood in]})
+        can ask for ground that is not there. Run 29's Mt Moon leg asked for
+        a third part of ROUTE_3: the north strips it had not seen yet were on
+        foot from the two parts it had, so seeing them could never finish
+        the step, and after one sweep had shown all of it the run went on
+        looking for fourteen rounds (2026-10-02, user: "maybe something like
+        the done condition also getting fulfilled by proving that its
+        impossible by seeing all the reachable ground").
+
+        Answered when, standing on that map in a part the step rules out,
+        the screen has shown everything a walk from here reaches (no seen
+        ground ends at unseen ground) and every cell seen is walkable from
+        here, but for a person's or a thing's own tile. The run's record
+        only: a part of the map entered from another map is not ruled out,
+        and the words say so."""
+        dw = (sg or {}).get("done_when")
+        if not (isinstance(dw, dict) and dw.get("map") and dw.get("not_area")
+                and not (set(dw) - self.WAYPOINT_KEYS)):
+            return None
+        if (obs or {}).get("mode") != "overworld":
+            return None
+        m = obs.get("map") or {}
+        mp = str(dw["map"])
+        if str(m.get("id")) != mp or not isinstance(m.get("seen"), dict):
+            return None
+        na = dw["not_area"]
+        na = [na] if isinstance(na, str) else [str(x) for x in (na or [])]
+        if self._where(obs) not in na:
+            return None
+        if m.get("frontier"):
+            return None
+        su = m.get("seen_unreached") or {}
+        if int(su.get("n") or 0) - int(su.get("beside_n") or 0) > 0:
+            return None
+        return (f"every bit of {mp} a walk from where you stand reaches has "
+                f"been on screen, and all of it lies in part(s) you have "
+                f"stood in ({', '.join(na)}): no part of {mp} you have not "
+                f"stood in is on foot from there. A part of it entered from "
+                f"another map is not ruled out.")
+
     def _later_steps_true(self, sg, obs) -> list:
         """The plan's LATER steps whose condition already holds where the
         party stands: [(id, done_when), ...], in plan order.
@@ -25935,6 +25978,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                           f"the party stands — moving on)")
                     self._skipped = sg["id"]
                     return True, []
+                _ruled = self._new_part_ruled_out(sg, cur)
+                if _ruled:
+                    self.log("subgoal_ruled_out", subgoal=sg["id"], round=rnd,
+                             why=_ruled, at=self._where(cur))
+                    print(f"   ({sg['id']} answered: {_ruled})")
+                    self._skipped = sg["id"]
+                    return True, []
             stuck_note = ""      # per-round; the walk-back note appends below
             # THE PARTY'S HP IS ON THE SCREEN EVERY ROUND, so it is on the
             # page every round. It was said only for a become-goal
@@ -27274,6 +27324,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     print(f"   ({sg['id']} only asks to be on a map, and the "
                           f"plan's later step {_past} already holds — moving on)")
                     return True
+                _ruled = self._new_part_ruled_out(sg, obs)
+                if _ruled:
+                    self.log("subgoal_ruled_out", subgoal=sg["id"], why=_ruled,
+                             at=self._where(obs), via="pre-check")
+                    print(f"   ({sg['id']} answered: {_ruled})")
+                    return True
             self.log("subgoal_attempt", subgoal=sg["id"], attempt=attempt)
             self.status(subgoal=sg["id"], goal_text=sg.get("goal_text"),
                         done_when=sg.get("done_when"), obs=obs,
@@ -27523,6 +27579,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             print(f"== subgoal: {sg['id']} (only asks to be on a map, and the "
                   f"plan's later step {_past0} already holds — moving on)")
             self.log("subgoal_auto_skipped", subgoal=sg["id"], later=_past0,
+                     via="entry")
+            return True
+        try:
+            _ruled0 = (self._new_part_ruled_out(sg, _o0)
+                       if _o0 and _o0.get("mode") == "overworld" else None)
+        except Exception:
+            _ruled0 = None
+        if _ruled0:
+            print(f"== subgoal: {sg['id']} (answered: {_ruled0})")
+            self.log("subgoal_ruled_out", subgoal=sg["id"], why=_ruled0,
                      via="entry")
             return True
         try:

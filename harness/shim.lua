@@ -1609,8 +1609,30 @@ local function seen_filter(G, o)
         end
       end
       table.sort(from, function(a, b) return a.n > b.n end)
+      -- HOW MANY OF THEM ARE ONLY SOMEONE'S OWN TILE: a person or a thing
+      -- standing on a cell beside ground you walk. Nobody walks onto a
+      -- trainer, so Route 3's nine "cells you cannot walk to" were its nine
+      -- trainers, and nothing told them apart from a pocket of floor (run
+      -- 29, 2026-10-02). The rows still count them; this says which.
+      local beside_n = 0
+      do
+        local occ = {}
+        for _, ob in ipairs(m.objects or {}) do
+          if ob.x and ob.y then occ[ob.x .. "," .. ob.y] = true end
+        end
+        for _, u in ipairs(unreached) do
+          if occ[u.x .. "," .. u.y] then
+            for _, d in pairs(SDIRS) do
+              if dist[(u.x + d[1]) .. "," .. (u.y + d[2])] then
+                beside_n = beside_n + 1
+                break
+              end
+            end
+          end
+        end
+      end
       m.seen_unreached = { n = un_n, near = near, from = from,
-                           sealed = sealed_n }
+                           sealed = sealed_n, beside_n = beside_n }
     end
   end
 end

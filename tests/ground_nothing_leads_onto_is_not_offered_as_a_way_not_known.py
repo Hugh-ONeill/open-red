@@ -43,7 +43,7 @@ ck("...and calls it sealed only with no door, water, person, size or real edge",
    "                       and pk.all_seen\n"
    "                       and #pk.doors == 0 and (indoor or not pk.edge)" in sh)
 ck("...publishing the sealed count beside the rest",
-   "sealed = sealed_n }" in sh and "{ n = 0, sealed = sealed_n, near = {}, from = {} }" in sh)
+   "sealed = sealed_n, beside_n = beside_n }" in sh and "{ n = 0, sealed = sealed_n, near = {}, from = {} }" in sh)
 
 led = (ROOT / "planner/ledger.py").read_text()
 ck("the page says sealed ground for what it is",
