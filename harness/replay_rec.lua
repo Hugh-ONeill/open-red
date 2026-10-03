@@ -14,7 +14,10 @@
 --   * jumps the driver makes between steps: a checkpoint restored (written
 --     out whole), the random generator set, a save written by the harness
 -- plus the generator's state at boot and every CHECK_EVERY steps, which the
--- copy compares to say where it stopped matching.
+-- copy compares to say where it stopped matching, and the window and view
+-- size whenever they change: how much map the window shows is logic here
+-- (which neighbor maps load and wander, which NPCs a map entry resets), so
+-- a copy in another window drifted (run 36, step 369,000, Pallet Town).
 --
 -- Viewer-only: nothing here is read by the planner or the model. Off with
 -- RED_REPLAY_REC=0. One directory per boot under $RED_BRIDGE_DIR/replay/.
@@ -28,6 +31,9 @@ return function(BRIDGE)
   end
   local CHECK_EVERY = 1800        -- 30 s of game time: a sync check, and the
                                   -- copy's horizon while the run only idles
+  -- RED_REPLAY_CHECK=n checks every n steps instead (1 finds the exact step
+  -- a copy parts from the run; diagnosis only, the log grows ~60 lines/s)
+  CHECK_EVERY = tonumber(os.getenv("RED_REPLAY_CHECK") or "") or CHECK_EVERY
   local FLUSH_LINES = 512
   local seg = string.format("%s/replay/%d-%d", BRIDGE, os.time(),
                             math.floor((os.clock() * 1e6) % 1e6))
@@ -151,8 +157,26 @@ return function(BRIDGE)
 
   -- 3. the step itself: jumps first, then the check, then the step
   local o_step = Game.step
+  local view_key = nil
   Game.step = function(self, dt, ...)
     local n = next_step()
+    -- the window's size every step (cheap); the view it gives when it moved,
+    -- and every CHECK_EVERY steps in case a zoom option moved it alone
+    local okd, pw, ph = pcall(love.graphics.getDimensions)
+    if okd and pw then
+      local key = pw .. "x" .. ph
+      if key ~= view_key or n % CHECK_EVERY == 0 then
+        local okv, vw, vh = pcall(function() return self.renderer:worldViewSize() end)
+        if okv and vw then
+          local full = key .. " " .. vw .. "x" .. vh
+          if full ~= R.view_full then
+            put(string.format("V %d %d %d %d %d", n, pw, ph, vw, vh))
+            R.view_full = full
+          end
+        end
+        view_key = key
+      end
+    end
     if rng_dirty then
       put(string.format("G %d %s", n, rng()))
       rng_dirty = false
@@ -199,6 +223,38 @@ return function(BRIDGE)
         rng_dirty = true
       end
       return ok, code, msg
+    end
+  end
+  -- a draw from the game's generator OUTSIDE a step (the driver calling into
+  -- game code between steps, or draw code, which runs once per 200 steps
+  -- here and every step in the copy) moves the stream logic reads next:
+  -- the next step says where it stands. RED_REPLAY_CHECK also writes who drew.
+  local diag = os.getenv("RED_REPLAY_CHECK") ~= nil
+  for _, fname in ipairs({ "random", "randomNormal" }) do
+    local o = love.math[fname]
+    if type(o) == "function" then
+      local tr_from, tr_to = (os.getenv("RED_REPLAY_TRACE") or ""):match("^(%d+)-(%d+)$")
+      tr_from, tr_to = tonumber(tr_from), tonumber(tr_to)
+      local trf = tr_from and io.open(seg .. "/trace", "w")
+      love.math[fname] = function(...)
+        if trf and R.in_step then
+          local n = step_no()
+          if n >= tr_from and n <= tr_to then
+            local r = o(...)
+            trf:write(n, " ", tostring(r), " ", (debug.traceback("", 2) or ""):gsub("\n%s*", " | "):sub(1, 300), "\n")
+            trf:flush()
+            return r
+          end
+        end
+        if not R.in_step then
+          rng_dirty = true
+          if diag then
+            put(string.format("D %d %s", next_step(),
+                (debug.traceback("", 2) or ""):gsub("\n%s*", " | "):sub(1, 400)))
+          end
+        end
+        return o(...)
+      end
     end
   end
   for _, fname in ipairs({ "setRandomSeed", "setRandomState" }) do

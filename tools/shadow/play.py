@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-GAME_DIR = Path.home() / "Developer/gen1recomp"
+GAME_DIR = Path(os.environ.get("GEN1RECOMP_DIR") or Path.home() / "Developer/gen1recomp")
 LOVE = Path.home() / ".local/share/love"
 LIVE_IDENT = "pokemon-love2d"
 SHADOW_IDENT = "red-shadow"

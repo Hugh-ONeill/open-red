@@ -11,7 +11,9 @@ headless at 1x. Passes when every sync check matched.
 
 --own-audio is the control: the copy asks its own speakers instead of the
 run's recorded answers, and should drift (2026-10-03: step 88,200 of 133,199,
-in the wild battles), which is why the answers are recorded.
+in the wild battles), which is why the answers are recorded. --own-view is
+the other control: the copy keeps its own window instead of the run's, and
+should drift once a map with neighbors is entered.
 """
 from __future__ import annotations
 
@@ -58,6 +60,16 @@ def record(save: Path, out: Path) -> Path:
         b = Bridge(out, timeout=300)
         bootstrap(b, cont=True)
         battles = 0
+        _send = b.send
+
+        def say(op, **kw):
+            r = _send(op, **kw)
+            res = (r or {}).get("result") or {}
+            o = b.obs() or {}
+            print(f"[selftest]   {op:18s} ok={res.get('ok')} {str(res.get('msg') or '')[:70]}"
+                  f" -> {(o.get('map') or {}).get('id')} {o.get('mode')}", flush=True)
+            return r
+        b.send = say
 
         def fight():
             nonlocal battles
@@ -69,11 +81,13 @@ def record(save: Path, out: Path) -> Path:
                 b.send("battle_move", index=1)
 
         b.send("checkpoint_capture", token="esc")
+        b.send("cross", dir="north")      # a map entry with neighbors (town -> route)
         for _ in range(3):
             b.send("grind", steps=60)
             fight()
         b.send("save_game")
         b.send("checkpoint_restore", token="esc")
+        b.send("cross", dir="north")
         b.send("grind", steps=60)
         fight()
         b.send("wait", frames=600)
@@ -91,15 +105,20 @@ def record(save: Path, out: Path) -> Path:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("save", type=Path, help="a slot1.lua standing in grass")
+    ap.add_argument("save", type=Path, help="a slot1.lua in a town with grass to the north (Pallet Town)")
     ap.add_argument("--own-audio", action="store_true", help="the control: no recorded answers")
+    ap.add_argument("--own-view", action="store_true", help="the control: the copy's own window, not the run's")
     a = ap.parse_args()
     out = Path(tempfile.mkdtemp(prefix="shadowtest."))
     seg = record(a.save, out)
     log = (seg / "log").read_text()
     kinds = {k: len(re.findall(rf"^{k} ", log, re.M)) for k in "BIAHRGW"}
     print(f"[selftest] {seg}: " + " ".join(f"{k}={n}" for k, n in kinds.items()))
-    env = dict(os.environ, SHADOW_OWN_AUDIO="1" if a.own_audio else "0")
+    # the copy starts in a different window from the recording game's
+    # (xvfb's 1024x768): the V lines must bring it to the run's view
+    env = dict(os.environ, SHADOW_OWN_AUDIO="1" if a.own_audio else "0",
+               SHADOW_OWN_VIEW="1" if a.own_view else "0",
+               SHADOW_WINDOW=os.environ.get("SHADOW_WINDOW", "800x600"))
     t = time.time()
     out_txt = subprocess.run(
         [sys.executable, str(ROOT / "tools/shadow/play.py"), str(seg), "--headless",
@@ -108,7 +127,7 @@ def main() -> None:
     end = [l for l in out_txt.splitlines() if "end of the log" in l]
     print(f"[selftest] replayed at 1x in {time.time() - t:.0f}s: " + (end[-1] if end else "no end line"))
     ok = bool(end) and "every check matched" in end[-1]
-    if a.own_audio:
+    if a.own_audio or a.own_view:
         print("[selftest] control " + ("DRIFTED, as expected" if not ok else "did NOT drift"))
         sys.exit(0 if not ok else 1)
     sys.exit(0 if ok and kinds["H"] > 0 else 1)

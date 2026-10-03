@@ -124,6 +124,8 @@ end
 read_more()
 assert(L.boot, "no boot line in " .. SEG .. "/log")
 
+local STEP = { on = false }        -- inside Game:step (set by its wrapper below)
+local function in_step_flag() return STEP.on end
 local report_n = 0
 local function report(msg, always)
   report_n = report_n + 1
@@ -136,6 +138,20 @@ end
 
 -- the run's generator as it stood when its driver loaded: same point here
 pcall(love.math.setRandomState, L.boot[3])
+
+-- this copy's own draws outside a step (its draw code runs every frame, the
+-- run's once per 200 steps) come from a generator of their own, so they can
+-- never move the stream its logic reads; the run's are in its G lines
+do
+  local private = love.math.newRandomGenerator(12345)
+  for _, fname in ipairs({ "random", "randomNormal" }) do
+    local o = love.math[fname]
+    love.math[fname] = function(...)
+      if in_step_flag() then return o(...) end
+      return private[fname](private, ...)
+    end
+  end
+end
 
 -- ---------------------------------------------------------------- the view
 local view = nil                 -- {vw, vh} the run's logic saw, once known
@@ -152,12 +168,16 @@ do
   local env_w, env_h = (os.getenv("SHADOW_WINDOW") or ""):match("^(%d+)x(%d+)$")
   if env_w then set_window(tonumber(env_w), tonumber(env_h)) end
   local v = L.views[1]
-  if v and v[1] <= 1 then set_window(v[2], v[3]); view = { v[4], v[5] } end
+  if v and v[1] <= 1 then
+    if os.getenv("SHADOW_OWN_VIEW") ~= "1" then set_window(v[2], v[3]) end
+    view = { v[4], v[5] }
+  end
   local okR, Renderer = pcall(require, "src.render.Renderer")
   if okR and type(Renderer) == "table" and Renderer.worldViewSize then
     local o_wvs = Renderer.worldViewSize
+    local own = os.getenv("SHADOW_OWN_VIEW") == "1"   -- the control
     Renderer.worldViewSize = function(self, ...)
-      if view then return view[1], view[2] end
+      if view and not own then return view[1], view[2] end
       return o_wvs(self, ...)
     end
   end
@@ -257,13 +277,18 @@ local first_bad = nil
 local o_step = Game.step
 Game.step = function(self, dt, ...)
   local n = (Game.logicStep or 0) + 1
+  -- the run's jumps draw from the game's generator as the run's did (a
+  -- restore builds the map's NPCs, each drawing a wander timer), so they
+  -- count as logic here, not as this copy's own drawing
+  STEP.on = true
   while L.events[L.ev_i] and L.events[L.ev_i][1] <= n do
     if L.events[L.ev_i][1] == n then apply(self, L.events[L.ev_i]) end
     L.ev_i = L.ev_i + 1
   end
+  STEP.on = false
   while L.views[L.vw_i] and L.views[L.vw_i][1] <= n do
     local v = L.views[L.vw_i]
-    set_window(v[2], v[3])
+    if os.getenv("SHADOW_OWN_VIEW") ~= "1" then set_window(v[2], v[3]) end
     view = { v[4], v[5] }
     L.vw_i = L.vw_i + 1
   end
@@ -285,7 +310,9 @@ Game.step = function(self, dt, ...)
     L.ck_i = L.ck_i + 1
   end
   in_step, cur_step, cur, cur_i = true, n, answers_for(n), 1
+  STEP.on = true
   local a, b, d = o_step(self, dt, ...)
+  STEP.on = false
   if cur and cur_i <= #cur and not OWN_AUDIO then
     report(("step %d: the run asked %d audio question(s) this copy did not"):format(n, #cur - cur_i + 1))
   end

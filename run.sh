@@ -11,7 +11,7 @@ rm -f "$RED_BRIDGE_DIR"/obs.json "$RED_BRIDGE_DIR"/cmd.lua
 # shim (it ran the main checkout's, and a staged shim change was never
 # booted before it was applied, 2026-10-02)
 RIG="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$HOME/Developer/gen1recomp"
+cd "${GEN1RECOMP_DIR:-$HOME/Developer/gen1recomp}"
 # THE PORT'S OWN SETTINGS ARE RIG CONFIG (TODO (a), 2026-08-25). The shim
 # refuses the presses that change them, but a value already changed lives
 # in options.lua and the dying game rewrites that file on exit — a restart
