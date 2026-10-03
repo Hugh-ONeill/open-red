@@ -8915,6 +8915,14 @@ class Executor:
     def note_transition(self, before_obs, step, after_obs, reason="",
                         op_detail=""):
         """Record: from this area, that exit led there."""
+        # a map left is a cut bush grown back (_note_cut, _pad_recross_for_target)
+        try:
+            _bm = ((before_obs or {}).get("map") or {}).get("id")
+            _am = ((after_obs or {}).get("map") or {}).get("id")
+            if _bm and _am and _bm != _am:
+                self._cut_down = None
+        except Exception:
+            pass
         src, dst = self._where(before_obs), self._where(after_obs)
         if "None" in src or "None" in dst:
             # SAY SO. Every other guard below logs the edge it refuses; this
@@ -11131,10 +11139,32 @@ class Executor:
         self._last_pad_rides = 0
         self._last_pad_detail = ""
         self._last_pad_adjacent = False
+        self._last_pad_kept_cut = ""
         here0 = self._where(obs)
         mymap = here0.split("|")[0]
         if getattr(self, "_recrossing", False):
             return None
+        # A RIDE LEAVES THE MAP, AND LEAVING GROWS A CUT BUSH BACK. Celadon's
+        # bush at (35,32) was cut to open the way round to the gym door; the
+        # door could not be walked to yet (the way runs over ground not seen
+        # since), so this ride took a door it had used before, out of the
+        # city and back, and the bush stood again. Three cuts, three rides,
+        # and the run left for good (run 36, 2026-10-03, user: "its trying
+        # to cut and then get to the gym but its ignoring the newly opened
+        # ground after cutting and leaving"). While a bush the party cut is
+        # down on this map, nothing here rides a door off it.
+        _down = getattr(self, "_cut_down", None)
+        if (isinstance(_down, dict) and _down.get("map") == mymap
+                and _down.get("xy")):
+            # ...and still down by the screen: a CUT_TREE standing there now
+            # has grown back, whatever the note says
+            _standing = {f"{o.get('x')},{o.get('y')}"
+                         for o in (((obs or {}).get("map") or {}).get("objects") or [])
+                         if str(o.get("name") or "").startswith("CUT_TREE")}
+            _still = [c for c in _down["xy"] if c not in _standing]
+            if _still:
+                self._last_pad_kept_cut = ", ".join(f"({c})" for c in _still[:3])
+                return None
         key0 = (mymap, int(tx), int(ty))
         if key0 in getattr(self, "_pad_recrossed", set()):
             return None
@@ -21525,6 +21555,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         if xy not in seen:
             seen.append(xy)
             self._save_memory()
+        # ...and that it is DOWN NOW, until the party leaves this map
+        # (_pad_recross_for_target will not ride a door while it is)
+        _down = getattr(self, "_cut_down", None)
+        if not (isinstance(_down, dict) and _down.get("map") == mid):
+            _down = self._cut_down = {"map": mid, "xy": []}
+        if xy not in _down["xy"]:
+            _down["xy"].append(xy)
 
     def _buy_from_lobby_refusal(self, obs, step) -> str | None:
         """A buy from a floor with no counter, when the counter it would
@@ -23390,6 +23427,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         note = self._reridden_note(note, _pd2)
                     else:
                         _rr2 = int(getattr(self, "_last_pad_rides", 0) or 0)
+                        _kc = str(getattr(self, "_last_pad_kept_cut", "") or "")
+                        if _kc:
+                            trace.append(
+                                f"the doorway at ({step['x']},{step['y']}) "
+                                f"could not be walked to over ground you have "
+                                f"SEEN, and no door was ridden to try from "
+                                f"elsewhere: the bush you cut at {_kc} is down "
+                                f"only while you stay on this map, and the "
+                                f"ground it opened has not all been looked at "
+                                f"yet")
                         if _rr2:
                             trace.append(
                                 f"the doorway at ({step['x']},{step['y']}) "

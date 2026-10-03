@@ -31,7 +31,7 @@ def ck(name, cond):
 ck("a refused warp is the fourth way into the recross",
    ex.count("self._pad_recross_for_target(") == 4)
 i = ex.index("AND THE SAME RIDE FOR A DOORWAY")
-blk = ex[i:i + 3200]
+blk = ex[i:i + 4400]
 ck("it keys on the warp's own refusal", 'op == "use_warp" and step.get("x") is not None' in blk and '"couldn\'t reach the warp tile" in det' in blk)
 ck("the probe is the warp itself", 'self._send_safe("use_warp", **_st)' in blk and "probe=_probe_warp" in blk)
 ck("a ride that worked is said in the trace", "used again — and from the cell it set you down" in blk)
