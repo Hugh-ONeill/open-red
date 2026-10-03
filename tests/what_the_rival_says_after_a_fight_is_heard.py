@@ -53,8 +53,8 @@ ck("an ordinary line is untouched",
    == ("I'm on guard duty. Gee, I'm thirsty, though! / Oh wait there, the road's closed.", None, []))
 
 sh = (ROOT / "harness/shim.lua").read_text()
-ck("a sweep stops when one Pokemon is left standing or a third of the HP remains",
-   "((_n > 1 and _up <= 1) or _hp * 3 < _mx)" in sh
+ck("a sweep stops when one Pokemon is left standing and hurt, or a third of the HP remains",
+   "((_n > 1 and _up <= 1 and _lh * 2 < _lm) or _hp * 3 < _mx)" in sh
    and "stopped: your party is nearly out" in sh)
 
 failed = [n for n, ok, _ in checks if not ok]

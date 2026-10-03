@@ -13676,16 +13676,22 @@ function OPS.sweep(G, c)
     -- sweep stop"). A player sweeping a cave turns back when the party is
     -- spent. Stopped and said; whether to heal, press on or use an item is
     -- the model's.
+    -- ...AND "ONE LEFT STANDING" MEANS ONE LEFT AND HURT. Counted alone it
+    -- stopped every sweep of Viridian Forest on a full-health BULBASAUR
+    -- because a two-member party's L3 PIDGEY had fainted: zero steps, round
+    -- after round (run 35, 2026-10-03, user: "its having trouble in the
+    -- viridian forest"). The last one standing has to be below half too.
     do
-      local _n, _up, _hp, _mx = 0, 0, 0, 0
+      local _n, _up, _hp, _mx, _lh, _lm = 0, 0, 0, 0, 0, 0
       for _, mon in ipairs((G.save and G.save.party) or {}) do
         local h = tonumber(mon.hp) or 0
         local mxh = tonumber((mon.stats or {}).hp) or 0
         _n = _n + 1
-        if h > 0 then _up = _up + 1 end
+        if h > 0 then _up = _up + 1; _lh, _lm = _lh + h, _lm + mxh end
         _hp, _mx = _hp + h, _mx + mxh
       end
-      if _n > 0 and _mx > 0 and ((_n > 1 and _up <= 1) or _hp * 3 < _mx) then
+      if _n > 0 and _mx > 0
+         and ((_n > 1 and _up <= 1 and _lh * 2 < _lm) or _hp * 3 < _mx) then
         why = ("stopped: your party is nearly out -- %d of %d still standing, "
                .. "%d%% of its HP left; a sweep does not walk a spent party "
                .. "into more fights"):format(_up, _n, math.floor(100 * _hp / _mx))
