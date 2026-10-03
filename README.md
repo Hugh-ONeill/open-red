@@ -6,6 +6,7 @@
 ![Runs locally](https://img.shields.io/badge/runs-100%25%20local%2C%20no%20API-2ea44f)
 ![Status](https://img.shields.io/badge/unassisted%20finish-not%20yet-lightgrey)
 ![Tests](https://img.shields.io/badge/tests-680%2B-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
 open-red is a harness and planner built so that a 31B open-weights model (Gemma 4,
 Q4, served by Ollama on a single Radeon AI PRO R9700) can play the whole of Pokémon
@@ -217,3 +218,8 @@ by bryanthaboi. open-red only drives it, and is not involved in or affiliated wi
 project; it uses it because Lua source is far easier to read and instrument than
 emulator RAM. No ROM and no game assets are in this repository. Pokémon is © Nintendo,
 Creatures Inc. and GAME FREAK inc.
+
+## License
+
+open-red's own code is under the [MIT License](LICENSE). That covers this repository
+only, not the game or the project it drives.
