@@ -21278,7 +21278,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
     _BLOCKED_WHY = _re.compile(
         r"no reachable tile adjacent|couldn't reach the warp|could not reach "
         r"the warp|not visible|is standing there|standing on the tiles you "
-        r"would press from|the walk was fenced|no path", _re.I)
+        r"would press from|the walk was fenced|no path|cannot be reached "
+        r"over the ground", _re.I)
 
     def _strike_reason_lifted(self, sig, op, step, obs) -> str:
         """Was the thing that struck this op out a BODY IN THE WAY that is
@@ -21303,6 +21304,29 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     return ("the doorway is on screen now and no walk to it "
                             "is blocked") if w.get("reachable") else ""
             return ""
+        # ...AND AN EDGE THE WALK REACHES NOW. Viridian's north seam was
+        # struck out three times while the sleepy old man lay across the
+        # road; he woke, the run walked onto the seam at (18,0), and the gate
+        # still refused the cross, so the round did nothing and the sweep
+        # walked the party off to press the gym's sign (run 34, 2026-10-03,
+        # user: "just tried to cross north but was instead directed to the
+        # sign"). Lifted only on what the run stands on: the party is ON
+        # that edge's row now, with a road printed there, so the cross is
+        # one step. (connections_reach alone says "not ruled out" whenever
+        # unseen ground is left, which it was while the strikes were made.)
+        if op == "cross" and step.get("dir"):
+            _d = str(step.get("dir"))
+            _p = (obs or {}).get("player") or {}
+            _x, _y = _p.get("x"), _p.get("y")
+            _w, _h = m.get("width"), m.get("height")
+            _on = (_x is not None and _y is not None and (
+                (_d == "north" and _y == 0)
+                or (_d == "west" and _x == 0)
+                or (_d == "south" and _h and _y == _h - 1)
+                or (_d == "east" and _w and _x == _w - 1)))
+            return ("the party stands on that edge now, a road is printed "
+                    "there, and the cross is one step"
+                    if _on and _d in (m.get("connections") or {}) else "")
         if op == "interact":
             want = step.get("name")
             for o in (m.get("objects") or []):

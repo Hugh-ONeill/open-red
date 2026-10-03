@@ -11903,6 +11903,9 @@ end
 -- that is actually wrong, in the direction that actually closes it.
 local function battle_menu_to(G, battle, want)
   for _ = 1, 8 do
+    -- a scripted battle (the Viridian old man's catching demo) has no
+    -- action menu: no cursor to move, so no menu entry to reach
+    if battle.menuIndex == nil then return false end
     if battle.menuIndex == want then return true end
     local i, w = battle.menuIndex - 1, want - 1
     local col, wcol = i % 2, w % 2
