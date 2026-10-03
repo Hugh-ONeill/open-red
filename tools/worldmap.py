@@ -60,6 +60,18 @@ for name, m in pairs(maps) do
       .. ',"border":' .. (m.borderBlock or 0) .. ',"blocks":' .. arr(m.blocks) .. ',"conn":{' .. table.concat(c, ",") .. '}}'
   end
 end
+local rooms = {}
+for name, m in pairs(maps) do
+  if type(m) == "table" and m.blocks and m.width and not (m.connections and next(m.connections)) then
+    local w = {}
+    for _, x in ipairs(m.warps or {}) do
+      w[#w + 1] = '[' .. x.x .. ',' .. x.y .. ',' .. q(x.destMap or "") .. ',' .. (x.destWarp or 0) .. ']'
+    end
+    used[m.tileset] = true
+    rooms[#rooms + 1] = q(name) .. ':{"w":' .. m.width .. ',"h":' .. m.height .. ',"tileset":' .. q(m.tileset)
+      .. ',"blocks":' .. arr(m.blocks) .. ',"warps":[' .. table.concat(w, ",") .. ']}'
+  end
+end
 local ts = {}
 for name in pairs(used) do
   local t = tilesets[name]
@@ -78,7 +90,7 @@ for name, m in pairs(maps) do
   end
 end
 print('{"maps":{' .. table.concat(out, ",") .. '},"tilesets":{' .. table.concat(ts, ",") ..
-      '},"doors":[' .. table.concat(doors, ",") .. ']}')
+      '},"doors":[' .. table.concat(doors, ",") .. '],"rooms":{' .. table.concat(rooms, ",") .. '}}')
 """
 
 
@@ -89,7 +101,7 @@ def load():
         if os.path.getmtime(CACHE) >= src:
             with open(CACHE) as f:
                 data = json.load(f)
-            if "doors" in data:              # an older cache has no doors
+            if "doors" in data and "rooms" in data:     # an older cache lacks them
                 return data
     except OSError:
         pass
@@ -130,6 +142,44 @@ def layout(data):
     return {k: (x - x0, y - y0) for k, (x, y) in pos.items()}
 
 
+_cells = {}
+
+
+def block_cells(data):
+    """{tileset: {block id: 32x32 image}} from each tileset's 8x8 tiles."""
+    if not _cells:
+        lut = [SHADES[min(SHADES, key=lambda s: abs(s - v))] for v in range(256)]
+        for name, ts in data["tilesets"].items():
+            sheet = Image.open(GEN + ts["image"]).convert("L")
+            rgb = Image.new("RGB", sheet.size)
+            rgb.putdata([lut[v] for v in sheet.get_flattened_data()])
+            per = ts["per"]
+            cells = {}
+            for bi, block in enumerate(ts["blocks"]):
+                b = Image.new("RGB", (32, 32))
+                for i, t in enumerate(block):
+                    b.paste(rgb.crop(((t % per) * 8, (t // per) * 8, (t % per) * 8 + 8, (t // per) * 8 + 8)),
+                            ((i % 4) * 8, (i // 4) * 8))
+                cells[bi] = b
+            _cells[name] = cells
+    return _cells
+
+
+_rooms_img = {}
+
+
+def room_image(data, mid):
+    """One indoor map at full size (32 px a block), cached."""
+    if mid not in _rooms_img:
+        m = data["rooms"][mid]
+        cells = block_cells(data)[m["tileset"]]
+        img = Image.new("RGB", (m["w"] * 32, m["h"] * 32), SHADES[0])
+        for i, blk in enumerate(m["blocks"]):
+            img.paste(cells.get(blk, cells.get(0)), ((i % m["w"]) * 32, (i // m["w"]) * 32))
+        _rooms_img[mid] = img
+    return _rooms_img[mid]
+
+
 def base(data, pos):
     """The stitched overworld at full size (32 px a block), cached."""
     try:
@@ -141,21 +191,7 @@ def base(data, pos):
     W = max(pos[k][0] + maps[k]["w"] for k in pos) * 32
     H = max(pos[k][1] + maps[k]["h"] for k in pos) * 32
     img = Image.new("RGB", (W, H), SHADES[0])
-    tiles = {}
-    for name, ts in data["tilesets"].items():
-        sheet = Image.open(GEN + ts["image"]).convert("L")
-        lut = [SHADES[min(SHADES, key=lambda s: abs(s - v))] for v in range(256)]
-        rgb = Image.new("RGB", sheet.size)
-        rgb.putdata([lut[v] for v in sheet.get_flattened_data()])
-        per = ts["per"]
-        cells = {}
-        for bi, block in enumerate(ts["blocks"]):
-            b = Image.new("RGB", (32, 32))
-            for i, t in enumerate(block):
-                b.paste(rgb.crop(((t % per) * 8, (t // per) * 8, (t % per) * 8 + 8, (t // per) * 8 + 8)),
-                        ((i % 4) * 8, (i // 4) * 8))
-            cells[bi] = b
-        tiles[name] = cells
+    tiles = block_cells(data)
     for name, (bx, by) in pos.items():
         m = maps[name]
         cells = tiles[m["tileset"]]
@@ -403,6 +439,174 @@ def authoring_view(phase, history, here, size, start_map=None):
             spr = player_sprite(max(2.0, scale * 6))       # findable at any zoom (32 px at least)
             img.paste(spr, (q[0] - spr.width // 2, q[1] - spr.height + spr.height // 4), spr)
     return img
+
+
+# ------- dungeons: a cave's (or tower's, ship's...) floors, side by side
+
+FLOOR = re.compile(r"^(.+?)_(B?\d+F|ROOF|ELEVATOR|EAST|WEST|NORTH|CENTER)(_.*)?$")
+
+
+DUNGEON_MIN_BLOCKS = 90       # floors' total size: houses, gates and the Museum stay out
+
+
+_groups = {}
+
+
+def dungeons(data):
+    """{key: [floor ids]}: every indoor place big enough to be worth a floor
+    map. Rooms group by name up to their floor (MT_MOON_1F, MT_MOON_B1F ->
+    MT_MOON); a group whose name continues a bigger one joins it (SS_ANNE_BOW
+    -> SS_ANNE, DIGLETTS_CAVE_ROUTE_2 -> DIGLETTS_CAVE). A group counts when
+    its floors add up to DUNGEON_MIN_BLOCKS: the caves, towers, ship and
+    hideout, Silph Co., Celadon Mart and Mansion, and the two puzzle gyms
+    (Saffron, Cinnabar), but not the houses, gates or the Museum (user,
+    2026-10-03: "i lean towards excluding them because they are generally
+    small simple rooms as well, the only ones that break that are celadons
+    mart and mansion")."""
+    if _groups:
+        return _groups
+    rooms = data.get("rooms") or {}
+    raw = {}
+    for r in rooms:
+        m = FLOOR.match(r)
+        raw.setdefault(m.group(1) if m else r, []).append(r)
+    size = {k: sum(rooms[f]["w"] * rooms[f]["h"] for f in v) for k, v in raw.items()}
+    for k in sorted(raw, key=len, reverse=True):          # longest names first
+        if k.endswith("POKECENTER"):                      # Mt. Moon's Center is on Route 4
+            continue
+        for h in raw:
+            if h != k and k.startswith(h + "_") and size[h] >= DUNGEON_MIN_BLOCKS:
+                raw[h] += raw.pop(k)
+                size[h] += size.pop(k)
+                break
+
+    def order(r):
+        f = FLOOR.match(r)
+        tag = f.group(2) if f else ""
+        n = re.match(r"(B?)(\d+)F", tag)
+        if n:
+            return (0, -int(n.group(2)) if n.group(1) else int(n.group(2)), r)
+        return (1, 0, r)
+    for k, v in raw.items():
+        if size[k] >= DUNGEON_MIN_BLOCKS:
+            _groups[k] = sorted(v, key=order)
+    return _groups
+
+
+def dungeon_of(data, mid):
+    """(key, [floor ids in order]) for a map inside a dungeon, else None."""
+    for k, floors in dungeons(data).items():
+        if mid in floors:
+            return k, floors
+    return None
+
+
+def dungeon_view(data, key, floors, size, path, here, label=None):
+    """The dungeon's floors in a grid fitted to `size`, each fogged by its own
+    seen cells, the path drawn on each floor cell by cell (broken where it
+    climbs a ladder), thin lines from each ladder to where it lands, and Red
+    on his floor. `label(img, x, y, text)` names each floor (the HUD passes
+    its Game Boy font)."""
+    from PIL import ImageDraw
+    sys.path.insert(0, HERE)
+    import townmap as tm
+    seen = read_seen()
+    cw = max(data["rooms"][f]["w"] for f in floors) * 32
+    chh = max(data["rooms"][f]["h"] for f in floors) * 32 + 40      # room for a label
+    best = None
+    for cols in range(1, len(floors) + 1):
+        rows = -(-len(floors) // cols)
+        sc = min(size[0] / (cols * cw), size[1] / (rows * chh))
+        if best is None or sc > best[0]:
+            best = (sc, cols, rows)
+    sc, cols, rows = best
+    img = Image.new("RGB", (max(1, int(cols * cw * sc)), max(1, int(rows * chh * sc))), (21, 21, 20))
+    d = ImageDraw.Draw(img)
+    k = 16 * sc
+    origin = {}
+    for i, f in enumerate(floors):
+        r = data["rooms"][f]
+        ox = int((i % cols) * cw * sc + (cw - r["w"] * 32) * sc / 2)
+        oy = int((i // cols) * chh * sc + 40 * sc)
+        origin[f] = (ox, oy)
+        full = room_image(data, f).resize((max(1, int(r["w"] * 32 * sc)), max(1, int(r["h"] * 32 * sc))), Image.BOX)
+        dark = full.point(lambda v: int(v * FOG))
+        mask = Image.new("L", (r["w"] * 2, r["h"] * 2), 0)
+        for x, y in seen.get(f, ()):
+            if 0 <= x < r["w"] * 2 and 0 <= y < r["h"] * 2:
+                mask.putpixel((x, y), 255)
+        img.paste(Image.composite(full, dark, mask.resize(full.size, Image.NEAREST)), (ox, oy))
+        name = f[len(key) + 1:].replace("_", " ") if f.startswith(key + "_") else f.replace("_", " ")
+        if label:
+            label(img, ox, max(0, oy - 12), name or key.replace("_", " "), full.width)
+        else:
+            d.text((ox, max(0, oy - 12)), name, fill=(124, 196, 155))
+
+    def at(f, x, y):
+        ox, oy = origin[f]
+        return (int(ox + x * k + k / 2), int(oy + y * k + k / 2))
+    # every ladder (and door between floors) as a small dot where it stands;
+    # a line from floor to floor only where the run actually took one, below
+    r_ = max(2, int(k / 3))
+    for f in floors:
+        for x, y, dest, dw in data["rooms"][f]["warps"]:
+            if dest in origin and dest != f:
+                cx, cy = at(f, x, y)
+                d.ellipse((cx - r_, cy - r_, cx + r_, cy + r_), outline=(150, 170, 186), width=1)
+    # the path, floor by floor: steps a cell apart are joined, a jump is a ladder
+    lw = max(2, int(k / 3))
+    if path:
+        last = path[-1][1]
+        links = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ld = ImageDraw.Draw(links)
+        prev = None
+        for leg, att, m, x, y, kind in path:
+            if m not in origin:
+                prev = None
+                continue
+            q = at(m, x, y)
+            col = tm.LAST_ATTEMPT if att == last else tm.PAST_NEW
+            if prev and prev[0] == m:
+                if kind != "step" or abs(prev[1][0] - q[0]) + abs(prev[1][1] - q[1]) <= 3 * k:
+                    d.line((prev[1], q), fill=col, width=lw)
+            elif prev:
+                # a floor change the run made: a faint line from where it left
+                # one floor to where it arrived on the other
+                ld.line((prev[1], q), fill=col + (90,), width=max(1, lw // 2))
+            prev = (m, q)
+        img.paste(links, (0, 0), links)
+    if here and here[0] in origin:
+        q = at(here[0], here[1], here[2])
+        spr = player_sprite(max(2.0, sc * 2))
+        img.paste(spr, (q[0] - spr.width // 2, q[1] - spr.height + spr.height // 4), spr)
+    return img
+
+
+def current_dungeon(data, path, here, recent=20):
+    """The dungeon this leg is about, if any, and whether it should be the big
+    view: the most recent dungeon floor in the path within the current leg;
+    big when at least half of the last `recent` points are on its floors (so
+    a step through a cave mouth does not swap the view, either way)."""
+    if not path:
+        here_d = dungeon_of(data, here[0]) if here else None
+        return (here_d, True) if here_d else (None, False)
+    leg = path[-1][0]
+    found = None
+    for p in reversed(path):
+        if p[0] != leg:
+            break
+        dd = dungeon_of(data, p[2])
+        if dd:
+            found = dd
+            break
+    if not found and here:
+        found = dungeon_of(data, here[0])
+    if not found:
+        return None, False
+    floors = set(found[1])
+    tail = path[-recent:]
+    inside = sum(1 for p in tail if p[2] in floors)
+    return found, inside * 2 >= len(tail)
 
 
 def _cell(key):

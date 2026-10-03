@@ -915,21 +915,70 @@ def fit_world(win):
     return None
 
 
+_label_painter = []
+
+
+def _label(img, x, y, text, width=None):
+    """A floor's name on a dungeon view in the Game Boy font, as big as fits
+    over its floor: 2x where there is room, 1x in a small inset, cut short
+    only when even that does not fit."""
+    if not _label_painter:
+        _label_painter.append(Painter())
+    t = text.upper()
+    width = width or img.width - x
+    k = 2 if 8 * len(t) * 2 <= width else 1
+    t = t[:max(1, width // (8 * k))]
+    small = Image.new("RGB", (8 * len(t) + 2, 9), BG)
+    _label_painter[0].text(small, 1, 0, t, ACCENT)
+    big = small.resize((small.width * k, small.height * k), Image.NEAREST)
+    img.paste(big, (x, max(0, y - 9 * k + 10)))
+
+
 def world_view(size):
-    """The overworld picture for the KANTO box, at `size` real pixels; drawn
-    again only when what it shows changed (it takes ~0.7 s)."""
+    """The picture for the KANTO box at `size` real pixels. Outside a dungeon:
+    the overworld. Around one (this leg went into Mt. Moon, Silph Co., ...):
+    both, the one the party has mostly been in over its last steps big and
+    the other as an inset in the corner, so stepping through a cave mouth
+    never swaps the view and the way in or out stays on screen (user,
+    2026-10-03, on swapping views: "the awkward exit also comes with an
+    awkward entrance"). Drawn again only when what it shows changed."""
     phase = feed.read_phase() or {}
     hist = townmap.run_history()
     here = worldmap.where()
+    data = worldmap.load()
+    path = worldmap.trail()
+    dg, dungeon_big = worldmap.current_dungeon(data, path, here)
     try:
         seen_t = os.stat(worldmap.SEEN).st_mtime_ns
     except OSError:
         seen_t = 0
-    key = json.dumps([phase.get("drafts"), phase.get("picked"), len(hist), here, size, seen_t])
-    if _world_cache.get("key") != key:
-        start = (here or [None])[0]
-        _world_cache.update(key=key, img=worldmap.authoring_view(phase, hist, here, size, start_map=start))
-    return _world_cache["img"]
+    key = json.dumps([phase.get("drafts"), phase.get("picked"), len(hist), len(path), here, size,
+                      seen_t, dg[0] if dg else None, dungeon_big])
+    if _world_cache.get("key") == key:
+        return _world_cache["img"]
+    start = (here or [None])[0]
+
+    def over(sz):
+        return worldmap.authoring_view(phase, hist, here, sz, start_map=start)
+
+    def cave(sz):
+        return worldmap.dungeon_view(data, dg[0], dg[1], sz, path, here, label=_label)
+    if not dg:
+        img = over(size)
+    else:
+        main, side = (cave, over) if dungeon_big else (over, cave)
+        img = Image.new("RGB", size, BG)
+        m = main(size)
+        img.paste(m, ((size[0] - m.width) // 2, (size[1] - m.height) // 2))
+        iw, ih = int(size[0] * 0.36), int(size[1] * 0.36)
+        inset = side((iw, ih))
+        x0, y0 = size[0] - inset.width - 6, size[1] - inset.height - 6
+        frame = Image.new("RGB", (inset.width + 6, inset.height + 6), FRAME)
+        frame.paste(Image.new("RGB", (inset.width + 2, inset.height + 2), BG), (2, 2))
+        frame.paste(inset, (3, 3))
+        img.paste(frame, (x0 - 3, y0 - 3))
+    _world_cache.update(key=key, img=img)
+    return img
 
 
 def fit_map(win):
