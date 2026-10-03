@@ -520,8 +520,16 @@ local function apply(game, ev)
 end
 
 local first_bad = nil
+-- CAUGHT UP: the copy has played everything the log holds and waits for the
+-- run. It must keep yielding frames, or LOVE's loop stops, the window stops
+-- drawing and answering, and the desktop calls it not responding (2026-10-03,
+-- once skipping let the copy catch up while the run held still for the
+-- model). So it yields as usual and its logic holds still instead, the way the
+-- run's does while the model thinks.
+local HOLD = { on = false }
 local o_step = Game.step
 Game.step = function(self, dt, ...)
+  if HOLD.on then return end
   local n = (Game.logicStep or 0) + 1
   -- the run's jumps draw from the game's generator as the run's did (a
   -- restore builds the map's NPCs, each drawing a wander timer), so they
@@ -627,18 +635,26 @@ return function(G)
     -- never run past what the log has written: wait for the run, or stop
     -- when its game has gone (a later segment, or not following)
     while n > L.horizon do
-      if not FOLLOW or segment_done() then
+      local now = love.timer.getTime()
+      if not FOLLOW or (now - last_read > 0.25 and segment_done()) then
         read_more()
         if n > L.horizon then
+          HOLD.on = false
           print(("[shadow] end of the log at step %d%s"):format(n - 1,
                 first_bad and (", first mismatch at " .. first_bad) or ", every check matched"))
           return
         end
       else
-        love.timer.sleep(0.25)
-        read_more()
+        HOLD.on = true                   -- this frame draws; no step runs
+        G.driverSpeed = 1
+        set_volume(1)
+        coroutine.yield()
+        if love.timer.getTime() - last_read > 0.25 then
+          read_more(); last_read = love.timer.getTime()
+        end
       end
     end
+    HOLD.on = false
     -- the speed this frame: PLAY near an event; otherwise rising toward
     -- IDLE_MAX at ACCEL, and capped so it can brake to PLAY by the next
     -- event (v^2 = 2*a*d) and by the end of what the log holds
