@@ -8804,6 +8804,16 @@ function OPS.use_item(G, c)
     end
     return _ok, _why
   end
+  -- THE LIST OPENS WHERE ITS CURSOR WAS LEFT (PartyMenu reads the game's
+  -- partyMenuSavedIndex, HandlePartyMenuInput #768). The A presses that
+  -- ride through "Booted up an HM!" can land the moment the list appears,
+  -- before anything here can move its cursor, and pick whoever it was
+  -- left on (run 31: CUT to GRAVELER, not IVYSAUR). Leave the cursor on
+  -- the model's slot, as a player who had scrolled there would.
+  do
+    local _want = math.floor(tonumber(c.slot) or 1)
+    if _want >= 1 then G.partyMenuSavedIndex = _want end
+  end
   local pm
   for _ = 1, 20 do                                 -- ride to the party picker
     pm = ui_top(G)
@@ -8869,7 +8879,7 @@ function OPS.use_item(G, c)
   -- moves, pick a forget="), which is advice that can never work: no
   -- choice of forget= makes TM_WATER_GUN teachable to a Charmeleon, so the
   -- model would burn every round overwriting a different move for nothing.
-  local incompatible
+  local incompatible, incompatible_said
   -- 50 LAPS STARVED THIS LOOP TO DEATH IN THE MIDDLE OF THE FLOW. Traced
   -- 2026-08-22 (RED_TEACH_TRACE): a stone evolution spends ~35 laps on
   -- EvolutionState before its text even appears, and every TextBox page
@@ -8931,6 +8941,7 @@ function OPS.use_item(G, c)
       if _tx:find("not compatible") or _tx:find("Not compatible")
          or _tx:find("NOT COMPATIBLE") then
         incompatible = true
+        incompatible_said = incompatible_said or _tx
       end
     end
     if t and t.newMoveId and t.selecting then
@@ -8958,6 +8969,18 @@ function OPS.use_item(G, c)
         U.tap(G, "a"); U.wait(8)     -- teach?/use? prompts move along
       end
     else
+      -- THE PARTY LIST CAN COME UP HERE, NOT BEFORE. On the new base the
+      -- "Booted up an HM!" jingle plays in real time, the ride above ran
+      -- out of taps first, the cursor was never put on the slot asked
+      -- for, and this A taught (or tried to) whoever it rested on: CUT
+      -- went to GRAVELER in slot 1, "not compatible", reported as
+      -- IVYSAUR's, for an hour (run 31, 2026-10-03, user: "trouble with
+      -- the surge leg"). Whenever the list is up, the cursor goes to the
+      -- model's slot first.
+      if t and t.screenId == "PartyMenu" and not t.newMoveId
+         and t.index ~= slot then
+        ui_cursor_to(G, "index", slot)
+      end
       U.tap(G, "a"); U.wait(5)
     end
   end
@@ -9030,6 +9053,20 @@ function OPS.use_item(G, c)
       .. "cannot be forgotten)."
   end
   if c.item:find("^TM_") or c.item:find("^HM_") then
+    -- ...AND A REFUSAL IS ABOUT WHOEVER THE SCREEN NAMED. If the game's
+    -- words name another Pokemon, the press went to the wrong one: say
+    -- so, and never blame the species that was asked for.
+    local _nick = mon and mon.nickname
+    if incompatible and incompatible_said and _nick and _nick ~= ""
+       and not tostring(incompatible_said):upper()
+                 :find(tostring(_nick):upper(), 1, true) then
+      return false, ("the game's machine screen picked a different "
+        .. "Pokemon than slot %d (%s): it said \"%s\". Nothing was taught "
+        .. "and %s's compatibility was never asked; the same op again "
+        .. "is the honest retry."):format(slot, tostring(mon.species),
+        tostring(incompatible_said):gsub("\n", " "):sub(1, 120),
+        tostring(mon.species))
+    end
     if incompatible then
       return false, (mon and mon.species or ("slot " .. slot))
         .. " is NOT COMPATIBLE with " .. c.item
