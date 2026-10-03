@@ -56,7 +56,23 @@ strays() {      # NOT killed by default: reported, so a miss is still visible
     | grep -v grep \
     | grep -vE "shell-snapshots|stop_all\.sh" \
     | awk '{print $1}' \
-    | grep -vE "^(${skip})$"
+    | grep -vE "^(${skip})$" \
+    | not_side_games
+}
+
+# The replay copy (tools/shadow, identity red-shadow) and a contract test
+# boot (red-contract) are games of their own beside the run; listed as
+# strays they withheld ALL CLEAR whenever the copy was being watched, and
+# update_base's stop_all test failed on it (2026-10-03).
+not_side_games() {
+  local _p _id
+  while read -r _p; do
+    [ -n "$_p" ] || continue
+    _id=$(tr '\0' '\n' < "/proc/$_p/environ" 2>/dev/null \
+          | sed -n 's/^POKEPORT_IDENTITY=//p')
+    case "$_id" in red-shadow|red-contract) continue ;; esac
+    echo "$_p"
+  done
 }
 
 # ---- LET IT SAVE FIRST. Both of the executor's save points sit at the END

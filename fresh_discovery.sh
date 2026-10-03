@@ -42,7 +42,21 @@ SAVE="$HOME/.local/share/love/pokemon-love2d/saves/red/slot1.lua"
 # shells whose command text merely mentions these names (a launcher that
 # ran "git add planner/executor.py" earlier in the same compound command
 # blocked its own chain twice).
-if pgrep -x love >/dev/null \
+# ...and only the RUN's game: the replay copy (tools/shadow, identity
+# red-shadow) and a contract test boot (red-contract) are games of their own
+# and run beside the chain; counted, the copy blocked every relaunch while
+# it was being watched (2026-10-03).
+_run_game_live() {
+  local _p _id
+  for _p in $(pgrep -x love); do
+    _id=$(tr '\0' '\n' < "/proc/$_p/environ" 2>/dev/null \
+          | sed -n 's/^POKEPORT_IDENTITY=//p')
+    case "$_id" in red-shadow|red-contract) continue ;; esac
+    return 0
+  done
+  return 1
+}
+if _run_game_live \
     || pgrep -f '^python[0-9.]* planner/executor\.py' >/dev/null; then
   echo "a run is still live — stop it first" >&2; exit 1
 fi
