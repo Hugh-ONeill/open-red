@@ -25,6 +25,7 @@ import time
 from pathlib import Path
 
 PHASE = Path.home() / ".local/state/red-recomp/phase.json"
+SNAP = Path.home() / ".local/state/red-recomp/shadow_obs.json"
 HUD = "title:^(red-recomp HUD)$"
 GRACE = 3.0          # seconds the copy must be gone before the HUD widens
 
@@ -43,6 +44,20 @@ def authoring() -> bool:
         return False
 
 
+def copy_idle(copies: list) -> bool:
+    """No copy window, or a copy holding still at the end of what the run has
+    played (it writes no snapshot while it holds): nothing to show. The copy
+    stays open while the model authors, caught up, so its window alone did not
+    say that (2026-10-03: "showing the game when it should be fullscreen hud
+    during authoring")."""
+    if not copies:
+        return True
+    try:
+        return time.time() - SNAP.stat().st_mtime > GRACE
+    except OSError:
+        return True
+
+
 def place(c: dict, w: int, h: int, x: int, y: int) -> None:
     """Float the window at exactly (x, y) w x h, unless it already is."""
     at, size = c.get("at") or [0, 0], c.get("size") or [0, 0]
@@ -58,22 +73,24 @@ def place(c: dict, w: int, h: int, x: int, y: int) -> None:
 
 def main() -> None:
     w, h, lx, ly, rx, ry, fw = (int(v) for v in sys.argv[1:8])
-    gone_since = None
+    was_wide = None
     while True:
         cs = clients()
         huds = [c for c in cs if c.get("title") == "red-recomp HUD"]
         copies = [c for c in cs if c.get("class") == "love"]
-        now = time.time()
-        gone_since = None if copies else (gone_since or now)
-        wide = (not copies) and authoring() and now - gone_since >= GRACE
+        wide = authoring() and copy_idle(copies)
         try:
             for c in copies:
                 place(c, w, h, lx, ly)
             for c in huds:
                 if wide:
                     place(c, fw, h, lx, ly)
+                    if was_wide is not True:          # over the copy's idle window
+                        subprocess.run(["hyprctl", "-q", "dispatch", "alterzorder",
+                                        f"top,address:{c['address']}"], timeout=5)
                 else:
                     place(c, w, h, rx, ry)
+            was_wide = wide
         except (OSError, subprocess.SubprocessError, KeyError):
             pass
         time.sleep(1)
