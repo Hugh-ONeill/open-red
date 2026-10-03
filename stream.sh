@@ -89,6 +89,11 @@ for p in $(pgrep -f "^python3 -u tools/shadow/play.py --live" || true); do
   g=$(ps -o pgid= -p "$p" | tr -d ' ')
   [ -n "$g" ] && [ "$g" != "$me" ] && kill -TERM -- "-$g" 2>/dev/null || true
 done
+# which battles the copy shows: bosses only (gym leaders, the rival, Giovanni,
+# the Elite Four, the champion, event fights); trainer fights at 1x put it
+# ~10 min behind per 18 of the run (2026-10-03). SHADOW_SHOW_BATTLES=trainers
+# or all to see more.
+export SHADOW_SHOW_BATTLES="${SHADOW_SHOW_BATTLES:-bosses}"
 since=()
 [ "$MODE" != attach ] && since=(--since "$(date +%s)")   # only this launch's boots
 setsid nohup python3 -u tools/shadow/play.py --live "${since[@]}" >> run/shadow.log 2>&1 < /dev/null &

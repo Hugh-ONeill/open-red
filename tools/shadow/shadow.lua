@@ -61,6 +61,11 @@ for name in (os.getenv("SHADOW_SKIP_OPS") or "grind"):gmatch("[^,%s]+") do SKIP_
 -- read) plays at CATCHUP_SPEED; text, menus and shown battles stay at 1x.
 local CATCHUP_AFTER = (tonumber(os.getenv("SHADOW_CATCHUP_AFTER") or "180") or 180) * 60
 local CATCHUP_SPEED = tonumber(os.getenv("SHADOW_CATCHUP_SPEED") or "3") or 3
+-- WALKING, ALWAYS A LITTLE QUICKER: the overworld with nothing on screen to
+-- read plays at WALK_SPEED even when the copy is not behind (user,
+-- 2026-10-03: "was there a speedup of walking in general because that might
+-- be nice"); text, menus and shown battles stay at 1x.
+local WALK_SPEED = tonumber(os.getenv("SHADOW_WALK_SPEED") or "2") or 2
 -- what this copy shows, for the HUD (tools/hud.py reads it before obs.json)
 local SNAP = os.getenv("SHADOW_SNAPSHOT")
   or ((os.getenv("HOME") or ".") .. "/.local/state/red-recomp/shadow_obs.json")
@@ -807,10 +812,11 @@ return function(G)
       target = SKIP_SPEED              -- a skipped battle: through it under the card
     elseif busy_near(n) then
       target = PLAY
-      -- far behind: plain walking goes faster; text, menus, battles do not
+      -- plain walking goes quicker, and quicker still when far behind;
+      -- text, menus and battles do not
       local ow = G.overworld
-      if L.horizon - n > CATCHUP_AFTER and ow and G.stack and G.stack:top() == ow then
-        target = CATCHUP_SPEED
+      if ow and G.stack and G.stack:top() == ow then
+        target = (L.horizon - n > CATCHUP_AFTER) and math.max(WALK_SPEED, CATCHUP_SPEED) or WALK_SPEED
       end
     else
       local d_ev = math.max(0, next_busy(n) - LOOKAHEAD - n)
@@ -819,8 +825,8 @@ return function(G)
     end
     if skip or op_skip then
       speed = target                   -- under the card: no ramp to watch
-    elseif target <= PLAY then
-      speed = PLAY                     -- something is happening: show it now
+    elseif target <= WALK_SPEED then
+      speed = target                   -- 1x or walking pace: no ramp to wait through
     elseif target > speed then
       speed = math.min(target, speed + ACCEL)
     else
