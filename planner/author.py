@@ -3481,6 +3481,10 @@ PREMISE_NOTE = ("\n\nBEFORE YOU PLAN: this goal was worded earlier in the run an
                 "Reply with JSON only: {{\"assumptions\": [{{\"belief\": \"...\", \"source\": \"...\"}}], "
                 "\"ideas\": [\"...\"]}}")
 IDEA_NOTE = "\n\nPLAN THIS IDEA, and only this one: {idea}"
+# find_plan.py's own stripping of the outline's notes, so a stamped goal
+# matches the way the chain asks for it
+_re_goal = re.compile(r"\s*\((?:a doubt you recorded when outlining:|you added "
+                      r"this when outlining,).*$")
 
 
 def premise_ideas(goal: str, model: str, start: str | None, said: str,
@@ -5465,6 +5469,15 @@ def author_best_of(goal: str, model: str, draws: int = 3,
             continue
         if not p:
             continue
+        # THE PLAN IS FOR THE LEG, WHATEVER IDEA IT WAS DRAWN FROM. Told
+        # "PLAN THIS IDEA, and only this one", the model wrote the idea as
+        # the plan's goal ("Go to the Celadon Department Store to look for
+        # clues..."), find_plan matches a leg to its plan by that goal, and
+        # the rewrite was never found: the chain ran the old roof plan again
+        # (run 36, 2026-10-03, user: "it should see that its explored the
+        # mansion ... with the rewrite right? did it?"). The goal is the
+        # objective's, in the form find_plan asks for.
+        p["goal"] = _re_goal.sub("", str(goal)).strip() or str(goal)
         key = _plan_digest(p)
         if key in seen:                      # same account written twice
             seen[key] += 1
@@ -12095,7 +12108,9 @@ def main():
         plan = review(args.goal, plan, args.model, start=args.start,
                       observed=args.observed, journal=args.journal,
                       drafts=prior)
-    plan.setdefault("goal", args.goal)
+    # the leg's objective, never the model's restatement of it: find_plan
+    # finds a leg's plan by this field (see the stamp in the draws)
+    plan["goal"] = _re_goal.sub("", str(args.goal)).strip() or str(args.goal)
     plan["authored_by"] = args.model
     # WHERE IT WAS WRITTEN FROM. A plan's travel steps are relative to a
     # place; picked up again from another one, they are walked literally
