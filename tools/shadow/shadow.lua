@@ -66,6 +66,11 @@ local CATCHUP_SPEED = tonumber(os.getenv("SHADOW_CATCHUP_SPEED") or "3") or 3
 -- 2026-10-03: "was there a speedup of walking in general because that might
 -- be nice"); text, menus and shown battles stay at 1x.
 local WALK_SPEED = tonumber(os.getenv("SHADOW_WALK_SPEED") or "2") or 2
+-- THE CARD STAYS UP LONG ENOUGH TO READ: a skipped trainer fight is a few
+-- frames at skip speed and its card only flashed (user, 2026-10-03). If the
+-- skip ends sooner than CARD_MIN seconds after the card came up, the card
+-- stays with its last words and the copy holds still until it has been read.
+local CARD_MIN = tonumber(os.getenv("SHADOW_CARD_MIN") or "2.5") or 2.5
 -- what this copy shows, for the HUD (tools/hud.py reads it before obs.json)
 local SNAP = os.getenv("SHADOW_SNAPSHOT")
   or ((os.getenv("HOME") or ".") .. "/.local/state/red-recomp/shadow_obs.json")
@@ -600,17 +605,27 @@ local function card_lines()
   local who = what:match(": (.+)$")
   return { head, who and who:upper() or where, "" }
 end
+local card = { since = nil, lines = nil }    -- the card on screen: when it came up, what it says
+local function card_hold()
+  return card.since ~= nil and not (skip or op_skip)
+    and love.timer.getTime() - card.since < CARD_MIN
+end
 pcall(function()
   local Font = require("src.render.Font")
   local o_draw = love.draw
   love.draw = function(...)
     if o_draw then o_draw(...) end
-    if FOG and not (skip or op_skip) then
+    local holding = card_hold()
+    if FOG and not (skip or op_skip or holding) then
       love.graphics.push("all")
       pcall(draw_fog, Game)
       love.graphics.pop()
     end
-    if not (skip or op_skip) then return end
+    if not (skip or op_skip or holding) then card.since = nil; return end
+    if skip or op_skip then
+      card.since = card.since or love.timer.getTime()
+      card.lines = card_lines()
+    end
     local w, h = love.graphics.getDimensions()
     love.graphics.push("all")
     love.graphics.origin()
@@ -624,7 +639,7 @@ pcall(function()
     love.graphics.setColor(1, 1, 1, 1)
     Font.drawBox(0, 0, tw, th)
     love.graphics.setColor(1, 1, 1, 1)
-    local lines = card_lines()
+    local lines = card.lines or card_lines()
     for i, line in ipairs(lines) do
       line = tostring(line):sub(1, tw - 4)
       local x = math.floor((tw * 8 - Font.width(line)) / 2)
@@ -804,6 +819,14 @@ return function(G)
       end
     end
     HOLD.on = false
+    -- a card still being read: hold the game still under it
+    if card_hold() then
+      HOLD.on = true
+      G.driverSpeed = 1
+      coroutine.yield()
+      HOLD.on = false
+      goto continue
+    end
     -- the speed this frame: PLAY near an event; otherwise rising toward
     -- IDLE_MAX at ACCEL, and capped so it can brake to PLAY by the next
     -- event (v^2 = 2*a*d) and by the end of what the log holds
@@ -850,5 +873,6 @@ return function(G)
     end
     G.driverSpeed = 1
     coroutine.yield()
+    ::continue::
   end
 end
