@@ -8,18 +8,35 @@
 --
 -- Pacing: a step near something happening (a button, an audio wait, a held
 -- button, a jump) plays at $SHADOW_SPEED (1 = the game's own speed); the
--- model's thinking time, where the game only idles, is run through as fast
--- as the CPU allows with the sound off. The idle steps still have to run:
+-- model's thinking time, where the game only idles, is run through faster,
+-- up to $SHADOW_IDLE_MAX x. Speed changes at a fixed acceleration both ways
+-- and brakes ahead of the next thing that happens, so an idle stretch
+-- speeds up and slows down instead of jumping (user, 2026-10-03: "a
+-- smoother pace through the idle stretches, instead of jumping to x200").
+-- The sound fades out as the speed rises. The idle steps still have to run:
 -- NPCs wander on them and draw from the random generator.
+--
+-- THE VIEW IS LOGIC TOO. How much map the window shows decides which
+-- neighbor maps are loaded (their NPCs wander and draw randomness every
+-- step) and which NPCs a map entry sends back to their spawn (an off-camera
+-- reset draws randomness too): OverworldController rebuildNeighbors and
+-- applyPendingSpawnResets read Renderer:worldViewSize, which is the window's
+-- size. A copy in a different window had an NPC in the path that the run
+-- did not (run 36, step 369,000, Pallet Town). So this copy takes the run's
+-- window and view size from its V lines (or $SHADOW_WINDOW=WxH for a log
+-- recorded before they existed).
 --
 -- Every 1800 steps (the recorder's CHECK_EVERY) the run's random state, map
 -- and cell are compared with this copy's; the first difference is printed
 -- and written to $SHADOW_SEG/shadow_report, which is how a desync is found.
 local SEG = assert(os.getenv("SHADOW_SEG"), "SHADOW_SEG is not set")
 local PLAY = tonumber(os.getenv("SHADOW_SPEED") or "1") or 1
-local LOOKAHEAD = 180          -- steps before an event that already play
+local IDLE_MAX = tonumber(os.getenv("SHADOW_IDLE_MAX") or "200") or 200
+local RAMP_S = tonumber(os.getenv("SHADOW_RAMP") or "1.5") or 1.5  -- seconds 1x -> max
+local ACCEL = math.max(0.05, (IDLE_MAX - PLAY) / (60 * RAMP_S))     -- steps/frame per frame
+local LOOKAHEAD = 30           -- steps before an event that already play
 local TRAIL = 60               -- ...and after one
-local FF_SLICE = 0.012         -- seconds of fast-forward per frame
+local FF_SLICE = 0.012         -- seconds of stepping per frame at most
 local FOLLOW = os.getenv("SHADOW_FOLLOW") == "1"   -- wait for the log to grow
 local QUIET = os.getenv("SHADOW_QUIET") == "1"
 
@@ -33,6 +50,7 @@ local L = {
   audio = {}, au_i = 1,           -- {start, len, {answers}}
   events = {}, ev_i = 1,          -- {step, kind, arg}
   checks = {}, ck_i = 1,          -- {step, rng, map, x, y}
+  views = {}, vw_i = 1,           -- {step, window w, h, view w, h}
   ended = false,
 }
 local function split(s, sep)
@@ -91,6 +109,12 @@ local function read_more()
         L.checks[#L.checks + 1] = { tonumber(s), r, m, x, y }
         L.horizon = math.max(L.horizon, tonumber(s) - 1)
       end
+    elseif kind == "V" then
+      local s, pw, ph, vw, vh = rest:match("^(%d+) (%d+) (%d+) (%d+) (%d+)$")
+      if s then
+        L.views[#L.views + 1] = { tonumber(s), tonumber(pw), tonumber(ph), tonumber(vw), tonumber(vh) }
+        L.horizon = math.max(L.horizon, tonumber(s) - 1)
+      end
     elseif kind == "B" then
       local t, s, r = rest:match("^(%d+) (%d+) (%S+)$")
       L.boot = { tonumber(t), tonumber(s), r }
@@ -112,6 +136,32 @@ end
 
 -- the run's generator as it stood when its driver loaded: same point here
 pcall(love.math.setRandomState, L.boot[3])
+
+-- ---------------------------------------------------------------- the view
+local view = nil                 -- {vw, vh} the run's logic saw, once known
+local function set_window(w, h)
+  if not (w and h) then return end
+  local cw, ch = love.graphics.getDimensions()
+  if cw == w and ch == h then return end
+  local _, _, flags = love.window.getMode()
+  flags = flags or {}
+  flags.resizable = false
+  pcall(love.window.updateMode or love.window.setMode, w, h, flags)
+end
+do
+  local env_w, env_h = (os.getenv("SHADOW_WINDOW") or ""):match("^(%d+)x(%d+)$")
+  if env_w then set_window(tonumber(env_w), tonumber(env_h)) end
+  local v = L.views[1]
+  if v and v[1] <= 1 then set_window(v[2], v[3]); view = { v[4], v[5] } end
+  local okR, Renderer = pcall(require, "src.render.Renderer")
+  if okR and type(Renderer) == "table" and Renderer.worldViewSize then
+    local o_wvs = Renderer.worldViewSize
+    Renderer.worldViewSize = function(self, ...)
+      if view then return view[1], view[2] end
+      return o_wvs(self, ...)
+    end
+  end
+end
 
 -- ------------------------------------------------------------- the buttons
 local held, alias_held = {}, {}
@@ -211,6 +261,12 @@ Game.step = function(self, dt, ...)
     if L.events[L.ev_i][1] == n then apply(self, L.events[L.ev_i]) end
     L.ev_i = L.ev_i + 1
   end
+  while L.views[L.vw_i] and L.views[L.vw_i][1] <= n do
+    local v = L.views[L.vw_i]
+    set_window(v[2], v[3])
+    view = { v[4], v[5] }
+    L.vw_i = L.vw_i + 1
+  end
   while L.checks[L.ck_i] and L.checks[L.ck_i][1] < n do L.ck_i = L.ck_i + 1 end
   local c = L.checks[L.ck_i]
   if c and c[1] == n then
@@ -269,14 +325,17 @@ local function segment_done()
   return newer
 end
 
-local muted = false
-local function mute(on)
-  if on ~= muted then
-    pcall(love.audio.setVolume, on and 0 or 1)
-    muted = on
+-- the sound fades out as the speed rises: whole at 2x, gone by 8x
+local volume = 1
+local function set_volume(speed)
+  local v = math.max(0, math.min(1, (8 - speed) / 6))
+  if math.abs(v - volume) > 0.02 then
+    pcall(love.audio.setVolume, v)
+    volume = v
   end
 end
 
+local speed, carry = PLAY, 0
 return function(G)
   local last_read = 0
   while true do
@@ -299,20 +358,36 @@ return function(G)
         read_more()
       end
     end
+    -- the speed this frame: PLAY near an event; otherwise rising toward
+    -- IDLE_MAX at ACCEL, and capped so it can brake to PLAY by the next
+    -- event (v^2 = 2*a*d) and by the end of what the log holds
+    local target
     if busy_near(n) then
-      mute(false)
-      G.driverSpeed = PLAY
-      coroutine.yield()
+      target = PLAY
     else
-      -- idle: run the steps here, many per frame, up to the next event
-      mute(true)
-      local stop_at = math.min(next_busy(n) - LOOKAHEAD, L.horizon)
-      local t0 = love.timer.getTime()
-      while (Game.logicStep or 0) + 1 < stop_at and love.timer.getTime() - t0 < FF_SLICE do
-        G:update(1 / 60)
-      end
-      G.driverSpeed = 1
-      coroutine.yield()
+      local d_ev = math.max(0, next_busy(n) - LOOKAHEAD - n)
+      local d_h = math.max(0, L.horizon - n)
+      target = math.min(IDLE_MAX, math.max(PLAY, math.sqrt(2 * ACCEL * math.min(d_ev, d_h))))
     end
+    if target <= PLAY then
+      speed = PLAY                     -- something is happening: show it now
+    elseif target > speed then
+      speed = math.min(target, speed + ACCEL)
+    else
+      speed = math.max(target, speed - ACCEL)
+    end
+    set_volume(speed)
+    -- this frame's steps: the main loop runs one after the yield, the rest here
+    carry = carry + speed
+    local steps = math.floor(carry)
+    carry = carry - steps
+    steps = math.min(steps, L.horizon - n + 1)
+    local t0 = love.timer.getTime()
+    for _ = 2, steps do
+      if love.timer.getTime() - t0 > FF_SLICE then break end
+      G:update(1 / 60)
+    end
+    G.driverSpeed = 1
+    coroutine.yield()
   end
 end

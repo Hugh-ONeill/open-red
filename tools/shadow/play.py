@@ -65,7 +65,9 @@ def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = Tru
         env["SDL_AUDIODRIVER"] = "dummy"
         env.pop("WAYLAND_DISPLAY", None)
         env["SDL_VIDEODRIVER"] = "x11"
-        cmd = ["xvfb-run", "-a", "love", "."]
+        # a screen big enough for the run's window: the window size is logic
+        # here (shadow.lua, THE VIEW IS LOGIC TOO), and xvfb's default is 640x480
+        cmd = ["xvfb-run", "-a", "-s", "-screen 0 3840x2160x24", "love", "."]
     else:
         cmd = ["love", "."]
     return subprocess.call(cmd, cwd=GAME_DIR, env=env)
