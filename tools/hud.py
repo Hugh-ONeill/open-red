@@ -82,7 +82,8 @@ CHARMAP.update({c: 0xF6 + i for i, c in enumerate("0123456789")})
 CHARMAP.update({"(": 0x9A, ")": 0x9B, ":": 0x9C, ";": 0x9D, "[": 0x9E,
                 "]": 0x9F, "'": 0xE0, "-": 0xE3, "?": 0xE6, "!": 0xE7,
                 ".": 0xE8, "/": 0xF3, ",": 0xF4, "♂": 0xEF, "♀": 0xF5,
-                "é": 0xBA})                    # the e of POKéMON, as the cartridge draws it
+                "é": 0xBA,                     # the e of POKéMON, as the cartridge draws it
+                "\ue0bd": 0xBD})               # the cartridge's own 's tile (RED's), one glyph
 # What status.txt prints that the cartridge never needed: drawn in its style,
 # one byte per row, leftmost pixel in the high bit.
 EXTRA = {
@@ -379,7 +380,8 @@ def render_team(obs, painter):
     img = Image.new("RGB", (tw, height), BG)
 
     have = set(obs.get("badges") or [])
-    painter.text(img, 4, 7, "TEAM", ACCENT)
+    name = str(obs.get("player_name") or "").strip()[:7]
+    painter.text(img, 4, 7, (name + "\ue0bd TEAM") if name else "TEAM", ACCENT)
     for i, name in enumerate(painter.BADGE_ORDER):
         img.paste(painter.badge(i, name in have), (tw - 8 * 18 - 2 + i * 18, 3))
 
