@@ -2847,6 +2847,46 @@ class Executor:
                 return None
         return None
 
+    def _leg_done_after_events(self, fired: list) -> bool:
+        """Ask the leg's own check-done question again, now, because event
+        flags fired on the step just finished.
+
+        The leg is judged once, after its last step. "Battle the rival for
+        the first time" was planned as a walk to Route 22; the rival fight
+        happened in Oak's lab on step one (EVENT_BATTLED_RIVAL_IN_OAKS_LAB),
+        and the plan walked on north for its remaining steps regardless
+        (run 33, 2026-10-03, user: "its still having a lot of trouble
+        getting around the idea of battling the rival for the first time in
+        the actual lab"). The same judge, the same words; only the moment
+        is new, and only a step that moved the world earns it. The model's
+        answer decides; the harness only asks."""
+        goal = str(getattr(self, "_leg_goal", "") or "").strip()
+        if not goal or not fired or os.environ.get("RED_MIDLEG_CHECK") == "0":
+            return False
+        import subprocess
+        try:
+            root = Path(__file__).resolve().parents[1]
+            start = subprocess.run(
+                [sys.executable, str(root / "planner/state_text.py")],
+                capture_output=True, text=True, timeout=60).stdout.strip()
+            run_dir = Path(getattr(self.b, "run", "run"))
+            r = subprocess.run(
+                [sys.executable, str(root / "planner/author.py"),
+                 "--check-done", "--goal", goal, "--start", start,
+                 "--gained", "events that fired during the step just "
+                             "finished: " + ", ".join(fired[:12]),
+                 "--observed", str(run_dir / "explored.json"),
+                 "--model", os.environ.get("RED_AUTHOR_MODEL")
+                            or os.environ.get("RED_MODEL") or self.model],
+                capture_output=True, text=True, timeout=900)
+        except Exception as e:          # noqa: BLE001 — a question, never the plan
+            self.log("midleg_check_error", err=str(e)[:160])
+            return False
+        out = (r.stdout or "").strip().splitlines()
+        self.log("midleg_check", goal=goal, fired=fired[:12], rc=r.returncode,
+                 said=(out[-2] if len(out) > 1 else "")[:300])
+        return r.returncode == 0
+
     def _new_part_ruled_out(self, sg, obs) -> str | None:
         """Why a "part of MAP you have not stood in" step is answered, or None.
 
@@ -27890,6 +27930,22 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                       f"before its first step — a witness true before the deed "
                       f"witnesses nothing; running the plan anyway")
                 self.log("plan_objective_true_at_start", objective=_fin)
+            # ...AND THE OBJECTIVE ASKED AGAIN WHEN THE WORLD MOVED: event
+            # flags that fired on the step just finished (_leg_done_after_events)
+            _fl_now = set(((self.settle() or {}).get("flags")) or [])
+            _fl_prev = getattr(self, "_flags_at_step", None)
+            self._flags_at_step = _fl_now
+            if (idx > 0 and idx < len(subgoals) and _fl_prev is not None
+                    and _fl_now - _fl_prev):
+                _fired = sorted(_fl_now - _fl_prev)
+                if self._leg_done_after_events(_fired):
+                    print(f"== events fired on the last step ({', '.join(_fired[:4])}"
+                          f"{'...' if len(_fired) > 4 else ''}) and, asked "
+                          f"again, the leg's objective is judged met — "
+                          f"skipping the remaining steps")
+                    self.log("plan_objective_met_by_events", skipped_from=sg["id"],
+                             fired=_fired[:12])
+                    return True
             if (idx > 0 or _ran_any) and idx < len(subgoals) - 1 and _fin \
                     and objective_vouches(_fin) \
                     and pred_holds(_fin, self.settle()):
