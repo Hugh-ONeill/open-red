@@ -352,6 +352,12 @@ EXCLUDE_NOTE = ("\n\nYOU HAVE ALREADY DRAFTED THESE PLANS FOR THIS GOAL (the map
                 "through):\n{routes}\nWrite a plan whose route is DIFFERENT from every one of "
                 "them: a different first place to go, or a different way through. Everything "
                 "else in the rules above still holds.")
+# the ideas call cannot go out under the author's own system prompt: that one
+# says every reply is a plan, and the model answered the ideas request with a
+# plan (2026-10-03: no ideas parsed in any pass, so "hypo" ran as plain drafts)
+IDEAS_SYS = ("You help plan a Pokemon Red run. You do NOT write a plan here. Given the goal and the "
+             "situation, you name different approaches to it, the way a player brainstorms before "
+             "committing. Reply with JSON only.")
 IDEAS_NOTE = ("\n\nBEFORE YOU PLAN: name three DIFFERENT ideas for how this goal could be "
               "reached, each one sentence saying where you would go first and why. The ideas "
               "must not be rewordings of each other. Reply with JSON only: "
@@ -400,16 +406,26 @@ def draws(name, n, methods, k=3, force=False):
             if chain_up() and not force:
                 print("the chain came up; stopping here so it has the GPU", flush=True)
                 return
-            drafts, ideas, calls, wall = [], None, 0, 0.0
+            drafts, ideas, ideas_raw, calls, wall = [], None, None, 0, 0.0
             try:
                 if method == "hypo":
-                    reply, w = ask(user + IDEAS_NOTE)
-                    calls, wall = calls + 1, wall + w
+                    t0 = time.time()
+                    reply = B.chat([{"role": "system", "content": IDEAS_SYS},
+                                    {"role": "user", "content": user + IDEAS_NOTE}], MODEL, temp=temp)
+                    calls, wall = calls + 1, wall + time.time() - t0
                     m = re.search(r"\{.*\}", reply, re.S)
                     try:
                         ideas = [str(x) for x in json.loads(m.group(0)).get("ideas", [])][:k] if m else []
                     except ValueError:
                         ideas = []
+                    ideas_raw = reply[:1500]
+                    if not ideas:
+                        # no ideas means this pass did not test the method: say so, do not draft plain
+                        print(f"{name} hypo #{i + 1}: NO IDEAS PARSED; reply began: {reply[:200]!r}", flush=True)
+                        with open(out, "a") as f:
+                            f.write(json.dumps({"t": time.time(), "method": method, "i": i, "k": k,
+                                                "failed": "no ideas", "ideas_raw": ideas_raw}) + "\n")
+                        continue
                 for j in range(k):
                     if method == "sample":
                         text = user
@@ -431,7 +447,7 @@ def draws(name, n, methods, k=3, force=False):
             routes = {tuple(x["route"]) for x in drafts}
             firsts = {x["route"][0] if x["route"] else None for x in drafts}
             rec = {"t": time.time(), "method": method, "i": i, "k": k, "calls": calls, "wall": round(wall, 1),
-                   "ideas": ideas, "drafts": drafts, "distinct_routes": len(routes),
+                   "ideas": ideas, "ideas_raw": ideas_raw if method == "hypo" else None, "drafts": drafts, "distinct_routes": len(routes),
                    "distinct_first": len(firsts), "any_hit": any(x["hit"] for x in drafts),
                    "valid": sum(x["valid"] for x in drafts)}
             with open(out, "a") as f:
@@ -452,7 +468,10 @@ def report_draws(names):
         rows = [json.loads(l) for l in open(d / "results_draws.jsonl")]
         print(f"\n== {name}: {meta['goal']}   (hit = through any of {meta.get('hit_any')})")
         for method in ("sample", "exclude", "hypo"):
-            r = [x for x in rows if x["method"] == method]
+            failed = [x for x in rows if x["method"] == method and x.get("failed")]
+            r = [x for x in rows if x["method"] == method and not x.get("failed")]
+            if failed:
+                print(f"  {method:7s} {len(failed)} pass(es) FAILED ({failed[0]['failed']}), left out below")
             if not r:
                 continue
             same = sum(1 for x in r if x["distinct_routes"] == 1)
