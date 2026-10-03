@@ -436,6 +436,144 @@ local function snapshot(game)
   if f then f:write(jstr(o)); f:close(); os.rename(tmp, SNAP) end
 end
 
+-- ------------------------------------------------------------- fog of war
+-- THE RUN'S SEEN-GROUND OVERLAY, on the copy too (user, 2026-10-03: "the 1x
+-- speed doesnt show the shadow overlay"). The shim draws it on the run's own
+-- window from its SEEN table; the copy keeps its own: the ground seen when
+-- this boot began (the recorder's copy of seen.json, else the run's current
+-- one), then the same 10x9 window around the player painted as the copy
+-- walks, so the screen reveals ground as the screen reaches it. Drawn the
+-- shim's way: unseen cells shaded, a red edge along the seen boundary, the
+-- connected maps out to three hops, the blue square of the view. Off with
+-- SHADOW_OVERLAY=0.
+local VIEW_L, VIEW_R, VIEW_U, VIEW_D = 4, 5, 4, 4
+local SEEN = {}
+local function seen_load(path)
+  local f = path and io.open(path, "r")
+  if not f then return false end
+  local body = f:read("*a"); f:close()
+  local chunk = body and load(body, "seen", "t", {})
+  local ok, t = pcall(chunk or function() end)
+  if not (ok and type(t) == "table") then return false end
+  for mid, cells in pairs(t) do
+    local st = SEEN[mid] or {}
+    SEEN[mid] = st
+    for _, k in ipairs(cells) do st[k] = true end
+  end
+  return true
+end
+if not seen_load(SEG .. "/seen.json") then seen_load(os.getenv("SHADOW_SEEN_FALLBACK")) end
+local function seen_dims(game, map)
+  local md = map and map.id and game.data and game.data.maps and game.data.maps[map.id]
+  return ((md and md.width) or 0) * 2, ((md and md.height) or 0) * 2
+end
+local seen_last = nil
+local function seen_paint(game)
+  local ow = game.overworld
+  local p, map = ow and ow.player, ow and ow.map
+  if not (p and map and map.id and p.cellX and p.cellY) or ow.transitioning then return end
+  local key = map.id .. "|" .. p.cellX .. "," .. p.cellY
+  if key == seen_last then return end
+  seen_last = key
+  local W, H = seen_dims(game, map)
+  local t = SEEN[map.id] or {}
+  SEEN[map.id] = t
+  for y = math.max(0, p.cellY - VIEW_U), math.min(H - 1, p.cellY + VIEW_D) do
+    for x = math.max(0, p.cellX - VIEW_L), math.min(W - 1, p.cellX + VIEW_R) do
+      t[x .. "," .. y] = true
+    end
+  end
+end
+local function draw_fog(game)
+  local ow = game.overworld
+  if not (ow and game.stack and game.stack:top() == ow) then return end
+  local map, p = ow.map, ow.player
+  local R, cam = game.renderer, ow.camera
+  if not (map and map.id and p and p.cellX and R and R.fitScale and R.worldCanvas and cam and cam.x) then return end
+  local W, H = seen_dims(game, map)
+  if W <= 0 or H <= 0 then return end
+  local okz, Zoom = pcall(require, "src.render.Zoom")
+  local Sp = R:fitScale()
+  local sp = (okz and Zoom and Zoom.scale) and Zoom.scale(Sp) or Sp
+  local ww = love.graphics.getWidth()
+  local pw, ph = love.graphics.getPixelDimensions()
+  local dpi = (ww > 0) and (pw / ww) or 1
+  local wvw, wvh = R.worldCanvas:getWidth(), R.worldCanvas:getHeight()
+  local wox = math.floor((pw - wvw * sp) / 2) / dpi
+  local woy = math.floor((ph - wvh * sp) / 2) / dpi
+  local S = sp / dpi
+  local c = 16 * S
+  local function cell_xy(cx, cy) return wox + (cx * 16 - cam.x) * S, woy + (cy * 16 - cam.y) * S end
+  local vx0, vy0 = math.floor(cam.x / 16) - 1, math.floor(cam.y / 16) - 1
+  local vx1, vy1 = math.floor((cam.x + wvw) / 16) + 1, math.floor((cam.y + wvh) / 16) + 1
+  local function paint(m, mW, mH, ox, oy)
+    local x0, y0 = math.max(0, vx0 - ox), math.max(0, vy0 - oy)
+    local x1, y1 = math.min(mW - 1, vx1 - ox), math.min(mH - 1, vy1 - oy)
+    if x0 > x1 or y0 > y1 then return end
+    love.graphics.setColor(0, 0, 0, 0.5)
+    for cy = y0, y1 do
+      for cx = x0, x1 do
+        if not m[cx .. "," .. cy] then
+          local X, Y = cell_xy(ox + cx, oy + cy)
+          love.graphics.rectangle("fill", X, Y, c, c)
+        end
+      end
+    end
+    love.graphics.setColor(1, 0.15, 0.15, 0.95)
+    love.graphics.setLineWidth(math.max(1, S))
+    for cy = y0, y1 do
+      for cx = x0, x1 do
+        if m[cx .. "," .. cy] then
+          local X, Y = cell_xy(ox + cx, oy + cy)
+          if cy > 0 and not m[cx .. "," .. (cy - 1)] then love.graphics.line(X, Y, X + c, Y) end
+          if cy < mH - 1 and not m[cx .. "," .. (cy + 1)] then love.graphics.line(X, Y + c, X + c, Y + c) end
+          if cx > 0 and not m[(cx - 1) .. "," .. cy] then love.graphics.line(X, Y, X, Y + c) end
+          if cx < mW - 1 and not m[(cx + 1) .. "," .. cy] then love.graphics.line(X + c, Y, X + c, Y + c) end
+        end
+      end
+    end
+  end
+  paint(SEEN[map.id] or {}, W, H, 0, 0)
+  local maps = game.data and game.data.maps
+  if maps then
+    local placed = { [map.id] = true }
+    local queue = { { id = map.id, ox = 0, oy = 0, w = W, h = H, depth = 0 } }
+    local qi = 1
+    while queue[qi] do
+      local cur = queue[qi]
+      qi = qi + 1
+      local md = maps[cur.id]
+      if cur.depth < 3 then
+        local conns = (md and md.connections) or {}
+        local dirs = {}
+        for d in pairs(conns) do dirs[#dirs + 1] = d end
+        table.sort(dirs)
+        for _, d in ipairs(dirs) do
+          local cn = conns[d]
+          local nd = cn and cn.map and maps[cn.map]
+          if nd and not placed[cn.map] and nd.width and nd.height then
+            placed[cn.map] = true
+            local nW, nH, off = nd.width * 2, nd.height * 2, (cn.offset or 0) * 2
+            local ox, oy
+            if d == "north" then ox, oy = cur.ox + off, cur.oy - nH
+            elseif d == "south" then ox, oy = cur.ox + off, cur.oy + cur.h
+            elseif d == "west" then ox, oy = cur.ox - nW, cur.oy + off
+            elseif d == "east" then ox, oy = cur.ox + cur.w, cur.oy + off end
+            if ox then
+              paint(SEEN[cn.map] or {}, nW, nH, ox, oy)
+              queue[#queue + 1] = { id = cn.map, ox = ox, oy = oy, w = nW, h = nH, depth = cur.depth + 1 }
+            end
+          end
+        end
+      end
+    end
+  end
+  local X, Y = cell_xy(p.cellX - VIEW_L, p.cellY - VIEW_U)
+  love.graphics.setColor(0.3, 0.6, 1, 0.9)
+  love.graphics.rectangle("line", X, Y, (VIEW_L + VIEW_R + 1) * c, (VIEW_U + VIEW_D + 1) * c)
+end
+local FOG = os.getenv("SHADOW_OVERLAY") ~= "0"
+
 -- THE CARD over whatever is being skipped: the game keeps running underneath,
 -- fast, dimmed, so the screen is a fast-forward and not a black hole, and a
 -- Game Boy text box in the game's own font and frame says what it is (user,
@@ -462,6 +600,11 @@ pcall(function()
   local o_draw = love.draw
   love.draw = function(...)
     if o_draw then o_draw(...) end
+    if FOG and not (skip or op_skip) then
+      love.graphics.push("all")
+      pcall(draw_fog, Game)
+      love.graphics.pop()
+    end
     if not (skip or op_skip) then return end
     local w, h = love.graphics.getDimensions()
     love.graphics.push("all")
@@ -575,6 +718,7 @@ Game.step = function(self, dt, ...)
   STEP.on = true
   local a, b, d = o_step(self, dt, ...)
   STEP.on = false
+  if FOG then pcall(seen_paint, self) end
   if cur and cur_i <= #cur and not OWN_AUDIO then
     report(("step %d: the run asked %d audio question(s) this copy did not"):format(n, #cur - cur_i + 1))
   end

@@ -63,7 +63,9 @@ def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = Tru
                POKEPORT_DRIVER=str(ROOT / "tools/shadow/shadow.lua"),
                POKEPORT_SPEED="1", POKEPORT_GAME="red", POKEPORT_IDENTITY=ident,
                SHADOW_SEG=str(seg), SHADOW_SPEED=str(speed),
-               SHADOW_FOLLOW="1" if follow else "0", SHADOW_QUIET="1" if quiet else "0")
+               SHADOW_FOLLOW="1" if follow else "0", SHADOW_QUIET="1" if quiet else "0",
+               # a boot recorded before the recorder kept seen.json: the run's own
+               SHADOW_SEEN_FALLBACK=str(RUN / "seen.json"))
     env.pop("RED_BRIDGE_DIR", None)
     if headless:
         env["SDL_AUDIODRIVER"] = "dummy"
