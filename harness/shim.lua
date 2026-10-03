@@ -91,6 +91,30 @@ wd.rec = (function()
   local ok2, r = pcall(mk, BRIDGE)
   return ok2 and r or nil
 end)()
+-- THE GAME HOLDS STILL WHILE THE MODEL THINKS. Between an observation and
+-- the next command nothing here is pressed, but the game kept stepping at
+-- 200x: NPCs wandered and drew from the random generator for the whole of
+-- every model call, so a 1x copy of the run (tools/shadow) had to run those
+-- steps too, fast, to stay in sync (user, 2026-10-03: "since we arent
+-- displaying the x200 screen we can just pause on that screen"). While the
+-- shim waits for a command, logic does not step once a game is loaded; the
+-- window still draws and the music plays. RED_PAUSE_IDLE=0 lets it run.
+wd.idle = false
+if os.getenv("RED_PAUSE_IDLE") ~= "0" then
+  pcall(function()
+    local Game = require("src.core.Game")
+    local o_step = Game.step
+    Game.step = function(self, ...)
+      -- only once a game is loaded: the title, its fades and the load
+      -- after CONTINUE run between the bootstrap's presses
+      if wd.idle then
+        local ow = self.overworld
+        if ow and ow.map and ow.map.id then return end
+      end
+      return o_step(self, ...)
+    end
+  end)
+end
 function wd.steps.flush()
   local S = wd.steps
   if #S.buf == 0 or not BRIDGE then return end
@@ -14197,8 +14221,9 @@ return function(G)
     -- the advancer can't clear stalls one cycle, not the whole bridge
     wd_run(G, "advance_to_decision", OP_FRAME_BUDGET, advance_to_decision, G)
     observe(G, seq, result)
-    -- poll for the next command
+    -- poll for the next command, the game held still meanwhile
     local cmd
+    wd.idle = true
     while true do
       local f = io.open(BRIDGE .. "/cmd.lua", "r")
       if f then
@@ -14213,6 +14238,7 @@ return function(G)
       end
       U.wait(6)
     end
+    wd.idle = false
     seq = cmd.seq
     -- NEVER SIT IN THE CABLE CLUB LINK SCREENS. Two reasons, and they
     -- point the same way. Practically, a link session needs a SECOND
