@@ -137,11 +137,11 @@ def main():
     o["map"]["warps"] = [
         {"x": 3, "y": 7, "dest": "SOMEWHERE", "reachable": False},
         {"x": 4, "y": 7, "dest": "SOMEWHERE", "reachable": False}]
-    o["map"]["objects"] = [{"x": 3, "y": 6, "name": "GUARD",
+    o["map"]["objects"] = [{"x": 3, "y": 6, "name": "GUARD", "kind": "npc",
                             "reachable": True}]
     got = ex._unopened_doors(o)
     check("a blocked double door is one doorway",
-          [(k, who) for k, _d, who in got] == [("3,7", "GUARD")], got)
+          [(k, who) for k, _d, who, _far in got] == [("3,7", "GUARD")], got)
     # ...and a doorway with one tile still reachable is not blocked at all
     o["map"]["warps"][1]["reachable"] = True
     got = ex._unopened_doors(o)

@@ -10311,7 +10311,10 @@ def held_doors_into(named: set, o: dict, now_flags: "int | None" = None) -> "str
                      for sx in (lst or [])
                      if str(sx).startswith(str(key) + " ")
                      and re.search(r"\(([A-Z][A-Z0-9_]+) is standing there\)", str(sx))
-                     and not re.search(r"\(NONE is standing there\)", str(sx).upper())]
+                     and not re.search(r"\(NONE is standing there\)", str(sx).upper())
+                     # a SIGN is not somebody (records written before the
+                     # executor stopped naming signs, run 30, 2026-10-02)
+                     and not re.search(r"\(SIGN_[A-Z0-9_]* is standing there\)", str(sx))]
             if notes:
                 held.append(f"{m} door {notes[0]} -> {dest}")
             else:

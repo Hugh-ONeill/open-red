@@ -7597,12 +7597,18 @@ class Executor:
         # counted as a posted guard and refused every Erika plan for
         # fifteen rounds (2026-09-04). Say what the record knows: blocked,
         # and by nobody.
+        # ...AND "STANDING THERE" IS BESIDE IT. The nearest person within
+        # eight cells is context; only one on or next to the doorway is the
+        # posted guard the held-door rule reads this note for.
         shut = sorted((f"{k} (its doorstep is across water; nobody in the "
                        f"party knows SURF)" if k in _ow
-                       else f"{k} ({who} is standing there)" if who
+                       else f"{k} ({who} is standing there)"
+                       if who and far is not None and far <= 1
+                       else f"{k} (the way onto it is blocked; nearest person "
+                            f"{who}, {far} cells off)" if who
                        else f"{k} (the way onto it is blocked; nobody is "
                             f"standing there)")
-                      for k, _dest, who in self._unopened_doors(obs))
+                      for k, _dest, who, far in self._unopened_doors(obs))
         if shut:
             if self.shut_doors.get(here) != shut:
                 self.shut_doors[here] = shut
@@ -9586,8 +9592,14 @@ class Executor:
         here = self._where(obs)
         taken = self._taken_here(here)
         m = (obs or {}).get("map") or {}
+        # ...A PERSON. A sign is not somebody: Pewter's gym door read
+        # "(SIGN_PEWTER_CITY_24_17 is standing there)", a sign eight cells
+        # off, and the plan author's held-door rule refused every Brock plan
+        # for want of "the deed that moves them" (run 30, 2026-10-02, user:
+        # "did it skip brock somehow?").
         folk = [o for o in (m.get("objects") or [])
-                if o.get("reachable") and o.get("x") is not None]
+                if o.get("reachable") and o.get("x") is not None
+                and str(o.get("kind") or "") in ("npc", "trainer")]
         out = []
         for w in (m.get("warps") or []):
             k = f"{w.get('x')},{w.get('y')}"
@@ -9612,6 +9624,8 @@ class Executor:
                 default=(None, None))
             out.append((k, w.get("dest"),
                         near[1] if near[0] is not None and near[0] <= 8
+                        else None,
+                        near[0] if near[0] is not None and near[0] <= 8
                         else None))
         # ONE DOORWAY, ONE ENTRY (_door_groups) — and a doorway with a
         # REACHABLE twin tile is not blocked at all: a person standing on
@@ -9619,12 +9633,12 @@ class Executor:
         # "(2,7), nearest person X" beside a working (3,7) sent the run
         # to negotiate with someone it could simply walk past.
         groups = self._door_groups(m.get("warps") or [])
-        if any(len(groups.get(k, ())) > 1 for k, _d, _w in out):
+        if any(len(groups.get(t[0], ())) > 1 for t in out):
             byw = {f"{w.get('x')},{w.get('y')}": w
                    for w in (m.get("warps") or [])}
-            byk = {k: (k, d, who) for k, d, who in out}
+            byk = {t[0]: t for t in out}
             folded, seen = [], set()
-            for k, d, who in out:
+            for k, d, who, far in out:
                 g = groups.get(k) or (k,)
                 if g in seen:
                     continue
@@ -9635,7 +9649,7 @@ class Executor:
                 # ONE tile names it: "(12,5+13,5)" is two coordinates on the
                 # page and the second was read as another door (run 16,
                 # 2026-09-07). Either tile is the same use_warp.
-                folded.append((g[0], d, who))
+                folded.append((g[0], d, who, far))
             out = folded
         return out
 
@@ -18026,7 +18040,7 @@ class Executor:
                         .get("frontier_map_n") or 0)
             _names = ", ".join(
                 f"({k})" + (f", nearest person {who}" if who else "")
-                for k, _d, who in shut[:4])
+                for k, _d, who, _far in shut[:4])
             if _fmap > 0:
                 shut_line = (
                     "\nDOORWAYS ON THIS MAP YOU HAVE NEVER OPENED AND CANNOT "

@@ -35,7 +35,7 @@ ck("a one-tile door has no width clause",
    L.Candidate(key="3,9", kind="door").label() == "door (3,9)")
 
 ck("the unopened-doors list names the first tile, not 'a+b'",
-   "folded.append((g[0], d, who))" in ex and 'folded.append(("+".join(g), d, who))' not in ex)
+   "folded.append((g[0], d, who, far))" in ex and 'folded.append(("+".join(g), d, who' not in ex)
 ck("the local floor note counts doorways and names one tile each",
    "_n_doors = len({_grp.get(k, (k,)) for k in allw})" in ex
    and "open_here = {_grp.get(k, (k,))[0] for k in open_here}" in ex
