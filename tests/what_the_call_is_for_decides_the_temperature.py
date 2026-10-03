@@ -55,9 +55,10 @@ ck("drafts are drawn at 0.8", A.DRAW_TEMP == 0.8)
 src_e = (ROOT / "planner" / "executor.py").read_text()
 src_a = (ROOT / "planner" / "author.py").read_text()
 ck("ask_name passes its own temperature", "temp=NAME_TEMP)" in src_e)
-ck("the draw loop passes its own", "think=bool(think) and i == 0, temp=DRAW_TEMP)" in src_a)
+ck("the draw loop passes its own", "think=bool(think) and i == 0, temp=DRAW_TEMP," in src_a)
+ck("...and so does the ideas call before it", "+ PREMISE_NOTE.format(k=k)}], model, temp=DRAW_TEMP)" in src_a)
 ck("...and author carries it through to the call",
-   "temp: float | None = None) -> dict | None:" in src_a
+   "temp: float | None = None, extra: str = \"\") -> dict | None:" in src_a
    and "think=_thinking,\n            temp=temp)" in src_a)
 ck("both knobs can be turned back from the environment",
    'os.environ.get("RED_NAME_TEMP")' in src_e and 'os.environ.get("RED_DRAW_TEMP")' in src_a)

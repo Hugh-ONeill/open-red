@@ -3453,6 +3453,66 @@ def witness_already_true_problems(plan: dict, obs: dict | None = None) -> list:
 # flakiness everywhere else.
 DRAW_TEMP = float(os.environ.get("RED_DRAW_TEMP") or 0.8)
 
+# HOW THE DRAFTS ARE MADE DIFFERENT. Drawn independently, three drafts were
+# mostly one plan: over 3,142 draw sessions 34-46% put every draft on the
+# same route, and on the S.S. Ticket leg all of them shared one belief (the
+# ticket is in Vermilion) that nothing the run saw supported. A pick among
+# copies is no pick. "premise" asks first what the goal ASSUMES and where
+# each belief comes from (seen in this run, or only memory of the game),
+# takes the model's ideas on different answers to the shakiest one, and
+# writes one draft per idea. The draft call also gets WHAT PEOPLE HAVE SAID,
+# which until now only the review after the pick ever saw. Measured on a
+# frozen prompt (tools/author_ab.py draws, 2026-10-03, case ss_ticket_heard,
+# where the run had heard "You're going to see BILL?"): independent drafts
+# 0/3 passes reached Bill, with the heard lines 0/3, premise alone 0/3,
+# premise with the heard lines 2/3 and 9/9 valid. Every idea is the model's
+# own; the harness names no place, person or answer. RED_DRAWS=sample is the
+# old independent draws, without the heard lines.
+DRAWS_MODE = (os.environ.get("RED_DRAWS") or "premise").strip().lower()
+PREMISE_SYS = ("You help plan a Pokemon Red run. You do NOT write a plan here. Before anyone plans, "
+               "you check the beliefs a goal rests on, the way a player stops and asks 'wait, how do I "
+               "actually know that?'. Reply with JSON only.")
+PREMISE_NOTE = ("\n\nBEFORE YOU PLAN: this goal was worded earlier in the run and may rest on a belief "
+                "that is wrong. List what reaching it ASSUMES: where the thing is or happens, who gives "
+                "it or what triggers it, what has to be done first. For each, say where the belief comes "
+                "from: something this run saw or was told (quote it), or only memory of the game. Then "
+                "name {k} ideas for reaching the goal that each rest on a DIFFERENT answer to the "
+                "assumption you are least sure of, one sentence each saying where you would go first. "
+                "Reply with JSON only: {{\"assumptions\": [{{\"belief\": \"...\", \"source\": \"...\"}}], "
+                "\"ideas\": [\"...\"]}}")
+IDEA_NOTE = "\n\nPLAN THIS IDEA, and only this one: {idea}"
+
+
+def premise_ideas(goal: str, model: str, start: str | None, said: str,
+                  k: int) -> list:
+    """The model's ideas for this goal, each resting on a different answer to
+    the belief it is least sure of; [] when the reply cannot be read."""
+    try:
+        reply = brock_probe.chat(
+            [{"role": "system", "content": PREMISE_SYS},
+             {"role": "user", "content": build_prompt(goal, start) + said
+              + PREMISE_NOTE.format(k=k)}], model, temp=DRAW_TEMP)
+    except (OSError, TimeoutError, ValueError) as e:
+        print(f"[ideas] the ideas call failed ({type(e).__name__}: {str(e)[:80]})")
+        return []
+    m = re.search(r"\{.*\}", reply or "", re.S)
+    try:
+        got = json.loads(m.group(0)) if m else {}
+    except json.JSONDecodeError:
+        got = {}
+    if not isinstance(got, dict):
+        got = {}
+    for a in (got.get("assumptions") or [])[:6]:
+        if isinstance(a, dict):
+            print(f"[ideas] assumes: {str(a.get('belief'))[:160]} "
+                  f"(from: {str(a.get('source'))[:80]})")
+    ideas = [str(x).strip() for x in (got.get("ideas") or []) if str(x).strip()][:k]
+    for i, idea in enumerate(ideas, 1):
+        print(f"[ideas] {i}. {idea[:200]}")
+    if not ideas:
+        print(f"[ideas] no ideas could be read; drafting without them: {(reply or '')[:120]!r}")
+    return ideas
+
 
 # rounds refused, and rounds refused because the condition was ALREADY true
 # where the run stands — read when authoring fails altogether (main: exit 6)
@@ -3503,7 +3563,7 @@ def witness_text(goal: str) -> str:
 
 def author(goal: str, model: str, rounds: int = 5,
            start: str | None = None, think: bool = False,
-           temp: float | None = None) -> dict | None:
+           temp: float | None = None, extra: str = "") -> dict | None:
     # 5 rounds, not 3: with correct suggestions in the feedback the author
     # still re-minted a DIFFERENT wrong id each round (HM01 -> flag guess
     # -> HM01 again) and three rounds died before the oscillation settled.
@@ -3527,7 +3587,7 @@ def author(goal: str, model: str, rounds: int = 5,
                   if isinstance(_last, dict) else
                   ("\n\n(Your last reply could not be read as a plan.)"
                    if fb else ""))
-        user = build_prompt(goal, start) + _shown + inserted_leg_note(goal) + (
+        user = build_prompt(goal, start) + extra + _shown + inserted_leg_note(goal) + (
             f"\n\nFIX THESE PROBLEMS in that attempt — where a "
             f"problem offers a 'did you mean' suggestion, use that exact "
             f"id verbatim; where it tells you a name cannot be looked up, "
@@ -5371,7 +5431,7 @@ def pick_plan(goal: str, plans: list, model: str,
 
 def author_best_of(goal: str, model: str, draws: int = 3,
                    start: str | None = None,
-                   think: bool = False) -> dict | None:
+                   think: bool = False, observed: str | None = None) -> dict | None:
     """Several independent plans for one goal, then the model picks one.
 
     ONE of the draws deliberates, not all of them. Best-of-N exists to buy
@@ -5383,6 +5443,11 @@ def author_best_of(goal: str, model: str, draws: int = 3,
     38.6s a normal draw, 290.8s a thinking one.)
     """
     plans, seen = [], {}
+    said, ideas = "", []
+    if DRAWS_MODE == "premise":
+        said = people_said_text(observed) if observed else ""
+        if max(1, draws) > 1:
+            ideas = premise_ideas(goal, model, start, said, max(1, draws))
     for i in range(max(1, draws)):
         # ONE FLAKY CALL MUST NOT COST THE CHAIN. Taking several drafts
         # multiplies the chances of a timeout, and the first one killed the
@@ -5391,7 +5456,9 @@ def author_best_of(goal: str, model: str, draws: int = 3,
         # that fails is a draw we do not have, nothing more.
         try:
             p = author(goal, model, start=start,
-                       think=bool(think) and i == 0, temp=DRAW_TEMP)
+                       think=bool(think) and i == 0, temp=DRAW_TEMP,
+                       extra=said + (IDEA_NOTE.format(idea=ideas[i])
+                                     if i < len(ideas) else ""))
         except (OSError, TimeoutError, ValueError) as e:
             print(f"[draws] draft {i + 1} failed ({type(e).__name__}: "
                   f"{str(e)[:80]}) — carrying on with the rest")
@@ -12000,7 +12067,8 @@ def main():
         print("[think] this leg has already failed twice — one draft "
               "deliberates (about 4 minutes more than a plain pass)")
     plan = author_best_of(args.goal, args.model, draws=args.draws,
-                          start=args.start, think=args.think)
+                          start=args.start, think=args.think,
+                          observed=args.observed)
     # A DRAFT NAMED ITS OWN WITNESS AND THE GAME HAS IT: asked once, with
     # that on the page, before any other plan is run for the same deed.
     if OWN_WITNESS:
