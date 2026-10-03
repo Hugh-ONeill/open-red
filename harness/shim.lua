@@ -1963,7 +1963,20 @@ local function overlay_install(G)
   if overlay_wrapped or type(love.draw) ~= "function" then return end
   overlay_wrapped = true
   local _draw = love.draw
+  -- NOBODY WATCHES A HEADLESS GAME. RED_DRAW_EVERY=N draws one frame in N
+  -- (stream.sh sets it): the run's window is the 1x copy's size, rendered in
+  -- software under xvfb every frame, about seven cores for pictures no one
+  -- sees (2026-10-03). Logic never reads a drawn frame (the copy draws every
+  -- step and stays in step), and a screenshot asked for is always drawn.
+  local every = math.max(1, tonumber(os.getenv("RED_DRAW_EVERY") or "1") or 1)
+  wd.draw_every = every
+  local drawn = 0
   love.draw = function(...)
+    drawn = drawn + 1
+    if every > 1 and drawn % every ~= 0
+        and not (overlay_G and overlay_G.capturePath) then
+      return
+    end
     love.graphics.setColor(1, 1, 1, 1)
     _draw(...)
     local ok, err = pcall(draw_seen_overlay)
@@ -14309,6 +14322,13 @@ return function(G)
           cmd = c
           break
         end
+      end
+      -- a headless game waiting on the model spins its loop flat out (no
+      -- vsync under xvfb): rest between polls when nobody is watching it
+      -- (once a game is loaded: the title runs flat out between bootstrap presses)
+      if wd.draw_every and wd.draw_every > 1 and G.overworld
+          and G.overworld.map and G.overworld.map.id then
+        love.timer.sleep(0.02)
       end
       U.wait(6)
     end

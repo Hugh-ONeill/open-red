@@ -60,7 +60,7 @@ echo "[stream] tiles ${W}x${H}: copy at ${LX},${LY}, HUD at ${RX},${RY}"
 if [ "$MODE" != attach ]; then
   ./update_base.sh || { echo "[stream] the base update failed; launching on the old base is your call"; exit 1; }
   [ "$MODE" = new ] && rm -f run/outline_leg
-  (RED_HEADED=0 RED_MUTE=1 RED_WINDOW="${W}x${H}" RED_NUM_CTX="${RED_NUM_CTX:-32768}" \
+  (RED_HEADED=0 RED_MUTE=1 RED_WINDOW="${W}x${H}" RED_DRAW_EVERY="${RED_DRAW_EVERY:-30}" RED_NUM_CTX="${RED_NUM_CTX:-32768}" \
      setsid nohup systemd-inhibit --mode=block --what=sleep:idle --why="red-recomp chain" \
      ./fresh_discovery.sh 4 >> run/chain.log 2>&1 < /dev/null &)
   echo "[stream] chain started ($MODE), headless at ${W}x${H}"
