@@ -120,8 +120,7 @@ def from_record(d, state):
             return "info", t
         return None
     if k == "named":
-        if str(d.get("ok")) == "True":
-            return "info", "named it %s" % d.get("name", "?")
+        # the "joined the team" line carries the name (see from_party)
         return None
     if k == "new_species_asked" and str(d.get("catch")) == "True":
         return "info", "going for a catch: %s" % d.get("foe", "?")
@@ -142,15 +141,60 @@ def party_of(obs):
     return out
 
 
+# A NEW MEMBER IS SAID ONCE, BY THE NAME IT ENDS UP WITH. It arrives under
+# its species name, is renamed a moment later, and the feed said "PIDGEY the
+# PIDGEY joined", "named it X" and "X the PIDGEY joined" (user, 2026-10-03:
+# "only the last one is a necessary line"). One still wearing its species
+# name waits here until it is renamed, or until NAME_WAIT seconds say the
+# name was declined.
+PENDING = {}          # (otId, species) -> {"t": first seen, "m": member}
+NAME_WAIT = 90
+
+
+def _default_name(m):
+    norm = lambda x: re.sub(r"[^A-Z0-9]", "", str(x or "").upper())
+    return not m["nick"] or norm(m["nick"]) == norm(m["species"])
+
+
+def _joined(m):
+    return ("good", "%s the %s joined the team"
+            % (m["nick"] or m["species"], m["species"]))
+
+
+def flush_pending(now=None):
+    """Members whose naming window has passed, said under the name they kept."""
+    now = now or time.time()
+    out = []
+    for k, p in list(PENDING.items()):
+        if now - p["t"] >= NAME_WAIT:
+            out.append(_joined(p["m"]))
+            del PENDING[k]
+    return out
+
+
 def from_party(before, after, badges_before, badges_after):
     evs = []
     old = {m["key"]: m for m in before}
+    keys_after = {m["key"] for m in after}
+    gone = [o for o in before if o["key"] not in keys_after]
     for m in after:
         o = old.get(m["key"])
         name = m["nick"] or m["species"]
         if o is None:
-            if before:               # the first read is the baseline, not news
-                evs.append(("good", "%s the %s joined the team" % (name, m["species"])))
+            sk = (m["key"][0], m["species"])
+            renamed = next((g for g in gone if (g["key"][0], g["species"]) == sk), None)
+            if renamed is not None:
+                gone.remove(renamed)
+                if sk in PENDING:        # renamed in its naming window: say it now
+                    del PENDING[sk]
+                    evs.append(_joined(m))
+                continue                 # a rename of someone already said
+            if not before:               # the first read is the baseline, not news
+                continue
+            if _default_name(m):
+                PENDING[sk] = {"t": time.time(), "m": m}
+            else:
+                evs.append(_joined(m))
             continue
         if m["species"] != o["species"]:
             evs.append(("good", "%s evolved into %s" % (name, m["species"])))
@@ -438,8 +482,16 @@ def follow(poll=0.5):
                 new_badges = list(fresh.get("badges") or [])
                 for tone, text in from_party(party, new_party, badges, new_badges):
                     append("party", tone, text)
+                # keep a pending member's latest read, so a declined name is
+                # said with what it is now
+                for _m in new_party:
+                    _pk = (_m["key"][0], _m["species"])
+                    if _pk in PENDING:
+                        PENDING[_pk]["m"] = _m
                 if new_party:        # a blank read mid-write is not a lost team
                     party, badges = new_party, new_badges
+        for tone, text in flush_pending():
+            append("party", tone, text)
         time.sleep(poll)
 
 
