@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Play a recorded boot of the run again in a second game, at watching speed.
+
+harness/replay_rec.lua writes one directory per boot of the 200x game under
+$RED_BRIDGE_DIR/replay/. This starts a second game on one of them with the
+shadow driver (tools/shadow/shadow.lua) under its OWN love identity
+("red-shadow"): the save it continues from and the options are the ones the
+run booted with, copied into that identity, so nothing the copy saves can
+reach the run's save.
+
+  tools/shadow/play.py                 the newest boot, headed, 1x, following
+  tools/shadow/play.py SEG --headless  verify a finished boot without a window
+  tools/shadow/play.py --chain         every boot in order, one after another
+
+Viewer-only: nothing here is read by the planner or the model.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+GAME_DIR = Path.home() / "Developer/gen1recomp"
+LOVE = Path.home() / ".local/share/love"
+LIVE_IDENT = "pokemon-love2d"
+SHADOW_IDENT = "red-shadow"
+RUN = Path(os.environ.get("RED_BRIDGE_DIR") or ROOT / "run")
+
+
+def segments(run: Path = RUN) -> list[Path]:
+    d = run / "replay"
+    return sorted(p for p in d.iterdir() if (p / "log").exists()) if d.is_dir() else []
+
+
+def prepare(seg: Path, ident: str = SHADOW_IDENT, game: str = "red") -> None:
+    """The copy's identity holds what the run booted with and nothing else."""
+    home = LOVE / ident
+    saves = home / "saves" / game
+    saves.mkdir(parents=True, exist_ok=True)
+    cache = LOVE / LIVE_IDENT / game
+    if cache.is_dir() and not (home / game).is_dir():
+        shutil.copytree(cache, home / game)        # the decoded ROM (~5 MB)
+    for name in ("slot1.lua", "slot1.lua.bak"):
+        (saves / name).unlink(missing_ok=True)
+    if (seg / "slot1.lua").exists():
+        shutil.copy(seg / "slot1.lua", saves / "slot1.lua")
+    if (seg / "options.lua").exists():
+        shutil.copy(seg / "options.lua", home / "options.lua")
+
+
+def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = True,
+         quiet: bool = False, ident: str = SHADOW_IDENT) -> int:
+    prepare(seg, ident)
+    env = dict(os.environ,
+               POKEPORT_DRIVER=str(ROOT / "tools/shadow/shadow.lua"),
+               POKEPORT_SPEED="1", POKEPORT_GAME="red", POKEPORT_IDENTITY=ident,
+               SHADOW_SEG=str(seg), SHADOW_SPEED=str(speed),
+               SHADOW_FOLLOW="1" if follow else "0", SHADOW_QUIET="1" if quiet else "0")
+    env.pop("RED_BRIDGE_DIR", None)
+    if headless:
+        env["SDL_AUDIODRIVER"] = "dummy"
+        env.pop("WAYLAND_DISPLAY", None)
+        env["SDL_VIDEODRIVER"] = "x11"
+        cmd = ["xvfb-run", "-a", "love", "."]
+    else:
+        cmd = ["love", "."]
+    return subprocess.call(cmd, cwd=GAME_DIR, env=env)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("seg", nargs="?", help="a replay/<boot> directory (default: the newest)")
+    ap.add_argument("--headless", action="store_true", help="no window, no sound")
+    ap.add_argument("--speed", type=float, default=1, help="speed where something happens (1 = the game's own)")
+    ap.add_argument("--no-follow", action="store_true", help="stop at the end of the log instead of waiting")
+    ap.add_argument("--chain", action="store_true", help="play every boot in order")
+    ap.add_argument("--quiet", action="store_true")
+    a = ap.parse_args()
+    segs = segments()
+    if a.chain:
+        todo = segs
+    elif a.seg:
+        todo = [Path(a.seg)]
+    else:
+        todo = segs[-1:]
+    if not todo:
+        sys.exit(f"no recorded boots under {RUN / 'replay'}")
+    for seg in todo:
+        print(f"[shadow] playing {seg}")
+        rc = play(seg, a.headless, a.speed, follow=not a.no_follow, quiet=a.quiet)
+        if rc:
+            sys.exit(rc)
+
+
+if __name__ == "__main__":
+    main()
