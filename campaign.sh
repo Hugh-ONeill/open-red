@@ -300,6 +300,16 @@ PY
     continue
   fi
 
+  # NO CLOSING REWRITE FOR A LEG THAT DOES NOT COME BACK. The rewrite after
+  # the last attempt is normally the plan the leg's NEXT run loads (the
+  # chain keeps a leg's newest plan); a bonus leg gets one try in all, so
+  # its rewrite was authored, logged as "resuming with" and never played
+  # (run 36, 2026-10-03, user: "but i thought i saw it rewriting?").
+  if [ "${RED_NO_CLOSING_REWRITE:-0}" = 1 ] && [ "$attempt" -ge "$ATTEMPTS" ]; then
+    echo "--- no rewrite: this leg gets no further try ---" | tee -a "$LOG"
+    break
+  fi
+
   goal=$(python - "plans/$failed_plan" <<'PY'
 import json, sys
 print(json.load(open(sys.argv[1])).get("goal", "continue the route"))

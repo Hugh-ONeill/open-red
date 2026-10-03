@@ -586,8 +586,11 @@ while :; do
       [ -s run/explored.json ] && _bargs+=(--observed run/explored.json)
       [ -s run/executor_log.jsonl ] && _bargs+=(--journal run/executor_log.jsonl)
       if python planner/author.py "${_bargs[@]}"; then
+        # a bonus leg never comes back, so a rewrite after its one attempt
+        # would be authored for nobody (RED_NO_CLOSING_REWRITE, campaign.sh)
         env RED_HEADED="${RED_HEADED:-1}" RED_SPEED="${RED_SPEED:-200}" \
-            RED_CONTINUE=1 ./campaign.sh 1 "$_bp" -- --escalate || true
+            RED_CONTINUE=1 RED_NO_CLOSING_REWRITE=1 \
+            ./campaign.sh 1 "$_bp" -- --escalate || true
       else
         echo "    (no plan could be written for the other half; the leg stands done)"
       fi
