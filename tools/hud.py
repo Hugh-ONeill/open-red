@@ -1027,13 +1027,13 @@ def fit(win, team_h):
 
 
 def read_obs():
-    # the shim rewrites obs.json in place; a half-written file is simply
-    # skipped and the next change picks it up
-    try:
-        with open(OBS) as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return None
+    # THE GAME ON SCREEN, NOT THE ONE AHEAD OF IT. On stream the 200x run is
+    # hidden and the 1x copy (tools/shadow) is what viewers watch, so the
+    # team, badges and battle come from the copy's snapshot while it is
+    # fresh; the run's obs.json otherwise (no copy, or the copy idle while
+    # the model authors, when the two agree). The shim rewrites obs.json in
+    # place; a half-written file is skipped and the next change picks it up.
+    return worldmap.current_obs(OBS)
 
 
 def read_status():
@@ -1125,7 +1125,7 @@ def main():
             if time.time() - act_at >= 1.0:        # the service log, once a second
                 act, act_at = model_activity(), time.time()
             # the age tick repaints "updated Ns ago" every 5 s even when idle
-            stamps = (stamp_of(OBS), stamp_of(STATUS), stamp_of(feed.FEED), stamp_of(feed.PHASE),
+            stamps = (stamp_of(OBS), stamp_of(worldmap.COPY), stamp_of(STATUS), stamp_of(feed.FEED), stamp_of(feed.PHASE),
                       stamp_of(feed.LIVE), stamp_of(feed.MODEL_LIVE), win,
                       int(time.time()) // 5, activity_key(act))
             if stamps != last:

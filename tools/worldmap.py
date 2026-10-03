@@ -18,6 +18,7 @@ VIEWER-ONLY: drawn for people watching, never put in front of the model.
 """
 import argparse
 import json
+import time
 import os
 import re
 import subprocess
@@ -723,10 +724,28 @@ def trail(journal=JOURNAL, crumbs=TRAIL, steps=STEPS):
     return out
 
 
+# what the 1x copy shows (tools/shadow), while it is playing: on stream the
+# map's "you are here" follows the game on screen, not the 200x run ahead of it
+COPY = os.path.expanduser("~/.local/state/red-recomp/shadow_obs.json")
+COPY_FRESH_S = 15
+
+
+def current_obs(path=OBS):
+    """The copy's snapshot while it is fresh, else the run's observation."""
+    for p in (COPY, path):
+        try:
+            if p == COPY and time.time() - os.stat(p).st_mtime > COPY_FRESH_S:
+                continue
+            with open(p) as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            continue
+    return None
+
+
 def where():
-    try:
-        obs = json.load(open(OBS))
-    except (OSError, ValueError):
+    obs = current_obs()
+    if obs is None:
         return None
     m = (obs.get("map") or {}).get("id")
     p = obs.get("player") or {}

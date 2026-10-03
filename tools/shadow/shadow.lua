@@ -38,6 +38,22 @@ local LOOKAHEAD = 30           -- steps before an event that already play
 local TRAIL = 60               -- ...and after one
 local FF_SLICE = 0.012         -- seconds of stepping per frame at most
 local FOLLOW = os.getenv("SHADOW_FOLLOW") == "1"   -- wait for the log to grow
+-- WHICH BATTLES ARE SHOWN (user, 2026-10-03: "we can skip through wild
+-- battles, maybe we just show trainer fights, or if that ends up being too
+-- much then just the gym leaders / e4 maybe a couple of the specific event
+-- battles"). A skipped battle still runs every step (the copy must stay in
+-- step with the run) but fast, muted, under a card that says what it was.
+--   all       every battle
+--   trainers  trainer battles and event battles (a scripted wild fight:
+--             Snorlax, the legendaries, Mewtwo), not grass/cave/water ones
+--   bosses    gym leaders, the rival, Giovanni, the Elite Four and champion,
+--             and event battles
+--   none      nothing
+local SHOW = os.getenv("SHADOW_SHOW_BATTLES") or "trainers"
+local SKIP_SPEED = tonumber(os.getenv("SHADOW_SKIP_SPEED") or "400") or 400
+-- what this copy shows, for the HUD (tools/hud.py reads it before obs.json)
+local SNAP = os.getenv("SHADOW_SNAPSHOT")
+  or ((os.getenv("HOME") or ".") .. "/.local/state/red-recomp/shadow_obs.json")
 local QUIET = os.getenv("SHADOW_QUIET") == "1"
 
 local Game = require("src.core.Game")
@@ -246,6 +262,155 @@ pcall(function()
   Music.oneShotPlaying = function(...) return answer("o", o, ...) end
 end)
 
+-- ----------------------------------------------------------------- battles
+local BOSS_CLASSES = { OPP_RIVAL1 = true, OPP_RIVAL2 = true, OPP_RIVAL3 = true,
+  OPP_GIOVANNI = true, OPP_LORELEI = true, OPP_BRUNO = true, OPP_AGATHA = true,
+  OPP_LANCE = true }
+local skip = nil                 -- { battle = obj, what = "wild battle" } while one is skipped
+local skipped_n = 0
+local function battle_shown(battle, npc)
+  if SHOW == "all" then return true end
+  if SHOW == "none" then return false end
+  local event = battle.kind ~= "trainer" and npc ~= nil   -- a scripted wild fight
+  if battle.kind ~= "trainer" then return event end
+  if SHOW == "trainers" then return true end
+  if BOSS_CLASSES[battle.oppClass] then return true end
+  local okv, victories = pcall(require, "data.scripts.victories")
+  local r = okv and victories[tostring(battle.oppClass) .. "#" .. tostring(battle.partyIndex or 1)]
+  return r ~= nil and r.badge ~= nil
+end
+pcall(function()
+  local OW = require("src.world.OverworldController")
+  local o_push = OW.pushBattle
+  OW.pushBattle = function(self, battle, npc, ...)
+    if battle and not battle_shown(battle, npc) then
+      local what = battle.kind == "trainer"
+        and ("trainer battle" .. (battle.trainer and battle.trainer.name
+             and (": " .. tostring(battle.trainer.name)) or ""))
+        or "wild battle"
+      skip = { battle = battle, what = what }
+      skipped_n = skipped_n + 1
+      if not QUIET then print(("[shadow] skipping a %s (%d so far)"):format(what, skipped_n)) end
+    end
+    return o_push(self, battle, npc, ...)
+  end
+end)
+-- skipping lasts while the battle (or the wipe before it) is on the stack;
+-- what comes after it, an evolution say, is shown
+local function skipping(game)
+  if not skip then return false end
+  local st = game.stack and game.stack.states or {}
+  for _, s_ in ipairs(st) do
+    if s_ == skip.battle then skip.seen = true; return true end
+  end
+  if not skip.seen then return true end    -- still the wipe before it
+  skip = nil
+  return false
+end
+
+-- ---------------------------------------------------------------- snapshot
+local function jstr(v)
+  local t = type(v)
+  if t == "nil" then return "null" end
+  if t == "boolean" then return v and "true" or "false" end
+  if t == "number" then return (v ~= v or v == math.huge or v == -math.huge) and "null" or string.format("%.14g", v) end
+  if t == "string" then
+    return '"' .. v:gsub('[%c"\\]', function(c)
+      return string.format("\\u%04x", c:byte()) end) .. '"'
+  end
+  if t == "table" then
+    if #v > 0 or next(v) == nil then
+      local out = {}
+      for i = 1, #v do out[i] = jstr(v[i]) end
+      return "[" .. table.concat(out, ",") .. "]"
+    end
+    local out = {}
+    for k, x in pairs(v) do
+      if type(k) == "string" then out[#out + 1] = jstr(k) .. ":" .. jstr(x) end
+    end
+    return "{" .. table.concat(out, ",") .. "}"
+  end
+  return "null"
+end
+local function snapshot(game)
+  local save = game.save or {}
+  local o = { step = Game.logicStep or 0, seg = SEG, t = os.time(), source = "copy" }
+  o.player_name = save.player and save.player.name
+  o.party = {}
+  for i, mon in ipairs(save.party or {}) do
+    local m = { species = mon.species, nickname = mon.nickname, level = mon.level,
+                hp = mon.hp, max_hp = mon.stats and mon.stats.hp,
+                status = mon.status ~= nil and tostring(mon.status) or nil, moves = {} }
+    for j, mv in ipairs(mon.moves or {}) do
+      if type(mv) == "table" then
+        local def = game.data and game.data.moves and game.data.moves[mv.id] or {}
+        local ups = tonumber(mv.ppUps) or 0
+        m.moves[j] = { id = mv.id, pp = mv.pp, type = def.type, power = def.power,
+                       max_pp = def.pp and (def.pp + ups * math.floor(def.pp / 5)) or nil }
+      end
+    end
+    local pdef = game.data and game.data.pokemon and game.data.pokemon[mon.species]
+    m.types = pdef and pdef.types or nil
+    o.party[i] = m
+  end
+  o.badges = {}
+  for k in pairs(save.inventory or {}) do
+    if type(k) == "string" and k:match("BADGE$") then o.badges[#o.badges + 1] = k end
+  end
+  table.sort(o.badges)
+  local ow = game.overworld
+  local p = ow and ow.player
+  o.map = { id = ow and ow.map and ow.map.id }
+  o.player = p and { x = p.cellX, y = p.cellY, facing = p.facing } or nil
+  local top = game.stack and game.stack:top()
+  if top and (top.enemy or top.kind) and top.player then
+    o.mode = "battle"
+    local function side(sd, mine)
+      if not sd then return nil end
+      local mon = sd.mon or {}
+      local d = { species = mon.species, level = mon.level, hp = sd.shownHP or mon.hp,
+                  maxhp = sd.curStats and sd.curStats.hp,
+                  status = sd.shownStatus or mon.status }
+      if mine then
+        for i, pm in ipairs(save.party or {}) do if pm == mon then d.slot = i break end end
+      end
+      return d
+    end
+    o.battle = { kind = top.kind, me = side(top.player, true), foe = side(top.enemy, false),
+                 trainer = top.trainer and top.trainer.name or nil }
+  else
+    o.mode = (ow and top == ow) and "overworld" or "ui"
+  end
+  local tmp = SNAP .. ".tmp"
+  local f = io.open(tmp, "w")
+  if f then f:write(jstr(o)); f:close(); os.rename(tmp, SNAP) end
+end
+
+-- the card over a skipped battle, drawn on top of the game's own frame
+local card_font, card_font_size
+pcall(function()
+  local o_draw = love.draw
+  love.draw = function(...)
+    if o_draw then o_draw(...) end
+    if skip then
+      local w, h = love.graphics.getDimensions()
+      love.graphics.push("all")
+      love.graphics.origin()
+      love.graphics.setColor(0.07, 0.07, 0.08, 1)
+      love.graphics.rectangle("fill", 0, 0, w, h)
+      love.graphics.setColor(0.85, 0.85, 0.8, 1)
+      local size = math.max(16, math.floor(h / 30))
+      if not card_font or card_font_size ~= size then
+        card_font, card_font_size = love.graphics.newFont(size), size
+      end
+      local font = card_font
+      love.graphics.setFont(font)
+      love.graphics.printf(skip.what .. " (skipped)", 0, h / 2 - font:getHeight(), w, "center")
+      love.graphics.pop()
+    end
+  end
+end)
+
 -- ------------------------------------------------------------------- jumps
 local okC, Checkpoint = pcall(require, "src.core.Checkpoint")
 local okS, SaveSerializer = pcall(require, "src.core.SaveSerializer")
@@ -363,7 +528,7 @@ local function set_volume(speed)
   end
 end
 
-local speed, carry = PLAY, 0
+local speed, carry, snap_n = PLAY, 0, 0
 return function(G)
   local last_read = 0
   while true do
@@ -390,14 +555,18 @@ return function(G)
     -- IDLE_MAX at ACCEL, and capped so it can brake to PLAY by the next
     -- event (v^2 = 2*a*d) and by the end of what the log holds
     local target
-    if busy_near(n) then
+    if skipping(G) then
+      target = SKIP_SPEED              -- a skipped battle: through it under the card
+    elseif busy_near(n) then
       target = PLAY
     else
       local d_ev = math.max(0, next_busy(n) - LOOKAHEAD - n)
       local d_h = math.max(0, L.horizon - n)
       target = math.min(IDLE_MAX, math.max(PLAY, math.sqrt(2 * ACCEL * math.min(d_ev, d_h))))
     end
-    if target <= PLAY then
+    if skip then
+      speed = target                   -- under the card: no ramp to watch
+    elseif target <= PLAY then
       speed = PLAY                     -- something is happening: show it now
     elseif target > speed then
       speed = math.min(target, speed + ACCEL)
@@ -415,6 +584,8 @@ return function(G)
       if love.timer.getTime() - t0 > FF_SLICE then break end
       G:update(1 / 60)
     end
+    snap_n = (snap_n or 0) + 1
+    if snap_n % 6 == 0 and not skip then pcall(snapshot, G) end
     G.driverSpeed = 1
     coroutine.yield()
   end
