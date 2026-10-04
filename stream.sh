@@ -51,12 +51,13 @@ def opt(name):
     d = json.loads(subprocess.check_output(["hyprctl", "getoption", name, "-j"]))
     v = d.get("custom") or d.get("int")
     return int(str(v).split()[0])
-# a real monitor: when the display link drops, Hyprland puts a HEADLESS-n
-# stand-in (1920x1080) in its place, and tiles sized from it shrink the run
+# a real monitor: when the display is off or its link drops, Hyprland puts a
+# 1920x1080 stand-in (FALLBACK, or HEADLESS-n) in its place, and tiles sized
+# from it shrink the run. None: print nothing, and the last real tiles are used
 mons = [m for m in json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"]))
-        if not m["name"].startswith("HEADLESS")]
+        if not m["name"].startswith(("HEADLESS", "FALLBACK"))]
 if not mons:
-    raise SystemExit("no real monitor (the display link is down): try again once it is back")
+    raise SystemExit(0)
 mon = next((m for m in mons if m["focused"]), mons[0])
 gi, go, b = opt("general:gaps_in"), opt("general:gaps_out"), opt("general:border_size")
 rl, rt, rr, rb = mon["reserved"]
@@ -71,6 +72,14 @@ fw -= fw % 2
 print(w, h, x0 + b, y0 + b, x0 + col + 2 * gi + b, y0 + b, fw)
 EOF
 )
+if [ -n "${W:-}" ]; then
+  echo "$W $H $LX $LY $RX $RY $FW" > run/stream.tiles
+elif [ -f run/stream.tiles ]; then
+  read -r W H LX LY RX RY FW < run/stream.tiles
+  echo "[stream] no real monitor (the display is off): the last real tiles"
+else
+  echo "[stream] no real monitor (the display is off) and no earlier tiles: launch once it is on"; exit 1
+fi
 echo "[stream] tiles ${W}x${H}: copy at ${LX},${LY}, HUD at ${RX},${RY}"
 
 # the stream settings, kept for every relaunch while streaming (fresh_discovery.sh reads them).
