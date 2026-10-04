@@ -5226,7 +5226,54 @@ end
 -- screen around them) still covers unseen cells of this floor, nearest
 -- first, each with how many cells it would bring into view. Pure: it
 -- reads the flood and the mask and names no cell it cannot stand on.
-local function vantage_spots(dist, mask, W, H, vl, vr, vu, vd)
+-- ...BUT NOT THE OUTSIDE OF THE WALLS. With no seen ground ending
+-- anywhere, what is left unseen is walled off; a pocket of it at the map's
+-- edge with nothing but wall around it is the border outside the building.
+-- Pokemon Tower 2F read "28 spot(s) where its seen ground ends" with every
+-- walkable cell seen, and explore walked the party eight legs and a
+-- 59-step sweep to put its corners on screen: 22 cells, all wall (run 36,
+-- 2026-10-04; user: "the 'unseen' parts were the corners where theres no
+-- ground"). A pocket a COUNTER borders is still looked for (the 4F clerk
+-- above stands behind one, on the floor's edge row), and so is one off the
+-- edge. is_counter(x, y) answers for a seen cell; nil skips nothing.
+local function vantage_spots(dist, mask, W, H, vl, vr, vu, vd, is_counter)
+  local skip, done = {}, {}
+  if is_counter then
+    local DIRS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }
+    local function pocket(x0, y0)
+      local q, cells, counter, i = { { x0, y0 } }, {}, false, 1
+      done[x0 .. "," .. y0] = true
+      while q[i] do
+        local x, y = q[i][1], q[i][2]
+        i = i + 1
+        cells[#cells + 1] = x .. "," .. y
+        for _, d in ipairs(DIRS) do
+          local nx, ny = x + d[1], y + d[2]
+          if nx >= 0 and ny >= 0 and nx < W and ny < H then
+            local nk = nx .. "," .. ny
+            if not mask[nk] then
+              if not done[nk] then done[nk] = true; q[#q + 1] = { nx, ny } end
+            elseif is_counter(nx, ny) then
+              counter = true
+            end
+          end
+        end
+      end
+      if not counter then
+        for _, k in ipairs(cells) do skip[k] = true end
+      end
+    end
+    for x = 0, W - 1 do
+      for _, y in ipairs({ 0, H - 1 }) do
+        if not mask[x .. "," .. y] and not done[x .. "," .. y] then pocket(x, y) end
+      end
+    end
+    for y = 0, H - 1 do
+      for _, x in ipairs({ 0, W - 1 }) do
+        if not mask[x .. "," .. y] and not done[x .. "," .. y] then pocket(x, y) end
+      end
+    end
+  end
   local out = {}
   for k, d in pairs(dist) do
     local x, y = k:match("^(-?%d+),(-?%d+)$")
@@ -5236,7 +5283,8 @@ local function vantage_spots(dist, mask, W, H, vl, vr, vu, vd)
       for uy = y - vu, y + vd do
         if uy >= 0 and uy < H then
           for ux = x - vl, x + vr do
-            if ux >= 0 and ux < W and not mask[ux .. "," .. uy] then
+            if ux >= 0 and ux < W and not mask[ux .. "," .. uy]
+               and not skip[ux .. "," .. uy] then
               n = n + 1
             end
           end
@@ -5401,7 +5449,11 @@ seen_reach = function(G, sx, sy, surf)
   -- still bring unseen ground into view (vantage_spots). Not in the dark:
   -- a dark floor's window is not the screen's.
   if #front == 0 and not (ow.dark and not (G.save and G.save.flashLit)) then
-    front = vantage_spots(dist, mask, W, H, VIEW_L, VIEW_R, VIEW_U, VIEW_D)
+    front = vantage_spots(dist, mask, W, H, VIEW_L, VIEW_R, VIEW_U, VIEW_D,
+                          function(x, y)
+                            return ow.map.isCounterCell
+                                   and ow.map:isCounterCell(x, y) or false
+                          end)
   end
   local function nearest_first(a, b)
     if a.d ~= b.d then return a.d < b.d end

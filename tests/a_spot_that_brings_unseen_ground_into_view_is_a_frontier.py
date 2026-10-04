@@ -70,7 +70,66 @@ sr = shim[shim.index("seen_reach = function(G, sx, sy, surf)"):]
 sr = sr[:sr.index("\nlocal function warp_block")]
 ck("seen_reach falls back to them only when the ordinary frontier is empty, and not in the dark",
    "if #front == 0 and not (ow.dark and not (G.save and G.save.flashLit)) then" in sr
-   and "front = vantage_spots(dist, mask, W, H, VIEW_L, VIEW_R, VIEW_U, VIEW_D)" in sr)
+   and "front = vantage_spots(dist, mask, W, H, VIEW_L, VIEW_R, VIEW_U, VIEW_D," in sr
+   and "ow.map:isCounterCell(x, y)" in sr)
+
+# THE OUTSIDE OF THE WALLS. Pokemon Tower 2F as run 36 had it before the
+# sweep that walked eight legs to put its corners on screen (2026-10-04):
+# every walkable cell seen, the unseen cells all at the map's edge behind
+# wall. With the counter test given, nothing is offered; the Mart's
+# counter-side pocket on its edge row still is.
+TOWER = [
+    '                    ',
+    ' ###################',
+    '#########.....######',
+    '#########.......####',
+    '########........####',
+    '#####............###',
+    '####....######....##',
+    '###.....##.........#',
+    '###...####..####...#',
+    '###...####..####...#',
+    '###.....##.........#',
+    '####....##........##',
+    '#####.######.....###',
+    '############..######',
+    '  ####..........####',
+    '  ######......######',
+    '  ##################',
+    '  ################# ',
+]
+lua_rows = "{" + ",".join('"%s"' % r for r in TOWER) + "}"
+prog2 = helper + """
+local rows = """ + lua_rows + """
+local mask, dist = {}, {}
+for y = 0, 17 do for x = 0, 19 do
+  local c = rows[y + 1]:sub(x + 1, x + 1)
+  if c ~= " " then mask[x .. "," .. y] = true end
+  if c == "." then dist[x .. "," .. y] = math.abs(x - 9) + math.abs(y - 2) end
+end end
+local never = function() return false end
+print(#vantage_spots(dist, mask, 20, 18, 4, 5, 4, 4))
+print(#vantage_spots(dist, mask, 20, 18, 4, 5, 4, 4, never))
+-- the Mart 4F shape again, the counter row 6 told as counters
+local m2, d2 = {}, {}
+for y = 0, 7 do for x = 0, 19 do
+  if not (y == 7 and x <= 5) then m2[x .. "," .. y] = true end
+end end
+for y = 1, 5 do for x = 1, 18 do d2[x .. "," .. y] = math.abs(x - 1) + math.abs(y - 1) end end
+print(#vantage_spots(d2, m2, 20, 8, 4, 5, 4, 4, function(x, y) return y == 6 end))
+print(#vantage_spots(d2, m2, 20, 8, 4, 5, 4, 4, never))
+"""
+with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as f:
+    f.write(prog2)
+r2 = subprocess.run(["lua", f.name], capture_output=True, text=True, timeout=20)
+l2 = r2.stdout.split()
+ck("the tower case runs", r2.returncode == 0 and len(l2) == 4, r2.stderr[:200])
+if len(l2) == 4:
+    ck("without the counter test the tower's edge corners still draw a look (old behaviour)",
+       int(l2[0]) > 0, l2)
+    ck("with it, walled-off cells at the map's edge draw no look", l2[1] == "0", l2)
+    ck("a pocket a counter borders on the edge row is still looked for", int(l2[2]) > 0, l2)
+    ck("...and the same pocket behind plain wall is not", l2[3] == "0", l2)
 ck("the observation carries the count", "vantage = f.vantage or nil" in shim)
 led = (ROOT / "planner/ledger.py").read_text()
 ck("the ledger words such a spot",
