@@ -656,15 +656,28 @@ def load_feed():
 def last_events(n, min_level=1, until=None):
     """The last n events at or above min_level, newest last (the HUD asks for
     level 2; a record from before levels existed counts as 2)."""
+    # the last 40 KB, and further back while the moment asked for is older
+    # than all of it (the copy behind the run: an empty strip otherwise)
     out = []
-    try:
-        with open(FEED, "rb") as f:
-            f.seek(0, 2)
-            size = f.tell()
-            f.seek(max(0, size - 40000))
-            lines = f.read().decode("utf-8", "replace").splitlines()
-    except OSError:
-        return []
+    span = 40000
+    while True:
+        try:
+            with open(FEED, "rb") as f:
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size - span))
+                lines = f.read().decode("utf-8", "replace").splitlines()
+        except OSError:
+            return []
+        if until is None or span >= size or span >= 64_000_000:
+            break
+        try:
+            first = json.loads(lines[1] if len(lines) > 1 else lines[0])
+        except (ValueError, IndexError):
+            break
+        if (first.get("t") or 0) <= until:
+            break
+        span *= 8
     for line in lines:
         try:
             e = json.loads(line)

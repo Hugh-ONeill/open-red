@@ -66,6 +66,13 @@ local CATCHUP_SPEED = tonumber(os.getenv("SHADOW_CATCHUP_SPEED") or "3") or 3
 -- 2026-10-03: "was there a speedup of walking in general because that might
 -- be nice"); text, menus and shown battles stay at 1x.
 local WALK_SPEED = tonumber(os.getenv("SHADOW_WALK_SPEED") or "2") or 2
+-- THE LAG CAP: more than MAX_LAG seconds behind the run's clock and the copy
+-- runs everything through under a CATCHING UP card until it is within
+-- CATCHUP_TO again. Whatever the run does, the stream cannot drift hours
+-- behind (2026-10-04: 4 h 45 m behind after a night of a stuck elevator).
+local MAX_LAG = tonumber(os.getenv("SHADOW_MAX_LAG") or "600") or 600
+local CATCHUP_TO = tonumber(os.getenv("SHADOW_CATCHUP_TO") or "180") or 180
+catching_up = false
 -- THE CARD STAYS UP LONG ENOUGH TO READ: a skipped trainer fight is a few
 -- frames at skip speed and its card only flashed (user, 2026-10-03). If the
 -- skip ends sooner than CARD_MIN seconds after the card came up, the card
@@ -639,12 +646,12 @@ pcall(function()
   local o_draw = love.draw
   love.draw = function(...)
     if o_draw then o_draw(...) end
-    if FOG and not card.active and not booting then
+    if FOG and not card.active and not booting and not catching_up then
       love.graphics.push("all")
       pcall(draw_fog, Game)
       love.graphics.pop()
     end
-    if not card.active and not booting then return end
+    if not card.active and not booting and not catching_up then return end
     local w, h = love.graphics.getDimensions()
     love.graphics.push("all")
     love.graphics.origin()
@@ -658,7 +665,8 @@ pcall(function()
     love.graphics.setColor(1, 1, 1, 1)
     Font.drawBox(0, 0, tw, th)
     love.graphics.setColor(1, 1, 1, 1)
-    local lines = booting and not card.active and { "CONTINUING", "", "" } or card_lines()
+    local lines = (catching_up and { "CATCHING UP", "", "" })
+      or (booting and not card.active and { "CONTINUING", "", "" }) or card_lines()
     for i, line in ipairs(lines) do
       line = tostring(line):sub(1, tw - 4)
       local x = math.floor((tw * 8 - Font.width(line)) / 2)
@@ -780,8 +788,9 @@ local function busy_near(n)
   local i = L.in_i
   if L.inputs[i] and near(L.inputs[i][1]) then return true end
   if i > 1 and L.inputs[i - 1] and near(L.inputs[i - 1][1]) then return true end
-  local a = L.audio[L.au_i]
-  if a and a[1] <= n + LOOKAHEAD and a[1] + a[2] - 1 >= n - TRAIL then return true end
+  -- (audio answers alone are not "something happening": a box waiting on a
+  -- sound with nobody pressing is a wait, and the elevator's uncapped wait
+  -- held the copy at 1x for ~2.5 h of a stuck run, 2026-10-04)
   local e = L.events[L.ev_i]
   if e and near(e[1]) then return true end
   return false
@@ -789,7 +798,6 @@ end
 local function next_busy(n)
   local best = math.huge
   if L.inputs[L.in_i] then best = math.min(best, L.inputs[L.in_i][1]) end
-  if L.audio[L.au_i] then best = math.min(best, L.audio[L.au_i][1]) end
   if L.events[L.ev_i] then best = math.min(best, L.events[L.ev_i][1]) end
   return best
 end
@@ -875,7 +883,14 @@ return function(G)
     local target
     local loaded = G.overworld and G.overworld.map and G.overworld.map.id
     booting = not loaded
-    if not loaded then
+    do
+      local rt = run_time(n)
+      local lag = rt and (os.time() - rt) or 0
+      if lag > MAX_LAG then catching_up = true elseif lag < CATCHUP_TO then catching_up = false end
+    end
+    if catching_up then
+      target = SKIP_SPEED
+    elseif not loaded then
       -- THE BOOT ITSELF: title, CONTINUE, the save loading. Every attempt
       -- reboots the run's game, and playing that out each time read as the
       -- game starting over and over (2026-10-03); run it through under a card
@@ -898,7 +913,7 @@ return function(G)
       local d_h = math.max(0, L.horizon - n)
       target = math.min(IDLE_MAX, math.max(PLAY, math.sqrt(2 * ACCEL * math.min(d_ev, d_h))))
     end
-    if skip or op_skip or card.active or booting then
+    if skip or op_skip or card.active or booting or catching_up then
       speed = target                   -- under the card: no ramp to watch
     elseif target <= WALK_SPEED then
       speed = target                   -- 1x or walking pace: no ramp to wait through
