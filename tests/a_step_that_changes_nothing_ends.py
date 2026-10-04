@@ -45,7 +45,17 @@ ck("six idle rounds end the step", "IDLE_STREAK_END = 6" in src
 ck("idle means same world, nothing new, a map already stood on this step",
    "if (_same_world and _seen_map" in src
    and "_news_now = self._round_news(self._round0_news, start)" in src
-   and "if (_same_world and _seen_map and not _news_now):" in src)
+   and "if (_same_world and _seen_map and not _news_now" in src)
+# a grind round changes no badge, flag or bag kind, and still is not idle
+# (run 36's grind_haunter was ended after thousands of exp, 2026-10-04)
+ck("a round that gained experience or levels is not idle",
+   "and not _trained):" in src
+   and "self._round0_exp = self._party_exp(start)" in src)
+_o1 = {"party": [{"species": "HAUNTER", "level": 30, "exp": 20000}]}
+_o2 = {"party": [{"species": "HAUNTER", "level": 30, "exp": 21845}]}
+ck("...where experience is read from the party itself",
+   E.Executor._party_exp(_o1) != E.Executor._party_exp(_o2)
+   and E.Executor._party_exp(_o1) == E.Executor._party_exp(dict(_o1)))
 au = (ROOT / "planner/author.py").read_text()
 ck("the rewrite's journal says the step was ended for it", 'k == "step_idle_end"' in au)
 failed = [n for n, ok, _ in checks if not ok]

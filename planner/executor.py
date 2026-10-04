@@ -12982,6 +12982,13 @@ class Executor:
 
     IDLE_STREAK_END = 6
 
+    @staticmethod
+    def _party_exp(obs):
+        """The party's levels and experience, as one comparable value."""
+        return tuple((str(m.get("species")), int(m.get("level") or 0),
+                      int(m.get("exp") or 0))
+                     for m in ((obs or {}).get("party") or []))
+
     # A LEG WHOSE ROUNDS KEEP FINDING NOTHING IS CUT, ACROSS ITS ATTEMPTS.
     # The idle streak ends one step; the dry-leg rule (author.DRY_RUNS)
     # judges whole runs, and a run that saw one new strip of ground is not
@@ -24710,7 +24717,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _here_m = str(((start or {}).get("map") or {}).get("id") or "")
                 _seen_map = _here_m in getattr(self, "_step_maps", set())
                 _news_now = self._round_news(self._round0_news, start)
-                if (_same_world and _seen_map and not _news_now):
+                # ...AND A ROUND THAT TRAINED THE PARTY IS NOT IDLE. The
+                # world mark is badges, flags and bag kinds; a grind round
+                # changes none of them, so run 36's grind_haunter was ended
+                # on round 9 as "changed nothing" after earning thousands of
+                # exp and five levels on ROUTE_12 (2026-10-04). Experience
+                # is the party's own record, on the screen in every fight.
+                _trained = (self._party_exp(start)
+                            != getattr(self, "_round0_exp", None))
+                if (_same_world and _seen_map and not _news_now
+                        and not _trained):
                     self._idle_streak = int(getattr(self, "_idle_streak", 0)) + 1
                 else:
                     self._idle_streak = 0
@@ -24731,6 +24747,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             self._step_maps = set(getattr(self, "_step_maps", set())) | {
                 str(((start or {}).get("map") or {}).get("id") or "")}
             self._round0_mark = self._world_mark(start)
+            self._round0_exp = self._party_exp(start)
             _news0 = self._news_snapshot(start)
             self._round0_news = _news0
             # THE WORLD MAY HAVE CAUGHT UP SINCE THE LAST CHECK. A trade's
