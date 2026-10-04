@@ -173,7 +173,7 @@ carries on across every connected map in view.
 - [Ollama](https://ollama.com) with `gemma4:31b-it-q4_K_M` (about 23 GB of VRAM at a
   32k context).
 - [pokemon-gen1-recomp-project](https://github.com/bryanthaboi/pokemon-gen1-recomp-project),
-  a LÖVE reimplementation of Red by someone else, checked out at `~/Developer/gen1recomp`.
+  a LÖVE reimplementation of Red by bryanthaboi, checked out at `~/Developer/gen1recomp`.
 - LÖVE 11.5, Python 3.10+ (developed on 3.14), LuaJIT.
 - For the HUD only: a kitty terminal and [Pillow](https://python-pillow.github.io).
 
