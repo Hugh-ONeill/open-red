@@ -128,14 +128,26 @@ pcall(function() require("src.core.Game").redMeshPending = ChunkMesher.pending e
 """),
     # a closer camera, for drawing only: the view the engine hands over is
     # the run's (logic), so the diorama frames a smaller part of it instead
-    ("lib/VoxelScene.lua", "function VoxelScene.render(state, w, h, vw, vh, paletteFor, eyes)\n",
-     """function VoxelScene.render(state, w, h, vw, vh, paletteFor, eyes)
+    # (after the focus is set from the full view, so the zoom closes in on
+    # the same point instead of sliding toward the view's corner)
+    ("lib/VoxelScene.lua", "  local cx, cy = cam.x + vw / 2, cam.y + vh / 2\n",
+     """  local cx, cy = cam.x + vw / 2, cam.y + vh / 2
   do
     local okG, G = pcall(require, "src.core.Game")
     local z = okG and G and tonumber(G.redZoom)
     if z and z > 0 and vw and vh then vw, vh = vw * z, vh * z end
   end
 """),
+    # no border ring on the map the player is on (user, 2026-10-04: the trees
+    # along its outline were jarring): the ring is the full mesh, built after
+    # the body and popping in a few frames past each crossing; the body mesh
+    # alone is what the neighbours already draw
+    ("lib/VoxelScene.lua", """  ChunkMesher.request(state.map, false, masks, true)
+  local terrain, water = ChunkMesher.pair(state.map, false)
+  if not terrain then
+    terrain, water = ChunkMesher.pair(state.map, true)
+  end""", """  ChunkMesher.request(state.map, true, nil, true)
+  local terrain, water = ChunkMesher.pair(state.map, true)"""),
     ("main.lua", 'mod.hooks:wrap("ui.options.rows", function(next, game, rows)',
      '-- red-recomp copy: the OPTIONS menu keeps the rows the run had\n'
      'local _ds_rows_off = (function(next, game, rows)'),
