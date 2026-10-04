@@ -10361,7 +10361,22 @@ function OPS.toss(G, c)
     U.tap(G, "up"); U.wait(2)
   end
   U.tap(G, "a"); U.wait(8)
+  -- "IS IT OK TO TOSS?" WAITS FOR A PRESS BEFORE IT ASKS. The new base
+  -- shows the question as a prompting text box and pushes its YES/NO only
+  -- after A (BagMenu's toss: stay = { prompt = true, onShown = ChoiceBox });
+  -- this checked for the choice once, found the text, and the loop below
+  -- pressed A once, raised the YES/NO, left on seeing no text page, and
+  -- ui_back_out answered it with B: NO. Every toss failed, "toss did not go
+  -- through", with the bag full on Safari Zone East (run 36, 2026-10-04).
+  -- Press through the text until the choice is up, then YES (row 1).
+  for _ = 1, 12 do
+    if ui_is_choice(G) then break end
+    local t = ui_top(G)
+    if not (t and t.pages) then break end
+    U.tap(G, "a"); U.wait(8)
+  end
   if ui_is_choice(G) then                      -- "is that OK?" -> yes
+    ui_cursor_to(G, "index", 1)
     U.tap(G, "a"); U.wait(8)
   end
   for _ = 1, 10 do
