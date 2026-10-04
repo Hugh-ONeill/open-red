@@ -13972,7 +13972,33 @@ function OPS.sweep(G, c)
         if h > 0 then _up = _up + 1; _lh, _lm = _lh + h, _lm + mxh end
         _hp, _mx = _hp + h, _mx + mxh
       end
-      if _n > 0 and _mx > 0
+      -- ...BUT NOT WHERE NO FIGHT CAN FIND IT. A gatehouse, a house, a
+      -- Center or a mart has no wild POKEMON, and with no unbeaten trainer
+      -- on the floor a sweep there walks nobody into anything. The Route 15
+      -- gate's sweep stopped at zero steps on a party at 25%, so its west
+      -- door — toward Fuchsia and its Center — never came into view, and
+      -- the run turned back east to look for a Center along four routes
+      -- of grass (run 36, 2026-10-04). The building is on the screen.
+      local _safe = false
+      do
+        local _ts = ow.map and ow.map.def and ow.map.def.tileset
+        local SAFE_TS = { GATE = 1, HOUSE = 1, POKECENTER = 1, LOBBY = 1,
+                          MART = 1, REDS_HOUSE_1 = 1, REDS_HOUSE_2 = 1,
+                          LAB = 1, MUSEUM = 1, FOREST_GATE = 1, SHIP_PORT = 1,
+                          SHIP = 1, GYM = 1, DOJO = 1, CLUB = 1,
+                          INTERIOR = 1, UNDERGROUND = 1 }
+        if _ts and SAFE_TS[_ts] then
+          _safe = true
+          local _beat = (G.save and G.save.defeatedTrainers) or {}
+          for _, npc in ipairs((ow and ow.npcs) or {}) do
+            local d = npc.def or {}
+            local _k = ("%s_obj_%d"):format(tostring((ow.map or {}).id or "?"),
+                                            tonumber(d.index or 0) or 0)
+            if d.trainerClass and _beat[_k] ~= true then _safe = false; break end
+          end
+        end
+      end
+      if _n > 0 and _mx > 0 and not _safe
          and ((_n > 1 and _up <= 1 and _lh * 2 < _lm) or _hp * 3 < _mx) then
         why = ("stopped: your party is nearly out -- %d of %d still standing, "
                .. "%d%% of its HP left; a sweep does not walk a spent party "
