@@ -17006,8 +17006,21 @@ class Executor:
                          if vv[1] is None or vv[1] >= _last}
         groups = {k: {vk: vv[0] for vk, vv in v.items()} for k, v in groups.items()}
         rows = [(" ".join(k), k[-1], v) for k, v in groups.items() if len(v) >= 2]
-        rows.sort(key=lambda r: (-len(r[2]), r[0]))
+        # ...AND EVERY GROUP GETS ITS TURN. Sorted by how many voices and
+        # cut at eight, a thing two voices said lost to every thing three
+        # said, for good: GAME CORNER (the Diner's "basement under the GAME
+        # CORNER", the sailor's "no secret switch behind" its poster) never
+        # reached the section while COIN CASE always did (run 36,
+        # 2026-10-03, user: "there should directly be a quote that says full
+        # on theres a secret switch behind the poster"). The least-shown go
+        # first, more voices breaking ties; still nothing judged by meaning.
+        _ns = getattr(self, "_notable_shown", None)
+        if _ns is None:
+            _ns = self._notable_shown = {}
+        rows.sort(key=lambda r: (_ns.get(r[0], 0), -len(r[2]), r[0]))
         rows = rows[:8]
+        for r in rows:
+            _ns[r[0]] = _ns.get(r[0], 0) + 1
         if not rows:
             return ""
         out = []
