@@ -148,24 +148,26 @@ pcall(function() require("src.core.Game").redMeshPending = ChunkMesher.pending e
     terrain, water = ChunkMesher.pair(state.map, true)
   end""", """  ChunkMesher.request(state.map, true, nil, true)
   local terrain, water = ChunkMesher.pair(state.map, true)"""),
-    # a staged battle hides the neighbour maps' NPCs by emptying state.ghosts,
-    # on the belief that the overworld is frozen under a battle. It is not
-    # for the rest of the step the encounter starts in: applyPendingSpawnResets
-    # still runs, finds no ghost on camera and re-rolls those NPCs from the
-    # game's generator (run 36, step 467146, Route 15). Hide them in the
-    # drawing instead and leave the list alone
+    # a staged battle hides the map's cast by emptying state.ghosts and
+    # cutting state.entities to the player, on the belief that the overworld
+    # is frozen under a battle. It is not for the rest of the step the
+    # encounter starts in: applyPendingSpawnResets still runs, finds no ghost
+    # on camera and re-rolls those NPCs from the game's generator (run 36,
+    # step 467146, Route 15), and entities is the collision list. Hide them
+    # in the drawing instead and leave both lists alone
     ("lib/OverworldBattle.lua", """  session.ghosts = state.ghosts
   state.entities = { state.player }
   state.ghosts = {}
-end""", """  state.entities = { state.player }
-  state.redGhostsHidden = true
+end""", """  state.redCastHidden = true
 end"""),
     ("lib/OverworldBattle.lua",
      "  if session.ghosts then session.state.ghosts = session.ghosts end\n",
      "  if session.ghosts then session.state.ghosts = session.ghosts end\n"
-     "  session.state.redGhostsHidden = nil\n"),
+     "  session.state.redCastHidden = nil\n"),
     ("lib/VoxelScene.lua", "  for _, g in ipairs(state.ghosts or {}) do\n",
-     "  for _, g in ipairs((not state.redGhostsHidden) and state.ghosts or {}) do\n"),
+     "  for _, g in ipairs((not state.redCastHidden) and state.ghosts or {}) do\n"),
+    ("lib/VoxelScene.lua", "  for _, e in ipairs(state.entities or {}) do\n",
+     "  for _, e in ipairs(state.redCastHidden and { state.player } or state.entities or {}) do\n"),
     ("main.lua", 'mod.hooks:wrap("ui.options.rows", function(next, game, rows)',
      '-- red-recomp copy: the OPTIONS menu keeps the rows the run had\n'
      'local _ds_rows_off = (function(next, game, rows)'),
