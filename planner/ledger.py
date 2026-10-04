@@ -3086,6 +3086,12 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
         _people = [(f"({c.get('x')},{c.get('y')})", _occ[(c.get('x'), c.get('y'))])
                    for c in (_su.get("near") or [])
                    if (c.get('x'), c.get('y')) in _occ]
+        # ...AND WHEN EVERY SUCH CELL IS SOMEBODY'S, NO "WAY ONTO IT".
+        # The Route 16 Fly House girl's own tile was the floor's only one,
+        # and the line went on "no part of this map you have stood in
+        # reaches it — the way onto it is not known" beside entry 7, the
+        # same girl, never spoken to; the run left without pressing her
+        # (run 36, 2026-10-04; user: "without even picking up fly").
         head += (f". GROUND YOU HAVE SEEN BUT CANNOT WALK TO FROM HERE: "
                  f"{int(_su['n'])} cell(s), nearest {_near}"
                  + ("" if not _people else
@@ -3116,8 +3122,9 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                        if int(_su['n']) > sum(int(f.get('n') or 0) for f in _from)
                        else "")
                     if _from else
-                    "; no part of this map you have stood in reaches it — "
-                    "the way onto it is not known"))
+                    ("" if len(_people) >= int(_su['n']) else
+                     "; no part of this map you have stood in reaches it — "
+                     "the way onto it is not known")))
         _shut_here = [c for c in (cands or [])
                       if getattr(c, "kind", "") == "shut_door"
                       and getattr(c, "status", "") != "unreachable"]

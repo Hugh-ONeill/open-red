@@ -55,9 +55,18 @@ ck("...and that beside them is the whole of reaching them",
    "standing beside them is the whole of reaching them" in t, t[:600])
 ck("...and that it says nothing about pressing them",
    "says nothing about whether you can press them" in t, t[:600])
+# ...and when that person's cell is the only one, no "the way onto it is not
+# known" after it: the Route 16 Fly House page said so beside the girl's own
+# entry, and the run left without pressing her (run 36, 2026-10-04).
+ck("a person's cell alone draws no 'the way onto it is not known'",
+   "the way onto it is not known" not in t, t[:600])
+t4 = page([GURU], [{"x": 3, "y": 3}, {"x": 0, "y": 0}])
+ck("...but a walled-off cell beside it still does",
+   "the way onto it is not known" in t4, t4[:600])
 t2 = page([], [{"x": 0, "y": 0}])
 ck("ordinary walled-off ground is unchanged",
-   "GROUND YOU HAVE SEEN BUT CANNOT WALK TO FROM HERE" in t2 and "STANDS" not in t2, t2[:400])
+   "GROUND YOU HAVE SEEN BUT CANNOT WALK TO FROM HERE" in t2 and "STANDS" not in t2
+   and "the way onto it is not known" in t2, t2[:400])
 FAR = dict(GURU, reachable=False)
 t3 = page([FAR], [{"x": 3, "y": 3}])
 ck("a person the page itself calls unreachable is not claimed to be pressable", "STANDS" not in t3, t3[:400])
