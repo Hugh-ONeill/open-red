@@ -604,6 +604,9 @@ end
 -- diorama's terrain shader (tools/shadow/dramatic.py patches it to ask
 -- Game.redFog for the map it is about to draw). Rebuilt only when cells
 -- were added since the last frame asked.
+-- how close the diorama's camera sits: the share of the run's view it frames
+-- (drawing only; tools/shadow/dramatic.py)
+Game.redZoom = tonumber(os.getenv("SHADOW_DS_ZOOM") or "0.7")
 FOG_IMG = {}
 Game.redFog = function(map_id)
   if os.getenv("SHADOW_FOG3D") == "0" then return nil end
@@ -758,8 +761,11 @@ pcall(function()
     love.graphics.origin()
     -- the fast-forward, dimmed; a boot or a catch-up is not worth seeing at
     -- all (the title showed through the CONTINUING card, 2026-10-04)
+    -- (and a skipped battle is not seen at all: it showed through, 2026-10-04)
+    local top = Game.stack and Game.stack:top()
+    local in_battle = skip ~= nil or (top and (top.enemy or top.kind)) and true or false
     love.graphics.setColor(0.04, 0.05, 0.06,
-      ((booting or catching_up) and not card.active) and 1 or 0.62)
+      (((booting or catching_up) and not card.active) or in_battle) and 1 or 0.62)
     love.graphics.rectangle("fill", 0, 0, w, h)
     -- a 20x10-tile box in Game Boy pixels, scaled whole to the window
     local k = math.max(1, math.floor(math.min(w / 176, h / 176)))

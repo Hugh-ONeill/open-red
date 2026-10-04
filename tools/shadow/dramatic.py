@@ -126,6 +126,16 @@ pcall(function() require("src.core.Game").redMeshPending = ChunkMesher.pending e
     if okG and G and G.redCovered then covered = true end
   end
 """),
+    # a closer camera, for drawing only: the view the engine hands over is
+    # the run's (logic), so the diorama frames a smaller part of it instead
+    ("lib/VoxelScene.lua", "function VoxelScene.render(state, w, h, vw, vh, paletteFor, eyes)\n",
+     """function VoxelScene.render(state, w, h, vw, vh, paletteFor, eyes)
+  do
+    local okG, G = pcall(require, "src.core.Game")
+    local z = okG and G and tonumber(G.redZoom)
+    if z and z > 0 and vw and vh then vw, vh = vw * z, vh * z end
+  end
+"""),
     ("main.lua", 'mod.hooks:wrap("ui.options.rows", function(next, game, rows)',
      '-- red-recomp copy: the OPTIONS menu keeps the rows the run had\n'
      'local _ds_rows_off = (function(next, game, rows)'),
