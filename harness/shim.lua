@@ -11074,18 +11074,54 @@ function OPS.elevator(G, c)
   end
   local ok, why = OPS.interact(G, { x = px, y = py, floor = want })
   if not ok then return false, why or "could not reach the panel" end
+  -- THE FLOOR LIST IS KNOWN BY ITS ROWS. The new base's panel menu has no
+  -- title, only 1F..5F and CANCEL, so a test on the title never matched; the
+  -- loop pressed A into the open list (choosing a row and closing it) and
+  -- the op said "the LIFT KEY is what it wants" in the Department Store,
+  -- where no key is wanted and the game had just asked "Which floor do you
+  -- want?". The model believed it for an hour (run 36, 2026-10-04). A list
+  -- whose rows read as floors is the floor menu; A is pressed only on text.
+  local function _floor_rows(tt)
+    if not (tt and tt.items and tt.items[1]) then return false end
+    local n = 0
+    for _, it in ipairs(tt.items) do
+      local lab = tostring(it.label or it.value or ""):upper()
+      if lab:match("^%s*B?%d+F%s*$") or lab:find("ROOF") then n = n + 1 end
+    end
+    return n >= 2
+  end
+  local function _box_text()
+    local tt = ui_top(G)
+    if tt and type(tt.pages) == "table" then
+      local pg = tt.pages[tt.pageIndex or 1]
+      if type(pg) == "table" then return table.concat(pg, " ") end
+      if type(pg) == "string" then return pg end
+    end
+    return ""
+  end
   local t
+  local _said = ""
   for _ = 1, 20 do
     t = ui_top(G)
-    if t and t.items and t.title
-       and tostring(t.title):upper():find("FLOOR") then break end
+    if _floor_rows(t) or (t and t.items and t.title
+       and tostring(t.title):upper():find("FLOOR")) then break end
+    if t and t.items then break end          -- some other list: do not press into it
+    local _bt = _box_text()
+    if _bt ~= "" then _said = _bt end
     U.tap(G, "a"); U.wait(6)
   end
   t = ui_top(G)
-  if not (t and t.items) then
+  if not (_floor_rows(t) or (t and t.items and t.title
+          and tostring(t.title):upper():find("FLOOR"))) then
     ui_back_out(G)
-    return false, "the panel opened no floor menu — the LIFT KEY is what "
-      .. "it wants (it says so out loud without one)"
+    -- ...AND A KEY ONLY WHEN THE GAME SAYS KEY ("It appears to need a key",
+    -- the Rocket hideout's lift without the LIFT KEY)
+    if tostring(_said):lower():find("key") then
+      return false, "the panel opened no floor menu — it wants a key: \""
+        .. tostring(_said):gsub("\n", " "):sub(1, 120) .. "\""
+    end
+    return false, "the panel opened no floor menu"
+      .. (_said ~= "" and (" — it said: \"" .. tostring(_said):gsub("\n", " "):sub(1, 120) .. "\"") or "")
   end
   -- EXACT FIRST, AND 1F IS NOT 11F. The substring fallback matched on
   -- every row and the LAST match won, so "1F" found 11F ("11F":find("1F")
