@@ -4832,6 +4832,11 @@ def journal_text(path: Path, limit: int = 60) -> str:
                              " no building was entered)" if idle else ""))
         elif k == "subgoal_failed":
             events.append(f"  FAILED  {r.get('subgoal')}")
+        elif k == "step_idle_end":
+            events.append(f"  IDLE    {r.get('subgoal')} — {r.get('streak')} "
+                          f"rounds in a row changed nothing in the world (the "
+                          f"same badges, event flags and bag) and walked only "
+                          f"maps that step had already stood on; it was ended")
         elif k == "subgoal_ruled_out":
             events.append(f"  ANSWERED {r.get('subgoal')} — "
                           f"{(r.get('why') or '')[:300]}")

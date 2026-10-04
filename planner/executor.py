@@ -12956,14 +12956,35 @@ class Executor:
             self._save_memory()
         return n
 
+    IDLE_STREAK_END = 6
+
     def _news_snapshot(self, obs):
         """Where the round starts: the map, how much of it has been on screen,
         how many things have ever been pressed, how many ways ever taken."""
         m = (obs or {}).get("map") or {}
         return (str(m.get("id") or ""),
                 int(((m.get("seen") or {}).get("n")) or 0),
-                sum(len(v or ()) for v in (getattr(self, "_tried_objs", {}) or {}).values()),
+                frozenset((str(r), str(n))
+                          for r, v in (getattr(self, "_tried_objs", {}) or {}).items()
+                          for n in (v or ())),
                 sum(len(v or {}) for v in (self.explored or {}).values()))
+
+    # A SIGN READ IS NOT NEWS ENOUGH TO EXTEND A STEP. A department store has
+    # dozens of signs and counters; each first press earned the step a bonus
+    # round, and leg 27 rode the store's floors for half an hour a plan
+    # looking for a Coin Case nobody sells, every round "finding something
+    # new" (run 36, 2026-10-03, user: "shouldnt it be failing fast because
+    # its not walking any new ground or doing anything new"). People, items
+    # and ways taken still count; signs, vending text and machines do not.
+    NEWS_MIN_CELLS = 20
+
+    @staticmethod
+    def _fixture_name(name: str) -> bool:
+        n = str(name or "").upper()
+        return (n.startswith("SIGN_") or n.startswith("TEXT_")
+                or "SLOT_MACHINE" in n or n.endswith("_PC") or n == "PC"
+                or n.startswith("POKEMON_") or n.startswith("SWITCH_")
+                or n.startswith("QUIZ_"))
 
     def _round_news(self, before, cur) -> str:
         """What this round found that the run had never had: cells newly on
@@ -12975,11 +12996,15 @@ class Executor:
         parts = []
         if str(m.get("id") or "") == mid0:
             n1 = int(((m.get("seen") or {}).get("n")) or 0)
-            if n1 > seen0:
+            if n1 - seen0 >= self.NEWS_MIN_CELLS:
                 parts.append(f"{n1 - seen0} cell(s) newly on screen")
-        t1 = sum(len(v or ()) for v in (getattr(self, "_tried_objs", {}) or {}).values())
-        if t1 > touched0:
-            parts.append(f"{t1 - touched0} thing(s) pressed for the first time")
+        t1 = {(str(r), str(n))
+              for r, v in (getattr(self, "_tried_objs", {}) or {}).items()
+              for n in (v or ())}
+        _t0 = touched0 if isinstance(touched0, (set, frozenset)) else set()
+        _new = [n for _r, n in (t1 - _t0) if not self._fixture_name(n)]
+        if _new:
+            parts.append(f"{len(_new)} person/thing(s) pressed for the first time")
         e1 = sum(len(v or {}) for v in (self.explored or {}).values())
         if e1 > edges0:
             parts.append(f"{e1 - edges0} way(s) taken for the first time")
@@ -24563,7 +24588,40 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # standing order). The walk to a PC puts cells on screen, and
             # taken before this the round's own news would have claimed
             # them. The loop's first round has no obs yet.
+            # A STEP WHOSE ROUNDS CHANGE NOTHING ENDS. Moving between
+            # maps already walked does not spend a round as circling would,
+            # so leg 27 could ride the store's floors and the city for a
+            # dozen rounds a step with the world exactly as it was (run 36,
+            # 2026-10-03). Six rounds in a row with the same badges, flags
+            # and bag kinds, nothing new worth the name, and the round
+            # ending on a map this step had already stood on: the step is
+            # over, and the rewrite and the ladder take it from there.
+            if rnd > 1 and isinstance(getattr(self, "_round0_news", None), tuple):
+                _same_world = (str(self._world_mark(start))
+                               == str(getattr(self, "_round0_mark", None)))
+                _here_m = str(((start or {}).get("map") or {}).get("id") or "")
+                _seen_map = _here_m in getattr(self, "_step_maps", set())
+                if (_same_world and _seen_map
+                        and not self._round_news(self._round0_news, start)):
+                    self._idle_streak = int(getattr(self, "_idle_streak", 0)) + 1
+                else:
+                    self._idle_streak = 0
+                if self._idle_streak >= self.IDLE_STREAK_END:
+                    self.log("step_idle_end", subgoal=sg["id"], round=rnd,
+                             streak=self._idle_streak)
+                    print(f"   ({sg['id']}: {self._idle_streak} rounds in a row "
+                          f"changed nothing in the world and walked only maps "
+                          f"this step had already stood on — the step ends)")
+                    spent = rounds
+                    break
+            else:
+                self._idle_streak = 0
+                self._step_maps = set()
+            self._step_maps = set(getattr(self, "_step_maps", set())) | {
+                str(((start or {}).get("map") or {}).get("id") or "")}
+            self._round0_mark = self._world_mark(start)
             _news0 = self._news_snapshot(start)
+            self._round0_news = _news0
             # THE WORLD MAY HAVE CAUGHT UP SINCE THE LAST CHECK. A trade's
             # animation outlasted round 2's post-op check, so the party
             # read unchanged then and the model was asked a round 3 it

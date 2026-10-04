@@ -39,7 +39,7 @@ before = ex._news_snapshot(o0)
 ck("a round that changed nothing is not news", ex._round_news(before, o0) == "")
 ck("cells newly on screen are news", ex._round_news(before, {"map": {"id": "A", "seen": {"n": 76}}}) == "36 cell(s) newly on screen")
 ex._tried_objs["A|0,0"].add("GIRL")
-ck("a first press is news", "1 thing(s) pressed for the first time" in ex._round_news(before, o0))
+ck("a first press is news", "1 person/thing(s) pressed for the first time" in ex._round_news(before, o0))
 ex.explored["A|0,0"]["7,5"] = {"to": "H|0,0"}
 ck("a way taken for the first time is news", "1 way(s) taken for the first time" in ex._round_news(before, o0))
 ck("cells on another map are not compared (the map change is its own rule)",
