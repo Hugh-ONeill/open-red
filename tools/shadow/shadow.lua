@@ -972,6 +972,11 @@ return function(G)
       if love.timer.getTime() - t0 > FF_SLICE then break end
       G:update(1 / 60)
     end
+    if love.timer.getTime() - (fps_at or 0) > 10 then        -- the frame rate, for judging a mod's cost
+      fps_at = love.timer.getTime()
+      print(("[shadow] fps %d at step %d (speed %.1f)"):format(love.timer.getFPS(), n, speed))
+      io.stdout:flush()
+    end
     snap_n = (snap_n or 0) + 1
     if (snap_n % 6 == 0 and not skip and not op_skip)
         or (snap_n % 30 == 0 and op_skip and not skip) then
