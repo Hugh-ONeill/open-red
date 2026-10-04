@@ -13,6 +13,7 @@ badges) — no event-flag peeking in the decision path.
 Usage: brock_probe.py [--model NAME] [--max-calls N]
 """
 from __future__ import annotations
+import sys
 import argparse
 import json
 import os
@@ -389,8 +390,14 @@ def chat(msgs, model, retries=2, think=False, temp=None):
                         "utf-8", "replace")[:300]
                 except Exception:
                     _why = ""
+            # TO STDERR: callers capture stdout as data. During an ollama
+            # restart this line reached the ladder's sweep as a leg number
+            # and skip_legs.py died on int("[ollama]") (run 36,
+            # 2026-10-04). The chain log still gets it (fresh_discovery
+            # sends both streams there).
             print(f"[ollama] {type(e).__name__}: {e}{_why} — retrying in "
-                  f"{wait}s (retry {attempt + 1} of {budget})")
+                  f"{wait}s (retry {attempt + 1} of {budget})",
+                  file=sys.stderr, flush=True)
             time.sleep(wait)
             attempt += 1
     raise last
