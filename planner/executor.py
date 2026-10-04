@@ -28656,6 +28656,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                              next=_nxt.get("id"), wants=_nxt_map,
                              news_at=getattr(self, "_esc_news_at", 0),
                              rounds=getattr(self, "_esc_rounds", 0))
+                elif getattr(self, "_leg_dry", None):
+                    # A CUT LEG IS NOT CARRIED. The window that ended this
+                    # step is the leg's, so the next step would be cut on its
+                    # second round and the attempt would end there anyway,
+                    # after walking off toward it: run 36's Secret Key v3
+                    # was cut on get_coin_case, carried on to
+                    # gamble_for_coins and cut again (2026-10-04).
+                    print(f"   !! {sg['id']} failed and this leg's rounds keep "
+                          f"finding nothing — the plan ends here")
+                    self.log("leg_dry_no_carry", subgoal=sg["id"])
                 elif fails < 3 and not last:
                     print(f"   !! {sg['id']} failed — continuing")
                     self.log("subgoal_failed_continuing", subgoal=sg["id"],

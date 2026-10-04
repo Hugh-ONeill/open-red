@@ -68,6 +68,10 @@ E.Executor.LEG_DRY_WINDOW = _w
 src = (ROOT / "planner/executor.py").read_text()
 ck("a cut leg ends the plan like a declared block",
    'if not ok and (getattr(self, "_leg_dry", None) or {}).get("subgoal") == sg.get("id"):' in src)
+ck("a cut step is never carried past to the next one",
+   'elif getattr(self, "_leg_dry", None):' in src
+   and src.index('elif getattr(self, "_leg_dry", None):')
+       < src.index('print(f"   !! {sg[\'id\']} failed — continuing")'))
 ck("the window is kept with the leg's record and cleared with it",
    '"leg_rounds": list(' in src and 'self._leg_rounds = []' in src)
 ck("the verdict reads LEG DRY", 'f"LEG DRY (' in src)
