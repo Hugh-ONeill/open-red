@@ -6348,6 +6348,7 @@ class Executor:
             self._leg_looked = data.get("leg_looked") or {}
             self._wild_pay = list(data.get("wild_pay") or [0, 0])
             self._leg_tries = int(data.get("leg_tries") or 0)
+            self._leg_rounds = list(data.get("leg_rounds") or [])
             self._new_species_asked = data.get("new_species_asked") or {}
             self._refused_gifts = data.get("refused_gifts") or {}
             self._wild_lv = data.get("wild_lv") or {}
@@ -6892,6 +6893,7 @@ class Executor:
                  "leg_looked": getattr(self, "_leg_looked", {}),
                  "wild_pay": list(getattr(self, "_wild_pay", None) or [0, 0]),
                  "leg_tries": getattr(self, "_leg_tries", 0),
+                 "leg_rounds": list(getattr(self, "_leg_rounds", None) or [])[-200:],
                  "met_types": getattr(self, "_met_types", {}),
                  "new_species_asked": getattr(self, "_new_species_asked", {}),
                  "refused_gifts": getattr(self, "_refused_gifts", {}),
@@ -12957,6 +12959,60 @@ class Executor:
         return n
 
     IDLE_STREAK_END = 6
+
+    # A LEG WHOSE ROUNDS KEEP FINDING NOTHING IS CUT, ACROSS ITS ATTEMPTS.
+    # The idle streak ends one step; the dry-leg rule (author.DRY_RUNS)
+    # judges whole runs, and a run that saw one new strip of ground is not
+    # dry. Between them run 36 spent some 790 rounds on the Secret Key and
+    # the Coin Case, 85% of them finding nothing, while each rewrite sent
+    # the party back to the prize room it had stood in 45 times (user,
+    # 2026-10-04: "it runs through the same actions over and over again").
+    # Of the leg's last LEG_DRY_WINDOW rounds, counted across its attempts,
+    # LEG_DRY_MAX_GAINS or fewer found anything the run never had or
+    # changed the world: the attempt ends and the leg goes to the ladder,
+    # which moves, changes or drops it. On run 36 that cuts the four
+    # looping legs at 40-135 rounds and no leg that got anywhere. A new
+    # attempt gets LEG_DRY_GRACE rounds of its own before it can be cut;
+    # party legs (training pays in experience, not news) are not counted.
+    # RED_LEG_DRY_WINDOW=0 turns it off.
+    LEG_DRY_WINDOW = int(os.environ.get("RED_LEG_DRY_WINDOW", "40") or 0)
+    LEG_DRY_MAX_GAINS = 3
+    LEG_DRY_GRACE = 12
+    _PARTY_KEYS = ("party_size", "lead_level", "party_min_level",
+                   "slot_level", "party_healthy", "knows_move", "party_type",
+                   "has_species", "dex_owned", "party_fully_evolved")
+
+    def _leg_dry_round(self, sg, rnd, gained: bool) -> bool:
+        """Count one round toward the leg's window; True when the leg is
+        cut (logged and noted for the plan's end)."""
+        try:
+            if self.LEG_DRY_WINDOW <= 0:
+                return False
+            if self._target_key(sg).split(":")[0] in self._PARTY_KEYS:
+                return False
+            lr = getattr(self, "_leg_rounds", None)
+            if lr is None:
+                lr = self._leg_rounds = []
+            lr.append(1 if gained else 0)
+            del lr[:-200]
+            self._attempt_rounds = int(getattr(self, "_attempt_rounds", 0) or 0) + 1
+            w = lr[-self.LEG_DRY_WINDOW:]
+            if (len(w) < self.LEG_DRY_WINDOW
+                    or self._attempt_rounds < self.LEG_DRY_GRACE
+                    or sum(w) > self.LEG_DRY_MAX_GAINS):
+                return False
+            self._leg_dry = {"subgoal": sg.get("id"), "window": len(w),
+                             "gains": sum(w)}
+            self.log("leg_dry_end", subgoal=sg.get("id"), round=rnd,
+                     window=len(w), gains=sum(w),
+                     attempt_rounds=self._attempt_rounds)
+            print(f"   (this leg: {sum(w)} of its last {len(w)} rounds, across "
+                  f"its attempts, found anything new — the attempt ends and "
+                  f"the leg goes to the ladder)")
+            return True
+        except Exception as e:
+            self.log("leg_dry_error", err=str(e)[:160])
+            return False
 
     def _news_snapshot(self, obs):
         """Where the round starts: the map, how much of it has been on screen,
@@ -24631,11 +24687,14 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                == str(getattr(self, "_round0_mark", None)))
                 _here_m = str(((start or {}).get("map") or {}).get("id") or "")
                 _seen_map = _here_m in getattr(self, "_step_maps", set())
-                if (_same_world and _seen_map
-                        and not self._round_news(self._round0_news, start)):
+                _news_now = self._round_news(self._round0_news, start)
+                if (_same_world and _seen_map and not _news_now):
                     self._idle_streak = int(getattr(self, "_idle_streak", 0)) + 1
                 else:
                     self._idle_streak = 0
+                if self._leg_dry_round(sg, rnd, bool(_news_now) or not _same_world):
+                    spent = rounds
+                    break
                 if self._idle_streak >= self.IDLE_STREAK_END:
                     self.log("step_idle_end", subgoal=sg["id"], round=rnd,
                              streak=self._idle_streak)
@@ -28055,7 +28114,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             self._leg_goal = _goal_now
             self._leg_looked = {}
             self._leg_tries = 0
+            self._leg_rounds = []
         self._leg_tries = int(getattr(self, "_leg_tries", 0)) + 1
+        self._attempt_rounds = 0
+        self._leg_dry = None
         try:
             self._pin_slot_levels(subgoals, self.settle())
         except Exception as e:           # a pin is never worth the plan
@@ -28247,6 +28309,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             _walked_off = bool(getattr(self, "_left_target", None))
             # A STEP THE MODEL DECLARED BLOCKED ENDS THE PLAN: re-opening the
             # step before it would walk back toward the wall it just named.
+            if not ok and (getattr(self, "_leg_dry", None) or {}).get("subgoal") == sg.get("id"):
+                self.log("plan_failed_at", subgoal=sg["id"])
+                self.failed_subgoal = sg["id"]
+                return False
             if not ok and (getattr(self, "_step_blocked", None) or {}).get("subgoal") == sg.get("id"):
                 self.log("plan_failed_at", subgoal=sg["id"])
                 self.failed_subgoal = sg["id"]
@@ -29317,6 +29383,10 @@ def main():
     if not ok and _sb:
         _verdict = (f"STEP BLOCKED ({_sb.get('subgoal')}: the model named "
                     f"{_sb.get('wall')} at {_sb.get('where') or 'the place it pressed'})")
+    _ld = getattr(ex, "_leg_dry", None)
+    if not ok and _ld:
+        _verdict = (f"LEG DRY ({_ld.get('subgoal')}: {_ld.get('gains')} of the "
+                    f"leg's last {_ld.get('window')} rounds found anything new)")
     if ex.finished:
         _verdict = (f"GAME FINISHED — the party was entered into the Hall "
                     f"of Fame ({ex.hall_of_fame_seen} induction(s)); the "

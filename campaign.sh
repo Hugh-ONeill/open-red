@@ -160,6 +160,14 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   # rungs that reorder, insert and reword are what can act on "this cannot
   # be done from here, and here is what stops it". Its sentence and wall
   # reach them through the journal (author.py journal_text).
+  # ...AND SO DOES A LEG WHOSE ROUNDS KEEP FINDING NOTHING (executor
+  # LEG_DRY_WINDOW): a rewrite from the same beliefs walks the same loop.
+  if grep -qE "RESULT: LEG DRY" "$LOG"; then
+    echo "=== attempt $attempt: the leg's rounds keep finding nothing — handing" \
+         "the leg to the ladder ===" | tee -a "$LOG"
+    echo "=== campaign exhausted $attempt attempts ===" | tee -a "$LOG"
+    exit 1
+  fi
   if grep -qE "RESULT: STEP BLOCKED" "$LOG"; then
     echo "=== attempt $attempt: the model declared a step blocked — handing the" \
          "leg to the ladder ===" | tee -a "$LOG"
