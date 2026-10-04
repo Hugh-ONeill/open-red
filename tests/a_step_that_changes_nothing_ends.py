@@ -44,7 +44,8 @@ ck("six idle rounds end the step", "IDLE_STREAK_END = 6" in src
    and "if self._idle_streak >= self.IDLE_STREAK_END:" in src and "spent = rounds" in src)
 ck("idle means same world, nothing new, a map already stood on this step",
    "if (_same_world and _seen_map" in src
-   and "and not self._round_news(self._round0_news, start)):" in src)
+   and "_news_now = self._round_news(self._round0_news, start)" in src
+   and "if (_same_world and _seen_map and not _news_now):" in src)
 au = (ROOT / "planner/author.py").read_text()
 ck("the rewrite's journal says the step was ended for it", 'k == "step_idle_end"' in au)
 failed = [n for n, ok, _ in checks if not ok]
