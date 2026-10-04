@@ -5496,6 +5496,9 @@ def author_best_of(goal: str, model: str, draws: int = 3,
     said, ideas = "", []
     if DRAWS_MODE == "premise":
         said = people_said_text(observed) if observed else ""
+    if observed:
+        said += looked_text(observed, goal)
+    if DRAWS_MODE == "premise":
         if max(1, draws) > 1:
             ideas = premise_ideas(goal, model, start, said, max(1, draws))
     for i in range(max(1, draws)):
@@ -5582,6 +5585,7 @@ def review(goal: str, plan: dict, model: str, start: str | None = None,
     # instructions at the tail where truncation cannot reach either.
     repeat_add = None
     base = (evidence_text(observed, journal, drafts)
+            + (looked_text(observed, goal) if observed else "")
             + build_prompt(goal, start))
     for rnd in range(1, rounds + 1):
         _rev = build_review(goal, plan, start, tries=len(drafts or []))
@@ -9140,6 +9144,55 @@ def words_text(path) -> str:
 
 
 _PEOPLE_SECTION: dict = {}
+
+
+def looked_text(observed, goal) -> str:
+    """WHERE THIS OBJECTIVE HAS ALREADY BEEN LOOKED FOR, for the drafts.
+
+    The rounds have had the leg's own search record since run 28
+    (executor._looked_note); the plans never did. Run 36 spent some 790
+    rounds on the Secret Key and the Coin Case, 59% of them made only of
+    ops the leg had already run, while each fresh draft rested on a
+    belief from memory and sent the party straight back to the prize room
+    and the roof house it had stood in 45 and 14 times (2026-10-04, user:
+    "it runs through the same actions over and over again"). The record
+    is the run's own, kept by the executor across the leg's attempts
+    (leg_looked / leg_tries in explored.json, cleared when the objective
+    changes); which place to try next stays the model's."""
+    try:
+        d = json.loads(Path(observed).read_text())
+    except Exception:
+        return ""
+    def _k(g):
+        return " ".join(_re_goal.sub("", str(g or "")).split()).lower()
+    looked = d.get("leg_looked") or {}
+    tries = int(d.get("leg_tries") or 0)
+    if not looked or tries < 1 or _k(d.get("leg_goal")) != _k(goal):
+        return ""
+    press = {}
+    for part, rows in (d.get("press_log") or {}).items():
+        m = str(part).split("|")[0]
+        for r in rows or []:
+            if isinstance(r, (list, tuple)) and r:
+                c = press.setdefault(m, {})
+                c[str(r[0])] = c.get(str(r[0]), 0) + 1
+    out = []
+    rows = sorted(looked.items(), key=lambda kv: -kv[1])
+    for m, n in rows[:12]:
+        who = sorted((press.get(m) or {}).items(), key=lambda kv: -kv[1])
+        out.append(f"  {m}: stood on {n}x"
+                   + ("; pressed there (whole run): "
+                      + ", ".join(f"{w} {c}x" for w, c in who[:6])
+                      + (f" and {len(who) - 6} more" if len(who) > 6 else "")
+                      if who else ""))
+    more = (f"\n  and {len(rows) - 12} more place(s)" if len(rows) > 12
+            else "")
+    return ("\n\nWHERE THIS OBJECTIVE HAS ALREADY BEEN LOOKED FOR, across "
+            f"{tries} attempt(s) at it — the run's own record:\n"
+            + "\n".join(out) + more
+            + "\nWhat it asks for was not found on any of them. Going back "
+            "to one of these repeats what was done there, unless the plan "
+            "does something there that was not done.\n")
 
 
 def people_said_text(observed) -> str:
