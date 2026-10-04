@@ -287,6 +287,9 @@ SIDECARS = {
     "outline_unauthored":   side_text("plan", "stepped_over"),
     "outline_pulls_failed": side_text("warn", "pull_failed"),
     "outline_upkeep_missed": side_text("warn", "upkeep_missed"),
+    # no rung could move, change or strike out a story leg: the chain
+    # passed over it and played on (2026-10-04)
+    "outline_passed":       side_text("warn", "passed_over"),
     "leg_audit_redo":       side_text("warn", "audit_redo"),
     "outline_wording_asked": side_text("info", "wording_asked"),
     "attempt_yield":        side_yield,
