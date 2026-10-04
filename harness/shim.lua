@@ -11348,6 +11348,27 @@ U.elevator_body = function(G, c)
   -- still IN the car ... A screen is STILL up that would not close" —
   -- making a lift a two-op sequence again for the sake of one keypress
   -- the harness could have made itself. Press what the screen answers to.
+  -- THE CHIME IS SAT OUT WITH LOGIC HELD. ElevatorShake's "pa" phase holds
+  -- while the arrival chime plays, a real audio source in wall time, and
+  -- stepped through at 200x its two seconds were ~75,000 logic steps of a
+  -- car standing still, every one recorded: the 1x copy (tools/shadow) sat
+  -- in the lift for twenty minutes a ride (run 36, 2026-10-04). Nothing
+  -- happens in "pa" but the wait, so hold the game the way it holds while
+  -- the model thinks (wd.idle) until the chime is over, ten seconds at most;
+  -- the next step then finds it stopped and the shake pops itself.
+  local function _sit_out_chime()
+    local top = G.stack:top()
+    if not (top and top.phase == "pa") then return end
+    local okS, Sound = pcall(require, "src.core.Sound")
+    if not (okS and Sound and Sound.isPlaying) then return end
+    local clock = love and love.timer and love.timer.getTime
+    local t0 = clock and clock()
+    wd.idle = true
+    while Sound.isPlaying("Safari_Zone_PA") and clock and clock() - t0 < 10 do
+      coroutine.yield()
+    end
+    wd.idle = false
+  end
   U.wait(20)
   for _i = 1, 40 do
     local _t = G.stack:top()
@@ -11372,6 +11393,7 @@ U.elevator_body = function(G, c)
       end
       for _ = 1, math.ceil(_budget / 10) do
         if not _is_fade(G.stack:top()) then break end
+        _sit_out_chime()
         U.wait(10)
       end
     elseif _t and _t.pages and _t.pageIndex then
@@ -11407,6 +11429,7 @@ U.elevator_body = function(G, c)
   while _is_fade(G.stack:top()) do
     _n = _n + 1
     if _n >= 900 and (not _t0 or _clock() - _t0 >= 10) then break end
+    _sit_out_chime()
     coroutine.yield()
   end
   -- ...AND THEN WALK OUT, BECAUSE THAT IS THE SAME INTENT. "Rode to 3F —
