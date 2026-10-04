@@ -27,6 +27,18 @@ ck("the never-seen-side refusal carries none of the proof phrases",
    (lambda t: "cannot be walked to" not in t and "seam of" not in t
     and "no walkable path" not in t)(
         sh.split("no cell of the %s side of %s")[1][:500]))
+# Route 16's south side, with every walkable cell on screen and none within
+# a screen of that side: the refusal said "explore walks toward ground you
+# have not looked at" and leg 29 cut the same bush a dozen times (run 36,
+# 2026-10-04). Proven in game from that checkpoint; pinned here by source.
+_cr = sh[sh.index("local _sight, _open = nil, false"):]
+_cr = _cr[:_cr.index("explore walks toward ground you have not looked at")]
+ck("the refusal asks whether any walkable seen cell comes within a screen of that side",
+   "pcall(seen_reach, G)" in _cr and "y + VIEW_D >= _H - 1" in _cr
+   and "x - VIEW_L <= 0" in _cr)
+ck("...and when none does, it says no walk or explore from here can show it",
+   "walk or explore from where you stand can bring that" in _cr
+   and "only new ground found past it could bring" in _cr)
 ck("the seam search reports whether unseen ground bordered it",
    "unseen_touched = bfs_to_edge(G, dir, c.skip, c.surf, blind, nil," in sh
    and ", bestx, besty, seen, nseen, gate_unseen" in sh)

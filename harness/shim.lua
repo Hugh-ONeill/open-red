@@ -7353,6 +7353,49 @@ function OPS.cross(G, c)
       end
     end
     if not edge_seen then
+      -- ...AND SAY WHEN NO WALK FROM HERE CAN LOOK AT IT. "explore walks
+      -- toward ground you have not looked at" read as a way to that side
+      -- when none of the ground the party could walk to came within a
+      -- screen of it: Route 16's south side lies past the sleeping
+      -- SNORLAX and the cycling-road gate, and leg 29 cut the same bush
+      -- and asked to cross south a dozen times, each refusal sending it
+      -- to explore (run 36, 2026-10-04; user: "its not being confronted
+      -- about not being on a bike, its just being stupid about the cut
+      -- tree"). The screen window is the game's; the flood is the
+      -- ground the party has seen and can walk.
+      local _sight, _open = nil, false
+      if seen_reach and _W > 0 and _H > 0 then
+        local okr, dist, front = pcall(seen_reach, G)
+        _open = okr and type(front) == "table" and #front > 0
+        if okr and type(dist) == "table" then
+          _sight = false
+          for k in pairs(dist) do
+            local x, y = k:match("^(-?%d+),(-?%d+)$")
+            x, y = tonumber(x), tonumber(y)
+            if x and ((dir == "up" and y - VIEW_U <= 0)
+                      or (dir == "down" and y + VIEW_D >= _H - 1)
+                      or (dir == "left" and x - VIEW_L <= 0)
+                      or (dir == "right" and x + VIEW_R >= _W - 1)) then
+              _sight = true
+              break
+            end
+          end
+        end
+      end
+      if _sight == false then
+        return false, ("no cell of the %s side of %s has ever been ON "
+          .. "SCREEN, and none of the ground you have seen and can walk to "
+          .. "from here comes within a screen of it. Whether it joins "
+          .. "another map is not known. "
+          .. (_open and ("Some seen ground here still ends at ground never "
+                .. "on screen; only new ground found past it could bring "
+                .. "that side into view")
+              or ("Every cell you can walk to has been on screen, so no "
+                .. "walk or explore from where you stand can bring that "
+                .. "side into view: whatever reaches it starts beyond the "
+                .. "edge of the ground you can walk to")))
+          :format(cmap[dir], tostring(startMap))
+      end
       return false, ("no cell of the %s side of %s has ever been ON "
         .. "SCREEN — you only know ground that has been on screen, so "
         .. "whether that side even joins another map is not known yet. "
