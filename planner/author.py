@@ -9400,6 +9400,29 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             turned_down.append((ins, "already on your own list"
                                 + (f" as \"{_same}\"" if _same else "")))
             continue
+        # AN OBJECTIVE YOU STRUCK OUT IS NOT A MISSING STEP. "Obtain the Coin
+        # Case from the old man in Celadon City" was voided by the model's
+        # own account (the roof house and the city's old men had been
+        # pressed, and no Coin Case came), and this rung inserted the same
+        # line again before the Secret Key leg; it ran dry twice and the
+        # chain stopped on it (run 36, 2026-10-04, user: "we cant really
+        # cross off the legs ourselves unless the new code wouldnt have
+        # generated them"). Its own reason goes back to it.
+        _voided = None
+        try:
+            for _vl in Path("run/outline_void").read_text().splitlines():
+                _vt, _, _vwhy = _vl.partition("\t")
+                if _vt.strip() and _norm_obj(_vt) == _norm_obj(ins):
+                    _voided = (_vt.strip(), _vwhy.strip())
+        except OSError:
+            pass
+        if _voided:
+            print(f"[missing] turned down {ins!r}: you struck it out before — "
+                  f"{_voided[1][:200]}", file=sys.stderr)
+            turned_down.append((ins, "you struck this objective out earlier, "
+                                     "in your own words: \"" + _voided[1][:300]
+                                     + "\" — name a different deed, or none"))
+            continue
         _first = _norm_obj(ins)
         if any(_first == v or _first.startswith(v + " ") for v in _ARRIVAL_VERBS) \
                 and not _visits_a_person(ins):
