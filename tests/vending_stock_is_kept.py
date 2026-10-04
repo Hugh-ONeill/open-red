@@ -79,6 +79,29 @@ ck("stock already pressed this run is backfilled from the journal",
 ck("...using the last map the journal named, since a menu-up obs has none",
    "_last_at" in esrc and '"None" not in _c' in esrc)
 
+# --- the new base draws the prices beside the rows, not in them ---
+# (run 36, 2026-10-04: "1=FRESH WATER, 2=SODA POP, 3=LEMONADE, 4=CANCEL"
+# was dropped as no prices, and no page could say where FRESH_WATER sold)
+ex3 = E.Executor.__new__(E.Executor)
+ex3._shelves, ex3._shelf_machine, ex3._shelf_reads = {}, set(), {}
+ex3.log = lambda *a, **k: None
+ex3._save_memory = lambda: None
+ex3._record_machine_stock("CELADON_MART_ROOF|2,1",
+    "ok (map->None, moved, TEXT_CELADONMARTROOF_VENDING_MACHINE1 opened a "
+    "menu: 1=FRESH WATER, 2=SODA POP, 3=LEMONADE, 4=CANCEL. Nothing was "
+    "chosen and it is left OPEN.")
+ck("a menu of items with its prices drawn beside the rows is still stock",
+   ex3._shelves.get("CELADON_MART_ROOF") == ["FRESH_WATER", "SODA_POP", "LEMONADE"])
+ex3._shelves = {}
+ex3._record_machine_stock("ROCKET_HIDEOUT_ELEVATOR|1,1",
+    "the panel opened a menu: 1=B1F, 2=B2F, 3=B4F, 4=CANCEL. Nothing was chosen")
+ex3._record_machine_stock("REDS_HOUSE_2F|0,1",
+    "PC opened a menu: 1=WITHDRAW ITEM, 2=DEPOSIT ITEM, 3=TOSS ITEM, "
+    "4=LOG OFF. Nothing was chosen")
+ck("...while a floor list and a PC menu are still not", ex3._shelves == {})
+ck("the journal backfill reads menus the same way",
+   "_rows4 = self._menu_rows(_m4.group(1))" in esrc)
+
 # --- and it never says what the drink is FOR ---
 i = esrc.find("def _record_machine_stock")
 ck("nothing is said about why a drink matters",

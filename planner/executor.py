@@ -2723,6 +2723,31 @@ class Executor:
     _MENU_RE = _re.compile(r"opened a menu[^:]*: (.+?)\. Nothing was chosen")
     _ROW_RE = _re.compile(r"\d+=([A-Z0-9 .'-]+?)\s*[¥]\s*[\d,]+")
 
+    def _menu_rows(self, listing: str) -> list:
+        """The stock rows of a menu's listing: priced rows, or, with no
+        prices shown in the text, rows that are all items this game defines
+        (CANCEL aside). Anything else is not a shop."""
+        rows = [r.strip().replace(" ", "_")
+                for r in self._ROW_RE.findall(listing)]
+        rows = [r for r in rows if r]
+        if rows:
+            return rows
+        # ...OR EVERY ROW IS AN ITEM. The new base draws the vending
+        # machines' prices beside their rows (story4 vendingMachine's
+        # draw), so the menu read as "1=FRESH WATER, 2=SODA POP,
+        # 3=LEMONADE, 4=CANCEL" and was dropped as "no prices": run 36
+        # pressed the Celadon roof machine, and later, with a step that
+        # asked for FRESH_WATER, no page could say where it was sold
+        # (2026-10-04, user: "if its opened the menu it should have
+        # fresh_water in its memory shouldnt it?"). A floor list or a PC
+        # menu never names only items, so the test still keeps them out.
+        plain = [r.strip().replace(" ", "_")
+                 for r in _re.findall(r"\d+=([A-Z0-9 .'-]+?)(?:,|$)", listing)]
+        plain = [r for r in plain if r and r != "CANCEL"]
+        if plain and all(r in _ITEM_IDS for r in plain):
+            return plain
+        return []
+
     def _record_machine_stock(self, region, detail) -> None:
         """Keep what a fixture's purchase menu offered, keyed by map.
 
@@ -2733,9 +2758,7 @@ class Executor:
         m = self._MENU_RE.search(det)
         if not m:
             return
-        rows = [r.strip().replace(" ", "_")
-                for r in self._ROW_RE.findall(m.group(1))]
-        rows = [r for r in rows if r]
+        rows = self._menu_rows(m.group(1))
         if not rows:
             return                       # a menu with no prices is not a shop
         mid = str(region).split("|")[0]
@@ -6481,10 +6504,7 @@ class Executor:
                             _m4 = self._MENU_RE.search(_t)
                             if not (_m4 and _last_at):
                                 continue
-                            _rows4 = [x.strip().replace(" ", "_")
-                                      for x in self._ROW_RE.findall(
-                                          _m4.group(1))]
-                            _rows4 = [x for x in _rows4 if x]
+                            _rows4 = self._menu_rows(_m4.group(1))
                             if _rows4:
                                 self._shelves[_last_at] = _rows4
                                 self._shelf_machine.add(_last_at)
