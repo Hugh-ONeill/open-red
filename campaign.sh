@@ -162,11 +162,17 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   # reach them through the journal (author.py journal_text).
   # ...AND SO DOES A LEG WHOSE ROUNDS KEEP FINDING NOTHING (executor
   # LEG_DRY_WINDOW): a rewrite from the same beliefs walks the same loop.
+  # Exit 2, the code fresh_discovery.sh already reads as "a dry leg, not
+  # run again as it stands": exit 1 was read as a first attempt that failed
+  # on its merits, and the chain ran the leg's remaining attempts anyway —
+  # three more rewrites of the Secret Key leg (v1, v2 gambling for 2000
+  # coins, v3 back for the Coin Case) before the ladder was ever asked
+  # (run 36, 2026-10-04).
   if grep -qE "RESULT: LEG DRY" "$LOG"; then
     echo "=== attempt $attempt: the leg's rounds keep finding nothing — handing" \
          "the leg to the ladder ===" | tee -a "$LOG"
     echo "=== campaign exhausted $attempt attempts ===" | tee -a "$LOG"
-    exit 1
+    exit 2
   fi
   if grep -qE "RESULT: STEP BLOCKED" "$LOG"; then
     echo "=== attempt $attempt: the model declared a step blocked — handing the" \

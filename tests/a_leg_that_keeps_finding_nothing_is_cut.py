@@ -74,6 +74,13 @@ ck("the verdict reads LEG DRY", 'f"LEG DRY (' in src)
 camp = (ROOT / "campaign.sh").read_text()
 ck("campaign.sh sends a LEG DRY result to the ladder, not a rewrite",
    'grep -qE "RESULT: LEG DRY" "$LOG"' in camp)
+_ld = camp[camp.index('grep -qE "RESULT: LEG DRY" "$LOG"'):]
+_ld = _ld[:_ld.index("  fi")]
+ck("...with exit 2, which fresh_discovery reads as a dry leg, not a first try",
+   "exit 2" in _ld and "exit 1" not in _ld)
+fd = (ROOT / "fresh_discovery.sh").read_text()
+ck("fresh_discovery sends a non-zero, non-1, non-7 result to the done check and the ladder",
+   'elif [ "$crc" != 0 ]; then\n    failed=1' in fd)
 
 # 7. the drafts see where the objective was already looked for
 d = {"leg_goal": "Retrieve the Secret Key from the Game Corner", "leg_tries": 3,
