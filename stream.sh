@@ -51,7 +51,13 @@ def opt(name):
     d = json.loads(subprocess.check_output(["hyprctl", "getoption", name, "-j"]))
     v = d.get("custom") or d.get("int")
     return int(str(v).split()[0])
-mon = next(m for m in json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"])) if m["focused"])
+# a real monitor: when the display link drops, Hyprland puts a HEADLESS-n
+# stand-in (1920x1080) in its place, and tiles sized from it shrink the run
+mons = [m for m in json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"]))
+        if not m["name"].startswith("HEADLESS")]
+if not mons:
+    raise SystemExit("no real monitor (the display link is down): try again once it is back")
+mon = next((m for m in mons if m["focused"]), mons[0])
 gi, go, b = opt("general:gaps_in"), opt("general:gaps_out"), opt("general:border_size")
 rl, rt, rr, rb = mon["reserved"]
 sw, sh = int(mon["width"] / mon["scale"]), int(mon["height"] / mon["scale"])
@@ -67,13 +73,20 @@ EOF
 )
 echo "[stream] tiles ${W}x${H}: copy at ${LX},${LY}, HUD at ${RX},${RY}"
 
-# the stream settings, kept for every relaunch while streaming (fresh_discovery.sh reads them)
+# the stream settings, kept for every relaunch while streaming (fresh_discovery.sh reads them).
+# --attach keeps the ones a running chain already boots with: the run's window
+# size is its view, so it changes only with a launch
+if [ "$MODE" = attach ] && [ -f run/stream.env ]; then
+  W=$(sed -n 's/^RED_WINDOW=\([0-9]*\)x[0-9]*$/\1/p' run/stream.env)
+  H=$(sed -n 's/^RED_WINDOW=[0-9]*x\([0-9]*\)$/\1/p' run/stream.env)
+else
 cat > run/stream.env <<EOF2
 RED_HEADED=0
 RED_MUTE=1
 RED_WINDOW=${W}x${H}
 RED_DRAW_EVERY=${RED_DRAW_EVERY:-30}
 EOF2
+fi
 
 if [ "$MODE" != attach ]; then
   ./update_base.sh || { echo "[stream] the base update failed; launching on the old base is your call"; exit 1; }
