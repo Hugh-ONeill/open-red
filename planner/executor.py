@@ -1289,6 +1289,27 @@ def pred_holds(pred: dict | None, obs: dict) -> bool:
             # turns it into map + not_area as the step becomes current;
             # until then a later step read ahead of time is not yet done.
             return False
+        elif key == "new_map_from":
+            # A MAP NEVER STOOD ON WHEN THE STEP BEGAN, ENTERED FROM A NAMED
+            # ONE. The Rocket hideout under the Game Corner could not be
+            # written as an end: its name is not on any page, every guess
+            # ("ROCKET_GAME_CORNER") was refused, and the only plan that
+            # passed was a wrong one up the Celadon Mansion (run 36,
+            # 2026-10-03). The model names the place it goes in from; the
+            # rest is the run's record: the maps stood on when the step
+            # began (not_maps, frozen by Executor._freeze_new_part) and the
+            # map the party came from (came_from, stamped by Bridge.obs).
+            # Unfrozen, it is not begun, so not done.
+            _nm = pred.get("not_maps")
+            if not isinstance(_nm, list):
+                return False
+            _cur = (obs.get("map") or {}).get("id")
+            if not _cur or _cur in _nm or _cur == want:
+                return False
+            if str(obs.get("came_from") or "") != str(want):
+                return False
+        elif key == "not_maps":
+            pass            # read with new_map_from
         elif key == "not_area":
             # A PART OF A MAP OTHER THAN THE ONE YOU KNOW. A split map's
             # far half has no region name until someone stands on it, so a
@@ -2830,7 +2851,8 @@ class Executor:
     # ROUTE_4 -- the plan's next step -- and was sent back to Route 3 for
     # ten rounds looking for it (2026-10-02, user: "its looking for a third
     # area (that i dont think exists) as its done condition").
-    WAYPOINT_KEYS = frozenset({"map", "area", "not_area"})
+    WAYPOINT_KEYS = frozenset({"map", "area", "not_area",
+                               "new_map_from", "not_maps"})
 
     def _waypoint_passed(self, sg, obs):
         """The id of a LATER step that already holds, when the step in play
@@ -27831,6 +27853,14 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         if not isinstance(dw, dict):
             return
         froze = []
+        # ...and the maps stood on, for new_map_from (pred_holds)
+        for alt in [dw] + [a for a in (dw.get("any_of") or []) if isinstance(a, dict)]:
+            if (isinstance(alt.get("new_map_from"), str)
+                    and not isinstance(alt.get("not_maps"), list)):
+                alt["not_maps"] = sorted({str(r).split("|")[0]
+                                          for r in (self.visits or {})})
+                froze.append(("new_map_from:" + alt["new_map_from"],
+                              [f"{len(alt['not_maps'])} map(s)"]))
         for alt in [dw] + [a for a in (dw.get("any_of") or []) if isinstance(a, dict)]:
             mp = alt.pop("new_part", None)
             if not isinstance(mp, str) or not mp:

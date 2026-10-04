@@ -154,6 +154,13 @@ PREDICATES = {
         "start, so it can witness nothing. This is not_area with the list "
         "written in for you from the parts the ledger says you have stood "
         "in: you do not have to name them and you cannot miss one",
+    "new_map_from": "standing on a map you had NEVER STOOD ON when this step "
+        "began, entered straight from the named map: {\"new_map_from\":"
+        "\"GAME_CORNER\"}. Write this when the step's end is a place whose "
+        "NAME you do not know — a cellar under a building, a hidden floor, "
+        "the far side of a door you have never opened — but you do know "
+        "which place you go into it from. You name only the place you have "
+        "been; the new one is whatever the game calls it",
     "not_area": "a part of a map OTHER THAN a named one, for a map whose far "
         "side has no area code yet because nobody has stood on it: "
         "{\"map\":\"ROUTE_10\",\"not_area\":\"ROUTE_10|0,4\"} means "
@@ -2903,8 +2910,15 @@ def _check_pred(dw: dict, tag: str, sid, probs: list):
                 else:
                     for alt in v:
                         _check_pred(alt, tag, sid, probs)
-            elif k in ("map", "new_part") and v not in ROUTE_MAPS:
-                probs.append(f"{tag} ({sid}) map '{v}' is not a place this game has")
+            elif k in ("map", "new_part", "new_map_from") and v not in ROUTE_MAPS:
+                probs.append(f"{tag} ({sid}) map '{v}' is not a place this game has"
+                             + (" — name the place you go IN FROM, which you "
+                                "know; the place you arrive in is whatever the "
+                                "game calls it, so you never write its name"
+                                if k == "new_map_from" else ""))
+            elif k == "not_maps":
+                probs.append(f"{tag} ({sid}) not_maps is filled in for you "
+                             f"when the step begins; write only new_map_from")
             elif k == "has_item" and isinstance(v, dict):
                 for item in v:
                     if ENGINE_ITEMS and item not in ENGINE_ITEMS \

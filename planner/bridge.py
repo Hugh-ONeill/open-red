@@ -80,10 +80,28 @@ class Bridge:
 
     def obs(self) -> dict | None:
         try:
-            return normalize_obs(
+            o = normalize_obs(
                 json.loads((self.run / "obs.json").read_text()))
         except Exception:
             return None
+        return self._came_from_stamp(o)
+
+    def _came_from_stamp(self, o):
+        """WHICH MAP THE PARTY CAME FROM, on every observation: the map it
+        stood on before this one, as observations went by (a battle's, with
+        no map, changes nothing). Read by {"new_map_from": MAP} in
+        executor.pred_holds. Here, where every observation enters, so no
+        check can read one without it."""
+        if isinstance(o, dict):
+            m = (o.get("map") or {}).get("id") if isinstance(o.get("map"), dict) else None
+            if m:
+                was = getattr(self, "_obs_map_now", None)
+                if was and was != m:
+                    self._obs_came_from = was
+                self._obs_map_now = m
+            if getattr(self, "_obs_came_from", None):
+                o["came_from"] = self._obs_came_from
+        return o
 
     def send(self, op: str, **kw) -> dict:
         """Write a command, block until the shim reports its result.
