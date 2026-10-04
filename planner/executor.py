@@ -26935,6 +26935,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 loose = [n for n in loose
                          if not self._not_for_explore_to_press(
                              n, kinds.get(n), here_s)]
+                # PEOPLE FIRST. The sweep presses eight at a time, in the
+                # map's own order, and the Game Corner lists its slot
+                # machines before the Rocket guarding the poster: eight
+                # presses spent on machines that all say the same thing,
+                # and the one person who mattered was never reached (run
+                # 36, 2026-10-03, user: "it hasnt talked to the rocket in
+                # the game corner despite talking to everyone else"). A
+                # person says their own thing; a row of fixtures says one.
+                loose = ([n for n in loose if kinds.get(n) in ("npc", "trainer")]
+                         + [n for n in loose if kinds.get(n) not in ("npc", "trainer")])
                 # A ROOM WHOSE ONLY UNTOUCHED THING IS A BUSH still has
                 # something to say. Dropping bushes out of `loose` put them
                 # behind a guard that tests `loose`, so the very case this
@@ -27036,11 +27046,25 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             f"\"{_skipped_boss[0]}\"}} when you mean to "
                             f"fight)")
                     _pressed = list(loose[:8])
-                    if _pressed:
+                    _left = list(loose[8:])
+                    if _pressed and not _left:
                         trace.append(
                             f"(swept this area: pressed A on "
                             f"{', '.join(_pressed)} — everything reachable "
                             f"here that PRESSES has now been tried)")
+                    elif _pressed:
+                        # ...AND "EVERYTHING" ONLY WHEN IT WAS EVERYTHING.
+                        # It said so after eight of twenty-eight.
+                        _lp = [n for n in _left if kinds.get(n) in ("npc", "trainer")]
+                        _lo = [n for n in _left if n not in _lp]
+                        trace.append(
+                            f"(swept this area: pressed A on "
+                            f"{', '.join(_pressed)} — {len(_pressed)} of "
+                            f"{len(_pressed) + len(_left)}; still never pressed "
+                            f"here: "
+                            + ", ".join(_lp[:6] + _lo[:max(0, 6 - len(_lp))])
+                            + (f" and {len(_left) - 6} more" if len(_left) > 6 else "")
+                            + ")")
                     if _bushes and knows_cut:
                         # WHICH OF THEM IS ACTUALLY IN THE WAY. Saying a
                         # bush "is only in the way if it is in the way" and

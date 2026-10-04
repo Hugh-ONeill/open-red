@@ -42,7 +42,7 @@ ck("every give-up path uses it (the two originals and the Safari-clock verdict)"
 # --- the sweep's claim is scoped to what it actually did ---
 i = src.find("(swept this area: ")
 ck("the sweep still reports itself", i > 0)
-blk = src[max(0, i - 3600):i + 1400]
+blk = src[max(0, i - 3600):i + 2800]
 flat = _flat(blk)
 ck("...pressing is reported for what presses",
    "_pressed = list(loose[:8])" in blk
