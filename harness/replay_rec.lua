@@ -309,5 +309,14 @@ return function(BRIDGE)
     R.closing = false
     R.flush()
   end
+  -- A STATE WRITE THE HARNESS MAKES WITHOUT A BUTTON, so the copy makes it
+  -- too: the party list's remembered cursor, set before a TM or item is
+  -- used (shim use_item; HandlePartyMenuInput #768). Unrecorded, the copy's
+  -- list opened on slot 1 and taught RAZOR_WIND to GRAVELER where the run
+  -- taught PIDGEOTTO, and sat there refused (run 36, 2026-10-03, user: "it
+  -- *was* stuck for a bit trying to teach it to grav").
+  function R.event(kind, arg)
+    put(string.format("%s %d %s", kind, next_step(), tostring(arg)))
+  end
   return R
 end

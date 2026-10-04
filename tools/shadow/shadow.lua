@@ -135,7 +135,7 @@ local function read_more()
         L.audio[#L.audio + 1] = { tonumber(s), tonumber(n), ans }
         L.horizon = math.max(L.horizon, tonumber(s) + tonumber(n) - 1)
       end
-    elseif kind == "R" or kind == "G" or kind == "W" then
+    elseif kind == "R" or kind == "G" or kind == "W" or kind == "P" then
       local s, arg = rest:match("^(%d+) ?(.*)$")
       if s then
         L.events[#L.events + 1] = { tonumber(s), kind, arg }
@@ -678,7 +678,11 @@ local okC, Checkpoint = pcall(require, "src.core.Checkpoint")
 local okS, SaveSerializer = pcall(require, "src.core.SaveSerializer")
 local function apply(game, ev)
   local kind, arg = ev[2], ev[3]
-  if kind == "G" then
+  if kind == "P" then
+    -- the party list's remembered cursor, written by the run's harness
+    -- without a button (replay_rec R.event)
+    game.partyMenuSavedIndex = tonumber(arg) or game.partyMenuSavedIndex
+  elseif kind == "G" then
     pcall(love.math.setRandomState, arg)
   elseif kind == "W" then
     pcall(game.writeSave, game)          -- lands in this copy's own identity

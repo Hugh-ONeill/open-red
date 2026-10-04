@@ -8979,7 +8979,11 @@ function OPS.use_item(G, c)
   -- the model's slot, as a player who had scrolled there would.
   do
     local _want = math.floor(tonumber(c.slot) or 1)
-    if _want >= 1 then G.partyMenuSavedIndex = _want end
+    if _want >= 1 then
+      G.partyMenuSavedIndex = _want
+      -- the replay copy makes the same write at the same step
+      if wd.rec and wd.rec.event then pcall(wd.rec.event, "P", _want) end
+    end
   end
   local pm
   for _ = 1, 20 do                                 -- ride to the party picker
