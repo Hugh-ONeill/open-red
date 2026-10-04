@@ -118,6 +118,9 @@ export SHADOW_SHOW_BATTLES="${SHADOW_SHOW_BATTLES:-bosses}"
 # crawled). SHADOW_MOD= (empty) for the flat game.
 export SHADOW_MOD="${SHADOW_MOD-dramatic}"
 export DRI_PRIME="${DRI_PRIME-1}"
+# the copy's COLORS (draw-only; the run keeps its own): redpp is ADVANCED.
+# SHADOW_COLORS= (empty) for whatever the run has
+export SHADOW_COLORS="${SHADOW_COLORS-redpp}"
 since=()
 [ "$MODE" != attach ] && since=(--since "$(date +%s)")   # only this launch's boots
 setsid nohup python3 -u tools/shadow/play.py --live "${since[@]}" >> run/shadow.log 2>&1 < /dev/null &

@@ -57,6 +57,29 @@ def prepare(seg: Path, ident: str = SHADOW_IDENT, game: str = "red") -> None:
         shutil.copy(seg / "options.lua", home / "options.lua")
 
 
+# the copy's own look, over the options the run booted with: draw-only
+# settings alone (SHADOW_COLORS=redpp is COLORS: ADVANCED)
+LOOK = r"""
+package.path = "./?.lua;./?/init.lua;" .. package.path
+local S = require("src.core.SaveSerializer")
+local path, colors = arg[1], arg[2]
+local f = assert(io.open(path, "r")); local body = f:read("*a"); f:close()
+local o = assert(S.decode(body))
+if colors ~= "" then o.colors, o.palette = colors, nil end
+local g = assert(io.open(path, "w")); g:write(S.encode(o)); g:close()
+"""
+
+
+def look(home: Path) -> None:
+    colors = os.environ.get("SHADOW_COLORS", "")
+    if not colors or not (home / "options.lua").exists():
+        return
+    script = home / "look.lua"
+    script.write_text(LOOK)
+    subprocess.run(["luajit", str(script), str(home / "options.lua"), colors],
+                   cwd=GAME_DIR, check=True, timeout=60, stdin=subprocess.DEVNULL)
+
+
 def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = True,
          quiet: bool = False, ident: str = SHADOW_IDENT) -> int:
     prepare(seg, ident)
@@ -72,6 +95,7 @@ def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = Tru
                         os.environ.get("SHADOW_DS_OPTS", ""))
     elif (home / "mods" / "DRAMATIC_SHAPE").exists():
         shutil.rmtree(home / "mods" / "DRAMATIC_SHAPE")
+    look(home)
     env = dict(os.environ,
                POKEPORT_DRIVER=str(ROOT / "tools/shadow/shadow.lua"),
                POKEPORT_SPEED="1", POKEPORT_GAME="red", POKEPORT_IDENTITY=ident,
