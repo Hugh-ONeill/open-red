@@ -959,7 +959,7 @@ def world_view(size):
     hist = townmap.run_history()
     here = worldmap.where()
     data = worldmap.load()
-    path = worldmap.trail()
+    path = worldmap.trail(until=VIEW["t"])   # no further than the copy has played
     dg, dungeon_big = worldmap.current_dungeon(data, path, here)
     try:
         seen_t = os.stat(worldmap.SEEN).st_mtime_ns
@@ -972,7 +972,7 @@ def world_view(size):
     start = (here or [None])[0]
 
     def over(sz):
-        return worldmap.authoring_view(phase, hist, here, sz, start_map=start)
+        return worldmap.authoring_view(phase, hist, here, sz, start_map=start, until=VIEW["t"])
 
     def cave(sz):
         return worldmap.dungeon_view(data, dg[0], dg[1], sz, path, here, label=_label)

@@ -312,7 +312,7 @@ class Strokes:
             d.line(pts, fill=fill, width=width, joint=joint)
 
 
-def authoring_view(phase, history, here, size, start_map=None):
+def authoring_view(phase, history, here, size, start_map=None, until=None):
     """The overworld under the fog, fitted to `size` (w, h) px, with the run's
     walk (earlier legs gray to white, the last attempt in gold) through the
     cells it actually entered, every draft from where the party is (picked in
@@ -372,7 +372,7 @@ def authoring_view(phase, history, here, size, start_map=None):
     # the walk so far: the actual path (trail()) when there is one, cell by
     # cell outdoors; a cave or building is its door, and a visit to one from
     # its own street is left out as before
-    path = trail()
+    path = trail(until=until)
     if path:
         last = path[-1][1]
         legs = sorted({p_[0] for p_ in path if p_[1] != last})
@@ -668,7 +668,7 @@ def _cell(key):
         return None
 
 
-def trail(journal=JOURNAL, crumbs=TRAIL, steps=STEPS):
+def trail(journal=JOURNAL, crumbs=TRAIL, steps=STEPS, until=None):
     """The run's actual path, [(leg, attempt, MAP, x, y)] in order. Before
     breadcrumbs exist it is approximate: the journal's region-to-region moves
     (explored frm -> to), each region pinned to one real cell. From the first
@@ -741,6 +741,12 @@ def trail(journal=JOURNAL, crumbs=TRAIL, steps=STEPS):
     # each source covers the stretch before the next, finer one starts
     step_cut = steps_[0][0] if steps_ else None
     crumb_cut = crumbs_[0][0] if crumbs_ else step_cut
+    # UNTIL: the run's second the 1x copy is showing (its snapshot's run_t);
+    # the path stops there, so it never runs ahead of the game on screen
+    if until is not None:
+        hops = [h for h in hops if h[0] <= until]
+        crumbs_ = [c for c in crumbs_ if c[0] <= until]
+        steps_ = [st for st in steps_ if st[0] <= until]
     out = [(lg, at, m, x, y, "hop") for t, lg, at, m, x, y in hops
            if crumb_cut is None or t < crumb_cut]
     out += [(*tag(t), m, x, y, "crumb") for t, m, x, y in crumbs_

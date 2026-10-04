@@ -9,7 +9,8 @@ before the others existed), breadcrumbs of the player's cell per observation
 Pinned: each record covers only the stretch before the next, finer one
 starts; anything older than this run's journal (an earlier run's leftovers)
 is left out; leg and attempt come from the journal's plan starts; every item
-says which record it came from. Synthetic files only: no run, no game.
+says which record it came from; `until` (the 1x copy's moment) drops anything
+later from every record. Synthetic files only: no run, no game.
 """
 from __future__ import annotations
 
@@ -68,6 +69,10 @@ ck("an earlier run's breadcrumbs and steps are left out",
    not any(o[2] in ("CERULEAN_CITY", "PEWTER_CITY") for o in out), out)
 ck("leg and attempt come from the plan starts",
    out[-1][:2] == (2, 2), out[-1])
+cut = worldmap.trail(journal, crumbs, steps, until=T0 + 50)
+ck("until: nothing later than the copy's moment, from any record",
+   [o[2:5] for o in cut if o[5] == "step"] == [("VIRIDIAN_CITY", 20, 12), ("VIRIDIAN_CITY", 20, 11)]
+   and not any(o[2] == "ROUTE_2" for o in cut), cut)
 ck("with no breadcrumbs or steps the region moves are the whole trail",
    len(worldmap.trail(journal, tmp / "none", tmp / "none")) == 6)
 
