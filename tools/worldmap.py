@@ -630,17 +630,19 @@ def dungeon_view(data, key, floors, size, path, here, label=None):
 
 
 def current_dungeon(data, path, here, recent=20):
-    """The dungeon this leg is about, if any, and whether it should be the big
-    view: the most recent dungeon floor in the path within the current leg;
+    """The dungeon this attempt is about, if any, and whether it should be the
+    big view: the most recent dungeon floor in the path within the current
+    ATTEMPT (an earlier attempt of the leg that went through the Game Corner
+    kept the Rocket Hideout up while this one never went near it, 2026-10-04);
     big when at least half of the last `recent` points are on its floors (so
     a step through a cave mouth does not swap the view, either way)."""
     if not path:
         here_d = dungeon_of(data, here[0]) if here else None
         return (here_d, True) if here_d else (None, False)
-    leg = path[-1][0]
+    leg, att = path[-1][0], path[-1][1]
     found = None
     for p in reversed(path):
-        if p[0] != leg:
+        if p[0] != leg or p[1] != att:
             break
         dd = dungeon_of(data, p[2])
         if dd:
@@ -651,7 +653,7 @@ def current_dungeon(data, path, here, recent=20):
     if not found:
         return None, False
     floors = set(found[1])
-    tail = path[-recent:]
+    tail = [p for p in path[-recent:] if p[0] == leg and p[1] == att] or path[-1:]
     inside = sum(1 for p in tail if p[2] in floors)
     return found, inside * 2 >= len(tail)
 
