@@ -70,7 +70,7 @@ def install(ident_dir: Path) -> Path:
 ENABLE = r"""
 package.path = "./?.lua;./?/init.lua;" .. package.path
 local S = require("src.core.SaveSerializer")
-local path, voxel, tilt = arg[1], tonumber(arg[2]), tonumber(arg[3])
+local path, voxel, tilt, extra = arg[1], tonumber(arg[2]), tonumber(arg[3]), arg[4] or ""
 local f = assert(io.open(path, "r")); local body = f:read("*a"); f:close()
 local o = assert(S.decode(body))
 o.mods = o.mods or {}; o.mods.DRAMATIC_SHAPE = true
@@ -82,17 +82,23 @@ o.pipelines.voxel, o.pipelines.tiltshift = voxel, tilt
 o.modOptions = o.modOptions or {}
 local m = o.modOptions.DRAMATIC_SHAPE or {}
 m.letsgo, m.vr, m.battles = false, false, true
+-- the draw-only options from SHADOW_DS_OPTS ("water=false,shadows=false")
+for k, v in extra:gmatch("([%w_]+)=([^,]+)") do
+  if v == "true" then v = true elseif v == "false" then v = false
+  elseif tonumber(v) then v = tonumber(v) end
+  if k ~= "letsgo" and k ~= "vr" then m[k] = v end
+end
 o.modOptions.DRAMATIC_SHAPE = m
 local g = assert(io.open(path, "w")); g:write(S.encode(o)); g:close()
 """
 
 
-def enable(ident_dir: Path, voxel: int = 3, tilt: int = 1) -> None:
+def enable(ident_dir: Path, voxel: int = 3, tilt: int = 1, extra: str = "") -> None:
     """Turn the mod on in this identity's options: a fixed camera angle only."""
     if voxel not in (2, 3, 4, 5):
         raise SystemExit("dramatic: VOXEL must be a fixed angle, 2-5 (1/6/7 change logic)")
     opts = ident_dir / "options.lua"
     script = ident_dir / "dramatic_enable.lua"
     script.write_text(ENABLE)
-    subprocess.run(["luajit", str(script), str(opts), str(voxel), str(tilt)],
+    subprocess.run(["luajit", str(script), str(opts), str(voxel), str(tilt), extra],
                    cwd=GAME, check=True, timeout=60, stdin=subprocess.DEVNULL)

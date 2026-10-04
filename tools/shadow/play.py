@@ -68,7 +68,8 @@ def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = Tru
         import dramatic
         dramatic.install(home)
         dramatic.enable(home, int(os.environ.get("SHADOW_VOXEL", "3")),
-                        int(os.environ.get("SHADOW_TILT", "1")))
+                        int(os.environ.get("SHADOW_TILT", "1")),
+                        os.environ.get("SHADOW_DS_OPTS", ""))
     elif (home / "mods" / "DRAMATIC_SHAPE").exists():
         shutil.rmtree(home / "mods" / "DRAMATIC_SHAPE")
     env = dict(os.environ,

@@ -890,11 +890,13 @@ end
 
 -- where a frame's time goes, for the fps line: Game:update, love.draw, the
 -- copy's own extra steps
-PROF = { upd = 0, draw = 0, ff = 0, frames = 0 }
+PROF = { upd = 0, draw = 0, ff = 0, frames = 0, drv = 0, gap = 0, last = nil }
 pcall(function()
   local o_upd = Game.update
   Game.update = function(self, ...)
     local t0 = love.timer.getTime()
+    if PROF.last then PROF.gap = PROF.gap + (t0 - PROF.last) end   -- frame to frame
+    PROF.last = t0
     local a, b = o_upd(self, ...)
     PROF.upd = PROF.upd + love.timer.getTime() - t0
     return a, b
@@ -914,7 +916,7 @@ end)
 -- ms a call took the copy to ~10 fps and a crawl (2026-10-04). The main loop
 -- still runs one whole Game:update per frame; the extra steps only step.
 local FixedStep = require("src.core.FixedStep")
-local function step_once(G)
+local function step_once(G)   -- (PROF.drv: the driver's own time per frame, see the loop)
   local before = Game.logicStep or 0
   for _ = 1, 4 do                        -- the accumulator can come up a hair short
     FixedStep.maxAccum = FixedStep.catchupLimit(1, 1 / 60)
@@ -923,10 +925,12 @@ local function step_once(G)
   end
 end
 local speed, carry, snap_n = PLAY, 0, 0
+local frame_t = nil
 booting = true                         -- until this boot has a map (global: the draw reads it)
 local last_done_check = nil
 return function(G)
   local last_read = 0
+  local drv_t0 = love.timer.getTime()
   while true do
     local n = (Game.logicStep or 0) + 1
     if love.timer.getTime() - last_read > 0.5 then
@@ -1023,10 +1027,26 @@ return function(G)
     end
     set_volume(speed)
     -- this frame's steps: the main loop runs one after the yield, the rest here
-    carry = carry + speed
+    -- BY THE CLOCK, NOT BY THE FRAME: a step per drawn frame made 1x as slow
+    -- as the window was drawn, and a window the compositor throttles (not on
+    -- the visible workspace: 15 fps, 2026-10-04) played a third of real time.
+    -- Steps owed = elapsed seconds x 60 x speed, capped so a stall cannot
+    -- become a leap.
+    local now_t = love.timer.getTime()
+    local dt = math.min(0.25, math.max(0, now_t - (frame_t or now_t)))
+    frame_t = now_t
+    carry = carry + speed * dt * 60
     local steps = math.floor(carry)
     carry = carry - steps
     steps = math.min(steps, L.horizon - n + 1)
+    if steps < 1 then
+      -- this frame owes no step (a display faster than 60 Hz): draw, hold
+      HOLD.on = true
+      G.driverSpeed = 1
+      coroutine.yield()
+      HOLD.on = false
+      goto continue
+    end
     local t0 = love.timer.getTime()
     for _ = 2, steps do
       if love.timer.getTime() - t0 > FF_SLICE then break end
@@ -1036,9 +1056,10 @@ return function(G)
     if love.timer.getTime() - (fps_at or 0) > 10 then        -- the frame rate, for judging a mod's cost
       fps_at = love.timer.getTime()
       local f = math.max(1, PROF.frames)
-      print(("[shadow] fps %d at step %d (speed %.1f); ms per frame: update %.1f, draw %.1f, extra steps %.1f"):format(
-        love.timer.getFPS(), n, speed, PROF.upd / f * 1000, PROF.draw / f * 1000, PROF.ff / f * 1000))
-      PROF.upd, PROF.draw, PROF.ff, PROF.frames = 0, 0, 0, 0
+      print(("[shadow] fps %d at step %d (speed %.1f); ms per frame: update %.1f, draw %.1f, extra steps %.1f, driver %.1f, frame-to-frame %.1f"):format(
+        love.timer.getFPS(), n, speed, PROF.upd / f * 1000, PROF.draw / f * 1000, PROF.ff / f * 1000,
+        PROF.drv / f * 1000, PROF.gap / f * 1000))
+      PROF.upd, PROF.draw, PROF.ff, PROF.frames, PROF.drv, PROF.gap = 0, 0, 0, 0, 0, 0
       io.stdout:flush()
     end
     snap_n = (snap_n or 0) + 1
@@ -1047,7 +1068,9 @@ return function(G)
       pcall(snapshot, G)
     end
     G.driverSpeed = 1
+    PROF.drv = PROF.drv + love.timer.getTime() - drv_t0
     coroutine.yield()
+    drv_t0 = love.timer.getTime()
     ::continue::
   end
 end
