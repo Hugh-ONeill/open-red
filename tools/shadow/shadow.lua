@@ -287,6 +287,28 @@ do
   end
 end
 
+-- NO LIVE INPUT. The copy takes every button from the log, but a window on
+-- the desktop also gets the mouse, the keyboard's own hotkeys (zoom, the
+-- mod's camera keys) and touch; in a battle a hover or click can choose for
+-- the copy (user, 2026-10-04: "part of the difference might be with how it
+-- interprets mouse position on the screen when in battle it changes the
+-- viewport"). None of them reach the game here.
+for _, name in ipairs({ "mousepressed", "mousereleased", "mousemoved", "wheelmoved",
+                        "touchpressed", "touchmoved", "touchreleased",
+                        "keypressed", "keyreleased", "textinput",
+                        "gamepadpressed", "gamepadreleased", "gamepadaxis",
+                        "joystickpressed", "joystickreleased", "joystickaxis" }) do
+  love[name] = function() end
+end
+-- and nothing that asks directly: the cursor is off the window, nothing held
+if love.mouse then
+  love.mouse.getPosition = function() return -1, -1 end
+  love.mouse.getX = function() return -1 end
+  love.mouse.getY = function() return -1 end
+  love.mouse.isDown = function() return false end
+end
+if love.keyboard then love.keyboard.isDown = function() return false end end
+
 -- ------------------------------------------------------------- the buttons
 local held, alias_held = {}, {}
 local function fill(t, from)
@@ -866,6 +888,26 @@ local function set_volume(speed)
   end
 end
 
+-- where a frame's time goes, for the fps line: Game:update, love.draw, the
+-- copy's own extra steps
+PROF = { upd = 0, draw = 0, ff = 0, frames = 0 }
+pcall(function()
+  local o_upd = Game.update
+  Game.update = function(self, ...)
+    local t0 = love.timer.getTime()
+    local a, b = o_upd(self, ...)
+    PROF.upd = PROF.upd + love.timer.getTime() - t0
+    return a, b
+  end
+  local o_draw = love.draw
+  love.draw = function(...)
+    local t0 = love.timer.getTime()
+    if o_draw then o_draw(...) end
+    PROF.draw = PROF.draw + love.timer.getTime() - t0
+    PROF.frames = PROF.frames + 1
+  end
+end)
+
 -- ONE LOGIC STEP, NOTHING ELSE. The fast-forward runs many steps per drawn
 -- frame; through Game:update each also ran the per-frame extras, the render
 -- pipelines' update among them, and a voxel mod pumping meshes there for a few
@@ -990,9 +1032,13 @@ return function(G)
       if love.timer.getTime() - t0 > FF_SLICE then break end
       step_once(G)
     end
+    PROF.ff = PROF.ff + love.timer.getTime() - t0
     if love.timer.getTime() - (fps_at or 0) > 10 then        -- the frame rate, for judging a mod's cost
       fps_at = love.timer.getTime()
-      print(("[shadow] fps %d at step %d (speed %.1f)"):format(love.timer.getFPS(), n, speed))
+      local f = math.max(1, PROF.frames)
+      print(("[shadow] fps %d at step %d (speed %.1f); ms per frame: update %.1f, draw %.1f, extra steps %.1f"):format(
+        love.timer.getFPS(), n, speed, PROF.upd / f * 1000, PROF.draw / f * 1000, PROF.ff / f * 1000))
+      PROF.upd, PROF.draw, PROF.ff, PROF.frames = 0, 0, 0, 0
       io.stdout:flush()
     end
     snap_n = (snap_n or 0) + 1
