@@ -420,6 +420,10 @@ local function run_time(n)
 end
 
 local function snapshot(game)
+  -- nothing until this boot has a game loaded: the title has an empty party,
+  -- and the HUD would show no team while each boot starts (2026-10-03)
+  local ow0 = game.overworld
+  if not (ow0 and ow0.map and ow0.map.id) then return end
   local save = game.save or {}
   local o = { step = Game.logicStep or 0, seg = SEG, t = os.time(), source = "copy",
               run_t = run_time(Game.logicStep or 0) }
@@ -635,12 +639,12 @@ pcall(function()
   local o_draw = love.draw
   love.draw = function(...)
     if o_draw then o_draw(...) end
-    if FOG and not card.active then
+    if FOG and not card.active and not booting then
       love.graphics.push("all")
       pcall(draw_fog, Game)
       love.graphics.pop()
     end
-    if not card.active then return end
+    if not card.active and not booting then return end
     local w, h = love.graphics.getDimensions()
     love.graphics.push("all")
     love.graphics.origin()
@@ -654,7 +658,7 @@ pcall(function()
     love.graphics.setColor(1, 1, 1, 1)
     Font.drawBox(0, 0, tw, th)
     love.graphics.setColor(1, 1, 1, 1)
-    local lines = card_lines()
+    local lines = booting and not card.active and { "CONTINUING", "", "" } or card_lines()
     for i, line in ipairs(lines) do
       line = tostring(line):sub(1, tw - 4)
       local x = math.floor((tw * 8 - Font.width(line)) / 2)
@@ -808,6 +812,7 @@ local function set_volume(speed)
 end
 
 local speed, carry, snap_n = PLAY, 0, 0
+booting = true                         -- until this boot has a map (global: the draw reads it)
 local last_done_check = nil
 return function(G)
   local last_read = 0
@@ -864,9 +869,19 @@ return function(G)
     -- IDLE_MAX at ACCEL, and capped so it can brake to PLAY by the next
     -- event (v^2 = 2*a*d) and by the end of what the log holds
     local target
-    if skipping(G) or card.active then
+    local loaded = G.overworld and G.overworld.map and G.overworld.map.id
+    booting = not loaded
+    if not loaded then
+      -- THE BOOT ITSELF: title, CONTINUE, the save loading. Every attempt
+      -- reboots the run's game, and playing that out each time read as the
+      -- game starting over and over (2026-10-03); run it through under a card
+      booting = true
+      target = SKIP_SPEED
+    elseif skipping(G) or card.active then
+      booting = false
       target = SKIP_SPEED              -- under the card: a skip, or the linger after one
     elseif busy_near(n) then
+      booting = false
       target = PLAY
       -- plain walking goes quicker, and quicker still when far behind;
       -- text, menus and battles do not
@@ -879,7 +894,7 @@ return function(G)
       local d_h = math.max(0, L.horizon - n)
       target = math.min(IDLE_MAX, math.max(PLAY, math.sqrt(2 * ACCEL * math.min(d_ev, d_h))))
     end
-    if skip or op_skip or card.active then
+    if skip or op_skip or card.active or booting then
       speed = target                   -- under the card: no ramp to watch
     elseif target <= WALK_SPEED then
       speed = target                   -- 1x or walking pace: no ramp to wait through

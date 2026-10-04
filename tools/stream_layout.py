@@ -77,11 +77,17 @@ def main() -> None:
     while True:
         cs = clients()
         huds = [c for c in cs if c.get("title") == "red-recomp HUD"]
-        copies = [c for c in cs if c.get("class") == "love"]
+        # THE COPY'S window only, by its title: a run relaunched without
+        # stream.sh boots its 200x game headed, also class love, and both got
+        # stacked on the copy's tile (2026-10-03)
+        copies = [c for c in cs if c.get("class") == "love" and c.get("title") == "red-recomp 1x"]
         wide = authoring() and copy_idle(copies)
         try:
             for c in copies:
-                place(c, w, h, lx, ly)
+                # where it goes, not how big: its size is the run's window,
+                # which is logic in this port (shadow.lua sets it)
+                size = c.get("size") or [w, h]
+                place(c, size[0], size[1], lx, ly)
             for c in huds:
                 if wide:
                     place(c, fw, h, lx, ly)
