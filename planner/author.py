@@ -9477,6 +9477,11 @@ That is an ordinary answer and often the right one; the run stops and a
 person looks at it.
 
 Reply with ONLY a JSON object, the reason FIRST:
+If your reason says the run DISCOVERED, found, learned or confirmed something,
+quote what it heard ("...", in double quotes, as the person or sign said it)
+or name the event that fired. What you remember of the game is not something
+the run discovered; it can still be your reason, said as what you believe.
+
 {"why": "one sentence", "reword": "the objective, said accurately"}   or
 {"why": "one sentence", "reword": null, "void": true}                 or
 {"why": "one sentence", "reword": null}"""
@@ -10900,6 +10905,67 @@ def _reword_points_at_what_failed(new_goal: str, journal) -> str | None:
     return None
 
 
+_DISCOVERY = re.compile(
+    r"\b(?:the run|we|i|it|the player|you)\s+(?:has|have|had)\s+(?:now\s+|already\s+)?"
+    r"(?:discovered|found out|found|learned|learnt|confirmed|established|"
+    r"determined|verified)\b"
+    r"|\b(?:has|have|had)\s+been\s+(?:discovered|confirmed|revealed|established)\b"
+    r"|\b(?:discovered|confirmed|learned|learnt)\s+that\b", re.I)
+
+
+def _flags_now_names() -> set:
+    """The event flags set in the run's last observation (names)."""
+    for src in ("run/last_state.json", "run/obs.json"):
+        try:
+            fl = (json.loads(Path(src).read_text() or "{}") or {}).get("flags")
+        except (OSError, ValueError):
+            continue
+        if isinstance(fl, list):
+            return {str(f) for f in fl}
+    return set()
+
+
+def unearned_discovery(why: str, observed=None) -> str:
+    """A reason that says the run DISCOVERED something, with nothing the run
+    heard or fired to show it; "" when it claims no discovery or quotes one.
+
+    Leg 27 was reworded "Retrieve the Secret Key from the Game Corner" ->
+    "...from the Game Corner Prize Room" because "the run has discovered
+    that the Secret Key is obtained by exchanging coins at the Prize Room
+    counter". The run had discovered no such thing: the vendors had said
+    only "A COIN CASE is required!", nobody had named the key, and the claim
+    was memory (wrong). Written into the outline, it anchored every plan
+    after it on coins and a Coin Case (run 36, 2026-10-03, user: "its got the
+    totally wrong idea coming up with needing 9999 coins"). A belief may
+    still be the reason; passed off as a finding it may not rewrite the
+    objective. Evidence is a quoted line some person or sign said, or an
+    event flag that fired, from the run's own record."""
+    why = str(why or "")
+    if not _DISCOVERY.search(why):
+        return ""
+    quotes = [q for q in re.findall(r'"([^"]{6,})"|\u201c([^\u201d]{6,})\u201d', why)]
+    quotes = [a or b for a, b in quotes]
+    flags = re.findall(r"\bEVENT_[A-Z0-9_]+\b", why)
+    try:
+        o = json.loads(Path(observed).read_text() or "{}") if observed else {}
+    except (OSError, ValueError, TypeError):
+        o = {}
+    heard = " ".join(str(l) for ls in (o.get("hints") or {}).values() for l in (ls or []))
+    norm = lambda t: re.sub(r"[^a-z0-9]+", " ", str(t).lower()).strip()
+    hn = norm(heard)
+    if any(norm(q) and norm(q) in hn for q in quotes):
+        return ""
+    try:
+        fired = set(_flags_now_names() or [])
+    except Exception:
+        fired = set()
+    if any(f in fired for f in flags):
+        return ""
+    return ("the reason says the run discovered it, and nothing the run "
+            "heard or fired says so" + (" (the quoted words are not in "
+            "anything it heard)" if quotes else ""))
+
+
 def check_wording(goal: str, ahead: list, behind: list, start: str,
                   journal: str, model: str, observed=None, asked=None,
                   no_reword_reason: str = "", journal_path=None) -> str:
@@ -11100,6 +11166,12 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
         print(f"[wording] refused: {new!r} {_sh} — a sentence that puts a "
               f"thing where the run has seen it is not is not evidence; the "
               f"wording stands", file=sys.stderr)
+        return ""
+    _ue = unearned_discovery(why, observed)
+    if _ue:
+        print(f"[wording] refused: {new!r} — {_ue}: {why!r}; what you believe "
+              f"may be your reason, but it does not rewrite the objective as "
+              f"a finding; the wording stands", file=sys.stderr)
         return ""
     others = [t for _, t in ahead if _norm_obj(t) != _norm_obj(goal)]
     others += [t for _, t in behind]
