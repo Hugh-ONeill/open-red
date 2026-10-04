@@ -112,6 +112,12 @@ done
 # ~10 min behind per 18 of the run (2026-10-03). SHADOW_SHOW_BATTLES=trainers
 # or all to see more.
 export SHADOW_SHOW_BATTLES="${SHADOW_SHOW_BATTLES:-bosses}"
+# the copy in the Dramatic Shape voxel diorama (tools/shadow/dramatic.py: a
+# patched private copy, logic-neutral, the run's fog in its shader), drawn on
+# the discrete GPU (Mesa defaults to the CPU's integrated one here, which
+# crawled). SHADOW_MOD= (empty) for the flat game.
+export SHADOW_MOD="${SHADOW_MOD-dramatic}"
+export DRI_PRIME="${DRI_PRIME-1}"
 since=()
 [ "$MODE" != attach ] && since=(--since "$(date +%s)")   # only this launch's boots
 setsid nohup python3 -u tools/shadow/play.py --live "${since[@]}" >> run/shadow.log 2>&1 < /dev/null &
