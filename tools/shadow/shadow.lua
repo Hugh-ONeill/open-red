@@ -202,6 +202,10 @@ end
 -- the run's generator as it stood when its driver loaded: same point here
 pcall(love.math.setRandomState, L.boot[3])
 pcall(love.window.setTitle, os.getenv("SHADOW_TITLE") or "red-recomp 1x")
+pcall(function()                         -- which GPU (or none) draws this copy
+  local name, version, vendor, device = love.graphics.getRendererInfo()
+  print(("[shadow] renderer %s %s | %s | %s"):format(tostring(name), tostring(version), tostring(vendor), tostring(device)))
+end)
 
 -- this copy's own draws outside a step (its draw code runs every frame, the
 -- run's once per 200 steps) come from a generator of their own, so they can
