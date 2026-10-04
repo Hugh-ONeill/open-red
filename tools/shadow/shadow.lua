@@ -655,7 +655,10 @@ pcall(function()
     local w, h = love.graphics.getDimensions()
     love.graphics.push("all")
     love.graphics.origin()
-    love.graphics.setColor(0.04, 0.05, 0.06, 0.62)           -- the fast-forward, dimmed
+    -- the fast-forward, dimmed; a boot or a catch-up is not worth seeing at
+    -- all (the title showed through the CONTINUING card, 2026-10-04)
+    love.graphics.setColor(0.04, 0.05, 0.06,
+      ((booting or catching_up) and not card.active) and 1 or 0.62)
     love.graphics.rectangle("fill", 0, 0, w, h)
     -- a 20x10-tile box in Game Boy pixels, scaled whole to the window
     local k = math.max(1, math.floor(math.min(w / 176, h / 176)))
