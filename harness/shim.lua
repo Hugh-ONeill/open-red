@@ -1985,7 +1985,7 @@ local function overlay_install(G)
   local drawn = 0
   love.draw = function(...)
     drawn = drawn + 1
-    if every > 1 and drawn % every ~= 0
+    if every > 1 and drawn % every ~= 0 and not wd.draw_all
         and not (overlay_G and overlay_G.capturePath) then
       return
     end
@@ -10987,7 +10987,20 @@ end
 -- DisplayElevatorFloorMenu). Choosing rewrites the car's exit warps and
 -- hands control back -- you then WALK OUT of the car onto that floor,
 -- which is why this op ends with you still inside it.
+
 function OPS.elevator(G, c)
+  -- A RIDE NEEDS ITS FRAMES DRAWN. Under RED_DRAW_EVERY=30 (stream.sh's
+  -- headless run) every ride in the Celadon store hit the 120001-frame
+  -- watchdog after the floor was chosen, five rides of five, while the same
+  -- ride drawing every frame took two seconds (run 36, 2026-10-04). Draw
+  -- every frame for the length of the op.
+  wd.draw_all = true
+  local ok, r1, r2 = pcall(U.elevator_body, G, c)
+  wd.draw_all = false
+  if not ok then error(r1, 0) end
+  return r1, r2
+end
+U.elevator_body = function(G, c)
   if not need_overworld(G) then
     return false, "not in overworld (a box was up and would not close: "
       .. _screen_name(G) .. ")"
