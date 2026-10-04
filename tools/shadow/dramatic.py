@@ -110,6 +110,14 @@ function Voxel3D.draw(mesh, texture, model, pull, sunModel)"""),
     end
   end
   Voxel3D.fogFor(nil)"""),
+    # how many mesh builds are still queued, for the copy to keep its
+    # CONTINUING card up until the map it boots onto is built
+    ("lib/ChunkMesher.lua", """function ChunkMesher.pending()
+  return #jobs
+end""", """function ChunkMesher.pending()
+  return #jobs
+end
+pcall(function() require("src.core.Game").redMeshPending = ChunkMesher.pending end)"""),
     ("main.lua", 'mod.hooks:wrap("ui.options.rows", function(next, game, rows)',
      '-- red-recomp copy: the OPTIONS menu keeps the rows the run had\n'
      'local _ds_rows_off = (function(next, game, rows)'),

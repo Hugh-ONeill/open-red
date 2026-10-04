@@ -964,6 +964,8 @@ local function step_once(G)   -- (PROF.drv: the driver's own time per frame, see
   end
 end
 local speed, carry, snap_n = PLAY, 0, 0
+local startup = { done = false, since = nil, idle = 0 }   -- the mod's first mesh build, this boot
+local STARTUP_MAX = tonumber(os.getenv("SHADOW_STARTUP_MAX") or "15") or 15
 local frame_t = nil
 booting = true                         -- until this boot has a map (global: the draw reads it)
 local last_done_check = nil
@@ -1025,6 +1027,33 @@ return function(G)
     local target
     local loaded = G.overworld and G.overworld.map and G.overworld.map.id
     booting = not loaded
+    -- A 3D MOD BUILDS ITS MESHES AFTER THE MAP LOADS: the card stays up and
+    -- the game holds still until the build queue has stood empty a few
+    -- frames running (the queue only fills once the scene first draws), or
+    -- STARTUP_MAX seconds; once per boot (user, 2026-10-04: "show the card
+    -- for the whole startup sequence until everythings loaded for the mod")
+    if loaded and not startup.done then
+      local pend = Game.redMeshPending
+      startup.since = startup.since or love.timer.getTime()
+      if not pend or love.timer.getTime() - startup.since > STARTUP_MAX then
+        startup.done = true
+      else
+        local ok, n_jobs = pcall(pend)
+        startup.idle = (ok and n_jobs == 0) and (startup.idle + 1) or 0
+        if startup.idle >= 10 then
+          startup.done = true
+          print(("[shadow] the mod's map was built in %.1f s"):format(love.timer.getTime() - startup.since))
+          io.stdout:flush()
+        else
+          booting = true
+          HOLD.on = true
+          G.driverSpeed = 1
+          coroutine.yield()
+          HOLD.on = false
+          goto continue
+        end
+      end
+    end
     do
       local rt = run_time(n)
       local lag = rt and (os.time() - rt) or 0
