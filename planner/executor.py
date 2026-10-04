@@ -26908,6 +26908,27 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         f"Use the ATLAS to pick the direction that leads "
                         f"toward DONE_WHEN; do not re-enter maps you just "
                         f"left.")
+            # A ROUND THAT CHANGED THE WORLD IS NOT A ROUND THAT WENT
+            # NOWHERE EITHER. A trainer beaten fires a flag, and the news
+            # test counts only cells, first presses and ways; on Pokemon
+            # Tower 7F the fight walked up to the party, the press read "not
+            # visible", and rounds 12 and 13 beat both Rockets while the
+            # hard cap ended the step on 13 with the third Rocket and MR.
+            # FUJI a few cells on. The plan then re-opened "enter Mr. Fuji's
+            # house" and walked the party back down to Lavender (run 36,
+            # 2026-10-04; user: "it defeated the rockets but didnt talk to
+            # fuji"). A round that fired a flag or changed the party moves
+            # the cap out by one, inside the same allowance as a find.
+            if (rnd and getattr(self, "_esc_news_at", None) != rnd
+                    and (sig1[4], sig1[5]) != (sig0[4], sig0[5])
+                    and _news_bonus < rounds):
+                _news_bonus += 1
+                self._esc_news_at = rnd
+                self.log("round_for_news", subgoal=sg["id"], round=rnd,
+                         news="the world changed", bonus=_news_bonus)
+                trace.append("(this round changed the world — a flag fired "
+                             "or the party changed — and gets the step one "
+                             "more round)")
             # accumulate targets that failed or did nothing, so the model is
             # told NOT to repeat them (it looped on the pokedex before).
             for t in trace:
