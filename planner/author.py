@@ -9820,10 +9820,21 @@ def _leg_marks(t: str) -> str:
                if l.strip()}
     except OSError:
         unc = set()
+    try:
+        passed = {l.strip() for l in
+                  Path("run/outline_passed").read_text().splitlines()
+                  if l.strip()}
+    except OSError:
+        passed = set()
     t = str(t or "").strip()
     if t in void:
         return (" (STRUCK OUT BY YOU, NOT DONE — nothing was achieved by it"
                 + (f"; your reason: {void[t]}" if void[t] else "") + ")")
+    if t in passed:
+        # the chain played on past it when no rung could move, change or
+        # strike it out (fresh_discovery.sh, 2026-10-04)
+        return (" (PASSED OVER, NOT DONE — every try at it failed and the "
+                "run went on without it; it is still open)")
     if t in unc:
         return (" (COUNTED BUT NEVER CONFIRMED: its plans ran and the deed "
                 "could not be seen afterwards — treat it as open if what "

@@ -22,7 +22,12 @@ ck("...and says why when it is",
    "asked once more, because" in sh and "the alternative is stopping the chain" in sh)
 ck("the stop path spends it, and carries on if the rung disposes of the leg",
    'if wording_rung "" last-word; then continue; fi' in sh
-   and sh.index('if wording_rung "" last-word') < sh.index('echo "=== chain stopped at leg'))
+   and sh.index('if wording_rung "" last-word') < sh.index('passing over it and playing on'))
+# ...and since 2026-10-04 the end of the ladder passes over a story leg
+# instead of stopping the chain (run 36's Secret Key)
+ck("a story leg no rung could dispose of is passed over, not a stop",
+   'echo "$leg" >> run/outline_passed' in sh
+   and 'echo "=== chain stopped at leg' not in sh)
 ck("the ordinary asks are still capped at two",
    'echo "[wording] not asked: this leg has been asked twice already"' in sh)
 bad = [n for n, ok in checks if not ok]

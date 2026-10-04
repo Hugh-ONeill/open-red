@@ -178,7 +178,7 @@ if [ "$done_legs" = 0 ]; then
   : > run/outline_reorders
   rm -f run/outline_skips run/outline_inserts run/outline_rewordings \
         run/outline_void run/outline_wording_asked \
-        run/leg_audit_redo run/outline_upkeep_missed \
+        run/leg_audit_redo run/outline_upkeep_missed run/outline_passed \
         run/outline_pushes run/outline_pullbacks \
         run/outline_pulls run/outline_pulls_failed \
         run/outline_replays \
@@ -1235,8 +1235,23 @@ while :; do
       continue
     fi
     if wording_rung "" last-word; then continue; fi
-    echo "=== chain stopped at leg $i/${#LEGS[@]}: $leg ===" >&2
-    exit 1
+    # NOR DOES A STORY LEG, ONCE THE LADDER IS SPENT. Every rung has had
+    # its say — done, blocker, missing, later, the wording, the last word —
+    # and none could move it, change it or strike it out. Stopping here
+    # hands the run to a person, and the run exists to play unattended:
+    # run 36 stopped on its own outline's "Retrieve the Secret Key from the
+    # Game Corner" (the key is in the Cinnabar Mansion) after 10.6 hours
+    # and 740 rounds on it and the Coin Case it invented for it (user,
+    # 2026-10-04: "if it cant be done the chain cant just stop as a
+    # result, its gotta be skipped"). The leg is PASSED OVER: written to
+    # run/outline_passed and marked on every page that lists the outline
+    # as not done and still open. Nothing counts it as achieved.
+    echo "=== leg $i/${#LEGS[@]} not achieved, and no rung could move," \
+         "change or strike it out — passing over it and playing on: $leg ===" >&2
+    echo "$leg" >> run/outline_passed
+    echo "$i" > "$PROGRESS"
+    sweep_ahead "$i"
+    continue
   fi
   # THE PLAN MEETING ITS CONDITIONS IS NOT THE OBJECTIVE HAPPENING. The
   # ladder audits a leg that FAILS and never audited one that succeeded:
