@@ -27969,8 +27969,22 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         for alt in [dw] + [a for a in (dw.get("any_of") or []) if isinstance(a, dict)]:
             if (isinstance(alt.get("new_map_from"), str)
                     and not isinstance(alt.get("not_maps"), list)):
-                alt["not_maps"] = sorted({str(r).split("|")[0]
-                                          for r in (self.visits or {})})
+                # ONLY WHAT THAT MAP LEADS TO. Arrival must come straight
+                # from it (came_from), so the maps that matter are the ones
+                # it opens onto that the run has already stood on: the
+                # printed roads out of it, and the doors the run has taken
+                # out of it. Every map stood on was frozen, 99 of them with
+                # Lavender Town among them, for a step about a house off
+                # Celadon City (run 36, 2026-10-03, user: "shouldnt it just be
+                # listing the actual maps that branch of celadon city").
+                _x = alt["new_map_from"]
+                _stood = {str(r).split("|")[0] for r in (self.visits or {})}
+                _leads = set((MAP_EDGES.get(_x) or {}).values())
+                _leads |= {str((e or {}).get("to") or "").split("|")[0]
+                           for r, ways in (self.explored or {}).items()
+                           if str(r).split("|")[0] == _x
+                           for e in (ways or {}).values() if isinstance(e, dict)}
+                alt["not_maps"] = sorted((_stood & _leads) - {_x, ""})
                 froze.append(("new_map_from:" + alt["new_map_from"],
                               [f"{len(alt['not_maps'])} map(s)"]))
         for alt in [dw] + [a for a in (dw.get("any_of") or []) if isinstance(a, dict)]:

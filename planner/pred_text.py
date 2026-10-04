@@ -29,6 +29,15 @@ def for_model(pred):
     if isinstance(pred, dict):
         out = {}
         for k, v in pred.items():
+            # THE FROZEN LIST IS BOOKKEEPING, TOO. new_map_from freezes every
+            # map stood on when the step begins (Executor._freeze_new_part),
+            # and the whole list was printed wherever the condition was: 99
+            # map names on the status line and the page for one step (run 36,
+            # 2026-10-03, user: "also check out the DONEWHEN for that"). Said
+            # as what it means.
+            if k == "not_maps" and isinstance(v, list) and len(v) > 12:
+                out[k] = f"the {len(v)} map(s) stood on when this step began"
+                continue
             if k == "who" and isinstance(v, dict):
                 v = {a: b for a, b in v.items() if a not in HIDDEN}
                 if not v:

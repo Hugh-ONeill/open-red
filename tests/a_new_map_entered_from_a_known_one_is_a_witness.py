@@ -34,7 +34,8 @@ ck("...and refuses a place the game does not have",
    any("ROCKET_GAME_CORNER" in p for p in A.validate(bad)))
 
 ex = object.__new__(E.Executor)
-ex.visits = {"CELADON_CITY|2,1": 9, "GAME_CORNER|8,5": 2}
+ex.visits = {"CELADON_CITY|2,1": 9, "GAME_CORNER|8,5": 2, "LAVENDER_TOWN|0,0": 3}
+ex.explored = {"GAME_CORNER|8,5": {"15,17": {"to": "CELADON_CITY|2,1"}}}
 ex.plan_path = None
 ex.log = lambda *a, **k: None
 sg = {"id": "down", "done_when": {"new_map_from": "GAME_CORNER"}}
@@ -42,8 +43,8 @@ ck("unfrozen, it is not begun, so not done",
    not E.pred_holds(sg["done_when"], {"map": {"id": "ROCKET_HIDEOUT_B1F"},
                                       "came_from": "GAME_CORNER"}))
 ex._freeze_new_part(sg)
-ck("at step entry the maps stood on are frozen in",
-   sg["done_when"].get("not_maps") == ["CELADON_CITY", "GAME_CORNER"], sg["done_when"])
+ck("at step entry only the maps it leads to that were stood on are frozen in",
+   sg["done_when"].get("not_maps") == ["CELADON_CITY"], sg["done_when"])
 
 import bridge as B  # noqa: E402
 _br = object.__new__(B.Bridge)
