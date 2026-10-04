@@ -61,10 +61,12 @@ ck("no record, no line",
 src = (ROOT / "planner/executor.py").read_text()
 ck("every map the party stands on is counted",
    "self._leg_looked.setdefault(str(mid), 0)" in src)
-ck("the record is kept across a leg's attempts and cleared when it changes",
+# ...and since 2026-10-04 filed under its objective when the leg changes,
+# and taken back out if that objective comes back (run 36's Secret Key)
+ck("the record is kept across a leg's attempts and filed away when it changes",
    '_goal_now = str(plan.get("goal") or "")' in src
    and 'if _goal_now != getattr(self, "_leg_goal", None):' in src
-   and "self._leg_looked = {}" in src)
+   and 'self._leg_looked = dict(_back.get("looked") or {})' in src)
 ck("...and each attempt counts itself",
    'self._leg_tries = int(getattr(self, "_leg_tries", 0)) + 1' in src)
 ck("it survives a relaunch with the rest of the memory",
