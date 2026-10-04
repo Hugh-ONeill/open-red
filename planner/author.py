@@ -10911,11 +10911,12 @@ def _reword_points_at_what_failed(new_goal: str, journal) -> str | None:
 
 
 _DISCOVERY = re.compile(
-    r"\b(?:the run|we|i|it|the player|you)\s+(?:has|have|had)\s+(?:now\s+|already\s+)?"
-    r"(?:discovered|found out|found|learned|learnt|confirmed|established|"
-    r"determined|verified)\b"
-    r"|\b(?:has|have|had)\s+been\s+(?:discovered|confirmed|revealed|established)\b"
-    r"|\b(?:discovered|confirmed|learned|learnt)\s+that\b", re.I)
+    # every form of the verb: "has discovered", "confirmed that", and the one
+    # that slipped through, "...attempted to trade for the key, CONFIRMING it
+    # is located there" (run 36, 2026-10-03; the attempt had heard only "A
+    # COIN CASE is required!")
+    r"\b(?:discover|confirm|prov(?:e|es|ed|en|ing)\b|establish|verif|learn|"
+    r"found out|turned out)\w*", re.I)
 
 
 def _flags_now_names() -> set:

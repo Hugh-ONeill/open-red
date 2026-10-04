@@ -30,6 +30,11 @@ with tempfile.TemporaryDirectory() as td:
     ck("a discovery quoting what was heard stands", A.unearned_discovery(ok_q, ob) == "")
     bad_q = 'The run has discovered it: "the key is a prize for 9999 coins"'
     ck("a quote nobody said does not count", A.unearned_discovery(bad_q, ob))
+    run36b = ("The run has already entered the Prize Room and attempted to trade "
+              "for the key, confirming it is located there rather than in the "
+              "general Game Corner area.")
+    ck("...and the second one, 'confirming it is located there', too",
+       A.unearned_discovery(run36b, ob), A.unearned_discovery(run36b, ob))
     belief = "I believe the Secret Key is a prize at the Prize Room counter."
     ck("a belief said as a belief is not refused here", A.unearned_discovery(belief, ob) == "")
 src = (ROOT / "planner/author.py").read_text()
