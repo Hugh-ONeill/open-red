@@ -37,7 +37,11 @@ DRAFT_COLORS = [(122, 162, 247), (187, 154, 247), (125, 207, 255), (247, 118, 14
 PICKED = (124, 196, 155)
 LAST_ATTEMPT = (255, 205, 80)
 # earlier legs of THIS run: a ramp from the first leg to the latest
-PAST_OLD, PAST_NEW = (128, 132, 140), (240, 240, 236)   # gray -> white: no draft uses them
+# gray -> white (no draft uses them), lifted: the old end matched the map's
+# own grey and vanished into it (user, 2026-10-04); the world map also
+# outlines every trail line in OUTLINE
+PAST_OLD, PAST_NEW = (185, 190, 200), (252, 252, 248)
+OUTLINE = (14, 14, 18)
 # the four DMG greys of the tiles -> a muted, dark-ish map so routes pop
 SHADES = {0: (26, 29, 28), 85: (46, 52, 49), 170: (74, 83, 76), 255: (104, 115, 104)}
 

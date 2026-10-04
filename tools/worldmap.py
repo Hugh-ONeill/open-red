@@ -294,6 +294,24 @@ def anchors(data):
     return out
 
 
+class Strokes:
+    """Lines drawn in two passes, every dark outline first and then every
+    colour, so a trail reads on any ground and its joints show no notches."""
+
+    def __init__(self):
+        self.lines = []
+
+    def add(self, pts, fill, width, joint=None):
+        self.lines.append((pts, fill, width, joint))
+
+    def draw(self, d, outline=2):
+        import townmap as tm
+        for pts, _, width, joint in self.lines:
+            d.line(pts, fill=tm.OUTLINE, width=width + outline, joint=joint)
+        for pts, fill, width, joint in self.lines:
+            d.line(pts, fill=fill, width=width, joint=joint)
+
+
 def authoring_view(phase, history, here, size, start_map=None):
     """The overworld under the fog, fitted to `size` (w, h) px, with the run's
     walk (earlier legs gray to white, the last attempt in gold) through the
@@ -340,13 +358,15 @@ def authoring_view(phase, history, here, size, start_map=None):
             last = q or last
         return out
 
+    strokes = Strokes()
+
     def trail_(points, col, width):
         p = []
         for q in points:
             if q and (not p or p[-1] != q):
                 p.append(q)
         if len(p) > 1:
-            d.line(p, fill=col, width=width, joint="curve")
+            strokes.add(p, col, width, joint="curve")
         return p
 
     # the walk so far: the actual path (trail()) when there is one, cell by
@@ -378,13 +398,13 @@ def authoring_view(phase, history, here, size, start_map=None):
         for p0, p1 in zip(pts, pts[1:]):
             if p1[1] == last or not joined(p0, p1):
                 continue
-            d.line((p0[2], p1[2]), fill=shade.get(p1[0], tm.PAST_NEW), width=max(1, lw - 1))
+            strokes.add((p0[2], p1[2]), shade.get(p1[0], tm.PAST_NEW), max(1, lw - 1))
         i0 = next((i for i, p_ in enumerate(pts) if p_[1] == last), None)
         if i0 is not None:
             run = pts[max(0, i0 - 1):]
             for p0, p1 in zip(run, run[1:]):
                 if joined(p0, p1):
-                    d.line((p0[2], p1[2]), fill=tm.LAST_ATTEMPT, width=lw + 1)
+                    strokes.add((p0[2], p1[2]), tm.LAST_ATTEMPT, lw + 1)
     elif history:
         last = history[-1][1]
         legs = sorted({h[0] for h in history if h[1] != last})
@@ -410,7 +430,7 @@ def authoring_view(phase, history, here, size, start_map=None):
             if att == last:
                 break
             if q and prev and q != prev:
-                d.line((prev, q), fill=shade.get(leg, tm.PAST_NEW), width=max(1, lw - 1))
+                strokes.add((prev, q), shade.get(leg, tm.PAST_NEW), max(1, lw - 1))
             prev = q or prev
         # the last attempt can collapse away entirely (a gym and its city:
         # every entry a building or the same street again), which means it
@@ -418,6 +438,7 @@ def authoring_view(phase, history, here, size, start_map=None):
         first = next((i for i, r in enumerate(rows) if r[1] == last), None)
         if first is not None:
             trail_(points[max(0, first - 1):], tm.LAST_ATTEMPT, lw + 1)
+    strokes.draw(d)
     # the drafts
     drafts = phase.get("drafts") or []
     picked = (phase.get("picked") or {}).get("n")
@@ -578,6 +599,7 @@ def dungeon_view(data, key, floors, size, path, here, label=None):
                 cx, cy = at(f, x, y)
                 d.ellipse((cx - r_, cy - r_, cx + r_, cy + r_), outline=(150, 170, 186), width=1)
     # the path, floor by floor: steps a cell apart are joined, a jump is a ladder
+    strokes = Strokes()
     lw = max(2, int(k / 3))
     if path:
         last = path[-1][1]
@@ -592,12 +614,13 @@ def dungeon_view(data, key, floors, size, path, here, label=None):
             col = tm.LAST_ATTEMPT if att == last else tm.PAST_NEW
             if prev and prev[0] == m:
                 if kind != "step" or abs(prev[1][0] - q[0]) + abs(prev[1][1] - q[1]) <= 3 * k:
-                    d.line((prev[1], q), fill=col, width=lw)
+                    strokes.add((prev[1], q), col, lw)
             elif prev:
                 # a floor change the run made: a faint line from where it left
                 # one floor to where it arrived on the other
                 ld.line((prev[1], q), fill=col + (90,), width=max(1, lw // 2))
             prev = (m, q)
+        strokes.draw(d)
         img.paste(links, (0, 0), links)
     if here and here[0] in origin:
         q = at(here[0], here[1], here[2])
