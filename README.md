@@ -144,7 +144,7 @@ writing, thinking, or waiting while the harness plays), and an events feed under
 keeps the run's recent history: legs finished, plans drafted and picked, steps that
 failed.
 
-<!-- The HUD screenshot goes here, as docs/hud.png. `tools/hud.py --png docs/hud.png` writes one frame. -->
+![The HUD beside the game on Route 12: the seen overlay on the left, then a team of five under four earned badges, and the status column with the plan, the model's reasoning and the events feed](docs/hud.png)
 
 ```bash
 tools/events.py --follow &    # writes the events feed the HUD shows
