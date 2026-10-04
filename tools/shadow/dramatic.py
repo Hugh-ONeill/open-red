@@ -118,6 +118,14 @@ end""", """function ChunkMesher.pending()
   return #jobs
 end
 pcall(function() require("src.core.Game").redMeshPending = ChunkMesher.pending end)"""),
+    # and the copy's card covers the world as a door's fade does: build with
+    # the covered slice while it is up
+    ("lib/ChunkMesher.lua", "function ChunkMesher.pump(covered)\n", """function ChunkMesher.pump(covered)
+  do
+    local okG, G = pcall(require, "src.core.Game")
+    if okG and G and G.redCovered then covered = true end
+  end
+"""),
     ("main.lua", 'mod.hooks:wrap("ui.options.rows", function(next, game, rows)',
      '-- red-recomp copy: the OPTIONS menu keeps the rows the run had\n'
      'local _ds_rows_off = (function(next, game, rows)'),

@@ -1037,15 +1037,18 @@ return function(G)
       startup.since = startup.since or love.timer.getTime()
       if not pend or love.timer.getTime() - startup.since > STARTUP_MAX then
         startup.done = true
+        Game.redCovered = nil
       else
         local ok, n_jobs = pcall(pend)
         startup.idle = (ok and n_jobs == 0) and (startup.idle + 1) or 0
         if startup.idle >= 10 then
           startup.done = true
+          Game.redCovered = nil
           print(("[shadow] the mod's map was built in %.1f s"):format(love.timer.getTime() - startup.since))
           io.stdout:flush()
         else
           booting = true
+          Game.redCovered = true           -- the mod may build with its covered slice
           HOLD.on = true
           G.driverSpeed = 1
           coroutine.yield()
