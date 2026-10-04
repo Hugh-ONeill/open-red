@@ -82,11 +82,13 @@ PY
 for t in $(ls tests/*.py | grep -E "$BOOTS" | grep -v "contract.py"); do
   _args=()
   [ "$(basename "$t")" = "pc_box.py" ] && [ -n "$PCSAVE" ] && _args=(--save "$PCSAVE")
-  if POKEPORT_GAME=red RED_BRIDGE_DIR="$(mktemp -d)" timeout 600 python3 "$t" "${_args[@]}" >/dev/null 2>&1; then
+  _bd=$(mktemp -d)       # the bridge dir goes with the test (/tmp is RAM)
+  if POKEPORT_GAME=red RED_BRIDGE_DIR="$_bd" timeout 600 python3 "$t" "${_args[@]}" >/dev/null 2>&1; then
     :
   else
     echo "  FAIL $(basename "$t" .py)"; fail=1
   fi
+  rm -rf "$_bd"
 done
 echo "--- the no-game suite"
 CLAUDE_SMOKE=1 tests/run_suite.sh 2>&1 | tail -1

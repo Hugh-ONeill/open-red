@@ -8,7 +8,15 @@
 set -u
 cd "$(dirname "$0")/.."
 BOOTS='pc_box|contract|dig_out|stop_all_kills_the_whole_tree|a_crash_saves|a_naming_screen|a_name_is_the|a_machine_is_the|a_dead_game|a_policy_is_fit|a_fence_at|a_save_waits|an_arena_keeps|a_long_speech|a_save_whose|a_leg_is_measured|a_nurse_behind|a_level_up_move|a_staircase_is_not|an_edge_is_news|a_tm_reads|repeat_gate|a_lift_panel|an_hm_in_the|a_wipe_is|a_leg_boundary|saving_is_the|predicates|replay_smoke'
-OUT=$(mktemp -d)
+# /tmp IS A RAM DISK HERE. Every run left two folders behind and nothing
+# cleared them: after a day of suites 2,335 temp folders held 8.2G of a 30G
+# box, and the kernel's OOM killer took ollama's model server three times
+# mid-chain (run 36, 2026-10-04). The logs go under one folder and only the
+# newest few are kept; the bridge dir goes when the suite does.
+SUITE_LOGS=/tmp/red-suite
+mkdir -p "$SUITE_LOGS"
+OUT=$(mktemp -d "$SUITE_LOGS/run.XXXXXX")
+ls -1dt "$SUITE_LOGS"/run.* 2>/dev/null | tail -n +6 | xargs -r rm -rf
 # NO TEST WRITES THE LIVE RUN. bridge.RUN defaults to the absolute
 # ~/Developer/red-recomp/run, so any test that let an Executor save its memory
 # wrote over the running chain's explored.json: on 2026-09-29 a note_transition
@@ -17,6 +25,7 @@ OUT=$(mktemp -d)
 # from a checkpoint. Every test here gets a throwaway bridge dir.
 export RED_BRIDGE_DIR="$(mktemp -d)"
 mkdir -p "$RED_BRIDGE_DIR"
+trap 'rm -rf "$RED_BRIDGE_DIR"' EXIT
 # the names past runs had (planner/executor.py NAMES_USED) are a real run's
 # record; a test's names go to a throwaway file
 export RED_NAMES_USED="$RED_BRIDGE_DIR/names_used"
