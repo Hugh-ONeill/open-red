@@ -28,6 +28,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 GAME_DIR = Path(os.environ.get("GEN1RECOMP_DIR") or Path.home() / "Developer/gen1recomp")
 LOVE = Path.home() / ".local/share/love"
 LIVE_IDENT = "pokemon-love2d"
@@ -59,13 +60,26 @@ def prepare(seg: Path, ident: str = SHADOW_IDENT, game: str = "red") -> None:
 def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = True,
          quiet: bool = False, ident: str = SHADOW_IDENT) -> int:
     prepare(seg, ident)
+    # SHADOW_MOD=dramatic: the voxel diorama, patched logic-neutral, on this
+    # identity only (tools/shadow/dramatic.py); SHADOW_VOXEL picks the angle
+    mod = os.environ.get("SHADOW_MOD", "")
+    home = LOVE / ident
+    if mod == "dramatic":
+        import dramatic
+        dramatic.install(home)
+        dramatic.enable(home, int(os.environ.get("SHADOW_VOXEL", "3")),
+                        int(os.environ.get("SHADOW_TILT", "1")))
+    elif (home / "mods" / "DRAMATIC_SHAPE").exists():
+        shutil.rmtree(home / "mods" / "DRAMATIC_SHAPE")
     env = dict(os.environ,
                POKEPORT_DRIVER=str(ROOT / "tools/shadow/shadow.lua"),
                POKEPORT_SPEED="1", POKEPORT_GAME="red", POKEPORT_IDENTITY=ident,
                SHADOW_SEG=str(seg), SHADOW_SPEED=str(speed),
                SHADOW_FOLLOW="1" if follow else "0", SHADOW_QUIET="1" if quiet else "0",
                # a boot recorded before the recorder kept seen.json: the run's own
-               SHADOW_SEEN_FALLBACK=str(RUN / "seen.json"))
+               SHADOW_SEEN_FALLBACK=str(RUN / "seen.json"),
+               # the fog is drawn over the flat map; on the diorama it would not line up
+               SHADOW_OVERLAY="0" if mod == "dramatic" else os.environ.get("SHADOW_OVERLAY", "1"))
     env.pop("RED_BRIDGE_DIR", None)
     if headless:
         env["SDL_AUDIODRIVER"] = "dummy"

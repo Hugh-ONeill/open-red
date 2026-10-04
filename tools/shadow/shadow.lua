@@ -217,6 +217,42 @@ do
   end
 end
 
+-- A MOD ON THE COPY ALONE MAKES THE SAVE LOOK CHANGED: the load report lists
+-- the mod set as differing from the one the save was written with, and the
+-- report screen it pushes held the stack for 3 logic steps the run never took
+-- (2026-10-04, Dramatic Shape). With SHADOW_MOD set, that screen is not shown.
+if (os.getenv("SHADOW_MOD") or "") ~= "" then
+  pcall(function()
+    local Screens = require("src.ui.Screens")
+    local o_push = Screens.push
+    Screens.push = function(game, id, ...)
+      if id == "QuarantineReport" then return true end
+      return o_push(game, id, ...)
+    end
+  end)
+end
+
+-- SHADOW_TRACE=FROM-TO: every draw from the game's generator inside a step
+-- in that range, with its value and call site, to $SHADOW_SEG/trace.<pid>.
+-- Diff two of them to find what makes a copy part from the run.
+do
+  local a, b = (os.getenv("SHADOW_TRACE") or ""):match("^(%d+)-(%d+)$")
+  if a then
+    a, b = tonumber(a), tonumber(b)
+    local tf = io.open(SEG .. "/trace." .. tostring(os.getenv("SHADOW_TRACE_TAG") or "x"), "w")
+    local o = love.math.random
+    love.math.random = function(...)
+      local r = o(...)
+      local n = Game.logicStep or 0
+      if tf and STEP.on and n >= a and n <= b then
+        tf:write(n, " ", tostring(r), " ", (debug.traceback("", 2) or ""):gsub("\n%s*", " | "):sub(1, 400), "\n")
+        tf:flush()
+      end
+      return r
+    end
+  end
+end
+
 -- ---------------------------------------------------------------- the view
 local view = nil                 -- {vw, vh} the run's logic saw, once known
 local function set_window(w, h)
