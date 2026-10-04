@@ -29,7 +29,7 @@ def ck(n, ok, d=""): checks.append((n, bool(ok), d))
 
 src = (ROOT / "planner" / "executor.py").read_text()
 i = src.index("_chain and not last")
-blk = src[i - 2600:i + 2000]      # room for the hunt case beside it (2026-09-23)
+blk = src[i - 2600:i + 2900]      # room for the hunt case and the dry-cut case beside it (2026-09-23, 2026-10-04)
 
 ck("the rule reads the NEXT step", "_nxt = (subgoals[idx + 1]" in blk)
 ck("...only when that next step is a pure place step",
