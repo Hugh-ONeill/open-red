@@ -387,11 +387,16 @@ local skip = nil                 -- { battle = obj, what = "wild battle" } while
 -- shown battle ends it at once.
 local LINGER_STEPS = 180
 local card = { active = false }
+-- ...BUT A TRAINER IS ONE FIGHT, ONE CARD. Merging is for a grind's string
+-- of wild battles; Silph's trainers, a few steps apart, came out as one card
+-- reading "5 BATTLES" (user, 2026-10-04: "the trainer battle stuff should
+-- just be 1 battle each"). A trainer battle starts a card of its own, and
+-- its card does not linger for the next skip to join.
 local function card_touch(kind, info)
-  if not card.active then
+  if not card.active or kind == "trainer" or card.trainer then
     local ow = Game.overworld
     card = { active = true, since = love.timer.getTime(), battles = 0, gap = 0,
-             where = ow and ow.map and ow.map.id }
+             where = ow and ow.map and ow.map.id, trainer = kind == "trainer" }
     if not QUIET then print(("[shadow] card up at step %d"):format((Game.logicStep or 0) + 1)) end
   end
   card.gap = 0
@@ -736,8 +741,11 @@ local function card_lines()
   local count = (card.title == "TRAINING" or n > 1) and (n == 1 and "1 BATTLE" or (n .. " BATTLES")) or ""
   return { card.title or "", card.who or pretty(card.where), count }
 end
+local function card_linger()
+  return card.trainer and 0 or LINGER_STEPS
+end
 local function card_hold()
-  return card.active and not (skip or op_skip) and card.gap >= LINGER_STEPS
+  return card.active and not (skip or op_skip) and card.gap >= card_linger()
     and love.timer.getTime() - card.since < CARD_MIN
 end
 pcall(function()
@@ -1005,6 +1013,16 @@ return function(G)
           return
         end
       else
+        -- CAUGHT UP, AND THE RUN IS HOLDING STILL (the model thinking): no
+        -- step comes to count the linger down, and a card done with its skip
+        -- stood over the screen until the run moved again (user, 2026-10-04:
+        -- "currently its just stuck on the same battle card"). Out of steps,
+        -- the linger is over; the card still keeps its CARD_MIN
+        if card.active and not (skip or op_skip)
+            and love.timer.getTime() - card.since >= CARD_MIN then
+          card.active = false
+          if not QUIET then print(("[shadow] card down at step %d (caught up)"):format(n - 1)) end
+        end
         HOLD.on = true                   -- this frame draws; no step runs
         G.driverSpeed = 1
         set_volume(1)
@@ -1016,9 +1034,10 @@ return function(G)
     end
     HOLD.on = false
     -- a card done lingering: hold still until it has been up CARD_MIN, then drop it
-    if card.active and not (skip or op_skip) and card.gap >= LINGER_STEPS
+    if card.active and not (skip or op_skip) and card.gap >= card_linger()
         and not card_hold() then
       card.active = false
+      if not QUIET then print(("[shadow] card down at step %d"):format(n - 1)) end
     end
     if card_hold() then
       HOLD.on = true
@@ -1068,6 +1087,11 @@ return function(G)
       local lag = rt and (os.time() - rt) or 0
       if lag > MAX_LAG then catching_up = true elseif lag < CATCHUP_TO then catching_up = false end
     end
+    -- asked EVERY frame: it is also what ends a skip once its battle has left
+    -- the stack, and asked only down the branch below, a copy catching up
+    -- never asked, the skip never ended, and one card stood over every battle
+    -- that followed ("5 BATTLES" across Silph, 2026-10-04)
+    local skipping_now = skipping(G)
     if catching_up then
       target = SKIP_SPEED
     elseif not loaded then
@@ -1076,7 +1100,7 @@ return function(G)
       -- game starting over and over (2026-10-03); run it through under a card
       booting = true
       target = SKIP_SPEED
-    elseif skipping(G) or card.active then
+    elseif skipping_now or card.active then
       booting = false
       target = SKIP_SPEED              -- under the card: a skip, or the linger after one
     elseif busy_near(n) then
