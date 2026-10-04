@@ -11060,6 +11060,38 @@ function OPS.heal(G, c)
     U.tap(G, "a"); U.wait(6)
   end
   ui_back_out(G)
+  -- ...AND RIDE OUT THE WHOLE CEREMONY, NOT ITS FIRST HALF. The party is
+  -- healed BEFORE the machine runs (HealParty, then the balls light up), and
+  -- while the machine runs the overworld is on top with no script, emote or
+  -- text box: the loop above stopped there and `hurt()` already read zero.
+  -- Then "Thank you! Your POKeMON are fighting fit!", her bow and "We hope
+  -- to see you again!" went up on the NEXT op and ate its input: the first
+  -- walk after a heal never moved, "blocked at (3,3) heading down" in the
+  -- Fuchsia Center (pc_box from the run 36 Fuchsia checkpoint, 2026-10-04).
+  -- Wait out the machine (healAnim) and the bow (emote), press through the
+  -- two lines, and hand back only a free overworld.
+  do
+    local _ow = G.overworld
+    local _quiet = 0
+    for _ = 1, 600 do
+      if G.stack:top() ~= _ow then
+        _quiet = 0
+        U.tap(G, "a"); U.wait(6)
+      else
+        local _r = _ow and _ow.runner
+        local _busy = _ow.healAnim or _ow.emote
+          or (_r and _r.isRunning and _r:isRunning())
+          or (type(_ow.scriptMoves) == "table" and next(_ow.scriptMoves) ~= nil)
+        if _busy then
+          _quiet = 0
+        else
+          _quiet = _quiet + 1
+          if _quiet >= 3 then break end
+        end
+        U.wait(2)
+      end
+    end
+  end
   local after = hurt()
   if after == 0 then
     if healer_kind == "mom" then
