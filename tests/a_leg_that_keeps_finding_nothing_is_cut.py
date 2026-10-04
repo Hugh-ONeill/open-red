@@ -93,6 +93,26 @@ ck("the draws and the review both carry it",
    "said += looked_text(observed, goal)" in asrc
    and "+ (looked_text(observed, goal) if observed else \"\")" in asrc)
 
+# 8. an objective that comes back gets its record back (run 36, 2026-10-04:
+# "Retrieve the Secret Key" resurfaced after Fuchsia with an empty record)
+ck("the leaving objective's record is filed under its name and restored",
+   "_past[_old] = {" in src and "_back = _past.pop(_goal_now, None) or {}" in src
+   and "self._leg_rounds = list(_back.get(\"rounds\") or [])" in src
+   and '"legs_past": getattr(self, "_legs_past", None) or {},' in src)
+d2 = {"leg_goal": "Reach Fuchsia City", "leg_tries": 2, "leg_looked": {"ROUTE_15": 9},
+      "legs_past": {"Retrieve the Secret Key from the Game Corner":
+                    {"looked": {"CELADON_CITY": 112, "GAME_CORNER_PRIZE_ROOM": 45},
+                     "tries": 6, "rounds": [0] * 40}},
+      "press_log": {}}
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+    json.dump(d2, f)
+t2 = A.looked_text(f.name, "Retrieve the Secret Key from the Game Corner")
+ck("the drafts of a resurfaced objective see its filed record",
+   "CELADON_CITY: stood on 112x" in t2 and "across 6 attempt(s)" in t2)
+ck("...and the objective in hand still sees its own",
+   "ROUTE_15: stood on 9x" in A.looked_text(f.name, "Reach Fuchsia City"))
+os.unlink(f.name)
+
 bad = [n for n, ok in checks if not ok]
 for n, ok in checks: print(("ok  " if ok else "FAIL"), n)
 sys.exit(1 if bad else 0)

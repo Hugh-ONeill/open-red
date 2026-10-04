@@ -9167,7 +9167,14 @@ def looked_text(observed, goal) -> str:
         return " ".join(_re_goal.sub("", str(g or "")).split()).lower()
     looked = d.get("leg_looked") or {}
     tries = int(d.get("leg_tries") or 0)
-    if not looked or tries < 1 or _k(d.get("leg_goal")) != _k(goal):
+    if _k(d.get("leg_goal")) != _k(goal):
+        # an objective that comes back: its record was filed under its name
+        # when the run moved on (executor _legs_past)
+        _back = next((v for g, v in (d.get("legs_past") or {}).items()
+                      if _k(g) == _k(goal)), None) or {}
+        looked = _back.get("looked") or {}
+        tries = int(_back.get("tries") or 0)
+    if not looked or tries < 1:
         return ""
     press = {}
     for part, rows in (d.get("press_log") or {}).items():

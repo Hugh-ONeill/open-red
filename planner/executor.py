@@ -6349,6 +6349,7 @@ class Executor:
             self._wild_pay = list(data.get("wild_pay") or [0, 0])
             self._leg_tries = int(data.get("leg_tries") or 0)
             self._leg_rounds = list(data.get("leg_rounds") or [])
+            self._legs_past = data.get("legs_past") or {}
             self._new_species_asked = data.get("new_species_asked") or {}
             self._refused_gifts = data.get("refused_gifts") or {}
             self._wild_lv = data.get("wild_lv") or {}
@@ -6894,6 +6895,7 @@ class Executor:
                  "wild_pay": list(getattr(self, "_wild_pay", None) or [0, 0]),
                  "leg_tries": getattr(self, "_leg_tries", 0),
                  "leg_rounds": list(getattr(self, "_leg_rounds", None) or [])[-200:],
+                 "legs_past": getattr(self, "_legs_past", None) or {},
                  "met_types": getattr(self, "_met_types", {}),
                  "new_species_asked": getattr(self, "_new_species_asked", {}),
                  "refused_gifts": getattr(self, "_refused_gifts", {}),
@@ -28132,10 +28134,28 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         # when the leg changes (_looked_note).
         _goal_now = str(plan.get("goal") or "")
         if _goal_now != getattr(self, "_leg_goal", None):
+            # ...KEPT PER OBJECTIVE, NOT THROWN AWAY. An objective the
+            # ladder moves later comes back, and its search record came
+            # back empty: run 36's "Retrieve the Secret Key" resurfaced
+            # after Fuchsia with 6 attempts, 112 visits to Celadon and 45
+            # to the prize room behind it, and the drafts were shown none
+            # of it — all three sent the party back to the prize room
+            # (2026-10-04, user: "now it wants to backtrack to get the
+            # secret key from celadon"). The leaving objective's record is
+            # filed under its name; the arriving one's is taken back out.
+            _past = getattr(self, "_legs_past", None)
+            if _past is None:
+                _past = self._legs_past = {}
+            _old = getattr(self, "_leg_goal", None)
+            if _old:
+                _past[_old] = {"looked": dict(getattr(self, "_leg_looked", {}) or {}),
+                               "tries": int(getattr(self, "_leg_tries", 0) or 0),
+                               "rounds": list(getattr(self, "_leg_rounds", None) or [])[-200:]}
+            _back = _past.pop(_goal_now, None) or {}
             self._leg_goal = _goal_now
-            self._leg_looked = {}
-            self._leg_tries = 0
-            self._leg_rounds = []
+            self._leg_looked = dict(_back.get("looked") or {})
+            self._leg_tries = int(_back.get("tries") or 0)
+            self._leg_rounds = list(_back.get("rounds") or [])
         self._leg_tries = int(getattr(self, "_leg_tries", 0)) + 1
         self._attempt_rounds = 0
         self._leg_dry = None
