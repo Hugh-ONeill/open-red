@@ -18507,6 +18507,21 @@ class Executor:
             _stand = [l for l in _lines if self._hint_stands(_rg, l)]
             if not _stand:
                 continue
+            # ...AND A LINE NEVER SHOWN BEFORE ONE SHOWN EVERY ROUND. The
+            # round robin below gives each room its first sentence before any
+            # room its second, bounded at fourteen; from Celadon more than
+            # fourteen rooms are in reach, so only first sentences were ever
+            # read. The Diner's first was the cook's "We're taking a break
+            # now"; its third, "Psst! There's a basement under the GAME
+            # CORNER.", never reached a page while the run hunted the Secret
+            # Key upstairs for hours (run 36, 2026-10-03, user: "its just been
+            # doing the same stuff"). Still no judging WHICH sentence matters:
+            # inside a room the least-shown come first, so over a few rounds
+            # every sentence heard gets its turn.
+            _shown = getattr(self, "_hint_shown", None)
+            if _shown is None:
+                _shown = self._hint_shown = {}
+            _stand = sorted(_stand, key=lambda l, _r=_rg: _shown.get((_r, l), 0))
             said_away.append((len(_p), _rg, _stand))
         if said_away:
             # DO NOT PICK WHICH SENTENCE MATTERS. Two goes at ranking got
@@ -18539,6 +18554,8 @@ class Executor:
                     if _round < len(_ls):
                         _body.append(f"  ({_rg}, {_n} leg(s) away) "
                                      f"{self._dated(_rg, _ls[_round], obs)}")
+                        self._hint_shown[(_rg, _ls[_round])] = (
+                            self._hint_shown.get((_rg, _ls[_round]), 0) + 1)
                         _added = True
                         if len(_body) >= 14:
                             break
