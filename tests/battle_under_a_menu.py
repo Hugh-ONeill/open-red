@@ -58,7 +58,7 @@ ck("...backing out with B, which is the battle's own go-back",
 ck("...and refusing exactly as before if it will not come off",
    "return (G.stack:top() == f) and f or nil" in i)
 ck("a battle already on top is untouched",
-   "if b and (b.enemy or b.kind) then return b end" in i)
+   "if b and U.is_battle(b) then return b end" in i)
 
 bad = [n for n, ok in checks if not ok]
 for n, ok in checks: print(("ok  " if ok else "FAIL"), n)

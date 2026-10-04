@@ -706,6 +706,18 @@ end
 -- policy isnt handling it"). StateStack keeps every frame in `states`;
 -- look past the top. `.enemy` only — `.kind` is worn by half the screens
 -- in the engine and would call a shop a battle.
+-- IS THIS A FIGHT? `kind` alone said so, and on the new base a PC list
+-- carries one too: the deposit list (kind = "pc_item_deposit") read as a
+-- battle, back-out returned without pressing B, the observation said
+-- mode=battle, and the battle's text-advancing A deposited the top item
+-- again and again until the bag was empty (run 36, 2026-10-03, user: "it
+-- also just deposited every item"). A battle state has its sides or a
+-- trainer or a phase; a list has none of them.
+function U.is_battle(t)
+  return type(t) == "table" and (t.enemy ~= nil or (t.kind ~= nil and
+    (t.player ~= nil or t.trainer ~= nil or t.phase ~= nil)))
+end
+
 local function battle_frame(G)
   local st = G and G.stack and G.stack.states
   if type(st) ~= "table" then return nil end
@@ -748,7 +760,7 @@ local function need_overworld(G)
   end
   if G.overworld and G.stack:top() == G.overworld then return true end
   local t = G.stack and G.stack:top()
-  if t and (t.enemy or t.kind) then return false end   -- in battle; leave it
+  if t and U.is_battle(t) then return false end   -- in battle; leave it
   -- ...and a menu ON TOP of a battle is not a stray box either: backing
   -- out of it is a real choice inside a real fight, and the executor's
   -- battle policy is what makes those.
@@ -3981,7 +3993,7 @@ local function observe(G, seq, result)
         end
       end
     end
-  elseif top and (top.enemy or top.kind) then
+  elseif top and U.is_battle(top) then
     o.mode = "battle"
     o.battle = scalars(top, 0)
     -- YOU CANNOT SEE THE ENEMY'S PP IN GEN 1, and what was reported was
@@ -4528,7 +4540,7 @@ local function walk(G, dir, steps, keep)
       -- object; ask it.
       local okbt, BT = pcall(require, "src.render.BattleTransition")
       local _wipe = okbt and BT and getmetatable(top) == BT
-      if top and top ~= ow and not (top.enemy or top.kind) and not _wipe
+      if top and top ~= ow and not U.is_battle(top) and not _wipe
          and not is_warp_cell(ow.map.def, p.cellX, p.cellY) then
         local t = trigger_cells(G)
         local k = p.cellX .. "," .. p.cellY
@@ -7725,7 +7737,7 @@ function OPS.cross(G, c)
       -- Say what stopped it. The theory is for a walk nothing interrupted.
       do
         local t = G.stack and G.stack:top()
-        if t and (t.enemy or t.kind) then
+        if t and U.is_battle(t) then
           return false, ("a fight started %d cell(s) short of the %s edge "
             .. "gap (%d,%d) — the walk stopped at (%d,%d) because of the "
             .. "battle, not because of the ground. Nothing has been "
@@ -8054,7 +8066,7 @@ ui_back_out = function(G)
         goto continue
       end
     end
-    if t == G.overworld or (t and (t.enemy or t.kind)) then return true end
+    if t == G.overworld or (t and U.is_battle(t)) then return true end
     -- A SLOT MACHINE MID-SPIN IGNORES B: its spinup/spin/payout/flash
     -- stages only advance on A (each A stops a wheel), and B exits only
     -- from the bet / one-more / intro prompts. B-mashing here held the
@@ -10036,7 +10048,7 @@ function OPS.field_move(G, c)
           mv, t.title and (" (" .. tostring(t.title) .. ")") or "",
           table.concat(labels, ", "))
     end
-    if not (t and (t.enemy or t.kind)) then
+    if not (t and U.is_battle(t)) then
       -- A SCREEN STILL UP IS NOT A MOVE THAT DID NOT FIRE. STRENGTH ends
       -- in a TextBox — "CHARIZARD used STRENGTH. CHARIZARD can move
       -- boulders." — and this branch backed out of that box and reported
@@ -11129,7 +11141,7 @@ function OPS.elevator(G, c)
   -- Watch it for a whole second, closing whatever appears, and only stop
   -- once the overworld has held for a stretch.
   -- ...AND ui_back_out CANNOT CLOSE THIS. It opens with
-  --     if t == G.overworld or (t and (t.enemy or t.kind)) then return true
+  --     if t == G.overworld or (t and U.is_battle(t)) then return true
   -- and ListMenu.new sets `kind = opts.kind or title`, so every list menu
   -- is truthy-kind and the helper returns WITHOUT PRESSING ANYTHING. That
   -- is why three passes at this bug (wait 20, then wait 30, then watch for
@@ -11677,7 +11689,7 @@ local function fish_from_shore(G, c)
     for _ = 1, 400 do
       local t = G.stack:top()
       if t == ow then break end
-      if t and (t.enemy or t.kind) then break end
+      if t and U.is_battle(t) then break end
       if okbt and BT and getmetatable(t) == BT then break end
       if t and t.pages and t.pageIndex then
         local pg = t.pages[t.pageIndex]
@@ -12060,7 +12072,7 @@ end
 
 local function in_battle(G)
   local b = G.stack:top()
-  if b and (b.enemy or b.kind) then return b end
+  if b and U.is_battle(b) then return b end
   -- A MENU ON TOP OF A FIGHT, and every battle op answered "not in
   -- battle". use_item(POKE_FLUTE) woke ROUTE12_SNORLAX and the fight
   -- began UNDER the item's own PartyMenu; the policy could not take a
@@ -12788,7 +12800,7 @@ function OPS.interact(G, c)
           :format(who, title, table.concat(labels, ", "))
       end
       if t == ow then return true end
-      if t and (t.enemy or t.kind) then return true, "battle started" end
+      if t and U.is_battle(t) then return true, "battle started" end
       if ui_is_choice(G) then
         -- who is being asked: the named target, else the tile pressed
         local who = c.name or (c.x and ("%s,%s"):format(tostring(c.x),
@@ -12873,7 +12885,7 @@ function OPS.interact(G, c)
   -- the executor, which fights it and re-sends the interact.
   local function in_fight()
     local t = G.stack:top()
-    return t and t ~= ow and (t.enemy or t.kind) and true or false
+    return t and t ~= ow and U.is_battle(t) and true or false
   end
   for _ = 1, 4 do
     if in_fight() then return true, "battle started on the way" end
@@ -13041,7 +13053,7 @@ function OPS.battle_item(G, c)
   end
   for _ = 1, 150 do        -- drain the heal text until battle takes input
     local t = G.stack:top()
-    if not (t and (t.enemy or t.kind)) then break end
+    if not (t and U.is_battle(t)) then break end
     if t.phase == "menu" or t.phase == "moveSelect" then break end
     U.tap(G, "a"); U.wait(4)
   end
@@ -13105,12 +13117,12 @@ function OPS.throw_ball(G, c)
         local t2 = G.stack:top()
         if #((G.save and G.save.party) or {}) > party0 then _grew = true end
         if naming_on_stack(G) or ui_is_choice(G)
-           or (t2 and t2.pages) or (t2 and (t2.enemy or t2.kind)) then
+           or (t2 and t2.pages) or (t2 and U.is_battle(t2)) then
           _back = true; break
         end
       end
       if not _back then break end           -- battle over: back in the field
-    elseif t and (t.enemy or t.kind)
+    elseif t and U.is_battle(t)
        and (t.phase == "menu" or t.phase == "moveSelect") then
       break                                 -- miss: battle continues
     else
@@ -13205,7 +13217,7 @@ function OPS.name(G, c)
         return true, said .. "; " .. naming_words(G)
       end
       if G.overworld and t == G.overworld then return true, said end
-      if t and (t.enemy or t.kind)
+      if t and U.is_battle(t)
          and (t.phase == "menu" or t.phase == "moveSelect") then
         return true, said .. "; the battle continues"
       end
@@ -13283,7 +13295,7 @@ function OPS.pick_party(G, c)
   for _ = 1, 120 do
     local t = G.stack:top()
     if t == G.overworld then break end
-    if t and (t.enemy or t.kind)
+    if t and U.is_battle(t)
        and (t.phase == "menu" or t.phase == "moveSelect") then
       break
     end
@@ -14243,7 +14255,7 @@ local function decision_reached(G)
   if G.overworld and top == G.overworld then
     return not scripts_busy(G)                            -- free roam only
   end
-  if top.enemy or top.kind then                           -- battle
+  if U.is_battle(top) then                           -- battle
     return top.phase == "menu" or top.phase == "moveSelect"
   end
   if top.pages and top.pageIndex then return false end    -- plain text box
@@ -14277,7 +14289,7 @@ local function advance_to_decision(G, maxn)
           note_text(page_words(pg), top)
         end
         U.tap(G, "a"); U.wait(2)                          -- plain text
-      elseif top and (top.enemy or top.kind) then
+      elseif top and U.is_battle(top) then
         U.tap(G, "a"); U.wait(2)                          -- battle message text
       elseif sid == "NamingScreen" then
         U.tap(G, "start"); U.wait(3); U.tap(G, "a"); U.wait(3)  -- default name

@@ -38,7 +38,7 @@ ck("...but asks the engine whether the screen is its battle wipe",
    'pcall(require, "src.render.BattleTransition")' in w
    and "getmetatable(top) == BT" in w)
 ck("...and files nothing for a fight beginning",
-   "and not (top.enemy or top.kind) and not _wipe" in w)
+   "and not U.is_battle(top) and not _wipe" in w)
 ck("grind keeps off script tiles as before, so the fix had to be at the source",
    'for k in pairs(trigger_cells(G)) do warp_at[k] = true end' in SHIM)
 ck("the incident is on the record where the rule lives", "not really true here though?" in w)

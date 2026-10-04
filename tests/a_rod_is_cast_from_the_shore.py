@@ -41,7 +41,7 @@ shore = sh[sh.index("local function nearest_shore(G)"):sh.index("local function 
 ck("the shore is the nearest reachable cell beside seen water", "local bx, by, bland = nearest_shore(G)" in fish and "seen_reach(G)" in shore and "real_water(G, map, wx, wy)" in shore and "_gm[wx" in shore)
 ck("it walks there and faces the water", "OPS.walk_to(G, { x = bland[1], y = bland[2]" in fish and "if p.facing ~= bland[3] then U.tap(G, bland[3])" in fish)
 ck("a cast is the bag's own USE, not a party picker", "bag_use(G, rod)" in fish and "PartyMenu" not in fish)
-ck("a bite stops at the battle and says so", "(t.enemy or t.kind) then break" in fish and "a battle began" in fish)
+ck("a bite stops at the battle and says so", "U.is_battle(t) then break" in fish and "a battle began" in fish)
 ck("the wipe counts as the battle too", "BattleTransition" in fish)
 ck("a menu left up is backed out, never tapped through", "ui_back_out(G)                      -- a menu is not the verdict" in fish)
 ck("no nibble is said as chance, with the count and where you stood", 'cast the %s %d time(s) from (%d,%d) facing %s' in fish and "nothing bit. A bite is chance, not a wall" in fish)
