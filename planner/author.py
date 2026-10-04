@@ -3489,11 +3489,15 @@ PREMISE_SYS = ("You help plan a Pokemon Red run. You do NOT write a plan here. B
 PREMISE_NOTE = ("\n\nBEFORE YOU PLAN: this goal was worded earlier in the run and may rest on a belief "
                 "that is wrong. List what reaching it ASSUMES: where the thing is or happens, who gives "
                 "it or what triggers it, what has to be done first. For each, say where the belief comes "
-                "from: something this run saw or was told (quote it), or only memory of the game. Then "
+                "from: something this run saw or was told (quote it), or only memory of the game. "
+                "For a belief from memory, also look through WHAT PEOPLE HAVE SAID for anything about "
+                "the same place, person or thing, and give it as \"heard\": quote the line that agrees "
+                "or disagrees, or write \"nothing heard\". A belief that something heard disagrees "
+                "with is the one you are least sure of. Then "
                 "name {k} ideas for reaching the goal that each rest on a DIFFERENT answer to the "
                 "assumption you are least sure of, one sentence each saying where you would go first. "
-                "Reply with JSON only: {{\"assumptions\": [{{\"belief\": \"...\", \"source\": \"...\"}}], "
-                "\"ideas\": [\"...\"]}}")
+                "Reply with JSON only: {{\"assumptions\": [{{\"belief\": \"...\", \"source\": \"...\", "
+                "\"heard\": \"...\"}}], \"ideas\": [\"...\"]}}")
 IDEA_NOTE = "\n\nPLAN THIS IDEA, and only this one: {idea}"
 # find_plan.py's own stripping of the outline's notes, so a stamped goal
 # matches the way the chain asks for it
@@ -3523,7 +3527,9 @@ def premise_ideas(goal: str, model: str, start: str | None, said: str,
     for a in (got.get("assumptions") or [])[:6]:
         if isinstance(a, dict):
             print(f"[ideas] assumes: {str(a.get('belief'))[:160]} "
-                  f"(from: {str(a.get('source'))[:80]})")
+                  f"(from: {str(a.get('source'))[:80]})"
+                  + (f" — heard: {str(a.get('heard'))[:160]}"
+                     if a.get("heard") else ""))
     ideas = [str(x).strip() for x in (got.get("ideas") or []) if str(x).strip()][:k]
     for i, idea in enumerate(ideas, 1):
         print(f"[ideas] {i}. {idea[:200]}")
@@ -4311,7 +4317,24 @@ def observed_text(path: Path) -> str:
         # what was left out rather than quietly dropping it.
         vis_r = d.get("visits") or {}
         ranked = sorted(hints, key=lambda r: -vis_r.get(r, 0))
-        keep = sorted(ranked[:14])
+        # ...AND THE PLACES HEARD FROM LAST. Most-stood-in alone dropped a
+        # room visited once whatever it said: the Diner ("Psst! There's a
+        # basement under the GAME CORNER.") and the Chief's house ("There's
+        # no secret switch behind it!") were "quieter places" while the run
+        # drafted coin plans for leg 27 (run 36, 2026-10-03). The places heard
+        # from within the last few events join them (sixteen at most); when a thing was heard
+        # is the run's record, not a judgement of what matters.
+        _at = d.get("hints_at") or {}
+        def _heard_last(r):
+            vals = [(v.get("seq") if isinstance(v, dict) else v)
+                    for v in ((_at.get(r) or {}).values())]
+            vals = [int(x) for x in vals if isinstance(x, (int, float))]
+            return max(vals) if vals else -1
+        _top = max([_heard_last(r) for r in hints] or [-1])
+        recent = [r for r in sorted(hints, key=lambda r: -_heard_last(r))
+                  if _heard_last(r) >= 0
+                  and _heard_last(r) >= _top - 6][:16]
+        keep = sorted(set(ranked[:14]) | set(recent))
         # WHAT A PERSON SAID, ONCE. Three things clutter this ledger: the
         # harness's own feedback filed under whatever op was running
         # ("field_move: AAAAA hacked away with CUT!", six times), the same
@@ -4358,12 +4381,16 @@ def observed_text(path: Path) -> str:
                 shown.append(f"  in {r}:\n    " + "\n    ".join(fresh[-4:]))
         body = "\n".join(shown)
         more = len(hints) - len(keep)
-        out += ("\n\nWHAT PEOPLE HAVE SAID, and where they said it. This "
-                "game explains its own gates out loud, so a sentence here is "
-                "often the reason a route did not work"
-                + (f" (the {len(keep)} places you have stood in most; "
-                   f"{more} quieter place(s) not shown)" if more else "")
-                + ":\n" + body)
+        _people = ("\n\nWHAT PEOPLE HAVE SAID, and where they said it. This "
+                   "game explains its own gates out loud, so a sentence here is "
+                   "often the reason a route did not work"
+                   + (f" (the {len(keep)} places you have stood in most; "
+                      f"{more} quieter place(s) not shown)" if more else "")
+                   + ":\n" + body)
+        # kept whole for people_said_text: the evidence budget below may drop
+        # this section, and the drafts read it from here, not from the page
+        _PEOPLE_SECTION[str(path)] = _people
+        out += _people
     shut = d.get("shut_doors") or {}
     if shut:
         out += ("\n\nDOORS SEEN BUT NEVER OPENED (they exist on the map and "
@@ -9112,15 +9139,29 @@ def words_text(path) -> str:
     return out
 
 
+_PEOPLE_SECTION: dict = {}
+
+
 def people_said_text(observed) -> str:
     """The WHAT PEOPLE HAVE SAID section of the walked record, alone. The
     game explains its own gates out loud ("That's odd, MR.FUJI isn't
     here. Where'd he go?"), and the rewrite pass has always been shown
     those sentences; the missing-step rung was not."""
+    # ...WHOLE, NOT WHAT SURVIVED THE BUDGET. This sliced the section out of
+    # observed_text's finished page, and late in a run the page is over its
+    # 22000 characters and the trimmer drops WHAT PEOPLE HAVE SAID entirely
+    # ("EVIDENCE DID NOT FIT ... not shown"): every draft and every ideas
+    # call got NOTHING people said, the Diner's "basement under the GAME
+    # CORNER" and the sailor's "no secret switch behind" the poster
+    # included, while leg 27 drafted coin plans for hours (run 36,
+    # 2026-10-03). The section is kept as built, before the trim.
     try:
         full = observed_text(Path(observed))
     except Exception:
         return ""
+    _whole = _PEOPLE_SECTION.get(str(Path(observed)))
+    if _whole:
+        return _whole
     i = full.find("\n\nWHAT PEOPLE HAVE SAID")
     if i < 0:
         return ""
