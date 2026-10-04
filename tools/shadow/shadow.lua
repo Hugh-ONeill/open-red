@@ -590,11 +590,45 @@ local function seen_paint(game)
   local W, H = seen_dims(game, map)
   local t = SEEN[map.id] or {}
   SEEN[map.id] = t
+  local changed = false
   for y = math.max(0, p.cellY - VIEW_U), math.min(H - 1, p.cellY + VIEW_D) do
     for x = math.max(0, p.cellX - VIEW_L), math.min(W - 1, p.cellX + VIEW_R) do
-      t[x .. "," .. y] = true
+      local k = x .. "," .. y
+      if not t[k] then t[k] = true; changed = true end
     end
   end
+  if changed and FOG_IMG and FOG_IMG[map.id] then FOG_IMG[map.id].dirty = true end
+end
+
+-- THE SAME GROUND FOR A 3D MOD: one texel per cell, white where seen, for the
+-- diorama's terrain shader (tools/shadow/dramatic.py patches it to ask
+-- Game.redFog for the map it is about to draw). Rebuilt only when cells
+-- were added since the last frame asked.
+FOG_IMG = {}
+Game.redFog = function(map_id)
+  if os.getenv("SHADOW_FOG3D") == "0" then return nil end
+  local W, H = seen_dims(Game, { id = map_id })
+  if not (W and W > 0 and H > 0) then return nil end
+  local e = FOG_IMG[map_id]
+  if not e then
+    local data = love.image.newImageData(W, H)
+    e = { data = data, dirty = true }
+    FOG_IMG[map_id] = e
+  end
+  if e.dirty then
+    local t = SEEN[map_id] or {}
+    e.data:mapPixel(function(x, y)
+      local v = t[x .. "," .. y] and 1 or 0
+      return v, v, v, 1
+    end)
+    if e.img then e.img:replacePixels(e.data)
+    else
+      e.img = love.graphics.newImage(e.data)
+      e.img:setFilter("nearest", "nearest")
+    end
+    e.dirty = false
+  end
+  return e.img, W, H
 end
 local function draw_fog(game)
   local ow = game.overworld
@@ -708,6 +742,11 @@ pcall(function()
   local o_draw = love.draw
   love.draw = function(...)
     if o_draw then o_draw(...) end
+    local shot_at = tonumber(os.getenv("SHADOW_SHOT") or "")   -- a screenshot, for checking a look
+    if shot_at and not shot_done and (Game.logicStep or 0) >= shot_at then
+      shot_done = true
+      love.graphics.captureScreenshot("shadow_shot.png")
+    end
     if FOG and not card.active and not booting and not catching_up then
       love.graphics.push("all")
       pcall(draw_fog, Game)
@@ -838,7 +877,7 @@ Game.step = function(self, dt, ...)
   STEP.on = true
   local a, b, d = o_step(self, dt, ...)
   STEP.on = false
-  if FOG then pcall(seen_paint, self) end
+  pcall(seen_paint, self)
   if cur and cur_i <= #cur and not OWN_AUDIO then
     report(("step %d: the run asked %d audio question(s) this copy did not"):format(n, #cur - cur_i + 1))
   end

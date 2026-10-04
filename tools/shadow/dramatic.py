@@ -45,6 +45,71 @@ PATCHES = [
      "-- and a locked view refuses the SELECT / 3 camera cycle\n"
      "function Horde.canStart() return false end\n"
      "function Horde.viewLocked() return true end\n\nreturn Horde"),
+    # THE RUN'S SEEN GROUND, IN THE DIORAMA (user, 2026-10-04: "mod the mod to
+    # include our shadow overlay"). The copy keeps which cells have been seen
+    # and hands each map's mask over through Game.redFog (tools/shadow); the
+    # terrain shader darkens an unseen cell and lines a seen cell's sides that
+    # border unseen ground in red, in the mesh's own space (one unit a world
+    # pixel, a map cell 16), so perspective, height and buildings come free.
+    ("lib/Voxel3D.lua", """  varying LOVE_HIGHP_OR_MEDIUMP vec3 vGrid;
+#endif
+#ifdef VERTEX""", """  varying LOVE_HIGHP_OR_MEDIUMP vec3 vGrid;
+#endif
+  // red-recomp copy: the run's seen ground, one texel per map cell
+  varying LOVE_HIGHP_OR_MEDIUMP vec3 vSeenPos;
+  uniform Image seenMask;
+  uniform vec4 seenInfo;      // cells wide, cells high, on, unused
+#ifdef VERTEX"""),
+    ("lib/Voxel3D.lua", "    vec4 w = model * vertex_position;",
+     "    vSeenPos = vertex_position.xyz;\n    vec4 w = model * vertex_position;"),
+    ("lib/Voxel3D.lua", "    rgb = mix(rgb, fogColor, vFog);", """    if (seenInfo.z > 0.5) {
+      vec2 cell = floor(vSeenPos.xz / 16.0);
+      if (cell.x >= 0.0 && cell.y >= 0.0 && cell.x < seenInfo.x && cell.y < seenInfo.y) {
+        vec2 inv = 1.0 / seenInfo.xy;
+        if (Texel(seenMask, (cell + 0.5) * inv).r < 0.5) {
+          rgb *= 0.45;
+        } else {
+          vec2 f = fract(vSeenPos.xz / 16.0);
+          float e = 0.08, edge = 0.0;
+          if (f.x < e && cell.x > 0.0 && Texel(seenMask, (cell + vec2(-0.5, 0.5)) * inv).r < 0.5) edge = 1.0;
+          if (f.x > 1.0 - e && cell.x < seenInfo.x - 1.0 && Texel(seenMask, (cell + vec2(1.5, 0.5)) * inv).r < 0.5) edge = 1.0;
+          if (f.y < e && cell.y > 0.0 && Texel(seenMask, (cell + vec2(0.5, -0.5)) * inv).r < 0.5) edge = 1.0;
+          if (f.y > 1.0 - e && cell.y < seenInfo.y - 1.0 && Texel(seenMask, (cell + vec2(0.5, 1.5)) * inv).r < 0.5) edge = 1.0;
+          rgb = mix(rgb, vec3(1.0, 0.15, 0.15), edge * 0.9);
+        }
+      }
+    }
+    rgb = mix(rgb, fogColor, vFog);"""),
+    ("lib/Voxel3D.lua", "function Voxel3D.draw(mesh, texture, model, pull, sunModel)",
+     """-- red-recomp copy: the seen-ground mask for the map whose terrain draws
+-- next (nil: none, for everything that is not terrain)
+function Voxel3D.fogFor(map)
+  if not (active and activeShader) then return end
+  local okG, G = pcall(require, "src.core.Game")
+  local img, w, h
+  if map and okG and G and G.redFog then img, w, h = G.redFog(map.id) end
+  if img then
+    pcall(activeShader.send, activeShader, "seenMask", img)
+    pcall(activeShader.send, activeShader, "seenInfo", { w, h, 1, 0 })
+  else
+    pcall(activeShader.send, activeShader, "seenInfo", { 0, 0, 0, 0 })
+  end
+end
+
+function Voxel3D.draw(mesh, texture, model, pull, sunModel)"""),
+    ("lib/VoxelScene.lua", "  Voxel3D.draw(terrain, atlasFor(state.map), nil)",
+     "  Voxel3D.fogFor(state.map)\n  Voxel3D.draw(terrain, atlasFor(state.map), nil)"),
+    ("lib/VoxelScene.lua", """    if ViewBox.showsMap(nb) then
+      Voxel3D.draw(nbMesh[i], atlasFor(nb.map),
+                   Mat4.translate(nb.ox, 0, nb.oy))
+    end
+  end""", """    if ViewBox.showsMap(nb) then
+      Voxel3D.fogFor(nb.map)
+      Voxel3D.draw(nbMesh[i], atlasFor(nb.map),
+                   Mat4.translate(nb.ox, 0, nb.oy))
+    end
+  end
+  Voxel3D.fogFor(nil)"""),
     ("main.lua", 'mod.hooks:wrap("ui.options.rows", function(next, game, rows)',
      '-- red-recomp copy: the OPTIONS menu keeps the rows the run had\n'
      'local _ds_rows_off = (function(next, game, rows)'),
