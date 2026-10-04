@@ -71,7 +71,7 @@ fw = uw - 2 * b
 fw -= fw % 2
 print(w, h, x0 + b, y0 + b, x0 + col + 2 * gi + b, y0 + b, fw)
 EOF
-)
+) || true   # nothing printed: no real monitor (below)
 if [ -n "${W:-}" ]; then
   echo "$W $H $LX $LY $RX $RY $FW" > run/stream.tiles
 elif [ -f run/stream.tiles ]; then
