@@ -862,6 +862,20 @@ local function set_volume(speed)
   end
 end
 
+-- ONE LOGIC STEP, NOTHING ELSE. The fast-forward runs many steps per drawn
+-- frame; through Game:update each also ran the per-frame extras, the render
+-- pipelines' update among them, and a voxel mod pumping meshes there for a few
+-- ms a call took the copy to ~10 fps and a crawl (2026-10-04). The main loop
+-- still runs one whole Game:update per frame; the extra steps only step.
+local FixedStep = require("src.core.FixedStep")
+local function step_once(G)
+  local before = Game.logicStep or 0
+  for _ = 1, 4 do                        -- the accumulator can come up a hair short
+    FixedStep.maxAccum = FixedStep.catchupLimit(1, 1 / 60)
+    FixedStep:update(1 / 60, 1)
+    if (Game.logicStep or 0) ~= before then return end
+  end
+end
 local speed, carry, snap_n = PLAY, 0, 0
 booting = true                         -- until this boot has a map (global: the draw reads it)
 local last_done_check = nil
@@ -970,7 +984,7 @@ return function(G)
     local t0 = love.timer.getTime()
     for _ = 2, steps do
       if love.timer.getTime() - t0 > FF_SLICE then break end
-      G:update(1 / 60)
+      step_once(G)
     end
     if love.timer.getTime() - (fps_at or 0) > 10 then        -- the frame rate, for judging a mod's cost
       fps_at = love.timer.getTime()
