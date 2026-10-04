@@ -16,6 +16,11 @@
 # Usage: fresh_discovery.sh [attempts-per-leg]   (default 4)
 set -euo pipefail
 cd "$(dirname "$0")"
+# STREAMING SURVIVES A RELAUNCH. stream.sh writes run/stream.env (headless,
+# muted, the 1x copy's window size, draw skipping); a chain started any other
+# way, a chain stop's plain relaunch included, read nothing of it and booted
+# its 200x game headed beside the copy (2026-10-03). ./stream.sh --off removes it.
+if [ -f run/stream.env ]; then set -a; . run/stream.env; set +a; fi
 # Tell stop_all.sh what this rig started, so it never has to guess
 # from a process-name pattern (rig.sh).
 # shellcheck source=rig.sh

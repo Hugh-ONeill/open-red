@@ -5,6 +5,8 @@
 #   ./stream.sh            new game (fresh world, banked outline), windows up
 #   ./stream.sh --resume   keep the world, carry on from where the chain stopped
 #   ./stream.sh --attach   only the windows, for a chain that is already running
+#   ./stream.sh --off      stop streaming: the copy and layout watcher stop, and a
+#                          relaunched chain boots as before (run/stream.env removed)
 #
 # What it does, in order: refuses while a chain runs (except --attach); brings
 # the base game up to date (update_base.sh: every new attempt starts on it);
@@ -22,8 +24,16 @@ MODE=new
 case "${1:-}" in
   --resume) MODE=resume ;;
   --attach) MODE=attach ;;
+  --off)
+    rm -f run/stream.env
+    for p in $(pgrep -f "^python3 -u tools/shadow/play.py --live" || true); do
+      kill -TERM -- "-$(ps -o pgid= -p "$p" | tr -d ' ')" 2>/dev/null || true
+    done
+    pkill -f "^python3 tools/stream_layout.py" 2>/dev/null || true
+    echo "[stream] off: copy and layout watcher stopped; the next chain launch boots as before"
+    exit 0 ;;
   "") ;;
-  *) echo "usage: $0 [--resume|--attach]"; exit 2 ;;
+  *) echo "usage: $0 [--resume|--attach|--off]"; exit 2 ;;
 esac
 
 if ! grep -q 'RED_WINDOW' harness/shim.lua || ! grep -q '_headed=()' fresh_run.sh; then
@@ -56,6 +66,14 @@ print(w, h, x0 + b, y0 + b, x0 + col + 2 * gi + b, y0 + b, fw)
 EOF
 )
 echo "[stream] tiles ${W}x${H}: copy at ${LX},${LY}, HUD at ${RX},${RY}"
+
+# the stream settings, kept for every relaunch while streaming (fresh_discovery.sh reads them)
+cat > run/stream.env <<EOF2
+RED_HEADED=0
+RED_MUTE=1
+RED_WINDOW=${W}x${H}
+RED_DRAW_EVERY=${RED_DRAW_EVERY:-30}
+EOF2
 
 if [ "$MODE" != attach ]; then
   ./update_base.sh || { echo "[stream] the base update failed; launching on the old base is your call"; exit 1; }
