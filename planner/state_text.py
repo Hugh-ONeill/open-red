@@ -123,6 +123,30 @@ def bag_text(bagd):
     return txt
 
 
+def pc_text(pc):
+    """What the PC is holding, after the bag. On-screen tier: WITHDRAW ITEM
+    at any Pokemon Center lists it. Without it a thing the run put away was
+    gone from every plan: run 36 stored the GOLD TEETH at Viridian to make
+    room for HM04, and the next HM04 drafts went looking for the teeth in
+    the Safari Zone's Secret House (2026-10-05). Key items and machines
+    are named in full; the rest is counted."""
+    pc = {k: v for k, v in (pc or {}).items() if (v or 0) > 0}
+    if not pc:
+        return ""
+    try:
+        keys = {l.strip() for l in Path(__file__).with_name(
+            "engine_key_items.txt").read_text().splitlines() if l.strip()}
+    except OSError:
+        keys = set()
+    nums = _machine_numbers()
+    named = sorted(k for k in pc if k in keys or k.startswith(("HM_", "TM_")))
+    rest = len(pc) - len(named)
+    return (" — and in the PC (WITHDRAW ITEM at any Pokemon Center): "
+            + (", ".join(f"{_item_word(k, nums)} x{pc[k]}" for k in named)
+               or "no key items or machines")
+            + (f", and {rest} other kind(s) of item" if rest else ""))
+
+
 def money_text(m):
     """How much money there is, next to what things cost.
 
@@ -267,7 +291,7 @@ if "region" in o:                    # last_state.json is already flattened
     _where = m or "a spot not yet on record (a box was up when the snapshot was taken)"
     print(f"standing in {_where} with "
           f"{party or 'no party'}, {badges}"
-          + money_text(o.get("money")) + f", and {bag}"
+          + money_text(o.get("money")) + f", and {bag}" + pc_text(o.get("pc_items"))
           + daycare_text(o.get("daycare"))
           + hof_text(o.get("hall_of_fame"))
           + respawn_text(o.get("respawn"))
@@ -286,6 +310,7 @@ if not m:
     print("standing in a spot not yet on record (a box was up when the "
           f"snapshot was taken) with {party}, {badges}"
           + money_text(o.get("money")) + f", and {bag_text(o.get('bag'))}"
+          + pc_text(o.get("pc_items"))
           + daycare_text(o.get("daycare"))
           + hof_text(o.get("hall_of_fame"))
           + respawn_text(o.get("respawn")))
@@ -294,7 +319,7 @@ party = party_text(o.get("party") or [])
 badges = badges_text(o.get("badges"))
 bag = bag_text(o.get("bag"))
 print(f"standing in {m} with {party or 'no party'}, {badges}"
-      + money_text(o.get("money")) + f", and {bag}"
+      + money_text(o.get("money")) + f", and {bag}" + pc_text(o.get("pc_items"))
       + daycare_text(o.get("daycare"))
       + hof_text(o.get("hall_of_fame"))
       + respawn_text(o.get("respawn"))

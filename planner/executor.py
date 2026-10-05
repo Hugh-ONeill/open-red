@@ -29435,6 +29435,10 @@ def _write_last_state(b, failed_plan=None, failed_subgoal=None,
                       for m in (o.get("party") or [])],
             "badges": o.get("badges") or [],
             "bag": o.get("bag") or {},
+            # ...AND THE PC: a thing put away is still held, and a re-author
+            # that cannot see it plans to go and find it again (run 36's
+            # GOLD TEETH, 2026-10-05; state_text.pc_text)
+            "pc_items": o.get("pc_items") or {},
             "money": o.get("money"),
             # where a faint sends you — carried so the re-author sees it
             "respawn": o.get("respawn"),
