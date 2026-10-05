@@ -9154,11 +9154,27 @@ class Executor:
         if key is None and src.split("|")[0] != dst.split("|")[0]:
             _hl = [h for h in (((before_obs or {}).get("map") or {}).get("holes") or [])
                    if isinstance(h, dict) and h.get("x") is not None]
+            _wl = [w for w in (((before_obs or {}).get("map") or {}).get("warps") or [])
+                   if isinstance(w, dict) and w.get("x") is not None]
             _cell = self._last_cell_on(str(src).split("|")[0],
-                                       str(dst).split("|")[0]) if _hl else None
+                                       str(dst).split("|")[0]) if (_hl or _wl) else None
+            # ...AND A DOOR A SWEEP STEPPED THROUGH. explore's sweep walked
+            # onto Route 2's doorway into the Viridian Forest south gate and
+            # no op named the door: the gate's way back was inferred on
+            # arrival, Route 2's way in never written, and `go` had no road
+            # north out of Viridian for the rest of the run (run 36,
+            # 2026-10-05). The last cell on this floor, if it is a doorway
+            # here, is the door that was taken; filed under its own tile, the
+            # key a named use_warp would have used.
+            _door = next((w for w in _wl
+                          if _cell and (w.get("x"), w.get("y")) == _cell), None)
+            if _door is not None:
+                key = f"{_door.get('x')},{_door.get('y')}"
+                self.log("transition_by_door", frm=src, to=dst, via=key,
+                         found="steps.log")
             _mine = next((h for h in _hl
                           if _cell and (h.get("x"), h.get("y")) == _cell), None)
-            if _mine is not None:
+            if _mine is not None and key is None:
                 key = f"{_mine.get('x')},{_mine.get('y')}"
                 if _mine.get("drop") is not None:
                     _grp = sorted((h.get("y"), h.get("x")) for h in _hl
