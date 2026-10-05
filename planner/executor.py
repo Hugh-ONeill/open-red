@@ -13473,7 +13473,23 @@ class Executor:
                     # ("walked 9 leg(s)... did not arrive", 2026-08-22).
                     # Blocked for the world as it stands; a road again the
                     # moment anything changes.
-                    if _wrec is not None:
+                    # AN INFERRED SWIM THAT DID NOT LAND IS REFUTED, NOT
+                    # STAMPED. The record here for an inferred reverse is
+                    # the dict _edges_of builds each call, so a blocked_at
+                    # written to it was thrown away and `go` re-planned the
+                    # same swim every round: Seafoam B3F's swim back west
+                    # has no shore to climb out on, and the party circled
+                    # B3F for the HM04 leg (run 36, 2026-10-05). Into
+                    # _bad_seam with the other refuted inferences.
+                    if _wrec is not None and _wrec.get("inferred") and str(key) \
+                            not in (self.explored.get(self._where(_now)) or {}):
+                        self._bad_seam.add((self._where(_now), str(key),
+                                            str(nxt)))
+                        self.log("inference_refused", frm=self._where(_now),
+                                 via=str(key), to=str(nxt),
+                                 landed=self._where(o))
+                        self._save_memory()
+                    elif _wrec is not None:
                         _wrec["blocked_at"] = self._world_mark(o)
                         # ...AND WHAT THE WALK SAID, or the stamp is a
                         # date with no reason: run 15's `go` refused 48

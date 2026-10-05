@@ -38,5 +38,15 @@ ck("a swim back the world refused (a current) is not offered again",
 src = (ROOT / "planner/executor.py").read_text()
 ck("a replayed hop reads the inferred edge's surf flag too",
    "or self._edges_of(self._where(_now)).get(str(key)))" in src)
+# ...and an inferred swim that did not land is refuted, not stamped on the
+# throwaway dict _edges_of builds (run 36, 2026-10-05: Seafoam B3F's swim
+# back west has no shore to climb out on; `go` re-planned it every round)
+i = src.index("AN INFERRED SWIM THAT DID NOT LAND IS REFUTED")
+blk = src[i:i + 1600]
+ck("a failed inferred hop goes into _bad_seam",
+   'self._bad_seam.add((self._where(_now), str(key),' in blk
+   and '_wrec.get("inferred")' in blk)
+ck("...only when the hop is not a walked record of its own",
+   "not in (self.explored.get(self._where(_now)) or {})" in blk)
 for n, ok in checks: print(("ok   " if ok else "FAIL ") + n)
 raise SystemExit(0 if all(ok for _, ok in checks) else 1)
