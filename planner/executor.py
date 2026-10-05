@@ -6433,6 +6433,7 @@ class Executor:
             self._leg_tries = int(data.get("leg_tries") or 0)
             self._leg_rounds = list(data.get("leg_rounds") or [])
             self._legs_past = data.get("legs_past") or {}
+            self._leg_disp_seen = data.get("leg_disp_seen") or {}
             self._new_species_asked = data.get("new_species_asked") or {}
             self._refused_gifts = data.get("refused_gifts") or {}
             self._wild_lv = data.get("wild_lv") or {}
@@ -6976,6 +6977,7 @@ class Executor:
                  "leg_tries": getattr(self, "_leg_tries", 0),
                  "leg_rounds": list(getattr(self, "_leg_rounds", None) or [])[-200:],
                  "legs_past": getattr(self, "_legs_past", None) or {},
+                 "leg_disp_seen": getattr(self, "_leg_disp_seen", None) or {},
                  "met_types": getattr(self, "_met_types", {}),
                  "new_species_asked": getattr(self, "_new_species_asked", {}),
                  "refused_gifts": getattr(self, "_refused_gifts", {}),
@@ -13274,6 +13276,22 @@ class Executor:
     _PARTY_KEYS = ("party_size", "lead_level", "party_min_level",
                    "slot_level", "party_healthy", "knows_move", "party_type",
                    "has_species", "dex_owned", "party_fully_evolved")
+
+    @staticmethod
+    def _dispositions_of(goal: str) -> int:
+        """How many DISPOSED rows run/attempt_yield holds for this objective
+        (by its words, or the bag item it names; see objective_key)."""
+        n = 0
+        try:
+            for line in (RUN / "attempt_yield").read_text().splitlines():
+                parts = line.split("\t")
+                if (len(parts) >= 4 and parts[3].startswith("DISPOSED")
+                        and (parts[0].strip() == str(goal).strip()
+                             or same_objective(parts[0], goal))):
+                    n += 1
+        except OSError:
+            pass
+        return n
 
     def _leg_dry_round(self, sg, rnd, gained: bool) -> bool:
         """Count one round toward the leg's window; True when the leg is
@@ -28502,6 +28520,26 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             self._leg_looked = _looked
             self._leg_tries = _tries
             self._leg_rounds = _rounds[-200:]
+        # ...AND A DISPOSITION STARTS THE WINDOW AFRESH. The chain counts a
+        # leg's runs afresh from the last time the ladder moved, reworded,
+        # inserted before or went back to it (author.dry_tail); the leg's
+        # round window here did not, so a leg the chain went back to arrived
+        # with forty dry rounds already in it and was cut at the end of the
+        # grace (run 36's HM04 and Champion legs, 2026-10-05). The rounds
+        # since the leg's newest DISPOSED row in run/attempt_yield are the
+        # window; the looked-for record and the try count are kept.
+        try:
+            _ndisp = self._dispositions_of(_goal_now)
+            _seen = getattr(self, "_leg_disp_seen", None)
+            if not isinstance(_seen, dict):
+                _seen = self._leg_disp_seen = {}
+            if _ndisp > int(_seen.get(_goal_now, 0) or 0) and self._leg_rounds:
+                self.log("leg_window_reset", goal=_goal_now[:120],
+                         dropped=len(self._leg_rounds), dispositions=_ndisp)
+                self._leg_rounds = []
+            _seen[_goal_now] = _ndisp
+        except Exception as e:           # a window is never worth the plan
+            self.log("leg_window_reset_error", err=str(e)[:160])
         self._leg_tries = int(getattr(self, "_leg_tries", 0)) + 1
         self._attempt_rounds = 0
         self._leg_dry = None
