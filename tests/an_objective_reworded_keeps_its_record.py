@@ -41,6 +41,10 @@ def ck(name, cond, detail=""):
 ck("a machine is named however it is spelled",
    objective_items("Obtain HM 4 from the Warden") == {"HM04"}
    and objective_items("Retrieve the HM04 from the Safari Zone") == {"HM04"})
+ck("a machine is named by its bag id too",
+   objective_items("Obtain HM_STRENGTH") == {"HM04"}
+   and objective_items("Get the HM Strength from the Warden") == {"HM04"}
+   and objective_items("Buy TM_REST") == objective_items("buy TM44"))
 ck("a key item is named however it is cased",
    objective_items("Retrieve the Secret Key") == {"SECRET_KEY"}
    and objective_items("Get the S.S. Ticket") == {"S_S_TICKET"})

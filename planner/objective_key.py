@@ -23,6 +23,14 @@ def _names(fname: str) -> set:
 
 
 _KEY_ITEMS = _names("engine_key_items.txt")
+# "HM04 STRENGTH" rows: the bag spells a machine by its move (HM_STRENGTH,
+# TM_REST) and the objectives by its number (HM04), so both name one key
+# (run 36's Victory Road drafts wrote HM_STRENGTH, 2026-10-05).
+_MACHINES = {}
+for _row in _names("engine_machines.txt"):
+    _num, _, _move = _row.partition(" ")
+    if _num and _move:
+        _MACHINES[f"{_num[:2]}_{_move.strip()}"] = _num
 _MACHINE = re.compile(r"\b([HT]M)\s?0*(\d{1,2})\b", re.I)
 
 
@@ -34,6 +42,9 @@ def objective_items(goal) -> frozenset:
            for m in _MACHINE.finditer(g)}
     flat = "_" + re.sub(r"[^A-Z0-9]+", "_", g.upper().replace("É", "E")) + "_"
     flat = flat.replace("_SS_", "_S_S_")
+    for bag, num in _MACHINES.items():
+        if f"_{bag}_" in flat:
+            out.add(num)
     for it in _KEY_ITEMS:
         if f"_{it}_" in flat:
             out.add(it)
