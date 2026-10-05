@@ -91,6 +91,31 @@ def records() -> list:
         return []
 
 
+INSERTS = Path("run/outline_inserts")
+
+
+def prerequisites_of(text: str) -> set:
+    """Every leg the ladder put before `text` as needed first
+    (run/outline_inserts "LEG=<needs>|<needed>"), and what those need in
+    turn. A rewording row names the leg itself under new words, so a row
+    whose two sides are the leg's own wordings is no prerequisite."""
+    rows = []
+    for row in _lines(INSERTS):
+        if row.startswith("LEG=") and "|" in row:
+            dep, pre = row[4:].split("|", 1)
+            if pre.startswith("PULL "):
+                pre = pre[5:]
+            rows.append((dep.strip(), pre.strip()))
+    out, todo = set(), [text.strip()]
+    while todo:
+        cur = todo.pop()
+        for dep, pre in rows:
+            if dep == cur and pre and pre != text.strip() and pre not in out:
+                out.add(pre)
+                todo.append(pre)
+    return out
+
+
 def do_pull(to: int, frm: int):
     lines = read_outline()
     if not (1 <= to <= len(lines)) or not (1 <= frm <= len(lines)):
@@ -111,6 +136,20 @@ def do_pull(to: int, frm: int):
         print(f"pull refused: {lines[frm - 1]!r} was placed after {_a!r}, "
               f"which is still ahead at leg {lines.index(_a) + 1}; pulled to "
               f"{to} it would come before what it waits on")
+        sys.exit(4)
+    # ...NOR AHEAD OF WHAT THE LADDER PUT BEFORE IT. The momentum rung
+    # pulled "Defeat the Elite Four" to the front because the run had
+    # wandered onto ROUTE_21, sliding "Clear Victory Road" behind it: the
+    # leg the missing rung had inserted eleven minutes earlier because the
+    # Elite Four needs it first (run 36, 2026-10-05). push_leg already
+    # refuses the mirror image; the inserts ledger says what each insert
+    # was for, and what that insert needs is needed too.
+    _pre = prerequisites_of(lines[frm - 1])
+    _over = [l for l in lines[to - 1:frm - 1] if l in _pre]
+    if _over:
+        print(f"pull refused: {_over[0]!r} was put before "
+              f"{lines[frm - 1]!r} because it is needed first, and pulled "
+              f"to {to} the leg would jump it")
         sys.exit(4)
     text = lines.pop(frm - 1)
     lines.insert(to - 1, text)
