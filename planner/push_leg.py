@@ -24,6 +24,7 @@ from pathlib import Path
 
 OUT = Path("plans/outline.txt")
 PUSHES = Path("run/outline_pushes")
+AUTHORED = Path("plans/outline.authored")
 
 
 def read_outline() -> list:
@@ -151,13 +152,42 @@ def main(argv):
     except Exception:
         pass          # ordering help, never a reason the push cannot happen
     after = min(after, n)
+    # NOTHING COMES AFTER THE END OF THE GAME. The banked outline's last
+    # line is the run's finish; a push that carries a leg past it puts a
+    # step after the credits. Run 36's "Clear Victory Road" failed to
+    # author and was pushed past "Defeat the rival in the final showdown",
+    # taking "Defeat the Elite Four" with it, so the chain went on to
+    # author the final fight in front of the cave that leads to it
+    # (2026-10-05). The push stops short of the last authored leg; with no
+    # room left it is refused, and the caller steps over the leg instead.
+    _end = ([l.strip() for l in AUTHORED.read_text().splitlines()
+             if l.strip()] or [None])[-1] if AUTHORED.exists() else None
+    if _end and _end in lines and _end != lines[frm - 1]:
+        _end_at = lines.index(_end) + 1
+        if frm < _end_at <= after:
+            after = _end_at - 1
+            _riders = [(k, t) for k, t in _riders if k <= after]
+            if after <= frm:
+                print(f"push refused: {lines[frm - 1]!r} would go past "
+                      f"{_end!r}, the outline's last leg, and nothing comes "
+                      f"after the end of the game")
+                sys.exit(5)
     _riders.sort()
     _texts = [lines[frm - 1]] + [t for _, t in _riders]
+    _before = list(lines)
     for t in _texts:
         lines.remove(t)
     _at = after - len(_texts)          # the removals shifted the target down
     for k, t in enumerate(_texts):
         lines.insert(_at + k, t)
+    if lines == _before:
+        # stopped short of the end with what rides on it, it moved nowhere:
+        # not a deferral, and the caller must not run the same leg again
+        print(f"push refused: {_texts[0]!r} would not move"
+              + (f" — it has no room before {_end!r}, the outline's last "
+                 f"leg, and nothing comes after the end of the game"
+                 if _end else ""))
+        sys.exit(5)
     OUT.write_text("\n".join(lines) + "\n")
     with PUSHES.open("a") as f:
         for t in _texts:
