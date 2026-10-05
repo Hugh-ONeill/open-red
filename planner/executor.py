@@ -10516,6 +10516,29 @@ class Executor:
                     while _alt in out and (out[_alt] or {}).get("to") != _r2:
                         _alt += "x"
                     out.setdefault(_alt, {"n": 0, "to": _r2, "inferred": True})
+        # ...AND THE SWIM BACK ACROSS THE SAME WATER. A walk inside a map is
+        # not reversed because a ledge hopped down is not hopped up; water
+        # has no ledges. Seafoam B3F's row-11 swim was walked once, west to
+        # east, on the way to Cinnabar, and with no way back on record `go`
+        # could not reach Fuchsia from the island side: the HM04 leg spent
+        # its attempt asking to cross Route 20 east, was passed over, and
+        # the run came round to the same water for it again (run 36,
+        # 2026-10-05). The reverse of a walk made ON THE WATER is offered
+        # as an inference, ridden on replay; a current, which only runs one
+        # way, refutes it the first time and it is dropped for good.
+        for _r4, _es4 in (self.explored or {}).items():
+            if _r4 == region or str(_r4).split("|")[0] != _map:
+                continue
+            for _k4, _e4 in (_es4 or {}).items():
+                if (_k4 != f"walk:{region}" or not isinstance(_e4, dict)
+                        or not _e4.get("surf") or _e4.get("to") != region):
+                    continue
+                _back4 = f"walk:{_r4}"
+                if _back4 in out or (region, _back4, _r4) in getattr(
+                        self, "_bad_seam", ()):
+                    continue
+                out[_back4] = {"n": 0, "to": _r4, "inferred": True,
+                               "surf": True, "intra": True}
         return out
 
     def _route_gap(self, here: str, want: str):
@@ -13320,8 +13343,9 @@ class Executor:
                 # keep what the walk SAID: its refusal is the rich one —
                 # the reachable-ground count and who or what stands at the
                 # edge of it, a CUT_TREE included
-                _wrec = (self.explored.get(self._where(_now)) or {}) \
-                    .get(str(key))
+                _wrec = ((self.explored.get(self._where(_now)) or {})
+                         .get(str(key))
+                         or self._edges_of(self._where(_now)).get(str(key)))
                 # A WALK MADE ON THE WATER IS RE-WALKED ON THE WATER. The
                 # door hop below has ridden a swim it failed to reach on
                 # foot since 2026-08-28; this hop never did. Seafoam's
