@@ -66,7 +66,7 @@ ck("every map the party stands on is counted",
 ck("the record is kept across a leg's attempts and filed away when it changes",
    '_goal_now = str(plan.get("goal") or "")' in src
    and 'if _goal_now != getattr(self, "_leg_goal", None):' in src
-   and 'self._leg_looked = dict(_back.get("looked") or {})' in src)
+   and 'self._leg_looked = _looked' in src)
 ck("...and each attempt counts itself",
    'self._leg_tries = int(getattr(self, "_leg_tries", 0)) + 1' in src)
 ck("it survives a relaunch with the rest of the memory",

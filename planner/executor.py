@@ -57,6 +57,7 @@ from silent_flags import SILENT as _SILENT_FLAGS, announced as _announced
 import ledger
 import pred_text
 import outline_ahead
+from objective_key import same_objective
 
 # Which gym holds which badge — the pamphlet's leader page.
 # THE LEDGER SWITCH. RED_LEDGER=0 renders the exploration prompt the old
@@ -28363,11 +28364,23 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _past[_old] = {"looked": dict(getattr(self, "_leg_looked", {}) or {}),
                                "tries": int(getattr(self, "_leg_tries", 0) or 0),
                                "rounds": list(getattr(self, "_leg_rounds", None) or [])[-200:]}
-            _back = _past.pop(_goal_now, None) or {}
+            # ...AND BY THE THING IT NAMES, NOT ITS WORDS. The ladder
+            # rewords what it moves: HM04 was hunted under three wordings
+            # and each came back with only its own record (run 36,
+            # 2026-10-05). Every filed record naming the same bag item is
+            # taken back out and added up (objective_key).
+            _looked, _tries, _rounds = {}, 0, []
+            for _g in [g for g in list(_past)
+                       if g == _goal_now or same_objective(g, _goal_now)]:
+                _b = _past.pop(_g) or {}
+                for _m, _n in (_b.get("looked") or {}).items():
+                    _looked[_m] = _looked.get(_m, 0) + int(_n or 0)
+                _tries += int(_b.get("tries") or 0)
+                _rounds += list(_b.get("rounds") or [])
             self._leg_goal = _goal_now
-            self._leg_looked = dict(_back.get("looked") or {})
-            self._leg_tries = int(_back.get("tries") or 0)
-            self._leg_rounds = list(_back.get("rounds") or [])
+            self._leg_looked = _looked
+            self._leg_tries = _tries
+            self._leg_rounds = _rounds[-200:]
         self._leg_tries = int(getattr(self, "_leg_tries", 0)) + 1
         self._attempt_rounds = 0
         self._leg_dry = None

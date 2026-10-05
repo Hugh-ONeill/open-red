@@ -107,8 +107,8 @@ ck("the draws and the review both carry it",
 # 8. an objective that comes back gets its record back (run 36, 2026-10-04:
 # "Retrieve the Secret Key" resurfaced after Fuchsia with an empty record)
 ck("the leaving objective's record is filed under its name and restored",
-   "_past[_old] = {" in src and "_back = _past.pop(_goal_now, None) or {}" in src
-   and "self._leg_rounds = list(_back.get(\"rounds\") or [])" in src
+   "_past[_old] = {" in src and "_b = _past.pop(_g) or {}" in src
+   and "_rounds += list(_b.get(\"rounds\") or [])" in src
    and '"legs_past": getattr(self, "_legs_past", None) or {},' in src)
 d2 = {"leg_goal": "Reach Fuchsia City", "leg_tries": 2, "leg_looked": {"ROUTE_15": 9},
       "legs_past": {"Retrieve the Secret Key from the Game Corner":

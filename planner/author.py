@@ -33,6 +33,7 @@ import re as _re
 import unicodedata
 import sys
 from pathlib import Path
+from objective_key import same_objective
 
 import brock_probe   # reuse chat()
 import split_roads
@@ -9165,15 +9166,18 @@ def looked_text(observed, goal) -> str:
         return ""
     def _k(g):
         return " ".join(_re_goal.sub("", str(g or "")).split()).lower()
-    looked = d.get("leg_looked") or {}
-    tries = int(d.get("leg_tries") or 0)
-    if _k(d.get("leg_goal")) != _k(goal):
-        # an objective that comes back: its record was filed under its name
-        # when the run moved on (executor _legs_past)
-        _back = next((v for g, v in (d.get("legs_past") or {}).items()
-                      if _k(g) == _k(goal)), None) or {}
-        looked = _back.get("looked") or {}
-        tries = int(_back.get("tries") or 0)
+    looked, tries = {}, 0
+    if same_objective(d.get("leg_goal"), goal, _k):
+        looked = dict(d.get("leg_looked") or {})
+        tries = int(d.get("leg_tries") or 0)
+    # an objective that comes back: its record was filed under its name
+    # when the run moved on (executor _legs_past), and under every other
+    # wording that names the same thing (objective_key)
+    for g, v in (d.get("legs_past") or {}).items():
+        if same_objective(g, goal, _k):
+            for m, n in ((v or {}).get("looked") or {}).items():
+                looked[m] = looked.get(m, 0) + int(n or 0)
+            tries += int((v or {}).get("tries") or 0)
     if not looked or tries < 1:
         return ""
     press = {}
@@ -9183,15 +9187,69 @@ def looked_text(observed, goal) -> str:
             if isinstance(r, (list, tuple)) and r:
                 c = press.setdefault(m, {})
                 c[str(r[0])] = c.get(str(r[0]), 0) + 1
+    # ...AND WHAT WAS NOT DONE THERE. "Stood on 17x" read as a place
+    # worked over, and Fuchsia had two doors the run never went through
+    # while the drafts kept sending it back into the Safari Zone (run 36,
+    # 2026-10-05, user: "once its totally explored it should look
+    # uninteresting"). The record holds both halves: the things seen there
+    # and the doors on its map, against the things pressed (a sweep's
+    # presses too, which never reach press_log) and the doors taken.
+    # A door is named by where it stands, as on screen; never by where it
+    # leads (door_dests is the engine's table, not the run's).
+    touched, seen, taken, shut = {}, {}, {}, {}
+    for part, names in (d.get("touched") or {}).items():
+        touched.setdefault(str(part).split("|")[0], set()).update(names or [])
+    for part, names in (d.get("sightings") or {}).items():
+        seen.setdefault(str(part).split("|")[0], set()).update(
+            n for n in (names or []) if n != "CUT_TREE")
+    for part, gone in (d.get("gone") or {}).items():
+        seen.setdefault(str(part).split("|")[0], set()).difference_update(
+            gone if isinstance(gone, (list, set, tuple)) else [])
+    # gone through = tried from this side (a scripted transfer such as the
+    # Safari entry records no destination), or landed on from the other,
+    # or the other half of a two-tile doorway was
+    for part, ways in (d.get("explored") or {}).items():
+        t = taken.setdefault(str(part).split("|")[0], set())
+        for k, e in (ways or {}).items():
+            t.add(str(k))
+            to = str((e or {}).get("to") or "") if isinstance(e, dict) else ""
+            if to and e.get("land"):
+                taken.setdefault(to.split("|")[0], set()).add(str(e["land"]))
+    def _pair(m, k):
+        try:
+            x, y = (int(v) for v in str(k).split(","))
+        except ValueError:
+            return False
+        t = taken.get(m) or set()
+        return any(f"{x + a},{y + b}" in t
+                   for a, b in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+    for part, rows_ in (d.get("shut_doors") or {}).items():
+        shut.setdefault(str(part).split("|")[0], set()).update(
+            str(r).split(" ")[0] for r in (rows_ or []))
     out = []
     rows = sorted(looked.items(), key=lambda kv: -kv[1])
     for m, n in rows[:12]:
-        who = sorted((press.get(m) or {}).items(), key=lambda kv: -kv[1])
+        who = dict(press.get(m) or {})
+        for w in touched.get(m) or ():
+            who.setdefault(str(w), 1)
+        who = sorted(who.items(), key=lambda kv: -kv[1])
+        never = sorted(w for w in (seen.get(m) or set())
+                       - (touched.get(m) or set()) - set(press.get(m) or {})
+                       if w != "PC" and not w.endswith(("_NURSE",
+                                                        "_LINK_RECEPTIONIST")))
+        doors = sorted(k for k in set((d.get("map_doors") or {}).get(m) or [])
+                       - (taken.get(m) or set()) - (shut.get(m) or set())
+                       if not _pair(m, k))
         out.append(f"  {m}: stood on {n}x"
                    + ("; pressed there (whole run): "
                       + ", ".join(f"{w} {c}x" for w, c in who[:6])
                       + (f" and {len(who) - 6} more" if len(who) > 6 else "")
-                      if who else ""))
+                      if who else "")
+                   + ("; NEVER pressed there: " + ", ".join(never[:6])
+                      + (f" and {len(never) - 6} more" if len(never) > 6
+                         else "") if never else "")
+                   + ("; doors there NEVER gone through: "
+                      + ", ".join(doors) if doors else ""))
     more = (f"\n  and {len(rows) - 12} more place(s)" if len(rows) > 12
             else "")
     return ("\n\nWHERE THIS OBJECTIVE HAS ALREADY BEEN LOOKED FOR, across "
