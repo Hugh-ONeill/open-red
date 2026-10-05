@@ -38,6 +38,12 @@ explored = {
 fake = types.SimpleNamespace(explored=explored, _bad_seam=set())
 fake._edges_of = lambda r: E.Executor._edges_of(fake, r)
 fake._same_place = lambda a, b: E.Executor._same_place(fake, a, b)
+# since 2026-10-05 the way back across a floor is offered as an inference
+# (_edges_of), so run 16's own case routes: middle-to-west is inferred
+ck("the middle-to-west walk back is inferred, so the chain holds",
+   E.Executor._route_gap(fake, "CELADON_CITY|2,1", "VERMILION_CITY") is None)
+# ...and when the walk refutes it (a ledge going up), the break is named
+fake._bad_seam = {("ROUTE_9|6,2", "walk:ROUTE_9|0,8", "ROUTE_9|0,8")}
 gap = E.Executor._route_gap(fake, "CELADON_CITY|2,1", "VERMILION_CITY")
 ck("the break is found on Route 9, between the middle part and the west end",
    gap == ("ROUTE_9", "ROUTE_9|6,2", "ROUTE_9|0,8"), gap)

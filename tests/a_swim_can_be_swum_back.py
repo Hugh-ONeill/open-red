@@ -29,8 +29,9 @@ ck("a swim's reverse is offered", bool(back) and back.get("to") == W)
 ck("...as an inference, ridden on replay",
    bool(back) and back.get("inferred") and back.get("surf"))
 ex.explored[W][f"walk:{X}"].pop("surf")
-ck("a walk on foot (a ledge may be in it) is still not reversed",
-   f"walk:{W}" not in ex._edges_of(X))
+_foot = ex._edges_of(X).get(f"walk:{W}") or {}
+ck("a walk on foot is offered back too, as an inference (a ledge refutes it)",
+   _foot.get("inferred") and _foot.get("to") == W and not _foot.get("surf"))
 ex.explored[W][f"walk:{X}"]["surf"] = True
 ex._bad_seam = {(X, f"walk:{W}", W)}
 ck("a swim back the world refused (a current) is not offered again",

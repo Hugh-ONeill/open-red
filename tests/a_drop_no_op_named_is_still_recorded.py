@@ -31,7 +31,7 @@ ck("...and nothing for a pair the log never had",
 
 src = (ROOT / "planner/executor.py").read_text()
 i = src.index("WITH NOTHING NAMED AT ALL, THE LAST CELL THE FLOOR SAW")
-blk = src[i:i + 2200]
+blk = src[i:i + 4000]
 ck("an unnamed crossing on a floor with holes asks steps.log",
    "self._last_cell_on(" in blk and "if key is None and src.split" in blk)
 ck("...files it under the hole group's first tile, as a named drop is",

@@ -10532,9 +10532,17 @@ class Executor:
                     while _alt in out and (out[_alt] or {}).get("to") != _r2:
                         _alt += "x"
                     out.setdefault(_alt, {"n": 0, "to": _r2, "inferred": True})
-        # ...AND THE SWIM BACK ACROSS THE SAME WATER. A walk inside a map is
-        # not reversed because a ledge hopped down is not hopped up; water
-        # has no ledges. Seafoam B3F's row-11 swim was walked once, west to
+        # ...AND THE WAY BACK ACROSS THE SAME FLOOR, AS AN INFERENCE. A walk
+        # inside a map was not reversed because a ledge hopped down is not
+        # hopped up, and an inference nothing could refute would stand for
+        # ever. A failed inferred hop is refuted now (_bad_seam, see the
+        # walk branch of _walk_route), so the reverse of every walk inside a
+        # map is offered and the first replay that does not land drops it:
+        # Rock Tunnel 1F walked once north to south left Cerulean with no
+        # road to Lavender, and the run had no way home to Fuchsia for the
+        # HM04 it needed at Victory Road (run 36, 2026-10-05; user chose
+        # "extend the inference to all same-floor walks"). A swim keeps its
+        # surf flag so the replay rides. Seafoam B3F's row-11 swim was walked once, west to
         # east, on the way to Cinnabar, and with no way back on record `go`
         # could not reach Fuchsia from the island side: the HM04 leg spent
         # its attempt asking to cross Route 20 east, was passed over, and
@@ -10547,14 +10555,16 @@ class Executor:
                 continue
             for _k4, _e4 in (_es4 or {}).items():
                 if (_k4 != f"walk:{region}" or not isinstance(_e4, dict)
-                        or not _e4.get("surf") or _e4.get("to") != region):
+                        or _e4.get("to") != region):
                     continue
                 _back4 = f"walk:{_r4}"
                 if _back4 in out or (region, _back4, _r4) in getattr(
                         self, "_bad_seam", ()):
                     continue
                 out[_back4] = {"n": 0, "to": _r4, "inferred": True,
-                               "surf": True, "intra": True}
+                               "intra": True}
+                if _e4.get("surf"):
+                    out[_back4]["surf"] = True
         return out
 
     def _route_gap(self, here: str, want: str):
