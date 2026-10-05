@@ -13481,6 +13481,15 @@ class Executor:
                     # has no shore to climb out on, and the party circled
                     # B3F for the HM04 leg (run 36, 2026-10-05). Into
                     # _bad_seam with the other refuted inferences.
+                    # ...but never for what the world did to the walk: a
+                    # wild box or the Safari clock cutting it says nothing
+                    # about the water (safari_clock_is_not_a_refutation).
+                    _cut4 = (self._walk_cut_by_the_world(str(_wdet or ""))
+                             or self._safari_clock_cut(_now, o))
+                    if _cut4:
+                        self.log("route_walk_lost_world_cut",
+                                 frm=self._where(_now), via=str(key))
+                        return o
                     if _wrec is not None and _wrec.get("inferred") and str(key) \
                             not in (self.explored.get(self._where(_now)) or {}):
                         self._bad_seam.add((self._where(_now), str(key),
