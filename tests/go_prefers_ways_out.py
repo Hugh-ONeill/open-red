@@ -50,7 +50,14 @@ def _atlas():
     """The richest ledger on disk: the live one is whatever chain is running
     (a fresh chain starts it empty); the Hall of Fame world's is archived
     beside it as explored.<ts>.pre-discovery.bak.json."""
-    cands = sorted(Path("run").glob("explored*.json"), key=lambda f: f.stat().st_size)
+    # ...AN ARCHIVED world, never the live one: a long run's own ledger grew
+    # past the archive on 2026-10-05 and the test read a world without the
+    # pocket it pins (run 36 had walked Route 7 the other way)
+    cands = sorted((f for f in Path("run").glob("explored.*.json")),
+                   key=lambda f: f.stat().st_size)
+    if not cands:
+        cands = sorted(Path("run").glob("explored*.json"),
+                       key=lambda f: f.stat().st_size)
     return json.loads(cands[-1].read_text())
 
 d = _atlas()
