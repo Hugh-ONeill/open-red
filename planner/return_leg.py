@@ -39,9 +39,34 @@ def _lines(p: Path) -> list:
         return []
 
 
+REWORDINGS = Path("run/outline_rewordings")
+
+
+def _newest() -> dict:
+    """old wording -> the wording it was last changed to
+    (run/outline_rewordings, "<i>\t<old>\t<new>"). The ledger names a leg
+    as it was worded when the row was written; run 36's final fight waited
+    on "Defeat the Elite Four Champion", which the wording rung then
+    turned into "Defeat the Pokemon League Champion"."""
+    step = {}
+    for row in _lines(REWORDINGS):
+        parts = row.split("\t")
+        if len(parts) >= 3 and parts[1].strip() and parts[2].strip():
+            step[parts[1].strip()] = parts[2].strip()
+
+    def cur(t):
+        seen = set()
+        while t in step and t not in seen:
+            seen.add(t)
+            t = step[t]
+        return t
+    return {k: cur(k) for k in step}
+
+
 def _needs() -> dict:
-    """needs -> set of what it waits on, directly."""
+    """needs -> set of what it waits on, directly, under today's wordings."""
     out: dict = {}
+    _now = _newest()
     for row in _lines(INSERTS):
         if not row.startswith("LEG=") or "|" not in row:
             continue
@@ -49,6 +74,7 @@ def _needs() -> dict:
         if pre.startswith("PULL "):
             pre = pre[5:]
         dep, pre = dep.strip(), pre.strip()
+        dep, pre = _now.get(dep, dep), _now.get(pre, pre)
         if dep and pre and dep != pre:
             out.setdefault(dep, set()).add(pre)
     return out
@@ -83,8 +109,10 @@ def pick(i: int):
             continue
         if t in waits_on(here, needs):
             cands.append(p)
-        elif i == len(lines):
-            # the last leg: anything still waiting on t ahead of here
+        elif i == len(lines) or here in waits_on(lines[-1], needs):
+            # the last leg, or a leg the last one waits on (run 36's
+            # "Defeat the Pokemon League Champion", inserted before the
+            # final fight): anything still waiting on t ahead of here
             ahead = lines[p:i]
             if any(t in waits_on(a, needs) for a in ahead):
                 cands.append(p)

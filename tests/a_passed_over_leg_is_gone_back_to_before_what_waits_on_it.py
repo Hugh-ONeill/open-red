@@ -40,7 +40,7 @@ OUT = [SK, "every party member is at least level 50", GT, HM, VR, E4, RV]
 INS = [f"LEG={HM}|{GT}", f"LEG={VR}|{HM}", f"LEG={E4}|{VR}"]
 
 
-def ret(i, passed, inserts=INS, returns=()):
+def ret(i, passed, inserts=INS, returns=(), rewordings=()):
     with tempfile.TemporaryDirectory() as d:
         d = Path(d)
         (d / "plans").mkdir(); (d / "run").mkdir()
@@ -48,6 +48,8 @@ def ret(i, passed, inserts=INS, returns=()):
         (d / "run/outline_passed").write_text("".join(t + "\n" for t in passed))
         (d / "run/outline_inserts").write_text("\n".join(inserts) + "\n")
         (d / "run/outline_returns").write_text("".join(t + "\n" for t in returns))
+        (d / "run/outline_rewordings").write_text(
+            "".join(f"0\t{a}\t{b}\n" for a, b in rewordings))
         r = subprocess.run([sys.executable, str(ROOT / "planner/return_leg.py"), str(i)],
                            cwd=d, capture_output=True, text=True)
         return (r.returncode, r.stdout.strip(),
@@ -64,6 +66,19 @@ ck("...and the return is counted", rets == [GT], rets)
 rc, out, _, _ = ret(7, [SK, GT, HM, VR])
 ck("the last leg goes back to the earliest passed-over leg with a dependent ahead",
    rc == 0 and out == f"3\t{GT}", (rc, out))
+CH = "Defeat the Pokemon League Champion"
+OUT.insert(6, CH)
+rc, out, _, _ = ret(7, [SK, GT, HM, VR], inserts=INS + [f"LEG={RV}|{CH}"])
+ck("a leg the last leg waits on goes back as the last leg would",
+   rc == 0 and out == f"3\t{GT}", (rc, out))
+rc, out, _, _ = ret(7, [SK, GT, HM, VR])
+ck("...but not a leg nothing records the last leg waiting on", rc == 1, (rc, out))
+rc, out, _, _ = ret(7, [SK, GT, HM, VR],
+                    inserts=INS + [f"LEG={RV}|Defeat the Elite Four Champion"],
+                    rewordings=[("Defeat the Elite Four Champion", CH)])
+ck("...and the ledger is read under today's wordings (run 36's case)",
+   rc == 0 and out == f"3\t{GT}", (rc, out))
+OUT.pop(6)
 rc, out, _, _ = ret(7, [SK])
 ck("a passed-over leg nothing waits on is left", rc == 1, (rc, out))
 rc, out, _, _ = ret(5, [SK, GT, HM], returns=[GT, GT])
