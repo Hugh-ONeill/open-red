@@ -9032,6 +9032,42 @@ class Executor:
                 return (rows[i - 1][1], rows[i - 1][2])
         return None
 
+    @staticmethod
+    def _approach_on(src_map: str, dst_map: str, n: int = 12,
+                     tail_lines: int = 400):
+        """The last up-to-n cells steps.log recorded on src_map, in order,
+        before the latest entry on dst_map: the way the party actually
+        walked into a crossing no op named. [] when the log has no such
+        pair."""
+        try:
+            with open(RUN / "steps.log", "rb") as fh:
+                fh.seek(0, 2)
+                size = fh.tell()
+                fh.seek(max(0, size - 64 * tail_lines))
+                lines = fh.read().decode("utf-8", "replace").splitlines()
+        except OSError:
+            return []
+        rows = []
+        for ln in lines[-tail_lines:]:
+            parts = ln.split()
+            if len(parts) != 4:
+                continue
+            try:
+                rows.append((parts[1], int(parts[2]), int(parts[3])))
+            except ValueError:
+                continue
+        for i in range(len(rows) - 1, 0, -1):
+            if rows[i][0] == dst_map and rows[i - 1][0] == src_map:
+                out = []
+                j = i - 1
+                while j >= 0 and rows[j][0] == src_map and len(out) < n:
+                    c = [rows[j][1], rows[j][2]]
+                    if not out or out[0] != c:
+                        out.insert(0, c)
+                    j -= 1
+                return out
+        return []
+
     def note_transition(self, before_obs, step, after_obs, reason="",
                         op_detail=""):
         """Record: from this area, that exit led there."""
@@ -9198,6 +9234,7 @@ class Executor:
         # 2026-10-05). The shim writes every cell the party enters to
         # steps.log; the last one on this floor before the landing, if it
         # is one of this floor's holes, is the hole that was taken.
+        _approach = []
         if key is None and src.split("|")[0] != dst.split("|")[0]:
             _hl = [h for h in (((before_obs or {}).get("map") or {}).get("holes") or [])
                    if isinstance(h, dict) and h.get("x") is not None]
@@ -9219,6 +9256,17 @@ class Executor:
                 key = f"{_door.get('x')},{_door.get('y')}"
                 self.log("transition_by_door", frm=src, to=dst, via=key,
                          found="steps.log")
+            # ...AND THE WAY THE PARTY CAME TO IT. Seafoam B3F's (20,17) is a
+            # warp no one can step onto: a current carries a surfing party
+            # from (20,11) down into it. Filed under the tile, `go` replayed
+            # it as use_warp, the shim answered "(20,17) is a WALL right
+            # now" fifteen times, and the one way east through the island
+            # read as shut (run 36, 2026-10-05, user: "you can go east
+            # through seafoam"). The cells walked just before are what
+            # reproduces it.
+            if key is not None:
+                _approach = self._approach_on(str(src).split("|")[0],
+                                              str(dst).split("|")[0])
             _mine = next((h for h in _hl
                           if _cell and (h.get("x"), h.get("y")) == _cell), None)
             if _mine is not None and key is None:
@@ -9229,6 +9277,8 @@ class Executor:
                     key = f"{_grp[0][1]},{_grp[0][0]}"
                 self.log("transition_by_fall", frm=src, to=dst, via=key,
                          found="steps.log")
+                _approach = self._approach_on(str(src).split("|")[0],
+                                              str(dst).split("|")[0])
         if key is None:
             if src.split("|")[0] != dst.split("|")[0]:
                 self._note_arrival(src, dst, before_obs, after_obs)
@@ -9576,6 +9626,8 @@ class Executor:
                 e["cell"] = [int(_gap.group(1)), int(_gap.group(2))]
             e.pop("shut", None)          # it opened; whatever shut it is gone
             e.pop("blocked_at", None)    # it landed; the block is gone
+            if k == key and len(_approach) >= 2:
+                e["approach"] = _approach
             # A CROSSING MADE RIDING THE WATER IS REMEMBERED THAT WAY, so a
             # replay rides it too. Route 20's east seam had been crossed
             # surfing; `go FUCHSIA_POKECENTER` replayed it on foot, the
@@ -11011,6 +11063,58 @@ class Executor:
                  want=want, gave_up_after=total)
         self._faint_at = None
         return None
+
+    def _ride_approach(self, sg, cells, pre):
+        """Walk a crossing the way the party first walked into it: to the
+        first recorded cell, then cell by cell, on the water where it is
+        water. A current or a drop on the way does the rest, which is the
+        point: the warp at the end of Seafoam B3F's current cannot be
+        stepped onto, only carried into. Returns the last observation, its
+        result saying whether the map changed."""
+        _m0 = ((pre or {}).get("map") or {}).get("id")
+        _surf = self._knows_move(pre or {}, "SURF")
+
+        def _left(o):
+            return ((o or {}).get("map") or {}).get("id") not in (None, _m0)
+
+        def _fight(o):
+            while o and o.get("mode") == "battle":
+                o = self.handle_battle(sg, o)
+                o = self.settle()
+            return o
+
+        o = self._send_safe("walk_to", x=int(cells[0][0]), y=int(cells[0][1]))
+        o = _fight(self.settle() or o)
+        p = (o or {}).get("player") or {}
+        if not _left(o) and (p.get("x"), p.get("y")) != tuple(cells[0]) and _surf:
+            o = self._send_safe("walk_to", x=int(cells[0][0]),
+                                y=int(cells[0][1]), surf=True)
+            o = _fight(self.settle() or o)
+        _det = ""
+        for c in cells[1:]:
+            if _left(o):
+                break
+            p = (o or {}).get("player") or {}
+            dx, dy = int(c[0]) - int(p.get("x") or 0), int(c[1]) - int(p.get("y") or 0)
+            if (dx, dy) == (0, 0):
+                continue           # the current already carried us here
+            _dir = {(1, 0): "right", (-1, 0): "left",
+                    (0, 1): "down", (0, -1): "up"}.get((dx, dy))
+            if _dir:
+                o = self._send_safe("walk", dir=_dir, steps=1)
+            else:
+                o = self._send_safe("walk_to", x=int(c[0]), y=int(c[1]),
+                                    surf=_surf)
+            _det = str(((o or {}).get("result") or {}).get("detail") or "")
+            o = _fight(self.settle() or o)
+        ok = _left(o)
+        self.log("approach_ridden", subgoal=sg.get("id"), cells=len(cells),
+                 landed=self._where(o), ok=ok)
+        o = dict(o or {})
+        o["result"] = {"ok": ok, "detail": (
+            "carried through by the way it was first walked" if ok else
+            f"walked the way in and stayed on {_m0}" + (f": {_det}" if _det else ""))}
+        return o
 
     def _uncork_seam(self, obs, sg, dirname):
         """A SEAM IS A ROW, NOT A DOOR: try another cell of the one we came
@@ -13628,7 +13732,11 @@ class Executor:
                 _edge = (self.explored.get(self._where(pre)) or {}).get(str(key)) or {}
                 _sf = (bool(getattr(self, "_go_surf", False))
                        or bool(_edge.get("surf")) or _surfed_retry)
-                if _is_door_key(key):
+                if _is_door_key(key) and len(_edge.get("approach") or []) >= 2:
+                    x, y = key.split(",")
+                    _res = self._ride_approach(sg, _edge["approach"], pre)
+                    step = {"x": int(x), "y": int(y)}
+                elif _is_door_key(key):
                     x, y = key.split(",")
                     _res = self._send_safe("use_warp", x=int(x), y=int(y))
                     step = {"x": int(x), "y": int(y)}
