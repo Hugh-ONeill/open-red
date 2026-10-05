@@ -8958,6 +8958,33 @@ class Executor:
             return (_sd["x"], _sd["y"]), _pre_sweep
         return None, pre
 
+    @staticmethod
+    def _last_cell_on(src_map: str, dst_map: str, tail_lines: int = 400):
+        """The last cell steps.log recorded on src_map before an entry on
+        dst_map, from the end of the log; None when the log has no such
+        pair."""
+        try:
+            with open(RUN / "steps.log", "rb") as fh:
+                fh.seek(0, 2)
+                size = fh.tell()
+                fh.seek(max(0, size - 64 * tail_lines))
+                lines = fh.read().decode("utf-8", "replace").splitlines()
+        except OSError:
+            return None
+        rows = []
+        for ln in lines[-tail_lines:]:
+            parts = ln.split()
+            if len(parts) != 4:
+                continue
+            try:                    # a line cut mid-write is skipped
+                rows.append((parts[1], int(parts[2]), int(parts[3])))
+            except ValueError:
+                continue
+        for i in range(len(rows) - 1, 0, -1):
+            if rows[i][0] == dst_map and rows[i - 1][0] == src_map:
+                return (rows[i - 1][1], rows[i - 1][2])
+        return None
+
     def note_transition(self, before_obs, step, after_obs, reason="",
                         op_detail=""):
         """Record: from this area, that exit led there."""
@@ -9115,6 +9142,30 @@ class Executor:
                                   if h.get("drop") == _mine.get("drop"))
                     key = f"{_grp[0][1]},{_grp[0][0]}"
                 self.log("transition_by_fall", frm=src, to=dst, via=key)
+        # ...OR, WITH NOTHING NAMED AT ALL, THE LAST CELL THE FLOOR SAW. A
+        # walk a trainer fight interrupted carried on, stepped onto Mansion
+        # 3F's (17,14) and dropped into 1F's sealed stairs room, and no op
+        # text named the cell: the drop went unrecorded, and every `go`
+        # back answered "no walked way ... is known" while the room's
+        # basement stairs were the way to the Secret Key (run 36,
+        # 2026-10-05). The shim writes every cell the party enters to
+        # steps.log; the last one on this floor before the landing, if it
+        # is one of this floor's holes, is the hole that was taken.
+        if key is None and src.split("|")[0] != dst.split("|")[0]:
+            _hl = [h for h in (((before_obs or {}).get("map") or {}).get("holes") or [])
+                   if isinstance(h, dict) and h.get("x") is not None]
+            _cell = self._last_cell_on(str(src).split("|")[0],
+                                       str(dst).split("|")[0]) if _hl else None
+            _mine = next((h for h in _hl
+                          if _cell and (h.get("x"), h.get("y")) == _cell), None)
+            if _mine is not None:
+                key = f"{_mine.get('x')},{_mine.get('y')}"
+                if _mine.get("drop") is not None:
+                    _grp = sorted((h.get("y"), h.get("x")) for h in _hl
+                                  if h.get("drop") == _mine.get("drop"))
+                    key = f"{_grp[0][1]},{_grp[0][0]}"
+                self.log("transition_by_fall", frm=src, to=dst, via=key,
+                         found="steps.log")
         if key is None:
             if src.split("|")[0] != dst.split("|")[0]:
                 self._note_arrival(src, dst, before_obs, after_obs)
