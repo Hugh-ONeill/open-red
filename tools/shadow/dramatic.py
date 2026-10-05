@@ -168,6 +168,39 @@ end"""),
      "  for _, g in ipairs((not state.redCastHidden) and state.ghosts or {}) do\n"),
     ("lib/VoxelScene.lua", "  for _, e in ipairs(state.entities or {}) do\n",
      "  for _, e in ipairs(state.redCastHidden and { state.player } or state.entities or {}) do\n"),
+    # the Stadium model build, reachable from the copy's driver (it is only
+    # started from the mod's OPTIONS screen otherwise): tools/shadow builds
+    # the models once per identity from SHADOW_STADIUM_ROM
+    ("lib/StadiumInstall.lua", "\nreturn StadiumInstall",
+     "\npcall(function() require(\"src.core.Game\").redStadium = StadiumInstall end)\n\nreturn StadiumInstall"),
+    # POKEMON STADIUM (USA) REV 2, the dump the user has: the reader is keyed
+    # to US 1.0 and found no model archive in it. Located by hand in Rev 2
+    # (2026-10-05): the 215-model archive at 0x919000 (US 0x920000), the
+    # per-species battle tables at 0x70E6B0 (US 0x70D3A0, rows start right
+    # after the zero padding) and D_80075BD0 at ROM 0x76910 (US 0x767D0,
+    # entries 0, 0xB90, 0x1720... as in US). Chosen by the ROM's md5
+    ("lib/StadiumRom.lua", "function Rom:models()\n  if not self.modelDir then\n"
+     "    self.modelDir = self:archive(StadiumRom.POKEMON_MODELS) or {}\n",
+     "StadiumRom.REV2_MD5 = \"6dc6820cef755fc1253d06df45c9bd2a\"\n"
+     "function Rom:offsets()\n"
+     "  if self:md5() == StadiumRom.REV2_MD5 then\n"
+     "    return { models = 0x919000, battle = 0x70E6B0, ptrs = 0x76910 }\n"
+     "  end\n"
+     "  return { models = StadiumRom.POKEMON_MODELS, battle = StadiumRom.BATTLE_DATA,\n"
+     "           ptrs = self:vramToRom(StadiumRom.PTR_TABLE_VRAM) }\n"
+     "end\n"
+     "function Rom:isExpectedUS()\n"
+     "  local hex = self:md5()\n"
+     "  return hex == nil or hex == StadiumRom.US_MD5 or hex == StadiumRom.REV2_MD5\n"
+     "end\n\n"
+     "function Rom:models()\n  if not self.modelDir then\n"
+     "    self.modelDir = self:archive(self:offsets().models) or {}\n"),
+    ("lib/StadiumRom.lua", "  local ptrTable = self:vramToRom(StadiumRom.PTR_TABLE_VRAM)\n"
+     "  local raw = self:u32(ptrTable + (species - 1) * 4)\n"
+     "  local o = StadiumRom.BATTLE_DATA + raw % 0x1000000\n",
+     "  local off = self:offsets()\n"
+     "  local raw = self:u32(off.ptrs + (species - 1) * 4)\n"
+     "  local o = off.battle + raw % 0x1000000\n"),
     ("main.lua", 'mod.hooks:wrap("ui.options.rows", function(next, game, rows)',
      '-- red-recomp copy: the OPTIONS menu keeps the rows the run had\n'
      'local _ds_rows_off = (function(next, game, rows)'),
@@ -187,6 +220,12 @@ def install(ident_dir: Path) -> Path:
         if s.count(old) != 1:
             raise SystemExit(f"dramatic: {rel} has changed ({s.count(old)} matches): re-audit the mod")
         p.write_text(s.replace(old, new))
+    # a Pokemon Stadium ROM for the STADIUM battle rungs: the player's own
+    # (the mod ships no Stadium data), into the folder the mod looks in
+    rom = os.environ.get("SHADOW_STADIUM_ROM", "")
+    if rom:
+        (dest / "baseroms").mkdir(exist_ok=True)
+        shutil.copy(rom, dest / "baseroms" / "baserom.z64")
     return dest
 
 
@@ -218,8 +257,8 @@ local g = assert(io.open(path, "w")); g:write(S.encode(o)); g:close()
 
 def enable(ident_dir: Path, voxel: int = 3, tilt: int = 1, extra: str = "") -> None:
     """Turn the mod on in this identity's options: a fixed camera angle only."""
-    if voxel not in (2, 3, 4, 5):
-        raise SystemExit("dramatic: VOXEL must be a fixed angle, 2-5 (1/6/7 change logic)")
+    if voxel not in (0, 2, 3, 4, 5):
+        raise SystemExit("dramatic: VOXEL must be off (0) or a fixed angle, 2-5 (1/6/7 change logic)")
     opts = ident_dir / "options.lua"
     script = ident_dir / "dramatic_enable.lua"
     script.write_text(ENABLE)

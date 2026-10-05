@@ -93,6 +93,12 @@ def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = Tru
         dramatic.enable(home, int(os.environ.get("SHADOW_VOXEL", "3")),
                         int(os.environ.get("SHADOW_TILT", "1")),
                         os.environ.get("SHADOW_DS_OPTS", ""))
+        # the Stadium models, built once from the user's own ROM
+        # (dramatic.py, SHADOW_STADIUM_ROM) and kept outside any identity
+        packs = Path.home() / ".local/share/red-recomp/stadium_packs"
+        dest = home / "mod_compat/DRAMATIC_SHAPE/dramatic_shape/stadium"
+        if packs.is_dir() and not (dest / "pack.info").exists():
+            shutil.copytree(packs, dest, dirs_exist_ok=True)
     elif (home / "mods" / "DRAMATIC_SHAPE").exists():
         shutil.rmtree(home / "mods" / "DRAMATIC_SHAPE")
     look(home)
@@ -104,7 +110,9 @@ def play(seg: Path, headless: bool = False, speed: float = 1, follow: bool = Tru
                # a boot recorded before the recorder kept seen.json: the run's own
                SHADOW_SEEN_FALLBACK=str(RUN / "seen.json"),
                # the fog is drawn over the flat map; on the diorama it would not line up
-               SHADOW_OVERLAY="0" if mod == "dramatic" else os.environ.get("SHADOW_OVERLAY", "1"))
+               # (and with the overworld left flat, SHADOW_VOXEL=0, it is drawn again)
+               SHADOW_OVERLAY="0" if mod == "dramatic" and os.environ.get("SHADOW_VOXEL", "3") != "0"
+               else os.environ.get("SHADOW_OVERLAY", "1"))
     env.pop("RED_BRIDGE_DIR", None)
     if headless:
         env["SDL_AUDIODRIVER"] = "dummy"

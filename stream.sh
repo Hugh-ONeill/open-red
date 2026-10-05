@@ -134,11 +134,19 @@ done
 # ~10 min behind per 18 of the run (2026-10-03). SHADOW_SHOW_BATTLES=trainers
 # or all to see more.
 export SHADOW_SHOW_BATTLES="${SHADOW_SHOW_BATTLES:-bosses}"
-# the copy in the Dramatic Shape voxel diorama (tools/shadow/dramatic.py: a
-# patched private copy, logic-neutral, the run's fog in its shader), drawn on
-# the discrete GPU (Mesa defaults to the CPU's integrated one here, which
-# crawled). SHADOW_MOD= (empty) for the flat game.
+# the copy with the Dramatic Shape mod (tools/shadow/dramatic.py: a patched
+# private copy, logic-neutral) for its BATTLES only: the overworld stays the
+# flat game (the voxel diorama was messy and lagged, user 2026-10-05), and a
+# shown battle is staged in 3D with the Pokemon Stadium models, built once
+# from the user's own ROM into ~/.local/share/red-recomp/stadium_packs.
+# Drawn on the discrete GPU (Mesa defaults to the CPU's integrated one here,
+# which crawled). SHADOW_MOD= (empty) for the plain game throughout;
+# SHADOW_VOXEL=3 for the diorama overworld again; SHADOW_DS_OPTS=battles=true
+# for the mod's own 3D battles without Stadium.
 export SHADOW_MOD="${SHADOW_MOD-dramatic}"
+export SHADOW_VOXEL="${SHADOW_VOXEL-0}"
+export SHADOW_TILT="${SHADOW_TILT-0}"
+export SHADOW_DS_OPTS="${SHADOW_DS_OPTS-battles=stadium}"
 export DRI_PRIME="${DRI_PRIME-1}"
 # the copy's COLORS (draw-only; the run keeps its own): redpp is ADVANCED.
 # SHADOW_COLORS= (empty) for whatever the run has

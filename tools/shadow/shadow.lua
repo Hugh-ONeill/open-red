@@ -753,10 +753,15 @@ pcall(function()
   local o_draw = love.draw
   love.draw = function(...)
     if o_draw then o_draw(...) end
-    local shot_at = tonumber(os.getenv("SHADOW_SHOT") or "")   -- a screenshot, for checking a look
-    if shot_at and not shot_done and (Game.logicStep or 0) >= shot_at then
-      shot_done = true
-      love.graphics.captureScreenshot("shadow_shot.png")
+    -- screenshots, for checking a look: SHADOW_SHOT=step[,step...], each
+    -- saved as shadow_shot_<step>.png in the identity's save folder
+    if os.getenv("SHADOW_SHOT") and not shot_list then
+      shot_list = {}
+      for v in os.getenv("SHADOW_SHOT"):gmatch("%d+") do shot_list[#shot_list + 1] = tonumber(v) end
+    end
+    if shot_list and shot_list[1] and (Game.logicStep or 0) >= shot_list[1] then
+      love.graphics.captureScreenshot(("shadow_shot_%d.png"):format(shot_list[1]))
+      table.remove(shot_list, 1)
     end
     if FOG and not card.active and not booting and not catching_up then
       love.graphics.push("all")
