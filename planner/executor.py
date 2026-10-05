@@ -9048,6 +9048,38 @@ class Executor:
         return None
 
     @staticmethod
+    def _beside_door(mapid: str, x: int, y: int, doors=(),
+                     tail_lines: int = 20000):
+        """The cell next to a doorway that the party has stood on most on
+        this map (steps.log), not itself a doorway; (x, y+1) when the log
+        has none of them."""
+        nb = [(x, y + 1), (x, y - 1), (x + 1, y), (x - 1, y)]
+        nb = [c for c in nb if f"{c[0]},{c[1]}" not in set(doors)]
+        if not nb:
+            return None
+        counts = {c: 0 for c in nb}
+        try:
+            with open(RUN / "steps.log", "rb") as fh:
+                fh.seek(0, 2)
+                size = fh.tell()
+                fh.seek(max(0, size - 64 * tail_lines))
+                lines = fh.read().decode("utf-8", "replace").splitlines()
+        except OSError:
+            lines = []
+        for ln in lines:
+            parts = ln.split()
+            if len(parts) != 4 or parts[1] != mapid:
+                continue
+            try:
+                c = (int(parts[2]), int(parts[3]))
+            except ValueError:
+                continue
+            if c in counts:
+                counts[c] += 1
+        best = max(nb, key=lambda c: (counts[c], -nb.index(c)))
+        return best
+
+    @staticmethod
     def _approach_on(src_map: str, dst_map: str, n: int = 12,
                      tail_lines: int = 400):
         """The last up-to-n cells steps.log recorded on src_map, in order,
@@ -13548,6 +13580,24 @@ class Executor:
                              step=str(key), standing=self._where(_now),
                              why="that walked-to area has no anchor cell")
                     return o if o is not None else _now
+                # A NAME-CELL THAT IS A DOOR IS NOT WHERE TO STAND. An area is
+                # named after the first cell the party stood on in it, and
+                # coming out of a building that cell is the doorway: Route
+                # 23's north part is ROUTE_23|4,31, the Victory Road door, so
+                # every walk to it stepped through the door into the cave and
+                # the next hop was abandoned from VICTORY_ROAD_1F (run 36,
+                # 2026-10-05). Walk to the cell beside it the party has
+                # stood on most (steps.log), the one it stepped out onto.
+                _mid = str(_want).split("|", 1)[0]
+                _doors_here = {f"{w.get('x')},{w.get('y')}"
+                               for w in (((_now or {}).get("map") or {})
+                                         .get("warps") or [])}
+                if f"{_ax},{_ay}" in _doors_here:
+                    _side = self._beside_door(_mid, _ax, _ay, _doors_here)
+                    if _side:
+                        self.log("walk_anchor_off_door", subgoal=sg.get("id"),
+                                 door=f"{_ax},{_ay}", to=f"{_side[0]},{_side[1]}")
+                        _ax, _ay = _side
                 # keep what the walk SAID: its refusal is the rich one —
                 # the reachable-ground count and who or what stands at the
                 # edge of it, a CUT_TREE included
