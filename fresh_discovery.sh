@@ -179,6 +179,7 @@ if [ "$done_legs" = 0 ]; then
   rm -f run/outline_skips run/outline_inserts run/outline_rewordings \
         run/outline_void run/outline_wording_asked \
         run/leg_audit_redo run/outline_upkeep_missed run/outline_passed run/outline_returns \
+        run/walk_failures_void \
         run/outline_pushes run/outline_pullbacks \
         run/outline_pulls run/outline_pulls_failed \
         run/outline_replays \
