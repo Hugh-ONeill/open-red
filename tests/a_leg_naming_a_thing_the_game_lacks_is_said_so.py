@@ -17,10 +17,19 @@ import author as A          # noqa: E402
 checks = []
 def ck(name, ok): checks.append((name, bool(ok)))
 L = "Retrieve the HM08 from the Victory Road warden"
+# _leg_line reads the run's own marks (run/outline_passed and the rest) from
+# the working directory; from an empty one, a line carries only what its
+# words earn. Run 36 passed "Reach the Indigo Plateau" over (2026-10-05) and
+# the "ordinary line" below started failing on live data.
+import os, tempfile                                    # noqa: E402
+_here = os.getcwd()
+os.chdir(tempfile.mkdtemp())
 line = A._leg_line(47, L)
+_plain = A._leg_line(48, "Reach the Indigo Plateau")
+os.chdir(_here)
 ck("an outline line names the missing thing on the line", line.startswith("  47. Retrieve the HM08")
    and "names a thing this game does not have: there is no HM08 in this game" in line)
-ck("...and an ordinary line is untouched", A._leg_line(48, "Reach the Indigo Plateau") == "  48. Reach the Indigo Plateau")
+ck("...and an ordinary line is untouched", _plain == "  48. Reach the Indigo Plateau")
 probs = " || ".join(A.validate({"goal": L, "subgoals": [
     {"id": "talk_to_warden", "done_when": {"has_item": {"HM08": 1}}, "steps": []}]}))
 ck("the validator says there is no such item, with the game's list", "there is no HM08 in this game" in probs and "HM_STRENGTH" in probs)
