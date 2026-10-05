@@ -134,23 +134,17 @@ done
 # ~10 min behind per 18 of the run (2026-10-03). SHADOW_SHOW_BATTLES=trainers
 # or all to see more.
 export SHADOW_SHOW_BATTLES="${SHADOW_SHOW_BATTLES:-bosses}"
-# the copy with the Dramatic Shape mod (tools/shadow/dramatic.py: a patched
-# private copy, logic-neutral) for its BATTLES only: the overworld stays the
-# flat game (the voxel diorama was messy and lagged, user 2026-10-05), and a
-# shown battle is staged in 3D with the Pokemon Stadium models, built once
-# from the user's own ROM into ~/.local/share/red-recomp/stadium_packs.
-# Drawn on the discrete GPU (Mesa defaults to the CPU's integrated one here,
-# which crawled). SHADOW_MOD= (empty) for the plain game throughout;
-# SHADOW_VOXEL=3 for the diorama overworld again; SHADOW_DS_OPTS=battles=true
-# for the mod's own 3D battles without Stadium.
-export SHADOW_MOD="${SHADOW_MOD-dramatic}"
-export SHADOW_VOXEL="${SHADOW_VOXEL-0}"
-export SHADOW_TILT="${SHADOW_TILT-0}"
-export SHADOW_DS_OPTS="${SHADOW_DS_OPTS-battles=stadium}"
+# the copy as the plain game (user, 2026-10-05: "fully disable the mod and just
+# go au natural"). SHADOW_MOD=dramatic brings the Dramatic Shape mod back
+# (tools/shadow/dramatic.py: a patched private copy, logic-neutral), with
+# SHADOW_VOXEL=0 SHADOW_TILT=0 SHADOW_DS_OPTS=battles=stadium for its Pokemon
+# Stadium battles on the flat map, or SHADOW_VOXEL=3 for the voxel diorama.
+# Drawn on the discrete GPU (Mesa defaults to the CPU's integrated one here).
+export SHADOW_MOD="${SHADOW_MOD-}"
 export DRI_PRIME="${DRI_PRIME-1}"
-# the copy's COLORS (draw-only; the run keeps its own): redpp is ADVANCED.
-# SHADOW_COLORS= (empty) for whatever the run has
-export SHADOW_COLORS="${SHADOW_COLORS-redpp}"
+# the copy's COLORS (draw-only): empty is the run's own (SGB);
+# SHADOW_COLORS=redpp for ADVANCED
+export SHADOW_COLORS="${SHADOW_COLORS-}"
 since=()
 [ "$MODE" != attach ] && since=(--since "$(date +%s)")   # only this launch's boots
 setsid nohup python3 -u tools/shadow/play.py --live "${since[@]}" >> run/shadow.log 2>&1 < /dev/null &
