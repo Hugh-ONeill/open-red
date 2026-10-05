@@ -4636,7 +4636,14 @@ class Executor:
         regions |= {r for r in _reach_from if r in (self.visits or {})
                     or r in (self.explored or {})}
         for region in regions:
-            if self._same_area(here, region) or self._same_area(region, here):
+            # ...NOR ANOTHER NAME FOR IT. ROUTE_23|8,90 and |10,104 both left
+            # by the Route 22 gate door at (7,139): one stretch of road
+            # under two names. Explore picked the one it stood in twelve
+            # times, the route walker called the walk arrived at once, and
+            # the arrival check below said "did not arrive" every round
+            # (run 36, 2026-10-05, user: "its pingponging bad").
+            if (self._same_area(here, region) or self._same_area(region, here)
+                    or self._same_place(here, region)):
                 continue
             left = self._frontier_left(region)
             # WORK EXPLORE HAS ALREADY REFUSED IS NOT WORK LEFT. The PC, a
@@ -5005,10 +5012,16 @@ class Executor:
               + f" — now at {arrived or self._where(cur) or 'an unexpected stop'}"]
         if not ignore_done and pred_holds(sg.get("done_when"), cur):
             return True, tr, []
-        if not self._same_area(self._where(cur), region):
+        if not (self._same_area(self._where(cur), region)
+                or self._same_place(self._where(cur), region)):
             _why2 = getattr(self, "_route_why", "") or ""
             tr.append("explore: the walk did not arrive; author from here"
                       + (f". WHAT STOPPED IT: {_why2}" if _why2 else ""))
+            # ...AND A WALK THAT DOES NOT ARRIVE SAW NOTHING THERE: counted
+            # with the dry walks, so a place explore cannot get to stops
+            # heading the ranking after DRY_WALKS_RETIRE tries instead of
+            # being picked every round (ROUTE_23|8,90, 12 picks, 0 counted)
+            tr += self._count_dry_walk(region)
             return False, tr, []
         # one expansion on arrival — the same order as at home
         cands2 = ledger.build(self, cur, target,
