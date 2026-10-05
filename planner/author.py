@@ -1324,6 +1324,26 @@ def _walked_way_to(target_map: str, run: Path = Path("run")) -> bool:
     return False
 
 
+def _void_walk_plans(run: Path = Path("run")) -> set:
+    """plan_start times whose failed walks were voided by hand
+    (run/walk_failures_void, "<t><TAB><why>"): a walk that failed only
+    because of a harness bug since fixed. Run 36's HM04 plans failed
+    walking to FUCHSIA_CITY because `go` pressed use_warp on Seafoam B3F's
+    current mouth (fixed in 96ac691), and the same-walk rule then refused
+    every draft that walked there (2026-10-05, user: "clear only this
+    record"). A row is an explicit, dated claim; nothing writes one but a
+    person."""
+    out = set()
+    try:
+        for l in (run / "walk_failures_void").read_text().splitlines():
+            t = l.split("\t", 1)[0].strip()
+            if t:
+                out.add(t)
+    except OSError:
+        pass
+    return out
+
+
 def _failed_walk_places(goal: str, run: Path = Path("run")) -> list:
     """(step, map) pairs: where this objective's most recent plan failed to
     walk (see failed_walk_text), while nothing has fired since.
@@ -1351,6 +1371,8 @@ def _failed_walk_places(goal: str, run: Path = Path("run")) -> list:
     if not mine:
         return []
     i0 = mine[-1]
+    if str(rows[i0].get("t")) in _void_walk_plans(run):
+        return []
     i1 = next((i for i in starts if i > i0), len(rows))
     # the world has moved since that plan — but a numbered trainer beaten on
     # the way (EVENT_BEAT_ROUTE_24_TRAINER_3) moves no wall
@@ -1399,8 +1421,11 @@ def _failed_walk_history(goal: str, run: Path = Path("run")) -> tuple:
                                        str(r.get("flag") or ""))), default=-1)
     starts = [i for i, r in enumerate(rows) if r.get("kind") == "plan_start"]
     n, places = 0, set()
+    _void = _void_walk_plans(run)
     for k, i0 in enumerate(starts):
         if i0 < last_event or bare(rows[i0].get("goal")) != bare(goal):
+            continue
+        if str(rows[i0].get("t")) in _void:
             continue
         i1 = starts[k + 1] if k + 1 < len(starts) else len(rows)
         tgt, failed = {}, set()
