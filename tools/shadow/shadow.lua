@@ -891,6 +891,13 @@ Game.step = function(self, dt, ...)
   STEP.on = true
   local a, b, d = o_step(self, dt, ...)
   STEP.on = false
+  -- A SKIP IS FOLLOWED STEP BY STEP, NOT FRAME BY FRAME. skipping() learns
+  -- the battle is up by finding it on the stack, and asked once a frame, a
+  -- window the compositor throttles (19 fps off the visible workspace) ran
+  -- 1,200 steps a frame at 400x: a whole wild battle came and went between
+  -- two looks, was never seen, and was taken for the wipe before it for
+  -- good, the card standing until the run moved again (user, 2026-10-05)
+  if skip then pcall(skipping, self) end
   pcall(seen_paint, self)
   if cur and cur_i <= #cur and not OWN_AUDIO then
     report(("step %d: the run asked %d audio question(s) this copy did not"):format(n, #cur - cur_i + 1))
@@ -1018,10 +1025,18 @@ return function(G)
         -- stood over the screen until the run moved again (user, 2026-10-04:
         -- "currently its just stuck on the same battle card"). Out of steps,
         -- the linger is over; the card still keeps its CARD_MIN
+        -- (skipping() is what ends a skip whose battle has left the stack,
+        -- and this wait never reaches the main body that asks it: a battle
+        -- the run won just before a model call kept its card up for the
+        -- whole call, about a minute; user, 2026-10-05)
+        skipping(G)
+        -- ...and a skipped op (a grind) the run has already moved past ends
+        -- here too, not on a next step that waits on the model
+        if op_skip and not skipped_op(n) then op_skip = nil end
         if card.active and not (skip or op_skip)
             and love.timer.getTime() - card.since >= CARD_MIN then
           card.active = false
-          if not QUIET then print(("[shadow] card down at step %d (caught up)"):format(n - 1)) end
+          if not QUIET then print(("[shadow] card down at step %d after %.1f s (caught up)"):format(n - 1, love.timer.getTime() - card.since)) end
         end
         HOLD.on = true                   -- this frame draws; no step runs
         G.driverSpeed = 1
@@ -1037,7 +1052,7 @@ return function(G)
     if card.active and not (skip or op_skip) and card.gap >= card_linger()
         and not card_hold() then
       card.active = false
-      if not QUIET then print(("[shadow] card down at step %d"):format(n - 1)) end
+      if not QUIET then print(("[shadow] card down at step %d after %.1f s"):format(n - 1, love.timer.getTime() - card.since)) end
     end
     if card_hold() then
       HOLD.on = true
@@ -1151,6 +1166,10 @@ return function(G)
     local t0 = love.timer.getTime()
     for _ = 2, steps do
       if love.timer.getTime() - t0 > FF_SLICE then break end
+      -- a card whose linger has run out is dropped by the next frame, not
+      -- 1,600 steps later at the end of a throttled frame's batch: the walk
+      -- between two battles was raced through under the card
+      if card.active and not (skip or op_skip) and card.gap >= card_linger() then break end
       step_once(G)
     end
     PROF.ff = PROF.ff + love.timer.getTime() - t0
