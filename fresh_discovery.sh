@@ -939,11 +939,14 @@ while :; do
     echo "=== leg $i/${#LEGS[@]}: its last $_dry runs yielded nothing new —" \
          "not run again as it stands (it moves, changes, or goes): $leg ==="
     crc=2
+    _leg_dry_cut=0
   else
     set +e
     run_campaign "$cont" 1
     crc=$?
     set -e
+    # campaign.sh exits 2 when the executor's own window cut the leg as dry
+    _leg_dry_cut=0; [ "$crc" = 2 ] && _leg_dry_cut=1
   fi
   if [ "$crc" = 7 ]; then
     if momentum_take; then continue; fi
@@ -969,6 +972,7 @@ while :; do
       run_campaign 1 $((ATTEMPTS - 1))
       _crc2=$?
       set -e
+      [ "$_crc2" = 2 ] && _leg_dry_cut=1
       if [ "$_crc2" = 7 ] && momentum_take; then continue; fi
       [ "$_crc2" = 0 ] || failed=1
     else
@@ -1240,8 +1244,14 @@ while :; do
     # campaign's own yield shows gains (levels, events, items, new
     # ground), the leg is run again, up to three replays per leg; the
     # progress index is NOT advanced, so nothing is counted as done.
+    # ...UNLESS THE LEG'S OWN ROUNDS JUST SAID IT IS DRY. "Moved" is any
+    # gain at all, and run 36's Champion leg, with no Strength and no way
+    # through Victory Road, earned three replays on its explore wandering
+    # into Pewter's museum and the Mt Moon Pokecenter, right after the
+    # executor's window had cut it for 40 rounds that found almost nothing
+    # (2026-10-05). The window is the closer reading; it wins.
     _rep=$(grep -cxF -- "$leg" run/outline_replays 2>/dev/null) || true
-    if [ "${_rep:-0}" -lt 3 ] \
+    if [ "${_rep:-0}" -lt 3 ] && [ "${_leg_dry_cut:-0}" != 1 ] \
         && python planner/leg_delta.py moved run/attempt_yield "$leg"; then
       echo "=== leg $i/${#LEGS[@]} not achieved, but its last campaign" \
            "MOVED the world — running it again (replay $((_rep + 1))/3):" \
