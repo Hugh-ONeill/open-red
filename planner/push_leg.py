@@ -65,18 +65,31 @@ def main(argv):
     except OSError:
         _ins = []
     _text = lines[frm - 1]
-    for _row in _ins:
-        if not _row.startswith("LEG=") or "|" not in _row:
-            continue
-        _dep, _pre = _row[4:].split("|", 1)
-        if _pre.strip() != _text.strip():
-            continue
-        try:
-            _dep_at = lines.index(_dep.strip()) + 1
-        except ValueError:
-            continue
-        if after >= _dep_at > frm:
-            _riders.append((_dep_at, _dep.strip()))
+    # ...AND WHAT WAITS ON A RIDER RIDES TOO. "Clear Victory Road" waited
+    # on HM04 and rode with it; "Defeat the Elite Four" waited on Victory
+    # Road and stayed, so the push left the Elite Four ahead of both of
+    # the legs it needs (run 36, 2026-10-05). The ledger is followed until
+    # nothing more waits.
+    _carried = {_text.strip()}
+    _grew = True
+    while _grew:
+        _grew = False
+        for _row in _ins:
+            if not _row.startswith("LEG=") or "|" not in _row:
+                continue
+            _dep, _pre = _row[4:].split("|", 1)
+            if _pre.startswith("PULL "):
+                _pre = _pre[5:]
+            if _pre.strip() not in _carried or _dep.strip() in _carried:
+                continue
+            try:
+                _dep_at = lines.index(_dep.strip()) + 1
+            except ValueError:
+                continue
+            if after >= _dep_at > frm:
+                _riders.append((_dep_at, _dep.strip()))
+                _carried.add(_dep.strip())
+                _grew = True
     # ...SO THE DEPENDENT TRAVELS WITH IT. Refusing outright threw the
     # model's answer away and, exiting non-zero under `set -e`, took the
     # whole chain down with it — the caller was written to "fall through to
