@@ -9585,7 +9585,7 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
         # did, and its REWORD: answers are the same rewrite by another door.
         # Run 10 turned "Retrieve the S.S. Ticket" into "from the Captain in
         # Vermilion City" right after failing to walk to Vermilion.
-        _failed_at = _reword_points_at_what_failed(ins, journal)
+        _failed_at = _reword_points_at_what_failed(ins, journal, goal)
         if _failed_at:
             print(f"[missing] turned down {ins!r}: it names {_failed_at}, and "
                   f"this leg's plan has just failed walking there — {_why}",
@@ -11035,7 +11035,8 @@ def attempt_yield_text(goal: str) -> tuple:
     return text, dry
 
 
-def _reword_points_at_what_failed(new_goal: str, journal) -> str | None:
+def _reword_points_at_what_failed(new_goal: str, journal,
+                                  leg_goal: str | None = None) -> str | None:
     """A restatement that names the very place this leg has just failed to
     reach. Names it, or None.
 
@@ -11077,6 +11078,16 @@ def _reword_points_at_what_failed(new_goal: str, journal) -> str | None:
     rows.reverse()
     if not rows:
         return None
+    # ...AND THIS LEG'S PLAN, NOT JUST THE LAST ONE. A leg whose drafts all
+    # failed ran no plan, so the last plan_start was the leg before's: run
+    # 36's "Clear Victory Road" had "Obtain HM04 STRENGTH" turned down as
+    # "it names SAFARI_ZONE, and this leg's plan has just failed walking
+    # there", on the HM04 leg's Safari walk (2026-10-05).
+    if leg_goal and rows[0].get("kind") == "plan_start" and rows[0].get("goal"):
+        _bare = lambda t: " ".join(_DOUBT_NOTE.sub("", str(t or "")).split()).lower()
+        _pg = rows[0].get("goal")
+        if _bare(_pg) != _bare(leg_goal) and not same_objective(_pg, leg_goal, _bare):
+            return None
     _tgt, _bad = {}, set()
     for r in rows:
         if r.get("kind") == "escalate_context" and r.get("subgoal") and r.get("target"):
@@ -11377,7 +11388,7 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
     # Ticket" to "from Bill in Vermilion City" straight after its plan failed
     # walking to VERMILION_CITY (2026-09-27), exactly the case it was built
     # for on 2026-09-14.
-    _at = _reword_points_at_what_failed(new, journal_path)
+    _at = _reword_points_at_what_failed(new, journal_path, goal)
     if _at:
         print(f"[wording] refused: {new!r} names {_at}, and this leg has "
               f"just failed trying to reach it — a place the attempt "
