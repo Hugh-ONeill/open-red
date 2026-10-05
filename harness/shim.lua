@@ -14483,6 +14483,18 @@ local function scripts_busy(G)
       or nonempty(ow.parallelRunners) or nonempty(ow.parallelQueue) then
     return true
   end
+  -- ...AND THE ENGINE'S OWN HOLDS. A fall down a hole runs holeArrive, then
+  -- spinArrive, then the arrival checks (pendingEnterMapTail: forced SURF and
+  -- the Seafoam current). The overworld is on top through all of it, so the
+  -- run was handed SEAFOAM_ISLANDS_B3F (18,7) — the B2F hole's landing, a
+  -- current start — as a place to stand, planned a SURF from it three times,
+  -- and every first step set the queued current off and carried it to B4F
+  -- ("start menu never opened", run 36, 2026-10-04). These are the fields the
+  -- engine itself counts as scripted (OverworldState update's `scripted`).
+  if ow.holeFall or ow.holeArrive or ow.spinArrive or ow.pendingEnterMapTail
+      or ow.teleportOut or ow.flyAnim or ow.flyArrive or ow.engaging then
+    return true
+  end
   -- NOTE: deliberately NOT checking npc.moving — ambient NPCs wander during
   -- normal free-roam, which would make free control never read as a decision.
   return false
