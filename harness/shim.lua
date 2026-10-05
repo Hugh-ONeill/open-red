@@ -10478,6 +10478,17 @@ local function pc_open_menu(G)
       end
     end
     if at then break end
+    -- LOOK BEFORE YOU WALK, as heal does. A Center is wider than the
+    -- screen: from the nurse, the PC's corner has never been on screen in a
+    -- Center the run has only healed in, and a walk is made over seen ground,
+    -- so every PC op there failed "(13,4) has NEVER BEEN ON SCREEN"
+    -- (Cinnabar Center, pc_box from the run 36 checkpoint, 2026-10-05). A
+    -- player walks over and looks. One sweep toward the PC, then the second
+    -- pass walks.
+    if last_why:find("NEVER BEEN ON SCREEN", 1, true)
+       and G.stack:top() == G.overworld then
+      pcall(OPS.sweep, G, { toward_x = px, toward_y = py })
+    end
   end
   if not at then
     return false, ("could not stand at the PC at (%s,%s) — standing at "
