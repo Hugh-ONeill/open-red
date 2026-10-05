@@ -178,7 +178,7 @@ if [ "$done_legs" = 0 ]; then
   : > run/outline_reorders
   rm -f run/outline_skips run/outline_inserts run/outline_rewordings \
         run/outline_void run/outline_wording_asked \
-        run/leg_audit_redo run/outline_upkeep_missed run/outline_passed \
+        run/leg_audit_redo run/outline_upkeep_missed run/outline_passed run/outline_returns \
         run/outline_pushes run/outline_pullbacks \
         run/outline_pulls run/outline_pulls_failed \
         run/outline_replays \
@@ -506,6 +506,20 @@ while :; do
     exit 0
   fi
   leg="${LEGS[$((i - 1))]}"
+  # BACK TO WHAT WAS PASSED OVER, BEFORE WHAT WAITS ON IT. A passed-over
+  # leg's dependents cannot succeed either, and run 36 played on through
+  # three of them into the final rival fight (2026-10-05). return_leg.py
+  # names the earliest passed-over leg this one waits on (or, at the last
+  # leg, any with a dependent still ahead), at most twice a leg a chain.
+  if _ret=$(python planner/return_leg.py "$i" 2>/dev/null); then
+    _rp=${_ret%%$'\t'*}
+    echo "=== leg $i/${#LEGS[@]} waits on leg $_rp, which was passed over — going back to it: ${_ret#*$'\t'} ==="
+    echo $((_rp - 1)) > "$PROGRESS"
+    # a return is a disposition: its runs are counted afresh from here
+    printf '%s\t%s\t0\tDISPOSED: %s\n' "${_ret#*$'\t'}" "$_rp" \
+      "gone back to from leg $i, which waits on it" >> run/attempt_yield
+    continue
+  fi
   _no_plan=0
   # A PLAN BELONGS TO AN OBJECTIVE, NOT TO A SLOT. Plans were addressed by
   # outline position, so any rearrangement left every plan from the shift
