@@ -3458,6 +3458,52 @@ class Executor:
                 + "\n".join(lines)
                 + (f"\n  (+{more} more, further off)" if more > 0 else ""))
 
+    def _file_sweep_heard(self, reg: str, name: str, said: str, obs) -> bool:
+        """What one press of a room sweep said, filed under the thing pressed.
+
+        The sweep presses up to eight things in one op, and the recorder
+        after the op sees only the screen the LAST press left: every earlier
+        press's words were gone. Fuchsia's sign at (27,29) was pressed by a
+        sweep, recorded as touched, and its words (the Warden's home) never
+        reached the hints, so the run went on reading the Safari Zone's
+        "Contact: WARDEN" as the only word on where the Warden is (run 36,
+        2026-10-05, user: "its easy to get caught up in the trap of the
+        safari zone"). Same shape as the recorder: box split, excerpt,
+        same words once."""
+        said = (said or "").strip()
+        if not said or "None" in str(reg) or len(said) <= 12:
+            return False
+        main, first, extra = split_heard(said)
+        if len(main) <= 12 and not extra:
+            return False
+        who = str(name)
+        lst = self.hints.setdefault(reg, [])
+        added = False
+        for _xn, _xs in extra:
+            _xl = speech_excerpt(_xs, 480)
+            if not _xl.startswith(f"{_xn}:"):    # the box prints its name
+                _xl = f"{_xn}: {_xl}"
+            if _xl not in lst:
+                lst.append(_xl)
+                added = True
+        if len(main) > 12:
+            _kept = speech_excerpt(main, 220)
+            line = f"{who}: {_kept}"
+            if not any(l.partition(": ")[2] == _kept for l in lst):
+                lst.append(line)
+                added = True
+                if not hasattr(self, "hints_at"):
+                    self.hints_at = {}
+                self.hints_at.setdefault(reg, {})[line] = {
+                    "flags": len((obs or {}).get("flags") or []),
+                    "keys": sorted((obs or {}).get("key_items") or []),
+                    "seq": int(getattr(self, "_fire_seq", 0) or 0),
+                }
+        if added:
+            del lst[:-16]
+            self._save_memory()
+        return added
+
     def _record_outcome(self, pre_obs, op: str, step: dict, note: str):
         """The outcome ledger: per (target|area) per key, how many times
         THIS subgoal did this thing here and what happened last, verbatim
@@ -27305,6 +27351,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         if o2 and (o2.get("last_text") or "") not in ("", _prev_text):
                             self._last_press_name = name
                             _prev_text = o2.get("last_text")
+                            self._file_sweep_heard(
+                                said_region(cur, o2), name,
+                                o2.get("last_text"), o2)
                         if o2 and o2.get("mode") == "battle":
                             o2 = self.handle_battle(sg, o2)
                             o2 = self.settle()
