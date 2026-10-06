@@ -141,6 +141,17 @@ function wd.steps.note(g)
   local ow = g and g.overworld
   local p, m = ow and ow.player, ow and ow.map
   if not (p and m and m.id and p.cellX and p.cellY) then return end
+  -- the closest a cross has come to its gap (S.gap, set by OPS.cross):
+  -- a party walked back by a script passes it on the way, never ends there
+  local gp = S.gap
+  if gp and gp.m == m.id then
+    local d = math.abs(gp.x - p.cellX) + math.abs(gp.y - p.cellY)
+    if not gp.best or d < gp.best then gp.best = d end
+    -- the farthest it was taken back from its best so far, and where
+    if d - gp.best > (gp.back or 0) then
+      gp.back, gp.from, gp.bx, gp.by = d - gp.best, gp.best, p.cellX, p.cellY
+    end
+  end
   local key = m.id .. " " .. p.cellX .. " " .. p.cellY
   if key == S.last then return end
   S.last = key
@@ -7784,6 +7795,8 @@ function OPS.cross(G, c)
   if p.cellX ~= ex or p.cellY ~= ey then
     local _wwhy
     local _seq0 = text_seq
+    wd.steps.gap = { m = startMap, x = ex, y = ey,
+                     best = math.abs(ex - p.cellX) + math.abs(ey - p.cellY) }
     for round = 1, 3 do
       -- A STEP BUDGET MUST FIT THE MAP. 200 was fine for a town and is
       -- nothing on Cycling Road: Route 17 is 144 cells tall, so a climb
@@ -7814,7 +7827,10 @@ function OPS.cross(G, c)
       U.wait(30)
       local nx, ny = bfs_to_edge(G, dir, nil, c.surf, blind)   -- NPC moved: retarget the gap
       if nx then ex, ey = nx, ny end
+      if wd.steps.gap and nx then wd.steps.gap.x, wd.steps.gap.y = nx, ny end
     end
+    local _gap = wd.steps.gap
+    wd.steps.gap = nil
     if p.cellX ~= ex or p.cellY ~= ey then
       if ride_cutscene() then return true, scene_said("crossed (cutscene)") end
       -- A FIGHT IS NOT A WALL, AND IT MUST NOT BE DESCRIBED AS ONE. The
@@ -7893,6 +7909,18 @@ function OPS.cross(G, c)
       if text_seq ~= _seq0 and last_text and last_text ~= "" then
         _heard = (" — during this walk someone spoke and the walk ended "
           .. "short: \"%s\""):format(tostring(last_text))
+        -- ...AND WHERE THE PARTY WAS TAKEN. Quoting him was not enough:
+        -- "ended short" reads as a walk that stopped, and the run went on
+        -- crossing east, interacting with him and walking round him for
+        -- twenty rounds (run 37, 2026-10-05, user: "i dont think its
+        -- registering the scripted blocker from pewter to rt3"). The
+        -- party came within some cells of the gap and ended farther off,
+        -- moved while the words were on screen: say so, in those terms.
+        if _gap and (_gap.back or 0) >= 3 then
+          _heard = _heard .. (" — and while it spoke you were walked back: "
+            .. "from within %d cell(s) of the gap to %d away, at (%d,%d)")
+            :format(_gap.from, _gap.from + _gap.back, _gap.bx, _gap.by)
+        end
       end
       return false, ("couldn't reach %s edge gap (%d,%d), stuck at (%d,%d) "
         .. "— %d cell(s) of walking still to do%s%s%s")

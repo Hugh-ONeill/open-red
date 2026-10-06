@@ -5589,7 +5589,13 @@ class Executor:
         for d in dirs:
             if d not in marks:
                 marks[d] = now
-            if marks[d] == "geom" or marks[d] == now:
+            _m = marks[d]
+            # a person's turn-back holds until something HAPPENS (a badge,
+            # an event flag), not until the bag changes (_seam_proof)
+            if isinstance(_m, dict) and "events" in _m:
+                if list(now or [])[:2] == list(_m.get("events") or []):
+                    out.add(d)
+            elif _m == "geom" or _m == now:
                 out.add(d)
         return out
 
@@ -21952,8 +21958,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         written (run 14's no_cross was empty after 74 cross-west failures
         on Route 20) and _untried_exits kept selling the proven wall as
         "never been taken: walk west — Take one, do not give up"."""
-        if not ("seam of" in det and ("terrain blocks" in det
-                                      or "cannot be walked to" in det)):
+        # ...AND A SEAM SOMEBODY WALKS YOU BACK FROM. Pewter's youngster
+        # meets a party at the east exit and walks it back toward the gym
+        # until BROCK is beaten; the shim now says "while it spoke you were
+        # walked back". That is a turn-back as plain as the guards' and is
+        # recorded like one, expiring with the world mark (the badge is an
+        # event flag), never as geometry (run 37, 2026-10-05).
+        _walked_back = "while it spoke you were walked back" in str(det)
+        if not (_walked_back or ("seam of" in det and ("terrain blocks" in det
+                                                       or "cannot be walked to" in det))):
             return
         # The cross op seam-searches the WHOLE edge, so one failure proves
         # no cell of this component crosses it. ...BUT NOT IF YOU HAVE
@@ -21971,9 +21984,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # GEOMETRY IS NOT WEATHER: a seam the BFS could not reach at
             # all is proven for good; one somebody stood in expires with
             # the world mark.
-            _geom = "no walkable path reaches it" in det
+            _geom = "no walkable path reaches it" in det and not _walked_back
             self._no_cross_at.setdefault(here0, {})[d0] = (
-                "geom" if _geom else self._world_mark(obs))
+                "geom" if _geom
+                else {"events": list(self._world_mark(obs))[:2]} if _walked_back
+                else self._world_mark(obs))
         elif d0:
             self.log("cross_failed_but_known", region=here0,
                      exit=d0, to=_prev.get("to"))
