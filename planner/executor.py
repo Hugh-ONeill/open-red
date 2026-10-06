@@ -16421,7 +16421,8 @@ class Executor:
         if not self._nurse_here(obs):
             self._heal_asked_at = None
             return obs
-        if pred_holds({"party_healthy": True}, obs):
+        _dry, _low = Executor._pp_spent((obs or {}).get("party"))
+        if pred_holds({"party_healthy": True}, obs) and not (_dry or _low):
             return obs
         here = self._where(obs)
         if getattr(self, "_heal_asked_at", None) == here:
@@ -16436,10 +16437,13 @@ class Executor:
                             f"L{m.get('level')} {hp}/{mx} hp"
                             + (" — FAINTED" if hp == 0 else "")
                             + (f" — {st}" if st not in (None, "", "0", "NONE", "OK") else ""))
+        hurt += [f"{w} — NO PP LEFT for any move" for w in _dry]
+        hurt += [f"{w} — moves at 0 PP" for w in _low]
         user = ("YOUR PARTY, as the screen shows it:\n  "
                 + "\n  ".join(hurt)
                 + "\n\nTHE ROOM: a Pokemon Center counter a few steps away. "
-                  "Healing there costs nothing and restores the whole party; "
+                  "Healing there costs nothing and restores the whole party, "
+                  "every move's PP with it; "
                   "it also makes this the Center you wake at if the party "
                   "faints.\n\nWHAT YOU ARE TRYING TO DO RIGHT NOW: "
                 + str((sg or {}).get("goal_text") or (sg or {}).get("id")
@@ -16632,10 +16636,30 @@ class Executor:
                 + (("\nON THIS SHELF, STRONGER THAN ANY BALL YOU CARRY: "
                     + ", ".join(need["better"])) if need["better"] else ""))
 
+    @staticmethod
+    def _pp_spent(party) -> tuple:
+        """(dry, low): members with every move at 0 PP, and members with
+        some move at 0 PP, each as "NAME (MOVE 0/10, ...)". The summary
+        screen shows PP per move; only a Pokemon Center restores it."""
+        dry, low = [], []
+        for p in party or []:
+            if (p.get("hp") or 0) <= 0:
+                continue
+            mv = [m for m in (p.get("moves") or []) if isinstance(m, dict)]
+            zero = [m for m in mv if (m.get("pp") or 0) <= 0]
+            if not zero:
+                continue
+            nm = str(p.get("nickname") or p.get("species"))
+            words = ", ".join(f"{m.get('id')} {m.get('pp') or 0}/{m.get('max_pp') or '?'}"
+                              for m in zero)
+            (dry if len(zero) == len(mv) else low).append(f"{nm} ({words})")
+        return dry, low
+
     HEAL_STREET_SYS = (
-        "You are playing Pokemon Red. Some of your Pokemon have fainted, and "
-        "a Pokemon Center stands in this town. The nurse there heals the "
-        "whole party, and it costs nothing. Decide whether to heal now, "
+        "You are playing Pokemon Red. Some of your Pokemon have fainted or "
+        "have no PP left for any move, and a Pokemon Center stands in this "
+        "town. The nurse there heals the whole party and restores every "
+        "move's PP, and it costs nothing. Decide whether to heal now, "
         "given what you are trying to do. Reply with a JSON object and "
         "nothing else: {\"why\":\"<one short sentence>\",\"heal\":true} "
         "or {\"why\":\"...\",\"heal\":false}.")
@@ -16662,7 +16686,13 @@ class Executor:
             return obs
         party = (obs or {}).get("party") or []
         down = [p for p in party if (p.get("hp") or 0) <= 0]
-        if not down or len(down) == len(party):
+        # ...AND A POKEMON WITH NOTHING LEFT TO USE. Fainting brought the
+        # party back to the Center; PP did not: run 37's VENUSAUR had every
+        # move at 0 PP and the run walked into its next fight (2026-10-05,
+        # user: "the way we have the model alerted to low health drawing it
+        # back to the center we should do the same with PP").
+        dry, _low = Executor._pp_spent(party)
+        if (not down and not dry) or len(down) == len(party):
             return obs
         doors = [w for w in (m.get("warps") or [])
                  if isinstance(w, dict) and "POKECENTER" in str(w.get("dest") or "")
@@ -16677,9 +16707,10 @@ class Executor:
         roster = "; ".join(f"{p.get('nickname') or p.get('species')} "
                            f"L{p.get('level')} {p.get('hp')}/{p.get('max_hp')} hp"
                            for p in party)
-        user = (f"FAINTED: {', '.join(str(p.get('nickname') or p.get('species')) for p in down)}"
-                f" ({len(down)} of {len(party)})\n"
-                f"YOUR PARTY: {roster}\n"
+        user = ((f"FAINTED: {', '.join(str(p.get('nickname') or p.get('species')) for p in down)}"
+                 f" ({len(down)} of {len(party)})\n" if down else "")
+                + (f"NO PP LEFT FOR ANY MOVE: {'; '.join(dry)}\n" if dry else "")
+                + f"YOUR PARTY: {roster}\n"
                 f"THE CENTER: the door into {d0.get('dest')} at "
                 f"{d0.get('x')},{d0.get('y')} on this street, a short walk.\n"
                 f"WHAT YOU ARE TRYING TO DO RIGHT NOW: "
@@ -16700,7 +16731,7 @@ class Executor:
                      err=str(e)[:120])
             return obs
         self.log("heal_street_asked", subgoal=(sg or {}).get("id"), map=here,
-                 fainted=len(down), heal=yes, why=why)
+                 fainted=len(down), pp_dry=len(dry), heal=yes, why=why)
         if not yes:
             print(f"   (heal here? no — {why or 'no usable answer'})")
             return obs
