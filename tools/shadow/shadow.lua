@@ -509,7 +509,16 @@ local function battle_view(game)
     end
     return d
   end
-  return { kind = top.kind, me = side(top.player, true), foe = side(top.enemy, false),
+  local foe = side(top.enemy, false)
+  -- THE GHOST IS A GHOST, as on the run's own observation (shim): without
+  -- the SILPH SCOPE the Pokemon Tower's foe is drawn and named "GHOST" while
+  -- the battle still holds the real species, and the HUD showed the real mon
+  -- (user, 2026-10-06). The disguise is the name: it stays "GHOST" until the
+  -- scope's reveal puts the real one back
+  if foe and (top.ghost or (top.enemy and top.enemy.name == "GHOST")) then
+    foe.species = "GHOST"
+  end
+  return { kind = top.kind, me = side(top.player, true), foe = foe,
            trainer = top.trainer and top.trainer.name or nil }
 end
 
