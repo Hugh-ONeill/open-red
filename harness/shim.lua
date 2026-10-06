@@ -152,6 +152,13 @@ function wd.steps.note(g)
       gp.back, gp.from, gp.bx, gp.by = d - gp.best, gp.best, p.cellX, p.cellY
     end
   end
+  -- the last cell entered on each map: use_warp reads it to tell its
+  -- own door from one crossed on the way (attempt's crossed())
+  S.last_on = S.last_on or {}
+  local lo = S.last_on[m.id]
+  if not lo or lo.x ~= p.cellX or lo.y ~= p.cellY then
+    S.last_on[m.id] = { x = p.cellX, y = p.cellY }
+  end
   local key = m.id .. " " .. p.cellX .. " " .. p.cellY
   if key == S.last then return end
   S.last = key
@@ -6983,6 +6990,17 @@ function OPS.use_warp(G, c)
       if _live == startMap then return nil end
       local _note = safari_ended_note(G, _sf0)
       if stepped then return true, "warped" .. _note .. THAW_LAST end
+      -- ...NOR IS THE ONE THE WALK ENDED ON. A cave ladder fires on the
+      -- step onto it, mid-walk, and the walk was then reported as having
+      -- crossed "a DIFFERENT door": the step log reads B1F (27,4) (27,3)
+      -- then 1F (5,3), the very ladder asked for, and Rock Tunnel's
+      -- ladders read as failures to the run for an hour, 1F and B1F in
+      -- turn (run 37, 2026-10-06). The last cell the step recorder saw on
+      -- the floor we left says which door it was.
+      local _lo = wd.steps.last_on and wd.steps.last_on[startMap]
+      if _lo and _lo.x == x and _lo.y == y then
+        return true, "warped" .. _note .. THAW_LAST
+      end
       -- A DOOR YOU DID NOT ASK FOR IS NOT THE ONE YOU ASKED FOR. This
       -- answered true, and the executor filed the landing against the
       -- door the op was AIMED at: the 1F ladder at (1,1) went into the
@@ -7179,6 +7197,13 @@ function OPS.use_warp(G, c)
           .. "climbing back up it")
           :format(t.x, t.y, tostring(_nowmap or "?"),
                   _pp.cellX or -1, _pp.cellY or -1) .. THAW_LAST
+      end
+      -- ...unless the last cell on the floor we left IS the door asked
+      -- for: the warp fired on the step onto it while the map was still
+      -- loading, so the attempt read "unreachable" (see crossed())
+      local _lo = wd.steps.last_on and wd.steps.last_on[startMap]
+      if _lo and _lo.x == t.x and _lo.y == t.y then
+        return true, "warped" .. safari_ended_note(G, _sf0u) .. THAW_LAST
       end
       -- the map changed under an attempt that did NOT reach its door:
       -- some other door fired (see crossed() and yield_ground). Not a
