@@ -55,6 +55,10 @@ def fake_author(goal, model, rounds=5, start=None, think=False, temp=None, extra
 A.brock_probe.chat = fake_chat
 A.author = fake_author
 A.people_said_text = lambda observed: SAID if observed else ""
+# the live record's own search history for this goal (looked_text, since
+# next82) is not this test's subject; run 37 had a real S.S. Ticket record
+# and its lines landed in front of every draft (2026-10-06)
+A.looked_text = lambda observed, goal: ""
 A.archive_draft = lambda goal, p: None
 A.pick_plan = lambda goal, plans, model, start=None: plans[0]
 A.build_prompt = lambda goal, start: f"GOAL: {goal}"
