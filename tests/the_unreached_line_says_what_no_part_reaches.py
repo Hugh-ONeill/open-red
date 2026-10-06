@@ -50,13 +50,25 @@ t = page(311, [{"region": "MT_MOON_B2F|23,21", "n": 93}])
 ck("the part that reaches some of it is still named",
    "MT_MOON_B2F|23,21 (reaches 93 of them" in t, t[:900])
 ck("...and said to be all on screen when it has no unseen ground left",
-   "; all of its ground has been on screen)" in t, t[:900])
+   "; all of its ground has been on screen — that count is its own floor, "
+   "already walked: going back finds nothing new)" in t, t[:900])
 ck("...and the rest are said to be reached by no part",
    "the other 218 no part you have stood in reaches" in t, t[:900])
 ex.region_seen = {"MT_MOON_B2F|23,21": 4}
 t = page(311, [{"region": "MT_MOON_B2F|23,21", "n": 93}])
 ck("a named part with unseen ground left is not called finished",
    "all of its ground has been on screen" not in t, t[:900])
+# run 37, 2026-10-05: the kept count stays positive while the floor has
+# unseen ground anywhere, but the reading taken INSIDE the part is 0
+ex.frontier_here = {"MT_MOON_B2F|23,21": 0}
+t = page(311, [{"region": "MT_MOON_B2F|23,21", "n": 93}])
+ck("a part worked from within is called finished whatever its kept count",
+   "all of its ground has been on screen — that count is its own floor" in t, t[:900])
+ex.frontier_here = {"MT_MOON_B2F|23,21": 3}
+t = page(311, [{"region": "MT_MOON_B2F|23,21", "n": 93}])
+ck("...but not one with ground still to see from within",
+   "all of its ground has been on screen" not in t, t[:900])
+ex.frontier_here = {}
 t = page(93, [{"region": "MT_MOON_B2F|23,21", "n": 93}])
 ck("when a stood part reaches all of it, nothing is said of the rest",
    "no part you have stood in reaches" not in t, t[:900])

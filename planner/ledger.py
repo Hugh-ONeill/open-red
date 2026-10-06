@@ -3083,6 +3083,19 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
             if getattr(_c, "kind", "") in ("npc", "trainer") \
                     and getattr(_c, "status", "") != "unreachable":
                 _occ[(int(_x), int(_y))] = str(_c.key)
+        # A PART ALREADY WORKED FROM WITHIN. region_seen keeps a region's
+        # last positive count while the MAP has unseen ground anywhere (the
+        # pocket rule), so on Mt Moon it never read 0 and this never said
+        # so; the raw reading taken standing INSIDE the part (frontier_here,
+        # the one _dry_from_within reads) is 0 for a part with nothing left
+        # to see. Run 37's B2F north and south each "reached" the other's
+        # own floor, and the page sent the run between them (2026-10-05,
+        # user: "its pingponging between the two b2f sections without the
+        # fossils").
+        def _worked(reg):
+            _rs = int((getattr(ex, "region_seen", None) or {}).get(reg, 0) or 0)
+            _fh = getattr(ex, "frontier_here", None) or {}
+            return _rs == 0 or (reg in _fh and int(_fh.get(reg) or 0) == 0)
         _people = [(f"({c.get('x')},{c.get('y')})", _occ[(c.get('x'), c.get('y'))])
                    for c in (_su.get("near") or [])
                    if (c.get('x'), c.get('y')) in _occ]
@@ -3103,9 +3116,10 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                       "press them")
                  + ("; ground you have stood on in "
                     + ", ".join(f"{f['region']} (reaches {f.get('n')} of them"
-                                + ("" if int((getattr(ex, "region_seen", None) or {})
-                                             .get(f["region"], 0) or 0)
-                                   else "; all of its ground has been on screen")
+                                + ("" if not _worked(f["region"])
+                                   else "; all of its ground has been on screen"
+                                        " — that count is its own floor, already"
+                                        " walked: going back finds nothing new")
                                 + ")"
                                 for f in _from[:2])
                     + " does reach it"
