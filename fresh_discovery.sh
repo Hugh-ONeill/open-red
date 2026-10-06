@@ -519,6 +519,12 @@ while :; do
     # a return is a disposition: its runs are counted afresh from here
     printf '%s\t%s\t0\tDISPOSED: %s\n' "${_ret#*$'\t'}" "$_rp" \
       "gone back to from leg $i, which waits on it" >> run/attempt_yield
+    # ...AND IS DRAFTED AGAIN, with what was learned since. Kept, the old
+    # plan was replayed: run 37 went back to HM04 twice and both times
+    # resumed the same Safari Zone plan, so the Warden's-home sign heard
+    # since never reached a draft (2026-10-06). Archived, not deleted, the
+    # way a moved leg's plans are.
+    archive_plans_of "${_ret#*$'\t'}"
     continue
   fi
   _no_plan=0

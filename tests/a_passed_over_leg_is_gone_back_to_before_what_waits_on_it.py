@@ -98,6 +98,9 @@ ck("the chain asks before looking up the leg's plan",
 ck("...goes back by rewinding progress", 'echo $((_rp - 1)) > "$PROGRESS"' in src)
 ck("...as a disposition, so its runs are counted afresh",
    '"gone back to from leg $i, which waits on it" >> run/attempt_yield' in src)
+ck("...and its old plans are archived, so it is drafted again",
+   src.index('archive_plans_of "${_ret#*$\'\\t\'}"')
+   > src.index('"gone back to from leg $i, which waits on it" >> run/attempt_yield'))
 ck("...and the count is a chain's, cleared with the rest",
    "run/outline_passed run/outline_returns" in src)
 
