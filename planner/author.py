@@ -3867,6 +3867,20 @@ def wild_met_text(d: dict, cap_maps: int = 12, cap_species: int = 6) -> str:
             + "\n".join(r for _, r in rows[:cap_maps]) + tail)
 
 
+_OBJECTIVE_STOP = {"FROM", "WITH", "INTO", "THAT", "THIS", "FIND", "REACH",
+                   "OBTAIN", "RETRIEVE", "DEFEAT", "ENTER", "EXIT", "CLEAR",
+                   "TALK", "GIVE", "TAKE", "CITY", "TOWN", "ROUTE", "PARTY",
+                   "LEAST", "EVERY", "MEMBER", "LEVEL", "POKEMON", "THE",
+                   "AREA", "HOUSE", "BADGE", "THEN"}
+
+
+def _objective_words(goal) -> set:
+    """The objective's own naming words, upper case, four letters or more,
+    without the verbs and place nouns every objective shares."""
+    return {w for w in re.findall(r"[A-Z]{4,}", str(goal or "").upper())
+            if w not in _OBJECTIVE_STOP}
+
+
 def observed_text(path: Path) -> str:
     """What earlier runs actually WALKED, as evidence for the audit.
 
@@ -4402,9 +4416,23 @@ def observed_text(path: Path) -> str:
                 return not any(said in prev or prev in said
                                for prev in said_before)
             fresh = [ln for ln in _speeches(hints[r]) if _new(ln)]
+            # ...AND A LINE THAT NAMES WHAT THE OBJECTIVE NAMES, FIRST. Four
+            # lines a room, the newest, cut "SIGN_FUCHSIA_CITY_27_29: SAFARI
+            # ZONE WARDEN's HOME" for the town's zoo signs and a stray battle
+            # line, while the HM04 leg's drafts wrote "The Warden is located
+            # inside the Safari Zone (from: memory) — heard: nothing heard"
+            # (run 37, 2026-10-06). A room's lines sharing a word with the
+            # objective's own words come first, as the done rung already
+            # matches fired events; the newest fill the rest.
+            _gw = _objective_words(_AUTHORING_GOAL)
+            _hit = [ln for ln in fresh
+                    if _gw & set(re.findall(r"[A-Z]{4,}", ln.upper()))]
+            _rest = [ln for ln in fresh if ln not in _hit]
+            picked = (_hit[-4:] + _rest[-max(0, 4 - len(_hit[-4:])):]
+                      if len(_hit[-4:]) < 4 else _hit[-4:])
             said_before.update(ln.partition(": ")[2].strip() for ln in fresh)
-            if fresh:
-                shown.append(f"  in {r}:\n    " + "\n    ".join(fresh[-4:]))
+            if picked:
+                shown.append(f"  in {r}:\n    " + "\n    ".join(picked))
         body = "\n".join(shown)
         more = len(hints) - len(keep)
         _people = ("\n\nWHAT PEOPLE HAVE SAID, and where they said it. This "
