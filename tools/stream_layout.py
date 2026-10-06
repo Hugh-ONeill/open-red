@@ -74,6 +74,7 @@ def place(c: dict, w: int, h: int, x: int, y: int) -> None:
 def main() -> None:
     w, h, lx, ly, rx, ry, fw = (int(v) for v in sys.argv[1:8])
     was_wide = None
+    covered = set()      # the copy windows the HUD went wide over
     while True:
         cs = clients()
         huds = [c for c in cs if c.get("title") == "red-recomp HUD"]
@@ -81,7 +82,19 @@ def main() -> None:
         # stream.sh boots its 200x game headed, also class love, and both got
         # stacked on the copy's tile (2026-10-03)
         copies = [c for c in cs if c.get("class") == "love" and c.get("title") == "red-recomp 1x"]
-        wide = authoring() and copy_idle(copies)
+        # ...AND IT STAYS WIDE OVER THAT WINDOW until a new one opens: the old
+        # copy holds the last frame of the boot before, and narrowing the
+        # moment authoring ended showed that game frame until the next boot's
+        # window came up with its CONTINUING card (user, 2026-10-06: "the game
+        # still shows up first before the continuing card")
+        addrs = {c.get("address") for c in copies}
+        if authoring() and copy_idle(copies):
+            wide = True
+        elif was_wide and copy_idle(copies) and addrs <= covered:
+            wide = True
+        else:
+            wide = False
+        covered = (covered | addrs) if wide else set()
         try:
             for c in copies:
                 # where it goes, not how big: its size is the run's window,
