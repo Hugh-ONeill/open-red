@@ -1100,7 +1100,18 @@ return function(G)
     -- event (v^2 = 2*a*d) and by the end of what the log holds
     local target
     local loaded = G.overworld and G.overworld.map and G.overworld.map.id
-    booting = not loaded
+    -- THE BOOT RUNS UNTIL THE RUN'S FIRST REAL OP, not until a map is up: a
+    -- driven game loads its save on the first frame, so the copy showed the
+    -- game, then the run's own startup (the title presses, mash_a, the
+    -- reload) put the CONTINUING card up over it, and then the game again
+    -- (user, 2026-10-06: "on authoring boundaries, the game still shows up
+    -- first before the continuing card"). Every boot opens with mash_a and
+    -- then seed_regions; the first op that is not mash_a is play.
+    local play_from = nil
+    for _, o in ipairs(L.ops) do
+      if o[3] ~= "mash_a" then play_from = o[1] break end
+    end
+    booting = not loaded or not play_from or n < play_from
     -- A 3D MOD BUILDS ITS MESHES AFTER THE MAP LOADS: the card stays up and
     -- the game holds still until the build queue has stood empty a few
     -- frames running (the queue only fills once the scene first draws), or
@@ -1143,7 +1154,7 @@ return function(G)
     local skipping_now = skipping(G)
     if catching_up then
       target = SKIP_SPEED
-    elseif not loaded then
+    elseif booting then
       -- THE BOOT ITSELF: title, CONTINUE, the save loading. Every attempt
       -- reboots the run's game, and playing that out each time read as the
       -- game starting over and over (2026-10-03); run it through under a card
