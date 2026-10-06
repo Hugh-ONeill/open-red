@@ -7723,9 +7723,16 @@ def check_blocker(goal: str, ahead: list, start: str, journal: str,
     # person out of a doorway is the model's to know; that one stands there
     # is the run's own sighting.
     _heldtxt = _held_doors_text(observed)
+    # ...AND WHERE THIS OBJECTIVE HAS ALREADY BEEN LOOKED FOR, the drafts'
+    # own record (looked_text). Run 37's HM04 leg went down the ladder with
+    # every rung saying "the Warden is at the gate", the gate worker pressed
+    # round after round and Fuchsia's three houses never entered; the rungs
+    # were shown none of it (2026-10-06, user: "maybe build that
+    # rung-version thing"). Which way to turn stays the model's.
+    _looked = looked_text(observed, goal) if observed else ""
     base = (f"THE STUCK LEG: {goal}" + _wording_lineage(goal)
             + f"\n\nWHERE THE RUN STANDS: {start}\n"
-            f"{journal}" + attempt_yield_text(goal)[0] + _heldtxt)
+            f"{journal}" + attempt_yield_text(goal)[0] + _heldtxt + _looked)
     # A REFUSED ANSWER IS ASKED AGAIN, NOT DROPPED. Every check below turned
     # the model's pick down and returned nothing, so one wrong pick ended
     # the question: "Reach Vermilion City" named the HM01 on the S.S. Anne,
@@ -9420,7 +9427,9 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             + "\n".join(_leg_line(n, t) for n, t in ahead)
             + (departure_text(journal) if journal else "")
             + (words_text(journal) if journal else "")
-            + (people_said_text(observed) if observed else ""))
+            + (people_said_text(observed) if observed else "")
+            # the same record the drafts and the blocker rung read
+            + (looked_text(observed, goal) if observed else ""))
     _spent = inserts_that_did_not_unblock(goal, behind)
     if _spent:
         base += ("\n\nYOU INSERTED THESE FOR THIS OBJECTIVE BEFORE, AND FINISHED "
@@ -11271,7 +11280,9 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
             + ("\n\nOBJECTIVES YOU HAVE FINISHED:\n"
                + "\n".join(_leg_line(n, t) for n, t in behind) if behind else "")
             + "\n\nSTILL ON YOUR LIST, in order:\n"
-            + "\n".join(_leg_line(n, t) for n, t in ahead))
+            + "\n".join(_leg_line(n, t) for n, t in ahead)
+            # the same record the drafts and the other rungs read
+            + (looked_text(observed, goal) if observed else ""))
     try:
         reply = chat_json(
             [{"role": "system", "content": WORDING_SYS},
