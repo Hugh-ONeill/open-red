@@ -493,6 +493,26 @@ local function run_time(n)
   return tm and tm[1] <= n and tm[2] or nil
 end
 
+-- the battle on top of the stack as the HUD reads it, or nil
+local function battle_view(game)
+  local top = game.stack and game.stack:top()
+  if not (top and (top.enemy or top.kind) and top.player) then return nil end
+  local save = game.save or {}
+  local function side(sd, mine)
+    if not sd then return nil end
+    local mon = sd.mon or {}
+    local d = { species = mon.species, level = mon.level, hp = sd.shownHP or mon.hp,
+                maxhp = sd.curStats and sd.curStats.hp,
+                status = sd.shownStatus or mon.status }
+    if mine then
+      for i, pm in ipairs(save.party or {}) do if pm == mon then d.slot = i break end end
+    end
+    return d
+  end
+  return { kind = top.kind, me = side(top.player, true), foe = side(top.enemy, false),
+           trainer = top.trainer and top.trainer.name or nil }
+end
+
 local function snapshot(game)
   -- nothing until this boot has a game loaded: the title has an empty party,
   -- and the HUD would show no team while each boot starts (2026-10-03)
@@ -530,21 +550,15 @@ local function snapshot(game)
   o.map = mid and { id = mid } or nil          -- no map yet (the title): leave it out
   o.player = p and { x = p.cellX, y = p.cellY, facing = p.facing } or nil
   local top = game.stack and game.stack:top()
-  if top and (top.enemy or top.kind) and top.player then
-    o.mode = "battle"
-    local function side(sd, mine)
-      if not sd then return nil end
-      local mon = sd.mon or {}
-      local d = { species = mon.species, level = mon.level, hp = sd.shownHP or mon.hp,
-                  maxhp = sd.curStats and sd.curStats.hp,
-                  status = sd.shownStatus or mon.status }
-      if mine then
-        for i, pm in ipairs(save.party or {}) do if pm == mon then d.slot = i break end end
-      end
-      return d
-    end
-    o.battle = { kind = top.kind, me = side(top.player, true), foe = side(top.enemy, false),
-                 trainer = top.trainer and top.trainer.name or nil }
+  local bv = battle_view(game)
+  if bv then
+    o.mode, o.battle = "battle", bv
+  elseif card.active and card.battle then
+    -- A SKIPPED BATTLE STAYS ON THE HUD FOR AS LONG AS ITS CARD: the fight
+    -- itself is over in a blink at skip speed, and the HUD showed no foe at
+    -- all while the card said there was one (user, 2026-10-05: "sync up the
+    -- enemy mon on the HUD with the card length"). The last look at it.
+    o.mode, o.battle = "battle", card.battle
   else
     o.mode = (ow and top == ow) and "overworld" or "ui"
   end
@@ -902,7 +916,14 @@ Game.step = function(self, dt, ...)
   -- 1,200 steps a frame at 400x: a whole wild battle came and went between
   -- two looks, was never seen, and was taken for the wipe before it for
   -- good, the card standing until the run moved again (user, 2026-10-05)
-  if skip then pcall(skipping, self) end
+  if skip then
+    -- (and keep the latest look at it for the card's HUD, every few steps)
+    if card.active and (not card.battle or n % 8 == 0) then
+      local ok, bv = pcall(battle_view, self)
+      if ok and bv then card.battle = bv end
+    end
+    pcall(skipping, self)
+  end
   pcall(seen_paint, self)
   if cur and cur_i <= #cur and not OWN_AUDIO then
     report(("step %d: the run asked %d audio question(s) this copy did not"):format(n, #cur - cur_i + 1))
@@ -1038,10 +1059,13 @@ return function(G)
         -- ...and a skipped op (a grind) the run has already moved past ends
         -- here too, not on a next step that waits on the model
         if op_skip and not skipped_op(n) then op_skip = nil end
+        if card.active and (snap_n or 0) % 6 == 0 then pcall(snapshot, G) end
+        snap_n = (snap_n or 0) + 1
         if card.active and not (skip or op_skip)
             and love.timer.getTime() - card.since >= CARD_MIN then
           card.active = false
           if not QUIET then print(("[shadow] card down at step %d after %.1f s (caught up)"):format(n - 1, love.timer.getTime() - card.since)) end
+          pcall(snapshot, G)                   -- and the HUD drops its foe with it
         end
         HOLD.on = true                   -- this frame draws; no step runs
         G.driverSpeed = 1
@@ -1058,8 +1082,13 @@ return function(G)
         and not card_hold() then
       card.active = false
       if not QUIET then print(("[shadow] card down at step %d after %.1f s"):format(n - 1, love.timer.getTime() - card.since)) end
+      pcall(snapshot, G)                   -- and the HUD drops its foe with it
     end
     if card_hold() then
+      -- (the HUD still hears from the copy while the card holds: its foe
+      -- stays up for the card's whole length)
+      snap_n = (snap_n or 0) + 1
+      if snap_n % 6 == 0 then pcall(snapshot, G) end
       HOLD.on = true
       G.driverSpeed = 1
       coroutine.yield()
@@ -1188,7 +1217,7 @@ return function(G)
       io.stdout:flush()
     end
     snap_n = (snap_n or 0) + 1
-    if (snap_n % 6 == 0 and not skip and not op_skip)
+    if (snap_n % 6 == 0 and ((not skip and not op_skip) or card.active))
         or (snap_n % 30 == 0 and op_skip and not skip) then
       pcall(snapshot, G)
     end
