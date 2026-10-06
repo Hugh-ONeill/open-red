@@ -146,6 +146,14 @@ failed.
 
 ![The HUD beside the game on Route 12: the seen overlay on the left, then a team of five under four earned badges, and the status column with the plan, the model's reasoning and the events feed](docs/hud.png)
 
+Between attempts the game is closed while the model writes the next plan, so the HUD
+takes the game's place: the whole of Kanto under the run's fog of war, with the path
+the run has actually walked drawn on it (earlier legs in white, the last attempt in
+yellow), the floors of whichever dungeon the party has been in as an inset, and the
+model's draft streaming in as it is written.
+
+![The HUD while the model authors a plan: Kanto under the fog with the run's trail, the Rocket Hideout's floors inset, and the plan being drafted live on the right](docs/map.png)
+
 ```bash
 tools/events.py --follow &    # writes the events feed the HUD shows
 tools/hud.py                  # live, in this kitty window
