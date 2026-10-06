@@ -53,11 +53,27 @@ def _atlas():
     # ...AN ARCHIVED world, never the live one: a long run's own ledger grew
     # past the archive on 2026-10-05 and the test read a world without the
     # pocket it pins (run 36 had walked Route 7 the other way)
+    # ...AND ONE THAT HOLDS THE POCKET. Largest first stopped working when
+    # run 36's world, which walked Route 7 the other way, became the
+    # largest archive (2026-10-05): take the largest that has the shape.
     cands = sorted((f for f in Path("run").glob("explored.*.json")),
                    key=lambda f: f.stat().st_size)
     if not cands:
         cands = sorted(Path("run").glob("explored*.json"),
                        key=lambda f: f.stat().st_size)
+    def _has(dd):
+        e = dd.get("explored") or {}
+        outs = {(v or {}).get("to") for v in (e.get("ROUTE_7|18,12") or {}).values()
+                if (v or {}).get("to") and (v or {}).get("to") != "ROUTE_7|18,12"}
+        return "ROUTE_7|0,2" in e and len(outs) == 1
+    for f in reversed(cands):
+        try:
+            dd = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        if _has(dd):
+            print(f"  atlas: {f.name}")
+            return dd
     return json.loads(cands[-1].read_text())
 
 d = _atlas()

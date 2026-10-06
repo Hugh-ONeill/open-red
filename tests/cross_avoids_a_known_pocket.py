@@ -59,8 +59,17 @@ def _atlas():
             ex = json.loads(f.read_text()).get("explored") or {}
         except (OSError, ValueError):
             continue
-        if ((ex.get("ROUTE_13|50,0") or {}).get("west") or {}).get("to") \
-                and ((ex.get("SAFFRON_CITY|12,0") or {}).get("west") or {}).get("to"):
+        # ...AND IN WHICH THEY ARE STILL POCKETS: run 36 walked Route 7 on
+        # from the Saffron landing, so its world (the largest on disk since
+        # 2026-10-05) has both crossings and neither pocket
+        def _pocket(here, dirn):
+            lands = ((ex.get(here) or {}).get(dirn) or {}).get("to")
+            if not lands or lands == here:
+                return False
+            outs = {(e or {}).get("to") for e in (ex.get(lands) or {}).values()
+                    if (e or {}).get("to") and (e or {}).get("to") != lands}
+            return bool(outs and outs <= {here})
+        if _pocket("ROUTE_13|50,0", "west") and _pocket("SAFFRON_CITY|12,0", "west"):
             print(f"  atlas: {f.name}")
             return {"explored": ex}
     return {"explored": {}}
