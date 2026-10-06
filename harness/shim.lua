@@ -4403,6 +4403,13 @@ local function observe(G, seq, result)
   if o.mode == "overworld" and o.map then seen_filter(G, o) end
   seen_save()
   o.money = G.save and G.save.money
+  -- THE COIN CASE SHOWS ITS COINS. The run picked the case up in Celadon
+  -- and nothing said how many it held (run 37, 2026-10-06, user: "also
+  -- the coin stuff since it did pick up the case"); the game prints the
+  -- count when the case is used and at every machine. Only with the case.
+  if G.save and G.save.inventory and G.save.inventory.COIN_CASE then
+    o.coins = G.save.coins or 0
+  end
   o.steps_walked = STEPS_WALKED
   wd.steps.flush()               -- the step path goes out with every observation
   if wd.rec then pcall(wd.rec.close) end  -- and the replay log
@@ -10290,6 +10297,134 @@ local function item_has_a_use(id)
   return id:match("_STONE$") ~= nil
       or id == "HP_UP" or id == "PROTEIN" or id == "IRON"
       or id == "CARBOS" or id == "CALCIUM" or id == "RARE_CANDY"
+end
+
+-- PLAYING A SLOT MACHINE. Pressing one asked "Want to play?", and the
+-- settle loop answered the bet prompt with B, so the game corner's whole
+-- floor was a row of things that said one line (user, 2026-10-06: "for
+-- consistencies sake build a slot op"). This walks to the machine, says
+-- YES, bets what it is asked to, stops each wheel with A as soon as the
+-- machine takes it, answers "One more go?" until the spins are done, and
+-- says what each spin said. How much to bet and how long to play is the
+-- model's; the machine's own odds are the game's.
+function OPS.slots(G, c)
+  if not need_overworld(G) then
+    return false, "not in overworld (a box was up and would not close: "
+      .. _screen_name(G) .. ")"
+  end
+  local ow = G.overworld
+  local p = ow.player
+  local mach
+  for _, f in ipairs(map_fixtures(G, ow.map and ow.map.id)) do
+    if tostring(f.name or ""):match("^SLOT_MACHINE_")
+       and (f.name == c.name or (c.x == f.x and c.y == f.y)) then
+      mach = f
+    end
+  end
+  if not mach then
+    return false, ("no slot machine %s on this map — the machines here are "
+      .. "named SLOT_MACHINE_1, SLOT_MACHINE_2, ...")
+      :format(tostring(c.name or ((c.x or "?") .. "," .. (c.y or "?"))))
+  end
+  local bet = math.floor(tonumber(c.bet) or 1)
+  if bet < 1 or bet > 3 then
+    return false, "bet is 1, 2 or 3 coins a spin"
+  end
+  local spins = math.max(1, math.min(20, math.floor(tonumber(c.spins) or 1)))
+  local coins0 = (G.save and G.save.coins) or 0
+  local faced
+  for _, s in ipairs({ { mach.x, mach.y + 1, "up" }, { mach.x - 1, mach.y, "right" },
+                       { mach.x + 1, mach.y, "left" }, { mach.x, mach.y - 1, "down" } }) do
+    if p.cellX ~= s[1] or p.cellY ~= s[2] then
+      OPS.walk_to(G, { x = s[1], y = s[2], max_steps = 200,
+                       thaw = c.thaw, blind = c.blind })
+    end
+    if p.cellX == s[1] and p.cellY == s[2] then faced = s[3] break end
+  end
+  if not faced then
+    return false, "couldn't reach a cell beside " .. mach.name
+  end
+  U.tap(G, faced); U.wait(6)
+  U.tap(G, "a"); U.wait(10)
+  for _ = 1, 12 do
+    if ui_is_choice(G) then break end
+    local t = ui_top(G)
+    if not (t and t.pages) then break end
+    U.tap(G, "a"); U.wait(8)
+  end
+  if not ui_is_choice(G) then
+    local said = tostring(last_text or "")
+    ui_back_out(G)
+    return false, ("%s did not offer a game — it said: \"%s\"")
+      :format(mach.name, said)
+  end
+  ui_cursor_to(G, "index", 1)                  -- "Want to play?" -> YES
+  U.tap(G, "a")
+  local sm
+  for _ = 1, 300 do
+    U.wait(2)
+    local t = G.stack:top()
+    if t and t.screenId == "SlotMachine" then sm = t break end
+  end
+  if not sm then
+    return false, mach.name .. ": the machine's screen never opened"
+  end
+  local said = {}
+  local function on() return G.stack:top() == sm end
+  for i = 1, spins do
+    for _ = 1, 600 do
+      if sm.stage == "bet" or not on() then break end
+      U.wait(2)
+    end
+    if not on() then break end
+    for _ = 1, 6 do                            -- UP is toward x3, DOWN toward x1
+      if sm.bet == bet then break end
+      U.tap(G, sm.bet > bet and "down" or "up"); U.wait(3)
+    end
+    U.tap(G, "a"); U.wait(4)
+    if sm.stage == "message" then              -- "Not enough coins!"
+      said[#said + 1] = "not enough coins for a " .. bet .. "-coin bet"
+      U.tap(G, "a"); U.wait(6)
+      break
+    end
+    for _ = 1, 1500 do                         -- A stops each wheel in turn
+      if sm.stage ~= "spinup" and sm.stage ~= "spin" and sm.stage ~= "reroll" then
+        break
+      end
+      if sm.stage == "spin" then U.tap(G, "a") end
+      U.wait(3)
+    end
+    for _ = 1, 600 do
+      if sm.stage == "message" or sm.stage == "onemore" or not on() then break end
+      U.wait(2)
+    end
+    said[#said + 1] = (tostring(sm.message or ""):gsub("%s+", " "))
+    if sm.stage == "message" and not sm.exitTimer then
+      U.tap(G, "a"); U.wait(4)
+    end
+    for _ = 1, 3000 do                         -- the payout drips in
+      if sm.stage ~= "payout" or not on() then break end
+      U.wait(2)
+    end
+    for _ = 1, 300 do
+      if sm.stage == "onemore" or not on() then break end
+      U.wait(2)
+    end
+    if not on() then break end
+    U.tap(G, i < spins and "a" or "b"); U.wait(6)   -- "One more go?"
+  end
+  for _ = 1, 60 do
+    if not on() then break end
+    U.tap(G, "b"); U.wait(6)
+  end
+  for _ = 1, 10 do
+    local t = ui_top(G)
+    if not (t and t.pages) then break end
+    U.tap(G, "a"); U.wait(5)
+  end
+  local coins1 = (G.save and G.save.coins) or 0
+  return true, ("played %d spin(s) at %d coin(s) a spin on %s: %s — coins %d -> %d")
+    :format(#said, bet, mach.name, table.concat(said, "; "), coins0, coins1)
 end
 
 function OPS.toss(G, c)

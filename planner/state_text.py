@@ -147,6 +147,13 @@ def pc_text(pc):
             + (f", and {rest} other kind(s) of item" if rest else ""))
 
 
+def coins_text(o):
+    """The Game Corner coins in the COIN CASE, when the case is held (the
+    observation carries "coins" only then)."""
+    c = (o or {}).get("coins")
+    return f", {c} coin(s) in the COIN CASE" if isinstance(c, int) else ""
+
+
 def money_text(m):
     """How much money there is, next to what things cost.
 
@@ -291,7 +298,7 @@ if "region" in o:                    # last_state.json is already flattened
     _where = m or "a spot not yet on record (a box was up when the snapshot was taken)"
     print(f"standing in {_where} with "
           f"{party or 'no party'}, {badges}"
-          + money_text(o.get("money")) + f", and {bag}" + pc_text(o.get("pc_items"))
+          + money_text(o.get("money")) + coins_text(o) + f", and {bag}" + pc_text(o.get("pc_items"))
           + daycare_text(o.get("daycare"))
           + hof_text(o.get("hall_of_fame"))
           + respawn_text(o.get("respawn"))
@@ -309,7 +316,7 @@ if not m:
     badges = badges_text(o.get("badges"))
     print("standing in a spot not yet on record (a box was up when the "
           f"snapshot was taken) with {party}, {badges}"
-          + money_text(o.get("money")) + f", and {bag_text(o.get('bag'))}"
+          + money_text(o.get("money")) + coins_text(o) + f", and {bag_text(o.get('bag'))}"
           + pc_text(o.get("pc_items"))
           + daycare_text(o.get("daycare"))
           + hof_text(o.get("hall_of_fame"))
@@ -319,7 +326,7 @@ party = party_text(o.get("party") or [])
 badges = badges_text(o.get("badges"))
 bag = bag_text(o.get("bag"))
 print(f"standing in {m} with {party or 'no party'}, {badges}"
-      + money_text(o.get("money")) + f", and {bag}" + pc_text(o.get("pc_items"))
+      + money_text(o.get("money")) + coins_text(o) + f", and {bag}" + pc_text(o.get("pc_items"))
       + daycare_text(o.get("daycare"))
       + hof_text(o.get("hall_of_fame"))
       + respawn_text(o.get("respawn"))

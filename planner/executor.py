@@ -21374,6 +21374,11 @@ there. {"op":"push","x":N,"y":N,"dir":"up|down|left|right"} still shoves it
 ONE cell the way you say, if you would rather place them yourself. STRENGTH must be switched on for THIS map first
 ({"op":"field_move","move":"STRENGTH"}) — the game switches it off again
 every time you change map),
+{"op":"slots","name":"SLOT_MACHINE_1","bet":1,"spins":N} (play a Game
+Corner slot machine: needs the COIN CASE and coins — "coins" in what you
+see is how many the case holds. bet is 1, 2 or 3 coins a spin, spins up to
+20; the op walks to the machine, plays, stops each wheel, and says what
+each spin paid. Whether to play, and for how long, is your call),
 {"op":"toss","item":"TM_BIDE","count":N} (throw away bag items — count
 omitted tosses the whole stack. The bag holds 20 KINDS of item and a
 FULL bag makes every gift and pickup silently FAIL: "got X!" plays and
