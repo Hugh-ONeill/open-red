@@ -8638,10 +8638,16 @@ def _record_fact_named(why, obs_path="run/obs.json") -> str:
     return ""
 
 
+# ...AND THE SAME CLAIM REWORDED. Run 38's missing rung had "the game
+# requires the player to obtain the Moon Stone" turned down, was asked
+# again, and inserted "Obtain the MOON STONE in Mt. Moon" on "the Moon
+# Stone, which is a required item trigger for the cave" (2026-10-08):
+# the run of record 9 insert this pattern was written for, through a
+# different phrase. A "trigger" the reason names is the same lore.
 _GAME_RULE = re.compile(
     r"\bthe game (?:requires|needs|wants|expects)\b|\bto trigger\b|"
     r"\bin the original games?\b|\bis required to progress\b|\btypically\b|"
-    r"\busually\b", re.I)
+    r"\busually\b|\b(?:required|item|event|story|progression) trigger\b", re.I)
 
 
 def _inferred(why) -> bool:
