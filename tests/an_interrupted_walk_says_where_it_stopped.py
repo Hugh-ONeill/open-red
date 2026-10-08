@@ -31,7 +31,7 @@ def ck(name, cond, detail=""):
 
 
 src = (ROOT / "planner/executor.py").read_text()
-w = src[src.index('            if op == "walk_to" and step.get("x") is not None:'):][:4000]
+w = src[src.index('            if op == "walk_to" and step.get("x") is not None:'):][:5200]
 ck("an ok walk that did not arrive says where it stopped, with the shim's detail",
    'f"walk_to({step.get(\'x\')},{step.get(\'y\')}): stopped "' in w
    and 'f"at ({_at[0]},{_at[1]}), not the cell asked for"' in w

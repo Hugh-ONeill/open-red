@@ -13200,7 +13200,7 @@ class Executor:
                 break
             self.log("walk_on_after_fight", subgoal=sg.get("id"), op=op,
                      at=f"{_at[0]},{_at[1]}", to=f"{want[0]},{want[1]}")
-            self._send_safe(op, **step)
+            self._send_safe(op, **self._named(op, step))
             o2, fought = self._drain_fights(sg, self.settle() or o)
             _pl2 = (o2 or {}).get("player") or {}
             if (_pl2.get("x"), _pl2.get("y")) == _at and not fought:
@@ -22632,7 +22632,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 if self._gated(sig, op, step, trace):
                     continue
                 self._walk_map_at_send = ((_pre or {}).get("map") or {}).get("id")
-                _r0 = (self._send_safe("walk_to", **step) or {})
+                # THE MODEL'S OWN WALK THAWS, HERE TOO. This handler sent
+                # walk_to past _named, so the 2026-09-05 rule (a wall the
+                # model's switch opened is walked through on its own op)
+                # never reached walk_to: run 37 flipped the Mansion's switch,
+                # sent walk_to(12,14) and was refused over "2 cell(s) that
+                # were WALLS the last time they were on screen", eight times,
+                # told each time that a walk_to it sent itself would go
+                # through (2026-10-08). Every send of the model's walk_to
+                # below goes out as named.
+                _r0 = (self._send_safe("walk_to", **self._named("walk_to", step)) or {})
                 _d0 = str((_r0.get("result") or {}).get("detail") or "")
                 if (_r0.get("result") or {}).get("ok"):
                     obs = self.settle() or _pre
@@ -22737,7 +22746,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                  to=_reg, legs=len(_path))
                         self._walk_route(sg, _path)
                         _cur = self.settle() or _pre
-                        _r1 = (self._send_safe("walk_to", **step) or {})
+                        _r1 = (self._send_safe("walk_to", **self._named("walk_to", step)) or {})
                         if (_r1.get("result") or {}).get("ok"):
                             obs = self.settle() or _cur
                             trace.append(
@@ -22761,7 +22770,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             self.settle() or _pre, sg,
                             step.get("x"), step.get("y"))
                         if _rx is not None:
-                            _r2 = (self._send_safe("walk_to", **step) or {})
+                            _r2 = (self._send_safe("walk_to", **self._named("walk_to", step)) or {})
                             if (_r2.get("result") or {}).get("ok"):
                                 obs = self.settle() or _rx
                                 trace.append(
