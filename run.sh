@@ -22,7 +22,14 @@ OPTS="$HOME/.local/share/love/pokemon-love2d/options.lua"
 if [ -f "$OPTS" ]; then
   sed -i -E 's/(gbcfx[[:space:]]*=[[:space:]]*)[0-9]+/\10/;
              s/(spanish_ui[[:space:]]*=[[:space:]]*)true/\1false/;
-             s/(colors[[:space:]]*=[[:space:]]*)"[a-z]+"/\1"gbc"/' "$OPTS"
+             s/(colors[[:space:]]*=[[:space:]]*)"[a-z]+"/\1"gbc"/;
+             s/(unionRoom[[:space:]]*=[[:space:]]*)true/\1false/' "$OPTS"
+  # THE ORIGINAL CENTERS. The base added an upstairs Union Room to every
+  # Pokemon Center (gen1recomp e69b4087, 2026-10-07, default ON, a missing
+  # key counts as ON), and the run met a POKECENTER_2F with ground never on
+  # screen that the original game does not have (user, 2026-10-08: "it
+  # didnt have a second floor before"). OFF puts back the one-floor Centers.
+  grep -q 'unionRoom' "$OPTS" || sed -i '0,/^return {/s//return {\n  unionRoom = false,/' "$OPTS"
 fi
 # Headless runs still open an audio device — the repeated bump/interact
 # sounds are an accidental but genuinely useful progress channel (a loop
