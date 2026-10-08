@@ -8276,7 +8276,13 @@ def _through_place_mouths(goal: str, observed=None):
     this run has walked: the place's family name, and every region OUTSIDE
     it that a walked way out of it lands on. None when the objective does
     not say through, or names no walked place, or there is no record."""
-    if not _re.search(r"\b(through|across|traverse[sd]?|traversing)\b",
+    # ...and NAVIGATE: "Navigate Mt. Moon and fight Team Rocket" was judged
+    # on where the party stood, so with every Rocket beaten and the far
+    # mouth walked twice (ROUTE_4|36,2) it read "has not yet exited the
+    # mountain" from inside, and the leg traded places with "Reach Cerulean
+    # City" while the plan hunted a Rocket leader (run 41, 2026-10-08).
+    if not _re.search(r"\b(through|across|traverse[sd]?|traversing|"
+                      r"navigat(?:e|es|ed|ing))\b",
                       str(goal or ""), _re.I):
         return None
     try:
