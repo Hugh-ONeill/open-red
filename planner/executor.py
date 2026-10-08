@@ -26061,6 +26061,26 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         json.dumps(_key_ops, sort_keys=True), str(_mk_now),
                         int(getattr(self, "_resets_heard", 0) or 0))
             _seen = self._spent_macros.get(_mac_key)
+            # A WALL WRITTEN SINCE IS A DIFFERENT SWEEP. An explore stopped
+            # by a script writes the spot it walked toward and the cell it
+            # stood on as blockers, and every later sweep here goes round
+            # them — but neither moves the world mark, so the very next
+            # explore read "same ops, same world" and was refused five
+            # times while the old man's wall sent it nowhere new; Viridian's
+            # east side, the Mart and the Gym, never came on screen and the
+            # step died (run 40, 2026-10-08, user: "it stopped at the old
+            # man instead of being able to explore the rest of viridian").
+            _here_blk = self._where(obs) or "?"
+            _blk_now = sum(1 for _b in (getattr(self, "blockers", None) or {})
+                           .values() if isinstance(_b, dict)
+                           and _b.get("where") == _here_blk)
+            if (_seen and any(isinstance(st, dict) and st.get("op") == "explore"
+                              for st in macro)
+                    and _blk_now > int(_seen.get("blk", _blk_now) or 0)):
+                self.log("repeat_allowed_new_wall", subgoal=sg["id"],
+                         round=rnd, blockers=_blk_now,
+                         then=int(_seen.get("blk") or 0))
+                _seen = None
             # A RUN THE SEA INTERRUPTED IS NOT A RUN THAT WAS ANSWERED.
             # This gate says "NOTHING ABOUT THE WORLD HAS CHANGED since —
             # same ops, same world, same answer". For a crossing cut short
@@ -26281,6 +26301,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _rec = self._spent_macros.setdefault(
                     _mac_key, {"n": 0, "why": ""})
                 _rec["n"] += 1
+                # the blockers here BEFORE this round: one it wrote itself
+                # is what makes the next explore a different sweep
+                _rec["blk"] = _blk_now
                 if _why:
                     _rec["why"] = _why[:400]
             if _decl_lines:
