@@ -104,7 +104,13 @@ def main() -> None:
             for c in huds:
                 if wide:
                     place(c, fw, h, lx, ly)
-                    if was_wide is not True:          # over the copy's idle window
+                    # over the copy's idle window, EVERY tick: Hyprland raises
+                    # a floating window when it takes focus, so raising the
+                    # HUD only on the turn to wide let a passing mouse put the
+                    # copy's frozen frame back on top for the rest of the
+                    # authoring (user, 2026-10-08: "the game shouldnt be
+                    # showing")
+                    if copies:
                         subprocess.run(["hyprctl", "-q", "dispatch", "alterzorder",
                                         f"top,address:{c['address']}"], timeout=5)
                 else:
