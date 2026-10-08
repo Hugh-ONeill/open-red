@@ -4075,7 +4075,15 @@ def observed_text(path: Path) -> str:
 
         fam: dict = {}
         for n in names:
-            base = re.sub(r"_\d+$", "", n)
+            # A NAME ENDING IN A PLACE IS ONE THING. Numbered kin fold
+            # (ROCKET1, ROCKET2 -> ROCKET x2), but ITEM_MT_MOON_1F_2_2 and
+            # ITEM_MT_MOON_1F_2_20 lost their last coordinate here and read
+            # "ITEM_MT_MOON_1F_2 x2", beside "_20", "_35", "_36", "_5": six
+            # balls on 1F, none with a place, while run 38's Moon Stone
+            # draft wrote "the item is available on the B2F floor" (from
+            # memory) and searched a floor with none left (2026-10-08).
+            base = (n if re.search(r"_\d+_\d+$", n)
+                    else re.sub(r"_\d+$", "", n))
             fam.setdefault(base, []).append(n)
         collapsed = []
         for b, g in fam.items():
