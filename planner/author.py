@@ -371,6 +371,8 @@ ENGINE_FLAGS = _engine_names("engine_flags.txt")
 # RIGHT condition for a fossil leg — unwritable in any spelling. The model
 # may name any real item; validation only checks the string is real.
 ENGINE_ITEMS = _engine_names("engine_items.txt")
+# item ids no bag ever holds (see _item_not_held)
+NEVER_HELD_ITEMS = frozenset({"POKEDEX"})
 # ...AND WHICH OF THEM ARE THE STORY'S ONE-OF-A-KIND THINGS (items.lua,
 # keyItem = true; tools/gen_engine_key_items.py). Manual tier: the bag
 # shows them apart from what you buy, and none has a price. Read by one
@@ -8209,6 +8211,16 @@ def _item_not_held(goal: str, start: str) -> str | None:
         # named in full (HM_STRENGTH) is a thing held for good: checked.
         if len(squashed) < 6 or squashed.startswith("TM") or \
                 squashed in ("HM", "HMCUT"):
+            continue
+        # NEVER IN ANY BAG. The game's item list also numbers things no
+        # bag ever holds: the POKEDEX (a menu entry; EVENT_GOT_POKEDEX is
+        # its only record) and the elevator's FLOOR_ buttons. "Obtain the
+        # Pokedex from Professor Oak and reach Pewter City" was refused as
+        # done twice with the Pokedex given and Pewter walked, and the
+        # leg was re-authored into a walk back south through Viridian
+        # Forest to "reach a part of Pewter not yet visited" (run 39,
+        # 2026-10-08).
+        if it in NEVER_HELD_ITEMS or it.startswith("FLOOR_"):
             continue
         if squashed in g and squashed not in have:
             return it
