@@ -935,7 +935,19 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                 # where this floor's seen ground ends (frontier_map_n);
                 # while that is above zero the doors may lie past them.
                 _fmap = int(((m.get("seen") or {}).get("frontier_map_n")) or 0)
-                if _fmap > 0:
+                _out = (_fmap > 0 and hasattr(ex, "_floor_walked_out")
+                        and ex._floor_walked_out(m.get("id")))
+                if _out:
+                    _pass += ("\nDOORS ON THIS FLOOR YOU CANNOT WALK TO FROM "
+                              "HERE: " + _others + ". This floor has "
+                              f"{_fmap} spot(s) where the seen ground ends, "
+                              "but every part of it you have stood in was "
+                              "walked to its edge: no walk from any of them "
+                              "reaches that ground, and nothing has happened "
+                              "since to change that. Whether those doors "
+                              "belong to a room entered from another floor "
+                              "or from outside is not known.")
+                elif _fmap > 0:
                     _pass += ("\nDOORS ON THIS FLOOR YOU CANNOT WALK TO FROM "
                               "HERE: " + _others + ". This floor still has "
                               f"ground never on screen ({_fmap} spot(s) where "

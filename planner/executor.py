@@ -5543,6 +5543,24 @@ class Executor:
             return water, ("" if water else "done")
         return unseen + water, "changed"
 
+    def _floor_walked_out(self, map_id) -> bool:
+        """Every part of this map the run has stood in was walked to its
+        edge, with nothing happened since (_unseen_there's "done" for each).
+        Then the map's count of spots where the seen ground ends is ground
+        no walk from any of them reaches, and "the way may run through it"
+        is a lure: Mt Moon B2F read "31 spot(s) never on screen" on its own
+        page in every part, each of them done, and the run hunted the floor
+        for a Moon Stone across two legs (run 38, 2026-10-08, user: "it
+        should know that theres no item balls left in b2f since its explored
+        all the reachable ground"). A part never stood in is not covered by
+        this, so a floor with a chamber not yet found stays open."""
+        if not map_id:
+            return False
+        parts = [r for r in (getattr(self, "visits", None) or {})
+                 if r.split("|", 1)[0] == map_id]
+        return bool(parts) and all(
+            self._unseen_there(r)[1] == "done" for r in parts)
+
     def _water_unseen(self, region) -> int:
         """Spots where a floor's seen ground ends ACROSS WATER, while a party
         Pokemon knows SURF and the SOULBADGE lets it be used outside battle.
@@ -18678,7 +18696,16 @@ class Executor:
             _names = ", ".join(
                 f"({k})" + (f", nearest person {who}" if who else "")
                 for k, _d, who, _far in shut[:4])
-            if _fmap > 0:
+            if _fmap > 0 and self._floor_walked_out(
+                    ((obs or {}).get("map") or {}).get("id")):
+                shut_line = (
+                    "\nDOORWAYS ON THIS MAP YOU HAVE NEVER OPENED AND CANNOT "
+                    "WALK TO FROM HERE: " + _names + ". This floor has "
+                    f"{_fmap} spot(s) where the seen ground ends, but every "
+                    "part of it you have stood in was walked to its edge: no "
+                    "walk from any of them reaches that ground. These "
+                    "doorways belong to ground entered some other way.")
+            elif _fmap > 0:
                 shut_line = (
                     "\nDOORWAYS ON THIS MAP YOU HAVE NEVER OPENED AND CANNOT "
                     "WALK TO FROM HERE: " + _names + ". This floor still has "
