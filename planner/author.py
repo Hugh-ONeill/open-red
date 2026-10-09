@@ -8223,8 +8223,37 @@ def _item_not_held(goal: str, start: str) -> str | None:
         if it in NEVER_HELD_ITEMS or it.startswith("FLOOR_"):
             continue
         if squashed in g and squashed not in have:
+            # ...AND ONE THE GAME RECORDS AS HANDED OVER IS GONE BY THE DEED.
+            # "Retrieve the Gold Teeth for the Warden" was refused twice with
+            # EVENT_GAVE_GOLD_TEETH fired and HM04 in hand — the objective's
+            # verb is RETRIEVE, so the give-verb exemption above never heard
+            # it (run 41, 2026-10-09). A fired event naming the item with a
+            # handing-over word is the record saying where it went.
+            if _handed_over(it):
+                continue
             return it
     return None
+
+
+_HANDOVER = re.compile(r"(GAVE|GIVEN|DELIVER|TRADED|TRADE|USED|SOLD|EXCHANG|RETURN)")
+
+
+def _handed_over(item: str, obs_path: str = "run/obs.json") -> bool:
+    """A fired event names this item AND a handing-over word
+    (EVENT_GAVE_GOLD_TEETH): the record says the item left the bag by a
+    deed. False when there is no record."""
+    try:
+        fired = json.loads(Path(obs_path).read_text()).get("flags")
+    except (OSError, ValueError, AttributeError):
+        return False
+    if not isinstance(fired, list):
+        return False
+    sq = re.sub(r"[^A-Z]+", "", str(item).upper())
+    for fl in fired:
+        f = str(fl).upper()
+        if sq and sq in re.sub(r"[^A-Z]+", "", f) and _HANDOVER.search(f):
+            return True
+    return False
 
 
 _BLOCK_TO = _re.compile(
