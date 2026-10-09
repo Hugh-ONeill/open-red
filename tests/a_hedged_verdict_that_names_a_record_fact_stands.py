@@ -64,11 +64,11 @@ src = (ROOT / "planner/author.py").read_text()
 cd = src[src.index("def check_done("):]
 cd = cd[:cd.index("\ndef main")]
 ck("check-done lets a hedged reason stand when it names a record fact",
-   "_fact = _record_fact_named(_why)" in cd and "which the record confirms" in cd
+   "else _record_fact_named(_why)" in cd and "which the record confirms" in cd
    and cd.index("if not _fact:") < cd.index("which the record confirms"))
 ad = src[src.index("def check_already_done("):]
 ad = ad[:ad.index("\ndef ", 10)]
-ck("...and so does already-done", '_fact = _record_fact_named(ans.get("why"))' in ad)
+ck("...and so does already-done", 'else _record_fact_named(ans.get("why")))' in ad)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:

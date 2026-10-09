@@ -8686,6 +8686,33 @@ _GAME_RULE = re.compile(
     r"\busually\b|\b(?:required|item|event|story|progression) trigger\b", re.I)
 
 
+# THE STORY'S ORDER AND THE GAME'S LORE, apart from the plain hedges: a
+# reason built on "X, which is only obtainable after Y" names X and concludes
+# Y from a remembered rule, so naming a record fact does not rescue it. The
+# record-fact escape below was made for "has the Poke Flute, indicating the
+# tower is cleared", where the fact IS the deed's own product; it let through
+# "The player has the SILPH_SCOPE, which is only obtainable after infiltrating
+# Silph Co. and defeating the rival/boss" with the Scope from the Celadon
+# hideout and no Silph rival or Giovanni event fired (run 41, 2026-10-09).
+_ORDER_LORE = re.compile(
+    r"\b(?:(?:which|that|this|it) (?:only )?(?:occurs|happens|comes|takes place) "
+    r"(?:only )?(?:after|before|once)\b|"
+    r"(?:is|are|was|were|be) (?:only )?(?:possible|accessible|available|"
+    r"reachable|allowed|obtainable|attainable|unlocked) "
+    r"(?:only )?(?:after|once|when|if)\b|"
+    r"(?:can|could) only (?:be )?(?:\w+ )?(?:after|once)\b|"
+    r"typical(?:ly)?|usually|generally|normally|"
+    r"in pok[e\u00e9]mon (?:red|blue|yellow|green|gen(?:eration)?|games?)\b|"
+    r"in (?:the )?(?:original|first[- ]gen(?:eration)?) games?)",
+    re.I)
+
+
+def _order_lore(why) -> bool:
+    """A reason resting on the story's order or the game's lore (see
+    _ORDER_LORE): refused even when it names a fact the record confirms."""
+    return bool(_ORDER_LORE.search(str(why or "")))
+
+
 def _inferred(why) -> bool:
     """A DONE VERDICT THAT REASONS FROM ONE FACT TO ANOTHER IS NOT A
     VERDICT. check-done crossed "Chase the Team Rocket thief out of the
@@ -8698,7 +8725,7 @@ def _inferred(why) -> bool:
     presumably, must have) are the tell that it is pointing at nothing.
     Refusing a hedged claim decides nothing about the objective — the leg
     simply runs — and it never refuses a reason that names the fact."""
-    return bool(_INFERRED.search(str(why or "")))
+    return bool(_INFERRED.search(str(why or ""))) or _order_lore(why)
 
 
 _DOUBT_NOTE = re.compile(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$")
@@ -8963,7 +8990,8 @@ def check_already_done(deed: str, start: str, model: str,
     except (ValueError, KeyError, OSError, AttributeError):
         return False
     if ans.get("done") and _inferred(ans.get("why")):
-        _fact = _record_fact_named(ans.get("why"))
+        _fact = ("" if _order_lore(ans.get("why"))
+                 else _record_fact_named(ans.get("why")))
         if not _fact:
             print(f"[already-done] refused: the reason reasons from one fact to "
                   f"another instead of pointing at the deed — "
@@ -12138,7 +12166,7 @@ def check_done(goal: str, start: str, model: str,
         return False
     _why = str(_ans.get("why") or "")[:240]
     if _ans.get("done") and _inferred(_why):
-        _fact = _record_fact_named(_why)
+        _fact = "" if _order_lore(_why) else _record_fact_named(_why)
         if not _fact:
             print(f"[check-done] refused: the reason reasons from one fact to "
                   f"another instead of pointing at the deed — {_why}")
