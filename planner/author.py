@@ -8271,11 +8271,21 @@ def _blocks_a_place_you_have_walked(why: str, observed=None) -> str | None:
     return None
 
 
-def _through_place_mouths(goal: str, observed=None):
+def _through_place_mouths(goal: str, observed=None, exit_too: bool = False):
     """(place, mouths) for an objective that says to go THROUGH a place
     this run has walked: the place's family name, and every region OUTSIDE
     it that a walked way out of it lands on. None when the objective does
-    not say through, or names no walked place, or there is no record."""
+    not say through, or names no walked place, or there is no record.
+
+    exit_too: EXIT counts as a through word as well. Only the DONE side asks
+    for it: two walked mouths is the far side reached by any reading of
+    "Exit Rock Tunnel", which was refused with the tunnel left by both
+    mouths and the run standing in Lavender Town, and the missing rung then
+    invented "an NPC inside Rock Tunnel gives HM05" (run 41, 2026-10-08).
+    The refusal side never reads it: "Exit the Pokemon Mansion" has one
+    mouth, and leaving by it is the whole deed."""
+    if exit_too and _re.search(r"\bexit(?:s|ed|ing)?\b", str(goal or ""), _re.I):
+        goal = f"{goal} through"
     # ...and NAVIGATE: "Navigate Mt. Moon and fight Team Rocket" was judged
     # on where the party stood, so with every Rocket beaten and the far
     # mouth walked twice (ROUTE_4|36,2) it read "has not yet exited the
@@ -8323,7 +8333,7 @@ def _through_by_record(goal: str, observed=None) -> str | None:
     the objective named the tunnel, and the record already held the deed.
     Nothing here says where a place SHOULD come out — only that this one
     has been left by two different ways."""
-    got = _through_place_mouths(goal, observed)
+    got = _through_place_mouths(goal, observed, exit_too=True)
     if not got:
         return None
     fam, out = got
