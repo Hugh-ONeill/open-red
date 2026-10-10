@@ -21927,6 +21927,54 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         r"would press from|the walk was fenced|no path|cannot be reached "
         r"over the ground", _re.I)
 
+    def _note_round_trip(self, sg, rnd, mac_key, s0, s1, trace) -> str:
+        """A ROUND TRIP IS NOT A ROUND THAT WENT SOMEWHERE. The repeat gate
+        spends a set of ops only when it FAILED, and a warp up and a warp
+        back down each report "ok" — so Victory Road 1F's upper part was
+        left by the ladder at (1,1) and re-entered by (0,8) round after
+        round, both halves accepted every time, while the barrier the floor
+        reset stood shut (run 37 for ~1.5h, run 41 again, 2026-10-10; and
+        the cross east / cross west between Cerulean and Route 4, run 41).
+
+        The last few rounds are kept; when a stretch of rounds that found
+        nothing new ends exactly where the stretch began — same map, same
+        party levels, flags, bag and HP (_snapshot's 0/4/5/6/7, so a heal
+        trip, a fight or a pickup is never a loop) — and some round in it
+        changed map, every set of ops in the stretch is spent, with that
+        path as the answer the refusal quotes. Returns the path or ""."""
+        core = (lambda s: (s[0], s[4], s[5], s[6], s[7])
+                if s and len(s) > 7 else None)
+        trail = self.__dict__.setdefault("_trip_trail", [])
+        news = any(("found something new" in str(t)
+                    or "never stood on" in str(t)) for t in (trace or []))
+        a, b = core(s0), core(s1)
+        if news or mac_key is None or a is None or b is None:
+            trail.clear()
+            return ""
+        trail.append((mac_key, a, b))
+        del trail[:-4]
+        for j in range(len(trail) - 1, -1, -1):
+            if trail[j][1] != b:
+                continue
+            leg = trail[j:]
+            if not any(t[1][0] != t[2][0] for t in leg):
+                continue
+            path = " -> ".join([str(leg[0][1][0])] + [str(t[2][0]) for t in leg])
+            for k, _a, _b in leg:
+                rec = self._spent_macros.setdefault(k, {"n": 0, "why": ""})
+                rec["n"] = max(int(rec.get("n") or 0), 1)
+                rec["why"] = (f"it was a round trip — {path} — ending where "
+                              f"it began with nothing changed and nothing "
+                              f"new found on the way")
+            self.log("round_trip_spent", subgoal=(sg or {}).get("id"),
+                     round=rnd, path=path, macros=len(leg))
+            trace.append(f"(a round trip — {path}: you are back where those "
+                         f"{len(leg)} round(s) began, nothing new found and "
+                         f"nothing changed; those ops are spent here now)")
+            trail.clear()
+            return path
+        return ""
+
     def _strike_reason_lifted(self, sig, op, step, obs) -> str:
         """Was the thing that struck this op out a BODY IN THE WAY that is
         not there any more?
@@ -25048,6 +25096,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         # ~60 rounds). The same input in the same world gives the same
         # answer — that is arithmetic, not a hint about where to go.
         self._spent_macros: dict = {}
+        self._trip_trail: list = []   # see _note_round_trip
         # keys already granted the "you can reach it now" re-run, so a door
         # that is reachable AND still fails is not re-tried forever
         self._reach_exempt: set = set()
@@ -28097,6 +28146,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         + (f"\nThese ops moved you BACKWARD to already-"
                            f"visited maps — never use them again this "
                            f"subgoal: {backward}" if backward else "")))
+            try:
+                self._note_round_trip(sg, rnd, locals().get("_mac_key"), sig0,
+                                      self._snapshot(cur), trace)
+            except Exception as e:
+                self.log("round_trip_error", subgoal=sg["id"], err=str(e)[:120])
             self.log("escalate_note", subgoal=sg["id"], round=rnd,
                      stuck=stuck_note[:400], loop=loop_note[:200])
             self.log("escalate_feedback", subgoal=sg["id"], round=rnd,
