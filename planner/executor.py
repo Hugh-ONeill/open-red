@@ -23010,6 +23010,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if self._gated(sig, op, step, trace):
                 continue
             pre_obs = obs
+            _fight0 = getattr(self, "_last_fight", None)
             # ...AND THE LAST VIEW THAT HAD A MAP IN IT. An observation
             # taken with a question box up reads map.id None, so the
             # opened-a-way delta below — which needs a BEFORE and an AFTER
@@ -23402,6 +23403,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # later round, or a later attempt, can read why it is stuck.
             said = ((obs or {}).get("last_text") or "").strip()
             heard = ""
+            _by_fight = None
             if said and self._op_spoke(pre_obs, obs, said):
                 self._last_said = said
                 # WHICH DOOR SAID IT. Keyed by the bare op, every locked
@@ -23434,6 +23436,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     str(((obs or {}).get("result") or {}).get("detail") or ""))
                 if _stopped and not step.get("name"):
                     who = _stopped.group(1)
+                # ...AND A TRAINER WHO WALKED UP AND FOUGHT SAID IT. A sweep
+                # of the Pewter gym met a JR.TRAINER, whose "You're still
+                # light years from facing BROCK!" came back as `it said:`
+                # right after "came into view: PEWTERGYM_BROCK", and the
+                # model read it as Brock setting a condition (run 44,
+                # 2026-10-10). A fight recorded during this op names who.
+                _lf = getattr(self, "_last_fight", None)
+                if (not step.get("name") and not _stopped and _lf
+                        and _lf is not _fight0
+                        and _lf.get("who") not in (None, "", "a trainer")):
+                    who = _by_fight = str(_lf["who"])
+                # (the note keeps "it said: " — six readers split on it)
                 # ...AND AN ANSWER IS THE ASKER'S SPEECH. Bill asked "Help me
                 # out here!", the run answered with {"op":"menu"}, and his
                 # reply — "When I'm in the TELEPORTER, go to my PC and run the
@@ -24427,7 +24441,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     (_hb1.get(k) or 0) > (_hb0.get(k) or 0) for k in _hb1)
                 # head AND tail (speech_excerpt); the round a thing arrived
                 # gets the room to say what came with it
-                note += (' — it said: "'
+                note += ((f' — {_by_fight} fought you on the way, and it said: "'
+                          if _by_fight else ' — it said: "')
                          + speech_excerpt(heard, 320 if _grew else 160) + '"')
             trace.append(note)
             self._record_outcome(pre_obs, op, step, note)
