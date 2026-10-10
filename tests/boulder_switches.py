@@ -96,8 +96,12 @@ ck("...and does not claim it closes when the boulder leaves",
    "only while the boulder stays" not in free)
 ck("...and says the way outlives the boulder",
    "stays open after the boulder has gone" in free)
-ck("...without inventing what unsets it",
-   "not recorded here" in free)
+# ...and what unsets it is no longer unknown: runs 37 and 41 found the way
+# SHUT again after going up to 2F and back (2026-10-07, 2026-10-10). Said as
+# what was seen, with where and when, not as a rule of the game.
+ck("...and says what has been SEEN to unset it, as an observation",
+   "has been found SHUT again after the party went to another floor" in free
+   and "2026-10-07 and 2026-10-10" in free and "not recorded here" not in free)
 ck("it does not say which boulder to use",
    "WHICH boulder, and where, is yours" in free)
 

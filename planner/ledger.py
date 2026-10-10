@@ -3648,6 +3648,12 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                        " — no walk from here reaches that cell, which does "
                        "not matter: it is the BOULDER that has to end up "
                        "on it, not you"))
+        # ...AND WHAT UNSETS IT WAS SEEN AFTERWARDS: leaving the floor. Runs 37
+        # and 41 opened Victory Road 1F's barrier, went up to 2F, came back
+        # down and found it shut (the game resets the switches on entering
+        # 2F or Route 23 — gen1recomp tests/parity_victory_road_reset.lua),
+        # while this line said nothing unsets it; run 41 was shut into the
+        # floor's upper part (user, 2026-10-10: "yeah record the resets").
         head += (f". THIS FLOOR HAS {len(_bsw)} SWITCH(ES) IN THE FLOOR: "
                  + ", ".join(_one_bsw(c) for c in _bsw[:6])
                  + ". Nothing presses one: a BOULDER has to be shoved onto "
@@ -3658,8 +3664,14 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                    "after the boulder has gone (VICTORY_ROAD_1F, measured "
                    "2026-08-24: the barrier opened, the floor reloaded, the "
                    "boulders were back where they started and the way was "
-                   "still open). What UNSETS it again, if anything, is not "
-                   "recorded here. NAME THE CELL IT SHOULD END UP ON and the "
+                   "still open). WHAT UNSETS IT HAS BEEN SEEN TOO: a way "
+                   "opened like this has been found SHUT again after the "
+                   "party went to another floor or out of the building and "
+                   "came back (VICTORY_ROAD, 2026-10-07 and 2026-10-10: up "
+                   "the ladder to 2F, back down, the barrier closed behind "
+                   "it) — so a way you opened earlier may be shut now, and "
+                   "the switch would need its boulder again. NAME THE CELL "
+                   "IT SHOULD END UP ON and the "
                    "shoving is worked out for you: {\"op\":\"push\","
                    "\"x\":N,\"y\":N,\"to_x\":N,\"to_y\":N} — which "
                    "side to stand on for each shove and in what order, and "
