@@ -21995,8 +21995,14 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         if op == "use_warp" and step.get("x") is not None:
             for w in (m.get("warps") or []):
                 if (w.get("x"), w.get("y")) == (step.get("x"), step.get("y")):
+                    # the WALK's answer, not the engine's: `reachable` looks
+                    # across ground never on screen, and lifting on it freed
+                    # Seafoam B3F's (20,17) five times for a walk that could
+                    # not get there (run 41, 2026-10-09); older shims say
+                    # only `reachable`
+                    _ok = w.get("seen_reachable", w.get("reachable"))
                     return ("the doorway is on screen now and no walk to it "
-                            "is blocked") if w.get("reachable") else ""
+                            "is blocked") if _ok else ""
             return ""
         # ...AND AN EDGE THE WALK REACHES NOW. Viridian's north seam was
         # struck out three times while the sleepy old man lay across the

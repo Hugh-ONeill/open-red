@@ -2192,6 +2192,8 @@ local function map_fixtures(G, map_id)
 end
 
 local function observe(G, seq, result)
+  wd.sr_dist = nil      -- wd.seen_has's walk over seen ground, per observation
+  wd.walk_surf = nil    -- a walk's surf= is read only inside that walk
   -- One side of a fight as the battle screen shows it (see the battle branch
   -- of observe for what is and is not reported, and why).
   local function battle_side(G, s, mine)
@@ -3364,6 +3366,19 @@ local function observe(G, seq, result)
                               returns = (w.destMap == "LAST_MAP") or nil,
                               reachable = reach[w.x .. "," .. w.y] and true
                                           or false,
+                              -- ...AND WHETHER THE WALK ITSELF GETS THERE.
+                              -- `reachable` asks the engine about every
+                              -- cell, seen or not; a walk is made over
+                              -- seen ground only. Seafoam B3F's (20,17)
+                              -- read reachable across water never on
+                              -- screen while every walk to it said "no
+                              -- path", and the strike on it was lifted
+                              -- five times on the first answer (run 41,
+                              -- 2026-10-09). This is the walk's answer.
+                              seen_reachable = (reach[w.x .. "," .. w.y]
+                                                and wd.seen_has
+                                                and wd.seen_has(G, w.x, w.y))
+                                               and true or false,
                               -- ...AND A DOORWAY ACROSS WATER IS REACHED BY
                               -- RIDING TO IT. The walk flood says no, which
                               -- is true about walking; the swum flood is
@@ -4727,6 +4742,13 @@ local function bushes_blocking(G, tx, ty, reach)
       :format(wx_, wy_, (_ks and _refused)
         and (", and the game has already refused to let this party ride "
              .. "here: it said \"" .. _refused .. "\"")
+        -- ...AND NOT THE SAME ADVICE TO A WALK THAT ALREADY TOOK IT. "take
+        -- surf=true" went back to walk_to(20,17,surf=true) on Seafoam B3F,
+        -- party already riding, as the answer to itself (run 41, 2026-10-09)
+        or _ks and (wd.walk_surf or ((G.overworld or {}).player or {}).surfing)
+        and (", and this walk already rode the water (surf was on): the "
+             .. "water you can ride from here, over what has been on "
+             .. "screen, does not reach it either")
         or _ks
         and (", but a party Pokemon knows SURF: walk_to and cross take "
              .. "surf=true to ride it, or {\"op\":\"field_move\","
@@ -5331,6 +5353,24 @@ local function vantage_spots(dist, mask, W, H, vl, vr, vu, vd, is_counter)
   return out
 end
 
+-- is (x,y) a cell a walk from here gets to? The WALK's own answer: its path
+-- search (wd.walk_dir = bfs_dir, assigned where bfs_dir is defined, below),
+-- so whatever turns a walk back — currents, frozen walls, ground never on
+-- screen — turns this back too. seen_reach alone still read Seafoam B3F's
+-- (20,17) reachable while the walk said no path (probed on run 41's save).
+-- Memoized per observation (observe clears wd.sr_dist).
+wd.seen_has = function(G, x, y)
+  local p = G.overworld and G.overworld.player
+  if p and p.cellX == x and p.cellY == y then return true end
+  wd.sr_dist = wd.sr_dist or {}
+  local k = x .. "," .. y
+  if wd.sr_dist[k] == nil then
+    local dir = wd.walk_dir and wd.walk_dir(G, x, y)
+    wd.sr_dist[k] = dir and true or false
+  end
+  return wd.sr_dist[k]
+end
+
 seen_reach = function(G, sx, sy, surf)
   local okc, Collision = pcall(require, "src.world.Collision")
   local ow, p = G.overworld, G.overworld and G.overworld.player
@@ -5848,6 +5888,7 @@ local function bfs_dir(G, tx, ty, blind, thaw)
   end
   return bfs_dir_pass(G, tx, ty, wblock, gate)
 end
+wd.walk_dir = bfs_dir     -- for wd.seen_has: observe is declared far above
 
 -- Nearest reachable tile on a given map edge (the walkable gap in a fence is
 -- the only edge tile BFS can reach), for crossing to a connected map.
@@ -6596,6 +6637,7 @@ local function drop_cell(mapid, x, y)
 end
 
 local function walk_to_body(G, c)
+  wd.walk_surf = c.surf and true or nil
   if not need_overworld(G) then
     return false, "not in overworld (a box was up and would not close: "
       .. _screen_name(G) .. ")"
