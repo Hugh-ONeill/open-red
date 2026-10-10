@@ -164,6 +164,9 @@ class Candidate:
                                  # and is ONE door (_door_groups)
     side: str = ""               # doors: which wall of the room, or which
                                  # part of an outdoor map, the door is on
+    opens: dict = field(default_factory=dict)
+                                 # boulders: what one shove opens, from the
+                                 # shim ({"dir": ..., "n": cells})
     toggle: str = ""             # fixtures: this thing is one end of a
                                  # SHARED lever, and this is how that lever
                                  # is set right now ("PRESSED"/"UNPRESSED").
@@ -1537,6 +1540,8 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
             # on every map load. Never "spoken to", never "untouched".
             c.status = ("unreachable" if not o.get("reachable")
                         else "pushable" if knows_strength else "boulder")
+            if isinstance(o.get("opens"), dict):
+                c.opens = dict(o["opens"])
             out.append(c)
             continue
         if kind == "cut_tree":
@@ -3903,6 +3908,14 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
         if _st == "sealed" and not c.n:
             _st = "sealed_untried"
         words = _STATUS_WORDS.get(_st, _st).format(n=c.n)
+        # WHAT THE SHOVE OPENS, the boulder's twin of the bush's "walkable
+        # ground past it" (shim wd.boulder_opens; run 41, 2026-10-10, Victory
+        # Road 1F's BOULDER3 between a shut-in party and the exit)
+        if c.status in ("pushable", "boulder") and c.opens.get("n"):
+            words += (f" — shoved {c.opens.get('dir')} "
+                      f"{c.opens.get('shoves') or 1} time(s) from where it "
+                      f"sits, it opens {c.opens.get('n')} cell(s) of ground "
+                      f"no walk from here reaches now")
         # A WAY THAT HAS REFUSED YOU IS NOT "NEVER TAKEN". The status stays
         # "untried" because the crossing never completed, but printing
         # "never taken from here" beside its own FAILED note called a

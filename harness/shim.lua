@@ -3734,6 +3734,10 @@ local function observe(G, seq, result)
                    and adjacent_swimmable(npc.cellX, npc.cellY) or nil,
         why = (not adjacent_reachable(npc.cellX, npc.cellY))
               and why_far(npc.cellX, npc.cellY) or nil,
+        -- a reachable boulder: what one shove of it opens (wd.boulder_opens)
+        opens = (kind == "boulder" and wd.boulder_opens
+                 and adjacent_reachable(npc.cellX, npc.cellY)
+                 and wd.boulder_opens(G, npc)) or nil,
       }
     end
     -- OBJECTS THIS MAP DEFINES THAT ARE NOT PRESENT YET. G.overworld.npcs
@@ -5702,8 +5706,15 @@ local function bfs_dir_pass(G, tx, ty, wblock, gate)
           local _isrock = ((npc.def or {}).sprite) == "SPRITE_BOULDER"
           fence[#fence + 1] = ("%s (%s) at %d,%d"):format(
             package.loaded.red_public_names.of((G.overworld.map or {}).id, npc, "someone"),
-            _isrock and "a BOULDER, which STRENGTH pushes — it is not "
+            _isrock and ("a BOULDER, which STRENGTH pushes — it is not "
                         .. "someone to talk to"
+                        .. (function(op)
+                              return op and (("; shoved %s %d time(s) from "
+                                .. "where it sits it opens %d cell(s) of "
+                                .. "ground no walk reaches now"):format(
+                                  op.dir, op.shoves or 1, op.n))
+                                or ""
+                            end)(wd.boulder_opens and wd.boulder_opens(G, npc)))
               or ("a person, " .. (mv == "WALK" and "who wanders"
                   or "standing still — they do not wander")), nx, ny)
           break
@@ -9601,6 +9612,68 @@ local function _reach_with_rock(G, px, py, bx, by, rock)
     end
   end
   return seen
+end
+
+-- WHAT A SHOVE OPENS. A cut bush has said "walkable ground past it that no
+-- walk there reaches" since run 27; a boulder said only that STRENGTH moves
+-- it, listed beside two trainers under "not a claim that any of it is what
+-- stops you". Victory Road 1F's upper part, the barrier shut again behind a
+-- party that went up a floor (the game resets the switches), had its way
+-- down behind VICTORYROAD1F_BOULDER3 at (2,10): shove it down and the road
+-- to the exit is open. Run 41 never did, run 37 never did either, and both
+-- went up and down the ladder for hours (user, 2026-10-10: "it just needs
+-- to push the boulder out of the way to move past it"). The same two
+-- tests the push solver runs — can the pushing side be reached, will the
+-- rock move — then the walk with the rock one cell on: the cells it adds
+-- that no walk reaches now. The direction with the most; nil when none.
+-- On wd: observe() is declared far above and cannot see this file's later
+-- locals (the DIRS scoping trap), and the file is at the 200-local cap.
+wd.boulder_opens = function(G, rock)
+  local p = G.overworld and G.overworld.player
+  if not (p and rock and rock.cellX) then return nil end
+  local bx, by = rock.cellX, rock.cellY
+  local r0 = _reach_with_rock(G, p.cellX, p.cellY, bx, by, rock)
+  local best = nil
+  local DV = { up = { 0, -1 }, down = { 0, 1 },
+               left = { -1, 0 }, right = { 1, 0 } }
+  -- ...AND A CORRIDOR TAKES MORE THAN ONE SHOVE. BOULDER3 shoved down ONE
+  -- cell still fills the one-wide way it stands in, and the first cut of
+  -- this read "opens nothing"; the probe on run 41's save showed it. So the
+  -- rock is walked on the same way, a shove at a time while the walker can
+  -- still reach the pushing side and the rock can still move, and the
+  -- position that opens the most ground is the one said (with how many
+  -- shoves). Straight lines only, at most eight: what a turn would open is
+  -- the push solver's to work out once the model names an end cell.
+  for dir, d in pairs(DV) do
+    local cx, cy, rr = bx, by, r0
+    for k = 1, 8 do
+      if not (rr[(cx - d[1]) .. "," .. (cy - d[2])]
+              and _can_step(G, cx, cy, dir, rock)) then break end
+      cx, cy = cx + d[1], cy + d[2]
+      rr = _reach_with_rock(G, p.cellX, p.cellY, cx, cy, rock)
+      local n = 0
+      for kk in pairs(rr) do
+        if not r0[kk] and kk ~= (bx .. "," .. by) then
+          local x0, y0 = kk:match("^(-?%d+),(-?%d+)$")
+          -- the cells the rock itself slid through are not new ground
+          local onpath = false
+          for j = 1, k - 1 do
+            if tonumber(x0) == bx + d[1] * j and tonumber(y0) == by + d[2] * j
+            then onpath = true end
+          end
+          if not onpath then n = n + 1 end
+        end
+      end
+      -- the MOST it opens along the line, fewest shoves on a tie: BOULDER3
+      -- read 0, 2, 68 for one, two, three shoves down — the second is a
+      -- notch in the wall, the third is the road out
+      if n > 0 and (not best or n > best.n
+                    or (n == best.n and k < best.shoves)) then
+        best = { dir = dir, n = n, shoves = k }
+      end
+    end
+  end
+  return best
 end
 
 -- BFS over where the BOULDER can be, each step a legal shove
