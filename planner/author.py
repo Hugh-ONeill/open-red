@@ -3359,6 +3359,23 @@ def _check_pred_shapes(dw: dict, tag: str, sid, probs: list):
             if ROUTE_MAPS and mp not in ROUTE_MAPS:
                 probs.append(f"{tag} ({sid}) area '{v}' names map '{mp}', "
                              f"which is not a place this game has")
+            # A PART IS A COORDINATE, NEVER A WORD: "PEWTER_CITY|GYM" passed
+            # here as a real map and then could never be true, so the step
+            # failed standing inside the gym (run 44, 2026-10-10). A
+            # building with its own door is its own map.
+            elif not _re.fullmatch(r"\d+,\d+", v.split("|", 1)[1].strip()):
+                rg = v.split("|", 1)[1].strip()
+                words = [w for w in _re.split(r"[^A-Z0-9]+", rg.upper()) if w]
+                own = [m for m in ROUTE_MAPS
+                       if m.split("_")[0] == mp.split("_")[0] and words
+                       and all(w in m.split("_") for w in words)]
+                probs.append(
+                    f"{tag} ({sid}) area '{v}': the part after | is a "
+                    f"coordinate code from the evidence (two numbers, "
+                    f"like 20,5), and '{rg}' is not one"
+                    + (f"; a building with its own door is its own map: "
+                       + " or ".join('{"map": "' + m + '"}' for m in own[:3])
+                       if own else ""))
 
 
 def _obs_now(path="run/obs.json") -> dict:
