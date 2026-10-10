@@ -1028,6 +1028,8 @@ def choose_replacement(obs: dict, spec: dict | None = None) -> int | None:
     if order in ("resists", "best_matchup") and not foe_types:
         order = "healthiest"
 
+    _ref = _level_ref(obs, party)
+
     def key(n_m):
         n, m = n_m
         types = [str(t).upper() for t in (m.get("types") or [])]
@@ -1044,11 +1046,37 @@ def choose_replacement(obs: dict, spec: dict | None = None) -> int | None:
             # foe cannot touch at all exactly like one it can hurt a
             # little. The floor exists to keep the ratio finite, nothing
             # more; gen 1's ladder is 0, 0.25, 0.5, 1, 2, 4.
-            return (punch(m, foe_types)
+            return (_level_tier(m, _ref),
+                    punch(m, foe_types)
                     / max(0.125, incoming(foe_types, types)), f)
         return (f, 0.0)
 
     return max(pool, key=key)[0]
+
+
+MATCHUP_LEVEL_RATIO = 0.7
+
+
+def _level_tier(mon: dict, ref) -> int:
+    """best_matchup WEIGHS LEVEL FIRST. It read types and moves only, so in
+    Pewter gym a PIDGEY L5 outranked the BULBASAUR L11 already out against
+    a DIGLETT L11 (Flying is immune to Ground) and the turn-1 switch rule
+    sent it in to be knocked out, four fights and four blackouts running
+    (run 46, 2026-10-10). A member under 0.7 of the reference level (the
+    foe's when one is on screen, else the party's highest) ranks after
+    every member at or above it; the matchup decides within each tier."""
+    try:
+        ref = float(ref or 0)
+    except (TypeError, ValueError):
+        ref = 0.0
+    if ref <= 0:
+        return 1
+    return 1 if (mon.get("level") or 0) >= MATCHUP_LEVEL_RATIO * ref else 0
+
+
+def _level_ref(obs: dict, party: list):
+    foe = (((obs or {}).get("battle") or {}).get("foe") or {})
+    return foe.get("level") or max([m.get("level") or 0 for m in party] or [0])
 
 
 LEAD_ORDERS = ("healthiest", "first_alive", "highest_level", "most_hp",
@@ -1110,7 +1138,9 @@ def choose_lead(obs: dict, spec: dict | None = None,
                                for t in (n_m[1].get("types") or [])]),
                 _hp_frac(n_m[1])))[0]
         else:
+            _ref = max([m.get("level") or 0 for _n, m in alive] or [0])
             return max(pool, key=lambda n_m: (
+                _level_tier(n_m[1], _ref),
                 punch(n_m[1], ft)
                 / max(0.125, incoming(ft, [str(t).upper()
                                            for t in (n_m[1].get("types")
@@ -1348,7 +1378,9 @@ def _train_to(obs: dict, order: str, skip: set,
     if order == "first_alive":
         return pool[0][0]
     if order == "best_matchup":
-        key = lambda n_m: (punch(n_m[1], foe_types) / max(0.125, incoming(
+        _ref = _level_ref(obs, party)
+        key = lambda n_m: (_level_tier(n_m[1], _ref),
+                           punch(n_m[1], foe_types) / max(0.125, incoming(
             foe_types, [str(t).upper() for t in (n_m[1].get("types") or [])])),
             n_m[1].get("level") or 0)
     elif order == "resists":
