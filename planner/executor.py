@@ -21873,18 +21873,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # longer describe this attempt, so the count starts over
                 self._dead_ops[sig] = 0
                 self._dead_at[sig] = getattr(self, "_mark_now", None)
-                self._dead_why[sig] = str(det or "")[:160]
+                self._dead_why[sig] = self._strike_why(det)
                 return
         _d = str(det or "").lower()
         if "because of the battle" in _d or "a fight started" in _d:
-            self._dead_why[sig] = str(det or "")[:160]
+            self._dead_why[sig] = self._strike_why(det)
             return
         _mk = getattr(self, "_mark_now", None)
         if self._dead_at.get(sig) != _mk:
             self._dead_ops[sig] = 0
             self._dead_at[sig] = _mk
         self._dead_ops[sig] = self._dead_ops.get(sig, 0) + 1
-        self._dead_why[sig] = str(det or "")[:160]
+        self._dead_why[sig] = self._strike_why(det)
 
     def _named(self, op, step):
         """The op as SENT: a destination the model named may thaw a wall.
@@ -22036,6 +22036,22 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     return ("it is on screen now and standing beside it is "
                             "not blocked") if o.get("reachable") else ""
         return ""
+
+    @staticmethod
+    def _strike_why(det) -> str:
+        """What turned an op back, short — but never cut inside what
+        someone SAID. 160 characters ended Pewter's guide boy at "You're
+        a", so every refusal of the east cross hid "BROCK's looking for
+        new challengers! Follow me!", and the model hunted the town for a
+        way round two NPCs (run 45, 2026-10-10). The first quoted line is
+        kept whole, up to 400 characters."""
+        s = str(det or "")
+        q = s.find('"')
+        if 0 <= q < 160:
+            end = s.find('"', q + 1)
+            if q < end < 400:
+                return s[:end + 1]
+        return s[:160]
 
     def _gated(self, sig, op, step, trace):
         """The 3-strikes refusal, shared by the generic path and the early
