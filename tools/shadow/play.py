@@ -47,7 +47,18 @@ def prepare(seg: Path, ident: str = SHADOW_IDENT, game: str = "red") -> None:
     saves = home / "saves" / game
     saves.mkdir(parents=True, exist_ok=True)
     cache = LOVE / LIVE_IDENT / game
-    if cache.is_dir() and not (home / game).is_dir():
+    # ...AND AGAIN WHEN THE RUN'S IS NEWER. Copied once and never again, the
+    # copy kept a rom-cache-v12 after update_base re-imported the run's to
+    # v13, and the new base booted it to its launcher's "Update required —
+    # Re-import ROM" instead of the game (user, 2026-10-10, a screenshot of
+    # it). The marker file names the cache version; differ and it is copied.
+    def _mark(d):
+        try:
+            return (d / "rom-cache.complete").read_text()
+        except OSError:
+            return None
+    if cache.is_dir() and _mark(cache) != _mark(home / game):
+        shutil.rmtree(home / game, ignore_errors=True)
         shutil.copytree(cache, home / game)        # the decoded ROM (~5 MB)
     for name in ("slot1.lua", "slot1.lua.bak"):
         (saves / name).unlink(missing_ok=True)
