@@ -1320,12 +1320,24 @@ def train_fights(trainee: dict, foe: dict, fight_if: dict | None,
     return True, ""
 
 
-def _train_to(obs: dict, order: str, skip: set) -> int | None:
+def _train_to(obs: dict, order: str, skip: set,
+              flee_below: float | None = None) -> int | None:
     """Who comes in when the trainee goes out: never the trainee, never
-    whoever is already out, never a fainted slot."""
+    whoever is already out, never a fainted slot.
+
+    ...AND NOT ONE THE SAME SPEC RUNS WITH. flee_wild.hp_below flees a wild
+    the moment the member out is under it, so handing over to a member
+    already under it is a run, not a fight: Route 2, a L3 PIKACHU trainee,
+    BULBASAUR L8 at 4/25 sent in as highest_level seven fights running,
+    each fled on the next turn for 0 exp, PIDGEY L7 at full HP never used,
+    and the step ended in a blackout (run 45, 2026-10-10). The spec's own
+    order picks among the rest; if nobody is above the line it picks as
+    before."""
     party = (obs or {}).get("party") or []
     pool = [(i + 1, m) for i, m in enumerate(party)
             if (i + 1) not in skip and (m.get("hp") or 0) > 0]
+    if flee_below is not None:
+        pool = [n_m for n_m in pool if _hp_frac(n_m[1]) >= flee_below] or pool
     if not pool:
         return None
     foe_types = [str(t).upper() for t in
@@ -1395,7 +1407,9 @@ def train_turn(obs: dict, spec: dict | None = None,
             return None
         if (tr.get("else") or "switch") == "flee":
             return {"do": "flee", "why": f"train: {why_not}, so it runs"}
-        to = _train_to(obs, tr.get("to") or "highest_level", {t})
+        to = _train_to(obs, tr.get("to") or "highest_level", {t},
+                       (spec.get("flee_wild") or {}).get("hp_below")
+                       if isinstance(spec, dict) else None)
         if to:
             st["sent_out"] = True
             return {"do": "switch", "slot": to,
