@@ -20659,8 +20659,22 @@ class Executor:
                     # a blackout heals to FULL; a Revive used mid-fight does not
                     and all((m.get("hp") or 0) >= (m.get("max_hp") or 1)
                             for m in party))
+        # ...AND THE PARTY WAKES OUTSIDE, NOT IN A CENTER. This recomp
+        # respawns a wiped party on the town map (VIRIDIAN_CITY), so the
+        # map test below missed it and run 45's forest wipe and run 46's
+        # gym wipe were both kept as fights won (2026-10-10). The other
+        # signature is the one the op-level blackout reads: a new map, the
+        # whole party at full HP, and less money than the fight began with.
+        _m0, _m1 = (before or {}).get("money"), (after or {}).get("money")
+        _woke_out = (bool(_woke) and _woke != (getattr(self, "_last_overworld_map",
+                                                       None) or "")
+                     and bool(party) and all(
+                         m.get("max_hp") and m.get("hp") == m["max_hp"]
+                         for m in party)
+                     and isinstance(_m0, int) and isinstance(_m1, int)
+                     and _m1 < _m0)
         lost = ((bool(party) and len(fainted) == len(party))
-                or _revived
+                or _revived or _woke_out
                 or "blacked out" in _said or "out of useable" in _said
                 or (("POKECENTER" in _woke or _woke == "REDS_HOUSE_2F")
                     and _woke != (getattr(self, "_last_overworld_map", None)
