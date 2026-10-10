@@ -10465,12 +10465,36 @@ function OPS.toss(G, c)
           if mvn == _mv then able = true break end
         end
         local lst = able and can or cannot
-        lst[#lst + 1] = tostring(mon.species) .. " (slot " .. i .. ")"
+        -- ...AND WHAT THE TEACH SCREEN TAKES. "Compatible" was all this
+        -- said, and "using it keeps whatever it is worth" read as a free
+        -- slot: the run taught RAGE over RAZOR_LEAF and TOXIC over its
+        -- powder to clear the bag, and VENUSAUR came out of it on CUT /
+        -- TOXIC / LEECH_SEED / RAGE with no Grass attack (run 41,
+        -- 2026-10-10). A full moveset asks which move to forget; that
+        -- question, and the four names it lists, are on the screen.
+        -- Names only — what a move is worth stays the model's.
+        local tag = tostring(mon.species) .. " (slot " .. i .. ")"
+        if able then
+          local known, has = {}, false
+          for _, mv in ipairs(mon.moves or {}) do
+            local id = tostring(type(mv) == "table" and mv.id or mv)
+            known[#known + 1] = id
+            if id == _mv then has = true end
+          end
+          tag = tag .. (has and (" — already knows " .. tostring(_mv))
+            or #known >= 4
+               and (" — knows " .. table.concat(known, ", ")
+                    .. ": teaching it FORGETS one of those four")
+            or (" — knows " .. (#known > 0 and table.concat(known, ", ")
+                                or "no moves")
+                .. ": learns it without forgetting any"))
+        end
+        lst[#lst + 1] = tag
       end
       why = why .. " It teaches " .. tostring(_mv) .. "; pointed at your "
         .. "party, the teach screen would say"
         .. (#can > 0
-            and (" compatible for " .. table.concat(can, ", "))
+            and (" compatible for " .. table.concat(can, "; "))
             or " NOT COMPATIBLE for every one of them")
         .. ((#can > 0 and #cannot > 0)
             and (" and NOT COMPATIBLE for " .. table.concat(cannot, ", "))
