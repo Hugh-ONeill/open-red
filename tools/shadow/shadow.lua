@@ -201,7 +201,8 @@ end
 
 -- the run's generator as it stood when its driver loaded: same point here
 pcall(love.math.setRandomState, L.boot[3])
-pcall(love.window.setTitle, os.getenv("SHADOW_TITLE") or "red-recomp 1x")
+local SHADOW_TITLE = os.getenv("SHADOW_TITLE") or "red-recomp 1x"
+pcall(love.window.setTitle, SHADOW_TITLE)
 pcall(function()                         -- which GPU (or none) draws this copy
   local name, version, vendor, device = love.graphics.getRendererInfo()
   print(("[shadow] renderer %s %s | %s | %s"):format(tostring(name), tostring(version), tostring(vendor), tostring(device)))
@@ -776,6 +777,15 @@ pcall(function()
   local o_draw = love.draw
   love.draw = function(...)
     if o_draw then o_draw(...) end
+    -- THE TITLE IS HOW THE STREAM FINDS THIS WINDOW. The base now titles its
+    -- window itself once the game loads ("gen1recomp v0.0.0-dev+..."), after
+    -- this driver set it, and stream_layout — which finds the copy by title —
+    -- saw no copy and held the HUD over it (user, 2026-10-10: "cant see the
+    -- 1x game"). Put it back whenever it is not ours; the window title is no
+    -- part of the game's logic.
+    if love.window.getTitle and love.window.getTitle() ~= SHADOW_TITLE then
+      pcall(love.window.setTitle, SHADOW_TITLE)
+    end
     -- screenshots, for checking a look: SHADOW_SHOT=step[,step...], each
     -- saved as shadow_shot_<step>.png in the identity's save folder
     if os.getenv("SHADOW_SHOT") and not shot_list then

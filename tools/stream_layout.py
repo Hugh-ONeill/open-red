@@ -37,6 +37,15 @@ def clients() -> list[dict]:
         return []
 
 
+def _from_player(pid) -> bool:
+    """Was this window's process started by tools/shadow/play.py?"""
+    try:
+        ppid = Path(f"/proc/{int(pid)}/stat").read_text().rsplit(")", 1)[1].split()[1]
+        return b"tools/shadow/play.py" in Path(f"/proc/{ppid}/cmdline").read_bytes()
+    except (OSError, ValueError, IndexError, TypeError):
+        return False
+
+
 def authoring() -> bool:
     try:
         return json.loads(PHASE.read_text()).get("phase") == "authoring"
@@ -81,7 +90,12 @@ def main() -> None:
         # THE COPY'S window only, by its title: a run relaunched without
         # stream.sh boots its 200x game headed, also class love, and both got
         # stacked on the copy's tile (2026-10-03)
-        copies = [c for c in cs if c.get("class") == "love" and c.get("title") == "red-recomp 1x"]
+        # ...OR BY WHO STARTED IT: the base began titling its own window once
+        # the game loads, and a copy titled "gen1recomp v..." read as no copy
+        # at all, so the HUD sat over it (user, 2026-10-10: "cant see the 1x
+        # game"). A love window whose parent is the copy's player is the copy.
+        copies = [c for c in cs if c.get("class") == "love"
+                  and (c.get("title") == "red-recomp 1x" or _from_player(c.get("pid")))]
         # ...AND IT STAYS WIDE OVER THAT WINDOW until a new one opens: the old
         # copy holds the last frame of the boot before, and narrowing the
         # moment authoring ended showed that game frame until the next boot's
