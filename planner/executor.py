@@ -22043,8 +22043,27 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         so a struck-out cross was still executed every round."""
         if self._dead_ops.get(sig, 0) < 3:
             return False
-        _lift = self._strike_reason_lifted(sig, op, step,
-                                           self.settle() or {})
+        _seen = self.settle() or {}
+        # STRUCK OUT IN ANOTHER WORLD IS NOT STRUCK OUT HERE. The count
+        # only met the world mark on the NEXT failure, and a refused op
+        # never fails again: Pewter's east cross was struck three times
+        # while the guide boy walked the run back to the gym, BOULDERBADGE
+        # was won, and the cross went on being refused "with nothing about
+        # you changed since" until the step ended idle (run 44,
+        # 2026-10-10). The mark is badges, event flags and bag kinds.
+        _mk = self._world_mark(_seen) if _seen else None
+        _was = self._dead_at.get(sig)
+        if _mk is not None and _was is not None and list(_was) != list(_mk):
+            self.log("strike_expired", op=op, why=self._dead_why.get(sig),
+                     was=_was, now=_mk)
+            self._dead_ops[sig] = 0
+            self._dead_at[sig] = _mk
+            trace.append(f"(this was turned back 3 times before — "
+                         f"{self._dead_why.get(sig)} — but the run has "
+                         f"changed since (badges, events or bag), so it is "
+                         f"tried again.)")
+            return False
+        _lift = self._strike_reason_lifted(sig, op, step, _seen)
         if _lift:
             self.log("strike_lifted", op=op, why=self._dead_why.get(sig),
                      lifted=_lift)
