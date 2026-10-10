@@ -29,6 +29,8 @@ trap 'rm -rf "$RED_BRIDGE_DIR"' EXIT
 # the names past runs had (planner/executor.py NAMES_USED) are a real run's
 # record; a test's names go to a throwaway file
 export RED_NAMES_USED="$RED_BRIDGE_DIR/names_used"
+# ...and the rungs' own reasons (planner/author.py note_rung_said)
+export RED_RUNG_SAID="$RED_BRIDGE_DIR/rung_said"
 ls tests/*.py | grep -Ev "$BOOTS" | xargs -P "${JOBS:-10}" -I{} bash -c \
   'n=$(basename {} .py); timeout 300 python3 {} > '"$OUT"'/$n.log 2>&1 || echo "$n" >> '"$OUT"'/FAILED'
 echo "ran $(ls "$OUT"/*.log | wc -l) tests (logs in $OUT)"

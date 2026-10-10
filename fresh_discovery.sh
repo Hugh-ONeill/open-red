@@ -185,6 +185,7 @@ if [ "$done_legs" = 0 ]; then
         run/outline_replays \
         run/upkeep_purpose_asked \
         run/attempt_yield run/attempt_start.json \
+        run/rung_said \
         run/leg_witness.json
   # ...AND THE LEG PLANS, WHICH ARE WRITTEN AGAINST A WORLD. The outline
   # is banked luck — an expensive list of objectives, kept on purpose —

@@ -1196,6 +1196,75 @@ def outline_so_far(cap: int = 12) -> str:
     return out + done_ledger_text()
 
 
+# WHAT THE MODEL CONCLUDED WHEN THE RUNGS ASKED. Each rung that keeps a leg
+# as it stands says why, and that sentence went to the chain log and
+# nowhere else: the wording rung kept "Retrieve the Gold Teeth for the
+# Warden" because "the Gold Teeth are an item found in a house in Fuchsia
+# City", and the plan written next for that same leg searched Pokemon Tower
+# 3F again (run 41, 2026-10-09). The author is the same model; its own
+# answers go back to it, as its own, for this leg only. Nothing here is the
+# harness's claim about the game.
+def _rung_said_path() -> Path:
+    """run/rung_said, or RED_RUNG_SAID — the suite's throwaway (see
+    tests/run_suite.sh), so no test writes the live run's record."""
+    return Path(os.environ.get("RED_RUNG_SAID") or "run/rung_said")
+
+
+_RUNG_ASKED = {
+    "blocker": "must a later objective of yours come first? you said no",
+    "missing": "is a step missing before it? you named none",
+    "wording": "is it worded wrong? you said the wording stands",
+    "later": "is it simply too early? you said it stays",
+}
+
+
+def _bare_goal(goal: str) -> str:
+    return re.sub(r"\s*\((?:a doubt you recorded when outlining:|you added "
+                  r"this when outlining,).*$", "", str(goal or "")).strip()
+
+
+def note_rung_said(goal: str, rung: str, why) -> None:
+    """Keep a rung's own reason under the leg's wording (run/rung_said)."""
+    w = re.sub(r"\s+", " ", str(why or "")).strip()[:220]
+    g = _bare_goal(goal)
+    if not w or not g:
+        return
+    try:
+        with _rung_said_path().open("a") as fh:
+            fh.write(f"{g}\t{rung}\t{w}\n")
+    except OSError:
+        pass
+
+
+def rung_said_text(goal: str, cap: int = 3) -> str:
+    """The model's own most recent rung answers about THIS objective, newest
+    last, repeats dropped; "" when there are none."""
+    g = _bare_goal(goal)
+    try:
+        lines = _rung_said_path().read_text().splitlines()
+    except OSError:
+        return ""
+    seen, rows = set(), []
+    for ln in reversed(lines):
+        parts = ln.split("\t", 2)
+        if len(parts) != 3 or parts[0] != g:
+            continue
+        key = (parts[1], parts[2])
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(parts[1:])
+        if len(rows) >= cap:
+            break
+    if not rows:
+        return ""
+    return ("\n\nWHAT YOU CONCLUDED WHEN ASKED ABOUT THIS OBJECTIVE (your own "
+            "answers, newest last — what you believed then, not something "
+            "this game has told you):\n"
+            + "\n".join(f"  {_RUNG_ASKED.get(r, r)}: \"{w}\""
+                        for r, w in reversed(rows)))
+
+
 def objective_history_text(goal: str) -> str:
     """THIS OBJECTIVE'S OWN HISTORY, for the author. The rungs that judge
     a leg read its lineage, its yield record and the ground its runs
@@ -1205,7 +1274,8 @@ def objective_history_text(goal: str) -> str:
     House (2026-08-28, user: "it's authored it wrong now"). The same
     record, in front of the same model, before it writes."""
     bare = re.sub(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$", "", goal).strip()
-    out = _wording_lineage(bare) + attempt_yield_text(bare)[0] + new_ground_text(bare)
+    out = (_wording_lineage(bare) + attempt_yield_text(bare)[0]
+           + new_ground_text(bare) + rung_said_text(bare))
     if not out:
         return ""
     return ("\n\nTHIS OBJECTIVE HAS BEEN TRIED BEFORE. Its record, before "
@@ -7855,6 +7925,7 @@ def _blocker_once(goal, body, ahead, start, journal, model, leg, observed,
     if not isinstance(n, (int, float)):
         print(f"[blocker] none: {str(_ans.get('why') or '')[:200]}",
               file=sys.stderr)
+        note_rung_said(goal, "blocker", _ans.get("why"))
         return None, None
     n = int(n)
 
@@ -9587,6 +9658,7 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             # EVERY ANSWER IS SAID (see check_blocker): a silent "none" is
             # indistinguishable from a rung never asked.
             print(f"[missing] none: {_why}", file=sys.stderr)
+            note_rung_said(goal, "missing", _why)
             return ""
         # ...AND THE SAME DEED IN OTHER WORDS IS ALREADY LISTED. "Obtain the
         # S.S. Ticket" was inserted in front of a list that held "Retrieve
@@ -11482,6 +11554,7 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
         return ""
     if not new or new.lower() in ("none", "null"):
         print(f"[wording] the wording stands: {why}", file=sys.stderr)
+        note_rung_said(goal, "wording", why)
         return ""
     if no_reword:
         print(f"[wording] refused a rewrite ({no_reword}): {new!r} — "
@@ -11762,6 +11835,7 @@ def check_later(goal: str, n: int, ahead: list, start: str, journal: str,
     after = ans.get("after")
     if after in (None, "", "null"):
         print(f"[later] stays where it is: {why}", file=sys.stderr)
+        note_rung_said(goal, "later", why)
         return 0
     try:
         after = int(after)
@@ -11771,6 +11845,7 @@ def check_later(goal: str, n: int, ahead: list, start: str, journal: str,
     if after <= n:
         print(f"[later] refused: {after} is not later than {n} — {why}",
               file=sys.stderr)
+        note_rung_said(goal, "later", why)
         return 0
     if after > last:
         after = last
