@@ -130,6 +130,25 @@ def door_side(x, y, w, h, outdoor) -> str:
     return f"in the {part} part of this map" if part else ""
 
 
+def shove_worth(c) -> bool:
+    """A boulder whose shove opens ground worth saying: a doorway, or room
+    enough to be a way on (10 cells) — not a notch in the wall (run 41,
+    2026-10-10: BOULDER2's 3 cells sat beside BOULDER3's 68 and the exit)."""
+    op = getattr(c, "opens", None) or {}
+    return (getattr(c, "kind", "") == "boulder"
+            and getattr(c, "status", "") in ("pushable", "boulder")
+            and bool(op.get("n"))
+            and (bool(op.get("door")) or int(op.get("n") or 0) >= 10))
+
+
+def shove_words(c) -> str:
+    op = c.opens or {}
+    return (f"shoved {op.get('dir')} {op.get('shoves') or 1} time(s) from "
+            f"where it sits, it opens {op.get('n')} cell(s) of ground no "
+            f"walk from here reaches now"
+            + (", a doorway among them" if op.get("door") else ""))
+
+
 @dataclass
 class Candidate:
     key: str                     # "3,7" | "north" | object NAME | "explore"
@@ -2395,6 +2414,17 @@ def _plan_explore_words(ex, obs: dict, cands: list[Candidate] | None = None,
                  + ", ".join(c.key for c in _stuck[:3])
                  + " sits where no walk from here goes — the way in is "
                  "what is missing, not the thing).")
+        # ...EXCEPT A SHOVE. A boulder whose shove opens ground no walk
+        # reaches is not done business, and this line called the floor
+        # finished and sent the run up the ladder — Victory Road 1F, the
+        # barrier shut behind it, BOULDER3 three shoves from the exit (run
+        # 41, 2026-10-10). Said first; whether to shove stays the model's.
+        _shoves = [c for c in cands if shove_worth(c)]
+        if _shoves:
+            _head = ("What a walk reaches here is done, but a SHOVE is not: "
+                     + "; ".join(f"{c.key} at ({c.x},{c.y}) — "
+                                 + shove_words(c) for c in _shoves[:2])
+                     + ". Past that:")
         # ONE PER FIRST LEG. Ranked purely by distance, all three slots
         # went to places behind the SAME first step — Safari Zone Gate,
         # the Fuchsia Center and Route 18, every one of them "first walk
@@ -3911,11 +3941,8 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
         # WHAT THE SHOVE OPENS, the boulder's twin of the bush's "walkable
         # ground past it" (shim wd.boulder_opens; run 41, 2026-10-10, Victory
         # Road 1F's BOULDER3 between a shut-in party and the exit)
-        if c.status in ("pushable", "boulder") and c.opens.get("n"):
-            words += (f" — shoved {c.opens.get('dir')} "
-                      f"{c.opens.get('shoves') or 1} time(s) from where it "
-                      f"sits, it opens {c.opens.get('n')} cell(s) of ground "
-                      f"no walk from here reaches now")
+        if shove_worth(c):
+            words += " — " + shove_words(c)
         # A WAY THAT HAS REFUSED YOU IS NOT "NEVER TAKEN". The status stays
         # "untried" because the crossing never completed, but printing
         # "never taken from here" beside its own FAILED note called a

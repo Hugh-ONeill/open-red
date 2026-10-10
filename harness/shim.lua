@@ -9711,7 +9711,16 @@ wd.boulder_opens = function(G, rock)
       -- notch in the wall, the third is the road out
       if n > 0 and (not best or n > best.n
                     or (n == best.n and k < best.shoves)) then
-        best = { dir = dir, n = n, shoves = k }
+        -- ...and whether the ground it opens holds a doorway of this map:
+        -- the page names a shove only when what it opens holds something
+        -- (a door, or room enough), as it does a bush (run 41's BOULDER2
+        -- opened a 3-cell notch and was named beside the one that mattered)
+        local door = false
+        for _, w in ipairs(((G.overworld.map or {}).def or {}).warps or {}) do
+          local wk = w.x .. "," .. w.y
+          if rr[wk] and not r0[wk] then door = true end
+        end
+        best = { dir = dir, n = n, shoves = k, door = door or nil }
       end
     end
   end

@@ -47,7 +47,22 @@ ck("a boulder whose shove opens nothing says nothing of the kind",
 _, txt2 = page(None)
 ck("no opens from the shim, no claim", "of ground no walk from here reaches now" not in txt2)
 
+notch = L.Candidate(key="B2", kind="boulder", status="pushable", opens={"dir": "left", "n": 3, "shoves": 4})
+door = L.Candidate(key="B4", kind="boulder", status="pushable", opens={"dir": "up", "n": 2, "shoves": 1, "door": True})
+road = L.Candidate(key="B3", kind="boulder", status="pushable", opens={"dir": "down", "n": 68, "shoves": 3})
+ck("a 3-cell notch is not worth saying (run 41's BOULDER2)", not L.shove_worth(notch))
+ck("...a doorway is, however few the cells", L.shove_worth(door))
+ck("...and room enough is", L.shove_worth(road))
+ck("an unreachable boulder's shove is never said",
+   not L.shove_worth(L.Candidate(key="B1", kind="boulder", status="unreachable", opens={"dir": "up", "n": 50})))
+lsrc = (ROOT / "planner/ledger.py").read_text()
+ck("explore's note names the shove before calling the floor done",
+   "What a walk reaches here is done, but a SHOVE is not: " in lsrc
+   and "_shoves = [c for c in cands if shove_worth(c)]" in lsrc)
+
 src = (ROOT / "harness/shim.lua").read_text()
+ck("the shim says when the opened ground holds a doorway",
+   "best = { dir = dir, n = n, shoves = k, door = door or nil }" in src)
 ck("the shim computes it on wd, for reachable boulders",
    "wd.boulder_opens = function(G, rock)" in src
    and 'opens = (kind == "boulder" and wd.boulder_opens' in src)
