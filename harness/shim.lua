@@ -14816,6 +14816,96 @@ function OPS.quit() return true, "quitting" end
 -- message text, the nickname ceremony, and script-driven cutscenes (the Oak
 -- escort). This deletes the "stuck mashing dialogue" failure class and the
 -- escort, and slashes model calls.
+-- WHO A PRESS BRINGS INTO THE ROOM. A press whose scene adds someone — the
+-- Cell Separator, whose queued scene ends with human Bill walking out of
+-- the teleporter — came back before the scene had run: the page after it
+-- listed only the separator ("everything here has been pressed"), and a run
+-- whose step pointed elsewhere walked out through the scene and never saw
+-- Bill, who holds the S.S. Ticket (run 42, 2026-10-10; run 41 only got the
+-- ticket because its next round happened to press something else in the
+-- room). wd.absent_names: the room's defined objects not on the map now.
+-- wd.reveal_wait: after a press in a room with any absent, let the game run
+-- (at most ~360 frames) until one of them appears or a flag fires, and
+-- return the names that appeared.
+wd.absent_names = function(G)
+  local ow = G.overworld
+  if not (ow and ow.map and ow.map.id) then return {} end
+  local md = G.data and G.data.maps and G.data.maps[ow.map.id]
+  local live = {}
+  for _, npc in ipairs(ow.npcs or {}) do
+    local n = (npc.def or {}).name
+    if n then live[n] = true end
+  end
+  local out = {}
+  for _, od in ipairs((md and md.objects) or {}) do
+    -- people only: an item ball taken is absent for good, and counting
+    -- them would hold every press in any room a ball was ever taken from
+    if od.name and not live[od.name] and not od.item then
+      out[od.name] = true
+    end
+  end
+  return out
+end
+wd.reveal_wait = function(G, before, nflags)
+  local function nf()
+    local n = 0
+    for _ in pairs((G.save or {}).flags or {}) do n = n + 1 end
+    return n
+  end
+  local came = {}
+  -- WALL-CLOCK, NOT FRAMES: the separator's scene waits on its sound effects
+  -- (wait_sound), and a sound plays in real time while this game runs at
+  -- 200x — 360 frames were ~40 ms and the scene had not moved. Up to 4 s,
+  -- and only while something says a scene is on: a script running or
+  -- queued, a sound effect playing, or the map's music stopped (the
+  -- separator stops it and starts it again when Bill is out). Quiet for a
+  -- quarter second and nothing came: no scene, and the press goes back.
+  local okS, Sound = pcall(require, "src.core.Sound")
+  local okM, Music = pcall(require, "src.core.Music")
+  local function scene_on()
+    local ow = G.overworld
+    if not ow then return false end
+    local r = ow.runner
+    if r and r.isRunning and r:isRunning() then return true end
+    if type(ow.pendingScripts) == "table" and next(ow.pendingScripts) then
+      return true
+    end
+    if type(ow.scriptMoves) == "table" and next(ow.scriptMoves) then
+      return true
+    end
+    if okS and Sound.sfxBusy and Sound.sfxBusy() then return true end
+    if okM and Music.current and Music.current() == nil then return true end
+    return false
+  end
+  local t0 = love.timer.getTime()
+  local deadline, quiet_since = t0 + 4, nil
+  while love.timer.getTime() < deadline do
+    if scene_on() then
+      quiet_since = nil
+    else
+      quiet_since = quiet_since or love.timer.getTime()
+      if love.timer.getTime() - quiet_since > 0.25 then break end
+    end
+    local ow = G.overworld
+    if ow and G.stack:top() == ow then
+      -- named the way the page names them (red_public_names): an item ball
+      -- is never named by what is inside it
+      for _, npc in ipairs(ow.npcs or {}) do
+        local n = (npc.def or {}).name
+        if n and before[n] then
+          local pn = package.loaded.red_public_names
+          came[#came + 1] = pn and pn.object(ow.map.id, npc.def, npc.cellX,
+                                             npc.cellY) or n
+        end
+      end
+      if #came > 0 or nf() ~= nflags then break end
+    end
+    U.wait(10)
+  end
+  table.sort(came)
+  return came
+end
+
 local function scripts_busy(G)
   local ow = G.overworld
   if not ow then return false end
@@ -14922,6 +15012,18 @@ return function(G)
     -- only ever observe at a decision point; watchdog-bounded so a state
     -- the advancer can't clear stalls one cycle, not the whole bridge
     wd_run(G, "advance_to_decision", OP_FRAME_BUDGET, advance_to_decision, G)
+    if wd.press_absent then
+      local came = wd_run(G, "reveal_wait", 4000, wd.reveal_wait, G,
+                          wd.press_absent, wd.press_flags) or {}
+      wd.press_absent = nil
+      if #came > 0 then
+        -- ride out the rest of the scene (Bill walks to his spot) and say it
+        wd_run(G, "advance_to_decision", OP_FRAME_BUDGET,
+               advance_to_decision, G)
+        result.detail = tostring(result.detail or "ok") .. " — and then "
+          .. table.concat(came, ", ") .. " appeared in this room"
+      end
+    end
     observe(G, seq, result)
     -- poll for the next command, the game held still meanwhile
     local cmd
@@ -14996,7 +15098,19 @@ return function(G)
       learn_driver = (cmd.op == "menu" or cmd.op == "tap"
                       or cmd.op == "use_item")
       if wd.rec then pcall(wd.rec.op, cmd.op) end
+      -- the room's absent objects and the flag count BEFORE a press (see
+      -- wd.reveal_wait); on wd, this loop being one long-lived function
+      wd.press_absent = (cmd.op == "interact") and wd.absent_names(G) or nil
+      wd.press_flags = 0
+      for _ in pairs((G.save or {}).flags or {}) do
+        wd.press_flags = wd.press_flags + 1
+      end
       local ok, detail = wd_run(G, cmd.op, OP_FRAME_BUDGET, op, G, cmd)
+      -- the wait itself runs at the top of the loop, after the advance has
+      -- closed the press's own text: the scene cannot start under it
+      if not (ok and wd.press_absent and next(wd.press_absent)) then
+        wd.press_absent = nil
+      end
       if wd.rec then pcall(wd.rec.op, nil) end
       naming_driver = false
       learn_driver = false
