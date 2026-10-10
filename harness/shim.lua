@@ -14877,15 +14877,17 @@ wd.reveal_wait = function(G, before, nflags)
     if okM and Music.current and Music.current() == nil then return true end
     return false
   end
+  -- ...AND GAME TIME ONLY WHERE THE SCENE NEEDS IT. A sound plays in real
+  -- time, so while one does, rest a frame at a time; otherwise step frames
+  -- as the settle loop does, and give up after 60 quiet ones (its own idle
+  -- window is 40). A quiet window measured in WALL time instead ran ~3,000
+  -- idle game frames per press, which the 1x copy then fast-forwarded
+  -- (user, 2026-10-10: "it looks like its sped up after each interaction").
   local t0 = love.timer.getTime()
-  local deadline, quiet_since = t0 + 4, nil
+  local deadline, quiet = t0 + 4, 0
   while love.timer.getTime() < deadline do
-    if scene_on() then
-      quiet_since = nil
-    else
-      quiet_since = quiet_since or love.timer.getTime()
-      if love.timer.getTime() - quiet_since > 0.25 then break end
-    end
+    if scene_on() then quiet = 0 else quiet = quiet + 2 end
+    if quiet > 60 then break end
     local ow = G.overworld
     if ow and G.stack:top() == ow then
       -- named the way the page names them (red_public_names): an item ball
@@ -14900,7 +14902,12 @@ wd.reveal_wait = function(G, before, nflags)
       end
       if #came > 0 or nf() ~= nflags then break end
     end
-    U.wait(10)
+    if okS and Sound.sfxBusy and Sound.sfxBusy() then
+      U.wait(1)
+      love.timer.sleep(0.02)           -- the sound's own time, not the game's
+    else
+      U.wait(2)
+    end
   end
   table.sort(came)
   return came

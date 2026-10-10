@@ -26,9 +26,12 @@ i_adv = src.index('wd_run(G, "advance_to_decision", OP_FRAME_BUDGET, advance_to_
 i_obs = src.index("observe(G, seq, result)", i_adv)
 ck("the wait runs after the press's own text is closed, before the observation",
    0 < i_adv < src.index('wd_run(G, "reveal_wait"', i_adv) < i_obs)
-ck("...in wall-clock time, only while a scene shows, at most 4 s",
-   "local deadline, quiet_since = t0 + 4, nil" in src and "scene_on()" in src
-   and "quiet_since > 0.25" in src)
+ck("...at most 4 s, only while a scene shows, giving up after 60 quiet frames",
+   "local deadline, quiet = t0 + 4, 0" in src and "scene_on()" in src
+   and "if quiet > 60 then break end" in src)
+ck("...a playing sound gets real time, not game frames (the copy fast-forwarded "
+   "through ~3,000 idle frames per press otherwise)",
+   "love.timer.sleep(0.02)           -- the sound's own time, not the game's" in src)
 ck("...and the press's answer names who appeared, by public name",
    '" appeared in this room"' in src and "pn.object(ow.map.id, npc.def" in src)
 
