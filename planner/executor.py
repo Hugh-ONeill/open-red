@@ -7858,10 +7858,22 @@ class Executor:
         # ...AND "STANDING THERE" IS BESIDE IT. The nearest person within
         # eight cells is context; only one on or next to the doorway is the
         # posted guard the held-door rule reads this note for.
+        # ...AND UNSEEN GROUND IS NOT A BLOCK. Mt Moon B2F's exit ladder
+        # (5,7) lies past the fossil room's north edge, never on screen; it
+        # was written "the way onto it is blocked; nearest person
+        # MTMOONB2F_SUPER_NERD, 8 cells off" — the nerd long beaten — and
+        # that line rode every floor's page, so the run left the basement
+        # sure there was no exit (run 52, 2026-10-11). While this floor
+        # still has ground never on screen, say that instead.
+        _unseen_n = int(((m.get("seen") or {}).get("frontier_n")) or 0)
         shut = sorted((f"{k} (its doorstep is across water; nobody in the "
                        f"party knows SURF)" if k in _ow
                        else f"{k} ({who} is standing there)"
                        if who and far is not None and far <= 1
+                       else f"{k} (no walk over ground you have SEEN reaches "
+                            f"it yet; this floor has {_unseen_n} spot(s) "
+                            f"never on screen, and the way may run through "
+                            f"them)" if _unseen_n
                        else f"{k} (the way onto it is blocked; nearest person "
                             f"{who}, {far} cells off)" if who
                        else f"{k} (the way onto it is blocked; nobody is "
