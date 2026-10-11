@@ -20365,6 +20365,8 @@ class Executor:
         b0 = (obs or {}).get("battle") or {}
         foe, me = b0.get("foe") or {}, b0.get("me") or {}
         self._op_battles = getattr(self, "_op_battles", 0) + 1
+        if foe.get("species") and isinstance(getattr(self, "_op_foes", None), list):
+            self._op_foes.append(f"{foe.get('species')} L{foe.get('level')}")
         # WHO IS IN FRONT OF YOU, KEPT. A blackout told the next page that
         # the party fainted and where it woke up, and never once what beat
         # it — so a run that walked into the Route 22 rival with one L8
@@ -20579,6 +20581,7 @@ class Executor:
             _keep_said()
             obs = self._send_safe("use_item", item=pick[0],
                                   slot=pick[1]) or obs
+            self._note_med(obs)
         # ...AND THE TRAIN RULE'S "never" HOLDS AFTER THE FIGHT TOO. It was
         # read only inside the battle, so a grind topped the party up with
         # a HYPER_POTION after every wild fight: 26 field heals, 20 down to
@@ -20601,6 +20604,7 @@ class Executor:
                      slot=_rp[1])
             _keep_said()
             _o2 = self._send_safe("use_item", item=_rp[0], slot=_rp[1])
+            self._note_med(_o2)
             _ok = bool(((_o2 or {}).get("result") or {}).get("ok"))
             obs = self.settle() or _o2 or obs
             if not _ok:
@@ -20615,7 +20619,33 @@ class Executor:
             _keep_said()
             obs = self._send_safe("use_item", item=pick[0],
                                   slot=pick[1]) or obs
+            self._note_med(obs)
         return obs
+
+    def _note_med(self, obs) -> None:
+        """Keep what a field item the harness used after a fight said, so
+        the op's own result is not mistaken for it (see _med_result)."""
+        d = str(((obs or {}).get("result") or {}).get("detail") or "").strip()
+        if d and isinstance(getattr(self, "_op_meds", None), list):
+            self._op_meds.append(d)
+
+    def _med_result(self, r: dict) -> dict:
+        """THE OP'S RESULT, NOT THE MEDICINE'S. A fight inside an op ends
+        with the harness's own field heal, and the heal's answer became the
+        op's: run 47 blew the POKE_FLUTE at ROUTE12_SNORLAX, fought it,
+        threw five balls, beat it, and the round read only "use_item(item=
+        POKE_FLUTE): ok (used SUPER_POTION on HYPNO: HP 71 -> 120)" — the
+        wake, the fight and the open road never said (2026-10-11). When the
+        result in hand is the last medicine's, say the fight and then it."""
+        meds = list(getattr(self, "_op_meds", None) or [])
+        d = str((r or {}).get("detail") or "").strip()
+        if not meds or d != meds[-1]:
+            return r
+        foes = list(dict.fromkeys(getattr(self, "_op_foes", None) or []))
+        fight = ("a fight with " + ", ".join(foes[:3]) if foes
+                 else "a fight") + " came of it"
+        return dict(r or {}, ok=True,
+                    detail=f"{fight}; after it, " + "; ".join(meds[-3:]))
 
     # ON-SCREEN WORDS FOR A MULTIPLIER: what the battle text says after the
     # move lands. The number is the type chart's, which the pamphlet prints.
@@ -23156,8 +23186,6 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             wild_in_way = ""
             _op_det = ""
             self._op_battles = 0        # wild encounters this op met
-            self._grind_spent_note = ""
-            self._said_before_meds = None
             # ...AND "NO BALLS" IS SAID OF THIS OP'S OWN BATTLES. The flag
             # is raised when a catch policy meets a wild with an empty bag
             # and read by the next GRIND's note — and it was never lowered
@@ -23167,6 +23195,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # of any kind in the bag, so nothing could be caught" with
             # POKE_BALL x10 on the status line beside it (user, 2026-09-21).
             self._no_balls_note = False
+            self._grind_spent_note = ""
+            self._said_before_meds = None
+            self._op_meds = []           # what field medicine said, this op
+            self._op_foes = []           # who this op's battles were with
             # THE OP MAY SAY WHAT ITS BATTLES ARE FOR. The battle policy is
             # chosen per STEP from the step's predicate, so a knows_move
             # step whose model-authored plan was "catch something that can
@@ -23441,7 +23473,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             and not pred_holds(done, obs)):
                         continue
                 break
-            r = (obs or {}).get("result") or {}
+            r = self._med_result((obs or {}).get("result") or {})
             # THE PRESS THAT LANDED COUNTS. The provisional touch above is
             # retracted when a battle interrupts the interact, and the
             # re-sent interact that then reaches the thing never re-marked
