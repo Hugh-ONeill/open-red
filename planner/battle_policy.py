@@ -1887,6 +1887,23 @@ def choose(obs: dict, spec: dict | None = None,
         _cap = ca.get("max_balls", 3)
         if ctx.get("ball_cap") is not None:
             _cap = min(_cap, int(ctx["ball_cap"]))
+        # ...AND NOT WITH THE LAST MON STANDING TOO LOW TO TAKE TWO MORE
+        # HITS. A throw is a turn the foe hits for free: run 53's lone
+        # BULBASAUR threw three balls at a full-HP PIDGEY L4 while its own
+        # bar went 20 -> 15 -> 10 -> 5 and blacked out on Route 2
+        # (2026-10-11). Both bars are on the battle screen; a player with
+        # one mon left stops throwing at half health, or sooner when the
+        # foe's hits are big, and the turn goes to the fight instead.
+        _mhp = me.get("hp") or 0
+        _prev = ctx.get("me_hp_last")
+        if _prev is not None and _prev > _mhp:
+            ctx["me_hit_max"] = max(ctx.get("me_hit_max") or 0, _prev - _mhp)
+        ctx["me_hp_last"] = _mhp
+        if (last_one_standing(obs, b)
+                and (_mhp * 2 <= (me.get("maxhp") or 0)
+                     or _mhp <= 2 * (ctx.get("me_hit_max") or 0))):
+            ctx["intent"] = "fight"
+            have_ball = None
         if have_ball and balls < _cap:
             # A BALL LANDS ON A WEAKENED, SLEEPING OR PARALYSED POKEMON FAR
             # MORE OFTEN THAN ON A FRESH ONE. With a target named, this used
