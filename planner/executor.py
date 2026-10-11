@@ -20740,6 +20740,38 @@ class Executor:
                      said=t2[:160])
         return out
 
+    def _catch_up_speech(self, sg, trace) -> None:
+        """Every finished speech no op has said yet, said now.
+
+        The general path reads what an op heard; `cross` and `walk_to` run
+        early handlers that leave the loop before it. The Cerulean rival met
+        the run on a cross(dir=north) up to Nugget Bridge: the shim kept his
+        whole speech, "I went to BILL's ... go thank him!", among its ended
+        runs, and nothing filed it or said it (run 52, 2026-10-11, the fifth
+        run without that line). Asked at every op's start and at the
+        macro's end, keyed by the print counter, so nothing is said twice."""
+        try:
+            o = self.b.obs() or {}
+        except Exception:
+            return
+        seq = o.get("text_seq")
+        mark = getattr(self, "_speech_mark", None)
+        if seq is None:
+            return
+        if mark is None or seq < mark:
+            self._speech_mark = seq
+            self._fight_at_mark = getattr(self, "_last_fight", None)
+            return
+        fresh = bool(self._said_ready or getattr(self, "_last_fight", None)
+                     is not getattr(self, "_fight_at_mark", None))
+        got = self._earlier_speech({"text_seq": mark, "map": o.get("map")}, o,
+                                   None, sg, "", fresh)
+        for who, words in got:
+            trace.append(f'(on the way, {who} said: "'
+                         + speech_excerpt(words, 320) + '")')
+        self._speech_mark = seq
+        self._fight_at_mark = getattr(self, "_last_fight", None)
+
     def _note_med(self, obs) -> None:
         """Keep what a field item the harness used after a fight said, so
         the op's own result is not mistaken for it (see _med_result)."""
@@ -22534,6 +22566,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         self._macro_prev_op = None
         for _mi, step in enumerate(macro):
             self._stop_if_asked()
+            self._catch_up_speech(sg, trace)
             step = dict(step)
             if isinstance(step.get("item"), str):
                 step["item"] = canon_item(step["item"])     # "TM02" -> TM_RAZOR_WIND
@@ -23702,6 +23735,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                           or getattr(self, "_last_fight", None) is not _fight0)
             _earlier = self._earlier_speech(pre_obs, obs, _pre_mapped, sg,
                                             said, _fresh)
+            self._speech_mark = (obs or {}).get("text_seq")
+            self._fight_at_mark = getattr(self, "_last_fight", None)
             _sbm = getattr(self, "_said_before_meds", None)
             if (said and _sbm and _sbm[0] not in said and said not in _sbm[0]
                     and (_sbm[1] is None
@@ -24835,6 +24870,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     break
             if not ignore_done and pred_holds(done, self.settle()):
                 return True, trace, clean
+        self._catch_up_speech(sg, trace)
         return pred_holds(done, self.settle()), trace, clean
 
     def _survey_offer_table(self, sg, op, step, obs) -> str | None:
