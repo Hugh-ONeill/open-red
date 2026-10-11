@@ -1034,6 +1034,7 @@ local startup = { done = false, since = nil, idle = 0 }   -- the mod's first mes
 local STARTUP_MAX = tonumber(os.getenv("SHADOW_STARTUP_MAX") or "15") or 15
 local frame_t = nil
 booting = true                         -- until this boot has a map (global: the draw reads it)
+ever_loaded = false                    -- set at this replay's first map (global, as booting)
 local last_done_check = nil
 return function(G)
   local last_read = 0
@@ -1123,7 +1124,13 @@ return function(G)
     -- starts true) until the run's save has loaded a map, then the game
     -- (user, 2026-10-06: "start with the continuing card until the game is
     -- loaded, at which point it can show the game")
-    booting = not loaded
+    -- ...ONLY UNTIL THE FIRST MAP. Pressing a trainer the run has already
+    -- beaten left the copy's game a moment with no map, and the CONTINUING
+    -- card came back mid-game over a line of talk (user, 2026-10-11: "it
+    -- happens when it talks to a trainer its already beaten"). A boot is
+    -- once per replay; after the first map this copy is playing.
+    if loaded then ever_loaded = true end
+    booting = not loaded and not ever_loaded
     -- A 3D MOD BUILDS ITS MESHES AFTER THE MAP LOADS: the card stays up and
     -- the game holds still until the build queue has stood empty a few
     -- frames running (the queue only fills once the scene first draws), or

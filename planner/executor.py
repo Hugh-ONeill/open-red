@@ -2956,6 +2956,18 @@ class Executor:
                  said=(out[-2] if len(out) > 1 else "")[:300])
         return r.returncode == 0
 
+    @staticmethod
+    def _can_cut(obs) -> bool:
+        """Can this party cut a bush now, or after teaching a machine it
+        holds: a member knows CUT, or HM_CUT is in the bag."""
+        if int(((obs or {}).get("bag") or {}).get("HM_CUT") or 0) > 0:
+            return True
+        for mon in ((obs or {}).get("party") or []):
+            for mv in (mon.get("moves") or []) if isinstance(mon, dict) else []:
+                if str(mv.get("id") if isinstance(mv, dict) else mv).upper() == "CUT":
+                    return True
+        return False
+
     def _leg_through_now(self) -> str:
         """The leg's objective, if it says to go THROUGH a place, as the
         record answers it now: the place and the two mouths it has been
@@ -3008,7 +3020,26 @@ class Executor:
             return None
         su = m.get("seen_unreached") or {}
         if int(su.get("n") or 0) - int(su.get("beside_n") or 0) > 0:
-            return None
+            # ...UNLESS WHAT IS LEFT IS PAST A BUSH THE PARTY CANNOT CUT.
+            # Run 51's "new part of ROUTE_2" had both walked parts ruled
+            # out and every other part of the road behind CUT trees, with
+            # nobody able to cut; the seen-but-unreached ground kept the
+            # step open, and the leg spent its rounds on it (2026-10-11,
+            # user: "the goal is possible but not currently possible
+            # because it lacks the ability to access those other areas
+            # without cut"). Said as NOT YET, with the bushes named.
+            _bush = [o for o in (m.get("objects") or [])
+                     if isinstance(o, dict) and o.get("kind") == "cut_tree"
+                     and o.get("reachable") and o.get("opens")]
+            if not _bush or self._can_cut(obs):
+                return None
+            _at = ", ".join(f"({o.get('x')},{o.get('y')})" for o in _bush[:3])
+            return (f"every bit of {mp} a walk from where you stand reaches "
+                    f"has been on screen, and all of it lies in part(s) you "
+                    f"have stood in ({', '.join(na)}); the ground left is past "
+                    f"bush(es) at {_at}, which CUT clears, and nobody in the "
+                    f"party can cut yet — this step cannot be met until one "
+                    f"can (HM01 is a thing someone hands over)")
         return (f"every bit of {mp} a walk from where you stand reaches has "
                 f"been on screen, and all of it lies in part(s) you have "
                 f"stood in ({', '.join(na)}): no part of {mp} you have not "
@@ -22235,13 +22266,21 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if hp <= 0 or not mx:
                 continue
             line = max(hb, tmin) if (i == t and tmin is not None) else hb
-            if hp / mx >= line:
+            # ...AND A MOVE TO HIT WITH: standing with every damaging move
+            # at 0 PP is not fighting (run 51's BULBASAUR, GROWL x21)
+            _mv = [x for x in (m.get("moves") or []) if isinstance(x, dict)]
+            _armed = (not _mv) or any((x.get("power") or 0) > 0
+                                      and (x.get("pp") is None or (x.get("pp") or 0) > 0)
+                                      for x in _mv)
+            if hp / mx >= line and _armed:
                 return ""
-            bits.append(f"{m.get('species')} {hp}/{mx}")
+            bits.append(f"{m.get('species')} {hp}/{mx}"
+                        + ("" if _armed else " with no damaging move left to use"))
         if not bits:
             return ""
-        return ("nobody left can fight by your policy's own HP lines — "
-                + ", ".join(bits) + " — healing is what lets the grind go on")
+        return ("nobody left can fight by your policy's own HP lines, or with "
+                "PP left to fight with — " + ", ".join(bits)
+                + " — a Pokemon Center is what lets the grind go on")
 
     def _gated(self, sig, op, step, trace):
         """The 3-strikes refusal, shared by the generic path and the early

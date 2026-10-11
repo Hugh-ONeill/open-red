@@ -5386,6 +5386,25 @@ end
 -- for a SECRET KEY that is not sold there (run 47, 2026-10-11). The rows
 -- on screen, numbered as the item menus' rows below are, with the CANCEL
 -- row the cursor can also take.
+-- How many party members can still hurt something: standing, with a move
+-- of some power and PP left. The party menu shows both.
+wd.party_armed = function(G)
+  local n = 0
+  for _, mon in ipairs((G.save and G.save.party) or {}) do
+    if (tonumber(mon.hp) or 0) > 0 then
+      for _, mv in ipairs(mon.moves or {}) do
+        local id = type(mv) == "table" and mv.id or mv
+        local def = G.data and G.data.moves and G.data.moves[id]
+        local pp = type(mv) == "table" and tonumber(mv.pp) or nil
+        if def and (tonumber(def.power) or 0) > 0 and (pp == nil or pp > 0) then
+          n = n + 1
+          break
+        end
+      end
+    end
+  end
+  return n
+end
 wd.menu_rows = function(top)
   if type(top) ~= "table" or type(top.prizes) ~= "table" then return nil end
   local rows = {}
@@ -14471,6 +14490,18 @@ function OPS.sweep(G, c)
         why = ("stopped: your party is nearly out -- %d of %d still standing, "
                .. "%d%% of its HP left; a sweep does not walk a spent party "
                .. "into more fights"):format(_up, _n, math.floor(100 * _hp / _mx))
+        break
+      end
+      -- ...AND OUT OF PP IS OUT. A BULBASAUR at 24/35 with TACKLE at 1 PP
+      -- and LEECH_SEED at 0 read as a party in fair shape; the sweep walked
+      -- it into Viridian Forest's Bug Catcher, TACKLE ran dry on turn one
+      -- and GROWL was the only move left for twenty-one turns until it
+      -- fainted (run 51, 2026-10-11). Standing with nothing to hit with is
+      -- not standing.
+      if _n > 0 and not _safe and wd.party_armed(G) == 0 then
+        why = "stopped: nobody standing has a damaging move with PP left -- "
+          .. "a Pokemon Center restores PP; a sweep does not walk a party "
+          .. "that cannot hurt anything into more fights"
         break
       end
     end
