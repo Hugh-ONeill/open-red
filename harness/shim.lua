@@ -12730,6 +12730,20 @@ function OPS.battle_move(G, c)
     -- guess about the cause; the sentence on screen is the fact.
     local cur = b.current or (b.queue and b.queue[1])
     local said = cur and type(cur) == "table" and cur.text
+    -- ...AND "NO MOVES LEFT" IS THE GAME CHOOSING STRUGGLE. With every move
+    -- at 0 PP, FIGHT prints "<mon> has no moves left!" and, pressed on,
+    -- uses Struggle itself. Refused here, the policy's Struggle failed
+    -- every turn, its loop left the fight, and a lone IVYSAUR lost Mt Moon
+    -- 1F's Lass without landing a hit (run 51, 2026-10-11). Ride the turn
+    -- out as the game plays it.
+    if type(said) == "string"
+       and said:gsub("%s+", " "):find("has no moves left", 1, true) then
+      for _ = 1, 80 do
+        if not in_battle(G) or b.phase == "menu" then break end
+        U.battle_advance(G, b)
+      end
+      return true, "no moves left — the game used STRUGGLE"
+    end
     if type(said) == "string" and said ~= "" then
       return false, "no move list opened — the screen says: \""
         .. said:gsub("\n", " ") .. "\""
