@@ -2252,6 +2252,7 @@ local function observe(G, seq, result)
     o.text_on_screen = false     -- overridden below when a box is really up
   end
   o.text_seq = text_seq        -- see note_text: printed-line count, not words
+  if wd.ended_runs and #wd.ended_runs > 0 then o.ended_runs = wd.ended_runs end
   if hook_battle_text() and #battle_lines > 0 then
     o.battle_text = table.concat(battle_lines, " / ")
     o.battle_text_seq = battle_seq
@@ -2259,6 +2260,21 @@ local function observe(G, seq, result)
   if G.overworld and top == G.overworld then
     recent_text = nil          -- free roam: stale prompt no longer applies
     o.recent_text = nil
+    -- ...BUT KEPT, WITH ITS PRINT COUNT. An op can hear one speech and then
+    -- another: the Cerulean rival met the run on its way to a sign, and
+    -- the sign's words then stood alone as the op's last_text -- his "I
+    -- went to BILL's ... go thank him!" never reached the record (run 49,
+    -- 2026-10-11, third run running). The executor takes back every
+    -- speech printed during the op (o.ended_runs, newest last).
+    if text_run then
+      wd.ended_runs = wd.ended_runs or {}
+      local _er = wd.ended_runs
+      if not (_er[#_er] and _er[#_er].text == text_run) then
+        _er[#_er + 1] = { seq = text_seq, text = text_run }
+        if #_er > 6 then table.remove(_er, 1) end
+      end
+      o.ended_runs = _er
+    end
     text_run = nil             -- that speech is over; the next starts clean
     text_box = nil
     o.mode = "overworld"

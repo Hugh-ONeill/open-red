@@ -20638,6 +20638,48 @@ class Executor:
             self._note_med(obs)
         return obs
 
+    def _earlier_speech(self, pre_obs, obs, pre_mapped, sg, said) -> list:
+        """Every speech that ENDED during this op other than the last one,
+        as (speaker, words), each filed in the hints under its own speaker.
+
+        The op's words were last_text alone, and an op can hear two: the
+        Cerulean rival met the run on its way to a sign, and the sign's line
+        then stood for the whole op — "I went to BILL's ... go thank him!",
+        the one pointer to the S.S. Ticket, was lost for the third run in a
+        row (run 49, 2026-10-11). The shim keeps each finished speech with
+        its print count (ended_runs); the ones printed since the op began
+        are said here."""
+        s0 = (pre_obs or {}).get("text_seq")
+        if s0 is None or not self._said_ready:
+            return []
+        out = []
+        for r in ((obs or {}).get("ended_runs") or []):
+            if not isinstance(r, dict) or r.get("seq") is None:
+                continue
+            t = str(r.get("text") or "").strip()
+            if (r["seq"] <= s0 or len(t) <= 12 or (said and (t in said or said in t))
+                    or any(t == x for _, x in out)):
+                continue
+            t2, first, extra = split_heard(t)
+            who = first or "someone"
+            if first:
+                t2 = t2[len(first) + 1:].lstrip()
+            # the round hears the whole speech, every box of it: the rival's
+            # second box (the BILL line) is one of split_heard's extras
+            out.append((who, " / ".join([t2] + [w for _n, w in (extra or [])])))
+            reg = said_region(pre_obs, obs, pre_mapped)
+            if "None" in str(reg):
+                continue
+            lst = self.hints.setdefault(reg, [])
+            for _n, _w in [(who, t2)] + list(extra or []):
+                line = f"{_n}: {speech_excerpt(_w, 480)}"
+                if line not in lst:
+                    lst.append(line)
+                    del lst[:-16]
+            self.log("speech_kept", subgoal=(sg or {}).get("id"), who=who,
+                     said=t2[:160])
+        return out
+
     def _note_med(self, obs) -> None:
         """Keep what a field item the harness used after a fight said, so
         the op's own result is not mistaken for it (see _med_result)."""
@@ -23577,6 +23619,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # instant the box closed. Keep them against the region so a
             # later round, or a later attempt, can read why it is stuck.
             said = ((obs or {}).get("last_text") or "").strip()
+            _earlier = self._earlier_speech(pre_obs, obs, _pre_mapped, sg,
+                                            said)
             _sbm = getattr(self, "_said_before_meds", None)
             if (said and _sbm and _sbm[0] not in said and said not in _sbm[0]
                     and (_sbm[1] is None
@@ -24616,6 +24660,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             except Exception:
                 pass
             note += self._goods_delta(pre_obs, obs)
+            for _en, _et in _earlier:
+                note += (f' — earlier in this op, {_en} said: "'
+                         + speech_excerpt(_et, 320) + '"')
             if heard and 'the game said: "' not in note:
                 _hb0 = (pre_obs or {}).get("bag") or {}
                 _hb1 = (obs or {}).get("bag") or {}
