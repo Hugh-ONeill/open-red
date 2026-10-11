@@ -8053,6 +8053,39 @@ def _never_stood_in(goal: str, observed) -> str | None:
     return None
 
 
+_WAY_TO = re.compile(r"\b(?i:reach|reaching|get to|getting to|way to|path to|road to|"
+                     r"route to|travel to|go to|enter|entering)\s+(?i:the\s+)?"
+                     r"([A-Z][A-Za-z.']*(?:\s+[A-Z][A-Za-z.']*){0,2})")
+_BLOCKED = re.compile(r"\b(?:block\w*|barred|cannot pass|can't pass|"
+                      r"cannot get through|can't get through|shut|closed off)\b",
+                      re.I)
+
+
+def _blocked_way_to_stood(why: str, observed) -> str | None:
+    """A reason that the way to a place is shut, where the run has stood in
+    that place. Run 47's L40 leg failed grinding on Route 15, and this rung
+    answered "trying to reach Fuchsia City, but the path is blocked by a
+    gate that requires a specific item" — the run had stood in Fuchsia an
+    hour before — and inserted the Secret Key, which took it back to
+    Celadon (2026-10-11, user: "this damn secret key nonsense?"). The
+    record disproves the blocker; same rule as _never_stood_in, turned
+    round."""
+    if not why or not observed or not _BLOCKED.search(why):
+        return None
+    try:
+        d = json.loads(Path(observed).read_text() or "{}")
+    except (OSError, ValueError):
+        return None
+    seen = {r.split("|")[0] for r in (d.get("visits") or {})}
+    for m in _WAY_TO.finditer(why):
+        words = re.sub(r"[^A-Z0-9]+", " ", m.group(1).upper()).split()
+        for mp in ROUTE_MAPS:
+            parts = mp.split("_")
+            if len(parts) >= 2 and mp in seen and parts == words[:len(parts)]:
+                return mp
+    return None
+
+
 def _place_families() -> list:
     """Every building's name as a person says it: SILPH_CO for SILPH_CO_7F,
     SAFARI_ZONE for SAFARI_ZONE_EAST. Longest first, so the most specific
@@ -9768,6 +9801,16 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
                                      f"the bag holds no {_ph_item} — say the "
                                      f"deed again without that, or the deed "
                                      f"that gets it"))
+            continue
+        _stood = _blocked_way_to_stood(_why, observed)
+        if _stood:
+            print(f"[missing] turned down {ins!r}: its reason says the way to "
+                  f"{_stood} is blocked, and the run has stood in {_stood} — "
+                  f"{_why}", file=sys.stderr)
+            turned_down.append((ins, f"your reason says the way to {_stood} is "
+                                     f"blocked; the record shows you have stood "
+                                     f"in {_stood} — say what stopped THIS "
+                                     f"objective, or none"))
             continue
         # A PREREQUISITE IS SOMETHING THE GAME SAID OR DID. The parcel
         # before the mart, Cut before Surge's door: each is a person's
