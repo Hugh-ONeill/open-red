@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Explore never presses the PC, the nurse or the gym's leader on its own.
+"""Explore never presses the PC, the nurse, the gym's leader or an unbeaten
+trainer on its own.
 
 A sweep presses things to see what they say, and most things can be
 untried. Three cannot, or are decisions rather than things: the PC (a
@@ -48,7 +49,22 @@ ck("a sign, an item, a clerk: pressable as ever",
 ck("the leader test is the gym table's, not a name shape: a leader's name in another map is nothing",
    held("CERULEANGYM_MISTY", "trainer", "ROUTE_24|1,1") == "")
 
+# A TRAINER NOT YET BEATEN IS A FIGHT. Run 53's room sweep on ROUTE_3 pressed
+# the BUG CATCHER and the YOUNGSTER with PIDGEY fainted and BULBASAUR at
+# 5/37, and the party blacked out (2026-10-11).
+o._unbeaten_now = {"ROUTE3_YOUNGSTER4"}
+ck("a trainer the screen says is not beaten is held back",
+   "fight" in held("ROUTE3_YOUNGSTER4", "trainer", "ROUTE_3|57,0"))
+ck("...a beaten one talks, and is pressable as ever",
+   held("ROUTE3_YOUNGSTER1", "trainer", "ROUTE_3|57,0") == "")
+ck("...and a gym trainer not yet beaten is held too",
+   (setattr(o, "_unbeaten_now", {"CERULEANGYM_JR_TRAINER_F"}) or True)
+   and "fight" in held("CERULEANGYM_JR_TRAINER_F", "trainer", "CERULEAN_GYM|1,1"))
+del o._unbeaten_now
+
 src = (ROOT / "planner" / "executor.py").read_text()
+ck("the unbeaten set is read off the screen's trainer rows",
+   'and o.get("beaten") is False}' in src)
 ck("explore's local press list asks it",
    "and not self._not_for_explore_to_press(\n                             c.key, c.kind, self._where(obs)))" in src)
 ck("explore's remote press list asks it",

@@ -5472,7 +5472,8 @@ class Executor:
           - the Center's nurse: the heal, which is the model's call by rule
             (_ask_heal, 2026-09-14) — a sweep pressing her decides it;
           - the gym's LEADER: a badge fight (the room sweep has skipped
-            leaders since 2026-09-13; explore's own press lists never did).
+            leaders since 2026-09-13; explore's own press lists never did);
+          - any trainer not yet beaten: a fight (2026-10-11).
         The ledger still lists all three, and the model presses them when
         it means to (user, 2026-09-14: "explore harness shouldnt force the
         bot to click the pc, similar issue with the gym leaders").
@@ -5492,6 +5493,13 @@ class Executor:
         _map = str(where or "").split("|")[0]
         if str(kind or "") == "trainer" and self._is_gym_leader(n, _map):
             return "this gym's LEADER — a badge fight"
+        # ...NOR A TRAINER NOT YET BEATEN: pressing one starts a fight. Run
+        # 53's room sweep on ROUTE_3 walked up to the BUG CATCHER and then
+        # the YOUNGSTER with PIDGEY fainted and BULBASAUR at 5/37, and the
+        # party blacked out in fights nobody chose (2026-10-11). Whether
+        # the party is fit for one is the model's call, as with the leader.
+        if n in (getattr(self, "_unbeaten_now", None) or ()):
+            return "a trainer not yet beaten — pressing starts a fight"
         return ""
 
     @staticmethod
@@ -6158,6 +6166,14 @@ class Executor:
         except Exception:
             pass
         self._watch_for_a_wipe(obs)
+        # WHO ON THIS MAP STILL WANTS A FIGHT, as the screen's own trainer
+        # rows say (beaten: false). _not_for_explore_to_press reads it.
+        if (obs or {}).get("mode") == "overworld" and \
+                isinstance(((obs or {}).get("map") or {}).get("objects"), list):
+            self._unbeaten_now = {
+                str(o.get("name")) for o in obs["map"]["objects"]
+                if isinstance(o, dict) and o.get("kind") == "trainer"
+                and o.get("beaten") is False}
         if (obs or {}).get("mode") == "overworld" and \
                 ((obs or {}).get("map") or {}).get("id"):
             # WHERE THE BOULDERS STAND WHEN YOU WALK IN. A shove is not
