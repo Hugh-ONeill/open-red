@@ -13637,10 +13637,24 @@ function OPS.battle_item(G, c)
     ui_cursor_to(G, "index", slot or 1)
     U.tap(G, "a"); U.wait(12)
   end
-  for _ = 1, 150 do        -- drain the heal text until battle takes input
+  -- drain the heal text until battle takes input. ...AND THE TEXT IS A
+  -- BOX OVER THE FIGHT, not the fight: "SALTY recovered by 19!" sat on top
+  -- of the battle, this loop read "not a battle" and left at once, and the
+  -- next battle_move answered "not in battle" -- the policy's loop quit
+  -- mid-fight, the rival's Cerulean fight was recapped half done and
+  -- re-entered, and his BILL line never reached the record (run 48,
+  -- 2026-10-11). Tap on while the battle is still under whatever is up.
+  for _ = 1, 150 do
     local t = G.stack:top()
-    if not (t and U.is_battle(t)) then break end
-    if t.phase == "menu" or t.phase == "moveSelect" then break end
+    if t and U.is_battle(t) then
+      if t.phase == "menu" or t.phase == "moveSelect" then break end
+    else
+      local under = false
+      for _, st in ipairs((G.stack and G.stack.states) or {}) do
+        if st == b then under = true break end
+      end
+      if not under then break end
+    end
     U.tap(G, "a"); U.wait(4)
   end
   return true, "used " .. c.item .. " in battle"
