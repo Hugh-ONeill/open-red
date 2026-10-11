@@ -4124,6 +4124,7 @@ local function observe(G, seq, result)
   elseif top then
     o.mode = "ui"
     o.ui = scalars(top, 0)
+    o.ui.rows = wd.menu_rows(top)
     -- every screen on the stack, bottom to top: {"screen": X} holds when
     -- X is anywhere on it, not only when nothing sits on top of X
     do
@@ -4167,6 +4168,9 @@ local function observe(G, seq, result)
     if top.screenId == "MoveLearnMenu" and top.selecting then
       o.ui.is_choice = false
     end
+    -- ...nor a prize counter: a cursor over prizes and no `items`, so it
+    -- read as a yes/no and "yes" took the top row (wd.menu_rows).
+    if top.prizes then o.ui.is_choice = false end
     -- WHICH MOVE TO FORGET IS THE MODEL'S CHOICE, and it needs the list.
     -- A level-up MoveLearnMenu in its selecting state (the yes was given)
     -- shows four moves and CANCEL; scalars() drops top.mon, so say who is
@@ -5359,6 +5363,23 @@ end
 -- screen — turns this back too. seen_reach alone still read Seafoam B3F's
 -- (20,17) reachable while the walk said no path (probed on run 41's save).
 -- Memoized per observation (observe clears wd.sr_dist).
+-- WHAT A PRIZE COUNTER SHOWS. The screen is a table of prizes with their
+-- coin costs, and `scalars` keeps no tables, so the run met the Game
+-- Corner counter as an index and nothing else: it pressed 2, then 3, to
+-- learn "So, you want ABRA?" / "NIDORINA?" one row at a time while looking
+-- for a SECRET KEY that is not sold there (run 47, 2026-10-11). The rows
+-- on screen, numbered as the item menus' rows below are, with the CANCEL
+-- row the cursor can also take.
+wd.menu_rows = function(top)
+  if type(top) ~= "table" or type(top.prizes) ~= "table" then return nil end
+  local rows = {}
+  for i, p in ipairs(top.prizes) do
+    rows[i] = ("%d=%s (%s coins)"):format(i, tostring(p.name or "?"),
+                                          tostring(p.cost or "?"))
+  end
+  rows[#rows + 1] = ("%d=CANCEL"):format(#rows + 1)
+  return rows
+end
 wd.seen_has = function(G, x, y)
   local p = G.overworld and G.overworld.player
   if p and p.cellX == x and p.cellY == y then return true end
