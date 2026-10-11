@@ -2028,6 +2028,40 @@ def strip_part_labels(plan: dict) -> None:
             _walk(sg.get("done_when"))
 
 
+def _new_map_from_shut(src: str, path: str = "run/explored.json") -> str:
+    """Why {"new_map_from": src} cannot come true, or "".
+
+    It wants a map NEVER STOOD ON, entered straight from src. When every
+    door of src the run has seen is recorded and every one leads to a map
+    already stood on, no way out of src can give that. Mt Moon's B2F has
+    four ladders and all four go up to B1F; the run wrote "exit_b2f" as
+    new_map_from MT_MOON_B2F, stood on east ROUTE_4 the leg wanted, and went
+    back down to hunt the ladder that is not there (run 48, 2026-10-11,
+    user: "new goal text is unachievable"). A map with a road edge is not
+    judged: an edge is a way out no door table lists."""
+    try:
+        d = json.loads(Path(path).read_text() or "{}")
+    except (OSError, ValueError):
+        return ""
+    doors = set((d.get("map_doors") or {}).get(src) or [])
+    dests = (d.get("door_dests") or {}).get(src) or {}
+    if not doors or not doors <= set(dests):
+        return ""
+    for reg, edges in (d.get("explored") or {}).items():
+        if reg.split("|")[0] == src and any(
+                not re.fullmatch(r"\d+,\d+", str(k)) for k in (edges or {})):
+            return ""
+    seen = {r.split("|")[0] for r in (d.get("visits") or {})}
+    to = sorted(set(dests.values()))
+    if not to or not set(to) <= seen:
+        return ""
+    return (f"every way out of {src} this run has seen — {len(doors)} door(s) — "
+            f"leads to {', '.join(to)}, where you have already stood, and "
+            f"new_map_from wants a map never stood on; end the step on the "
+            f"place you actually mean (a map, or {{\"new_part\": MAP}} for an "
+            f"unwalked part of one)")
+
+
 def validate(plan: dict) -> list:
     """Return a list of problems (empty = ok).
 
@@ -3017,6 +3051,9 @@ def _check_pred(dw: dict, tag: str, sid, probs: list):
             elif k == "not_maps":
                 probs.append(f"{tag} ({sid}) not_maps is filled in for you "
                              f"when the step begins; write only new_map_from")
+            elif k == "new_map_from" and _new_map_from_shut(v):
+                probs.append(f"{tag} ({sid}) new_map_from '{v}': "
+                             f"{_new_map_from_shut(v)}")
             elif k == "has_item" and isinstance(v, dict):
                 for item in v:
                     if ENGINE_ITEMS and item not in ENGINE_ITEMS \
