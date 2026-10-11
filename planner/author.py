@@ -11892,6 +11892,30 @@ _ARRIVES = re.compile(r"(reach|arrive|travel|go|sail|enter|walk|fly|ride|"
                       r"navigate|cross|get to|head|make your way)\b", re.I)
 
 
+def _inside_unfinished_through(goal: str, start: str,
+                               observed="run/explored.json") -> str:
+    """Why a THROUGH / EXIT leg cannot be put off: the run stands inside
+    the very place it says to go through, and the record shows it left by
+    fewer than two mouths. Every leg after it starts on the far side of
+    that place or back where the run came in. Run 51 (2026-10-11) stood on
+    MT_MOON_B2F with the Super Nerd beaten and "Navigate Mt. Moon" was
+    pushed behind "Reach Cerulean City", which only that crossing reaches;
+    the next plan used an ESCAPE_ROPE and walked out the way it came in
+    (user: "it shouldnt have been able to finish the mt moon leg since its
+    not finished"). The same two-mouth record the done side reads."""
+    m = re.search(r"standing in ([A-Z][A-Z0-9_]+)", str(start or ""))
+    got = _through_place_mouths(goal, observed, exit_too=True)
+    if not (m and got):
+        return ""
+    fam, out = got
+    here = re.sub(r"_(B?\d+F|ROOF|ELEVATOR)$", "", m.group(1))
+    if here != fam or len(out) >= 2:
+        return ""
+    return (f"the run is standing inside {fam} and has left it by "
+            f"{len(out)} mouth(s) — a way through has two ends; this leg is "
+            f"the way out on the far side, so no leg can come before it")
+
+
 def check_later(goal: str, n: int, ahead: list, start: str, journal: str,
                 model: str, pushed: int = 0) -> int:
     """Is this objective right, but not yet? Then move it, don't drop it.
@@ -11914,6 +11938,11 @@ def check_later(goal: str, n: int, ahead: list, start: str, journal: str,
     if pushed >= 2:
         print(f"[later] refused: {goal!r} has already been put off twice",
               file=sys.stderr)
+        return 0
+    _inside = _inside_unfinished_through(goal, start)
+    if _inside:
+        print(f"[later] refused: {_inside}", file=sys.stderr)
+        note_rung_said(goal, "later", _inside)
         return 0
     body = (f"THE OBJECTIVE THAT FAILED: {n}. {goal}" + _wording_lineage(goal)
             + f"\n\nWHERE THE RUN STANDS: {start}\n{journal}"
