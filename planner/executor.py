@@ -12024,6 +12024,12 @@ class Executor:
                 rest = pat.sub(" ", rest)
                 if int(bag.get(nm, 0) or 0) > 0 or nm in out:
                     continue
+                # A BADGE IS WORN, NOT CARRIED. Gen 1's item list holds the
+                # eight badges, so "now that I have the CASCADEBADGE" with
+                # Misty beaten read back as "the bag holds no CASCADEBADGE"
+                # (run 47, 2026-10-10). Badges are on the page by themselves.
+                if str(nm).endswith("BADGE"):
+                    continue
                 out.append(nm)
         if not out:
             return ""
