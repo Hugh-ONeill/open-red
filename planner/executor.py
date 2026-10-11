@@ -20543,6 +20543,26 @@ class Executor:
         # — answer it here, before any op's back-out can press B at it.
         if (obs or {}).get("naming"):
             obs = self._resolve_naming(obs)
+        # WHAT WAS SAID BEFORE THE MEDICINE. An item used here prints its
+        # own line ("TRUFFLE recovered by 20!"), and that line became the
+        # op's last words: the Cerulean rival's "I went to BILL's ... go
+        # thank him!", the game's one pointer to the S.S. Ticket, was lost
+        # to a Potion in run 47 (2026-10-10). Kept here, put back in front
+        # of whatever the medicine printed (see the op's speech below).
+        # ...AND THE SCENE AFTER A FIGHT IS LET FINISH FIRST. The live log
+        # had the POTION used in the same instant the battle ended, and the
+        # rival's win flag fire after it: his after-battle speech was still
+        # to come when the medicine went in. Ride any dialog out first.
+        if (obs or {}).get("mode") == "dialog":
+            obs = self.settle() or obs
+        # Only when an item IS used, and only words printed in this op (the
+        # counter, as _op_spoke reads it): last_text outlives its box.
+        _lt = (str((obs or {}).get("last_text") or "").strip(),
+               (obs or {}).get("text_seq"))
+
+        def _keep_said():
+            if _lt[0]:
+                self._said_before_meds = _lt
         # spec-rule field cure/heal after the battle (no turn cost) for the
         # neediest party mon: the model's rules decide when an item beats
         # walking on. Cure first — poison keeps chipping until it is.
@@ -20550,6 +20570,7 @@ class Executor:
         if pick:
             self.log("field_cure", subgoal=subgoal["id"], item=pick[0],
                      slot=pick[1])
+            _keep_said()
             obs = self._send_safe("use_item", item=pick[0],
                                   slot=pick[1]) or obs
         # ...AND THE TRAIN RULE'S "never" HOLDS AFTER THE FIGHT TOO. It was
@@ -20572,6 +20593,7 @@ class Executor:
                 break
             self.log("field_revive", subgoal=subgoal["id"], item=_rp[0],
                      slot=_rp[1])
+            _keep_said()
             _o2 = self._send_safe("use_item", item=_rp[0], slot=_rp[1])
             _ok = bool(((_o2 or {}).get("result") or {}).get("ok"))
             obs = self.settle() or _o2 or obs
@@ -20584,6 +20606,7 @@ class Executor:
         if pick:
             self.log("field_heal", subgoal=subgoal["id"], item=pick[0],
                      slot=pick[1])
+            _keep_said()
             obs = self._send_safe("use_item", item=pick[0],
                                   slot=pick[1]) or obs
         return obs
@@ -23128,6 +23151,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             _op_det = ""
             self._op_battles = 0        # wild encounters this op met
             self._grind_spent_note = ""
+            self._said_before_meds = None
             # ...AND "NO BALLS" IS SAID OF THIS OP'S OWN BATTLES. The flag
             # is raised when a catch policy meets a wild with an empty bag
             # and read by the next GRIND's note — and it was never lowered
@@ -23499,6 +23523,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # instant the box closed. Keep them against the region so a
             # later round, or a later attempt, can read why it is stuck.
             said = ((obs or {}).get("last_text") or "").strip()
+            _sbm = getattr(self, "_said_before_meds", None)
+            if (said and _sbm and _sbm[0] not in said and said not in _sbm[0]
+                    and (_sbm[1] is None
+                         or _sbm[1] != (pre_obs or {}).get("text_seq"))):
+                said = _sbm[0] + " / " + said
             heard = ""
             _by_fight = None
             if said and self._op_spoke(pre_obs, obs, said):
