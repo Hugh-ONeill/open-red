@@ -2956,6 +2956,22 @@ class Executor:
                  said=(out[-2] if len(out) > 1 else "")[:300])
         return r.returncode == 0
 
+    def _leg_through_now(self) -> str:
+        """The leg's objective, if it says to go THROUGH a place, as the
+        record answers it now: the place and the two mouths it has been
+        left by (author._through_by_record), or "". Mechanical; the record
+        is saved first so this round's ways count."""
+        goal = str(getattr(self, "_leg_goal", "") or "").strip()
+        if not goal:
+            return ""
+        try:
+            self._save_memory()
+            import author as _au
+            path = Path(getattr(self.b, "run", "run")) / "explored.json"
+            return str(_au._through_by_record(goal, path) or "")
+        except Exception:
+            return ""
+
     def _new_part_ruled_out(self, sg, obs) -> str | None:
         """Why a "part of MAP you have not stood in" step is answered, or None.
 
@@ -27050,6 +27066,25 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     print(f"   ({sg['id']} answered: {_ruled})")
                     self._skipped = sg["id"]
                     return True, []
+                # THE LEG'S OWN END, REACHED MID-STEP. "Navigate Mt. Moon"
+                # was planned down to a step no door could finish ("a new map
+                # from B2F": every B2F ladder goes to B1F); the run came out
+                # on east ROUTE_4 by B1F's ladder — the mountain left by a
+                # second mouth, the objective done — and went back in to
+                # hunt the B2F exit (run 48, 2026-10-11, user: "this wouldnt
+                # fix it since it wrote that before it knew"). The done side
+                # of check-done reads the same record; only the moment is new.
+                if not getattr(self, "_thr_at_start", "") \
+                        and not getattr(self, "_leg_met_by_record", ""):
+                    _thr = self._leg_through_now()
+                    if _thr:
+                        self._leg_met_by_record = _thr
+                        self.log("leg_through_by_record", subgoal=sg["id"],
+                                 round=rnd, mouths=_thr)
+                        print(f"   (the leg's objective holds by the record — "
+                              f"left by two ways: {_thr}; ending this step)")
+                        self._skipped = sg["id"]
+                        return True, []
             stuck_note = ""      # per-round; the walk-back note appends below
             # THE PARTY'S HP IS ON THE SCREEN EVERY ROUND, so it is on the
             # page every round. It was said only for a become-goal
@@ -29012,10 +29047,21 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         # the plan went on working go_to_cinnabar_island from Seafoam B3F
         # because it had backtracked to step one (2026-09-11).
         _ran_any = False
+        # what the record says of a THROUGH objective as the plan starts:
+        # only a change from here is news (see _leg_through_now)
+        self._thr_at_start = self._leg_through_now()
+        self._leg_met_by_record = ""
         while idx + 1 < len(subgoals):
             idx += 1
             sg = subgoals[idx]
             self._cur_sg_idx = idx
+            if self._leg_met_by_record:
+                print(f"== the leg's objective holds by the record "
+                      f"({self._leg_met_by_record}) — skipping the remaining "
+                      f"steps")
+                self.log("plan_objective_met_by_record", skipped_from=sg.get("id"),
+                         why=self._leg_met_by_record)
+                return True
             self._freeze_new_part(sg)
             if idx < resume:
                 # A POSITION CANNOT VOUCH FOR AN ACHIEVEMENT BEFORE IT.
