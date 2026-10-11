@@ -3028,6 +3028,11 @@ class Executor:
             # user: "the goal is possible but not currently possible
             # because it lacks the ability to access those other areas
             # without cut"). Said as NOT YET, with the bushes named.
+            # ...AND ON FOOT ONLY, LIKE THE PLAIN ANSWER BELOW. Run 53's
+            # "exit Viridian Forest" step stood on ROUTE_2's south part and
+            # was told it "cannot be met until one can", when the north
+            # part was the far side of the forest it had just walked out of
+            # (2026-10-11).
             _bush = [o for o in (m.get("objects") or [])
                      if isinstance(o, dict) and o.get("kind") == "cut_tree"
                      and o.get("reachable") and o.get("opens")]
@@ -3038,8 +3043,10 @@ class Executor:
                     f"has been on screen, and all of it lies in part(s) you "
                     f"have stood in ({', '.join(na)}); the ground left is past "
                     f"bush(es) at {_at}, which CUT clears, and nobody in the "
-                    f"party can cut yet — this step cannot be met until one "
-                    f"can (HM01 is a thing someone hands over)")
+                    f"party can cut yet, so no part of {mp} you have not "
+                    f"stood in is on foot from there until one can (HM01 is "
+                    f"a thing someone hands over). A part of it entered "
+                    f"from another map is not ruled out.")
         return (f"every bit of {mp} a walk from where you stand reaches has "
                 f"been on screen, and all of it lies in part(s) you have "
                 f"stood in ({', '.join(na)}): no part of {mp} you have not "

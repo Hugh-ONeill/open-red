@@ -64,6 +64,9 @@ ex2._where = lambda o: f"{o['map']['id']}|{o['map']['region']}"
 r = ex2._new_part_ruled_out(SG, OBS)
 ck("past an uncuttable bush the step is answered, not yet", r and "(5,10)" in r
    and "nobody in the party can cut yet" in r, r)
+ck("...on foot only: a part entered from another map is not ruled out",
+   r and "entered from another map is not ruled out" in r
+   and "cannot be met" not in r, r)
 CUTS = json.loads(json.dumps(OBS))
 CUTS["party"][0]["moves"].append(mv(2, "CUT", 50, 30))
 ck("a party that knows CUT keeps it open", ex2._new_part_ruled_out(SG, CUTS) is None)
