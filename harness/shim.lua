@@ -12773,7 +12773,14 @@ function OPS.battle_move(G, c)
     return false, "move would not submit (disabled or out of PP?)"
   end
   -- play out the turn's text back to the next decision or battle end
-  for _ = 1, 120 do
+  -- ...ALL OF IT. 120 presses ran out inside one turn's text: a bar
+  -- draining after a critical hit holds a box for ~60 of them, and a
+  -- faint, its experience and the trainer's next send-out need the rest.
+  -- The op came back mid-text, the next turn was chosen against "DIGLETT
+  -- 0 hp" with SANDSHREW already out, and the loss told the model the
+  -- trainer had only a DIGLETT (run 53, Pewter Gym, 2026-10-11). The loop
+  -- still stops at the menu, the battle's end and a move to learn.
+  for _ = 1, 600 do
     local nb = in_battle(G)
     if not nb then return true, "battle ended" end
     if nb.phase == "menu" then return true end
