@@ -22067,6 +22067,46 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 return s[:end + 1]
         return s[:160]
 
+    def _grind_spent(self, sg, obs) -> str:
+        """Can anyone in the party still fight a wild by the policy's OWN
+        lines? A member out under flee_wild.hp_below runs; the trainee of a
+        `train` block fights only at or above its fight_if.min_hp_frac.
+        When nobody clears their line, every further encounter is a switch
+        and a run or a fight nobody should take: run 47's grind went on
+        re-sending with PIDGEY at 6/18 (trainee, line 0.4) and BULBASAUR
+        at 7/34 (line 0.2), fled five wilds, failed a run and blacked out
+        (2026-10-10). Says why, or "" while someone can fight."""
+        spec = ACTIVE_SPEC or {}
+        try:
+            hb = float((spec.get("flee_wild") or {}).get("hp_below") or 0)
+        except (TypeError, ValueError):
+            hb = 0.0
+        party = [m for m in ((obs or {}).get("party") or [])
+                 if isinstance(m, dict)]
+        tr = spec.get("train") if isinstance(spec.get("train"), dict) else None
+        t, tmin = None, None
+        if tr:
+            t = trainee_of((sg or {}).get("done_when") or {}, party)[0]
+            fi = tr.get("fight_if")
+            if isinstance(fi, dict):
+                try:
+                    tmin = float(fi.get("min_hp_frac"))
+                except (TypeError, ValueError):
+                    tmin = None
+        bits = []
+        for i, m in enumerate(party, 1):
+            hp, mx = m.get("hp") or 0, m.get("max_hp") or m.get("maxhp") or 0
+            if hp <= 0 or not mx:
+                continue
+            line = max(hb, tmin) if (i == t and tmin is not None) else hb
+            if hp / mx >= line:
+                return ""
+            bits.append(f"{m.get('species')} {hp}/{mx}")
+        if not bits:
+            return ""
+        return ("nobody left can fight by your policy's own HP lines — "
+                + ", ".join(bits) + " — healing is what lets the grind go on")
+
     def _gated(self, sig, op, step, trace):
         """The 3-strikes refusal, shared by the generic path and the early
         cross/walk_to handlers — those dispatch before the generic gate,
@@ -23087,6 +23127,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             wild_in_way = ""
             _op_det = ""
             self._op_battles = 0        # wild encounters this op met
+            self._grind_spent_note = ""
             # ...AND "NO BALLS" IS SAID OF THIS OP'S OWN BATTLES. The flag
             # is raised when a catch policy meets a wild with an empty bag
             # and read by the next GRIND's note — and it was never lowered
@@ -23359,6 +23400,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     # ending an intercepted fossil grab with no fossil. If
                     # the battle WAS the target's own, the re-send lands on
                     # after-text and exits on the first battle-free pass.
+                    if op == "grind" and not pred_holds(done, obs):
+                        _spent = self._grind_spent(sg, obs)
+                        if _spent:
+                            self._grind_spent_note = _spent
+                            self.log("grind_spent", subgoal=sg.get("id"),
+                                     why=_spent)
+                            break
                     if ((traversal or op == "interact")
                             and not pred_holds(done, obs)):
                         continue
@@ -23729,6 +23777,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 if _gain < 0:
                     _gain = 0        # a faint/heal reshuffled the party
                 note += f" earned {_gain} exp"
+                if getattr(self, "_grind_spent_note", ""):
+                    note += f" (stopped early: {self._grind_spent_note})"
                 # HOW MANY WILDS IT MET. "earned 0 exp ... fled" read as
                 # "no encounters" when nine had been fled; the count is
                 # the journal's own and costs nothing to say.
