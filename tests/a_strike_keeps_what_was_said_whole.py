@@ -33,7 +33,7 @@ ck("...and nothing after it", "walked back" not in w)
 ck("a reason with no speech is cut as before",
    E.Executor._strike_why("x" * 300) == "x" * 160)
 ck("a quote that starts late is cut as before",
-   E.Executor._strike_why("y" * 170 + ' "hi"') == "y" * 160)
+   E.Executor._strike_why("y" * 310 + ' "hi"') == "y" * 160)
 src = (ROOT / "planner/executor.py").read_text()
 ck("every strike reason goes through it",
    'self._dead_why[sig] = str(det or "")[:160]' not in src

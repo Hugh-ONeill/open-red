@@ -3660,6 +3660,22 @@ class Executor:
             self._note_blocker(here, key,
                                "door" if op == "use_warp" else "seam",
                                f"a script turned you back — {said}")
+        # ...AND A WALK SOMEONE SPOKE INTO AND SENT BACK. Pewter's guide
+        # boy stops the east cross before Brock with "You're a trainer
+        # right? BROCK's looking for new challengers! Follow me!" and walks
+        # the party back; the note says so in its own words ("someone spoke
+        # and the walk ended short"), which neither branch above reads, so
+        # no row was written, the training page listed east -> ROUTE_3 as a
+        # way on, and every new step tried it again (run 50, 2026-10-11;
+        # user: "i thought it was supposed to register that as a blocker").
+        elif (op in ("use_warp", "cross") and "FAILED" in note
+              and "someone spoke and the walk ended short: " in note):
+            said = note.split("someone spoke and the walk ended short: ", 1)[1]
+            _q = _re.match(r'\s*"([^"]+)"', said)
+            said = ('"' + _q.group(1) + '"') if _q else said.strip()[:160]
+            self._note_blocker(here, key,
+                               "door" if op == "use_warp" else "seam",
+                               f"someone spoke and sent you back — {said}")
         elif (op == "use_warp" and "FAILED" in note
               and "somebody is standing by it: " in note
               and "(who wanders)" not in note):
@@ -22175,12 +22191,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         a", so every refusal of the east cross hid "BROCK's looking for
         new challengers! Follow me!", and the model hunted the town for a
         way round two NPCs (run 45, 2026-10-10). The first quoted line is
-        kept whole, up to 400 characters."""
+        kept whole, up to 520 characters."""
         s = str(det or "")
         q = s.find('"')
-        if 0 <= q < 160:
+        # ...the quote may start late: "couldn't reach east edge gap (39,17),
+        # stuck at (29,18) — 11 cell(s) of walking still to do — during
+        # this walk someone spoke ..." puts it past 160 (run 50)
+        if 0 <= q < 300:
             end = s.find('"', q + 1)
-            if q < end < 400:
+            if q < end < 520:
                 return s[:end + 1]
         return s[:160]
 
