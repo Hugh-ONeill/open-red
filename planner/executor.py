@@ -20685,7 +20685,8 @@ class Executor:
             self._note_med(obs)
         return obs
 
-    def _earlier_speech(self, pre_obs, obs, pre_mapped, sg, said) -> list:
+    def _earlier_speech(self, pre_obs, obs, pre_mapped, sg, said,
+                        fresh=None) -> list:
         """Every speech that ENDED during this op other than the last one,
         as (speaker, words), each filed in the hints under its own speaker.
 
@@ -20697,7 +20698,7 @@ class Executor:
         its print count (ended_runs); the ones printed since the op began
         are said here."""
         s0 = (pre_obs or {}).get("text_seq")
-        if s0 is None or not self._said_ready:
+        if s0 is None or not (self._said_ready if fresh is None else fresh):
             return []
         out = []
         for r in ((obs or {}).get("ended_runs") or []):
@@ -23677,8 +23678,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # instant the box closed. Keep them against the region so a
             # later round, or a later attempt, can read why it is stuck.
             said = ((obs or {}).get("last_text") or "").strip()
+            # A FIGHT IN THIS OP MAKES ITS WORDS THIS OP'S. The first-op
+            # guard (_said_ready) keeps a resumed save's leftover line from
+            # being pinned on the first op, and it also threw away the
+            # rival's second box — "I went to BILL's ... go thank him!" —
+            # when the Cerulean fight came in an attempt's first op (run
+            # 51, 2026-10-11: his first box was filed by the main path, his
+            # BILL box, an extra, was dropped). No battle starts before the
+            # op that walks into it.
+            _fresh = bool(self._said_ready
+                          or getattr(self, "_last_fight", None) is not _fight0)
             _earlier = self._earlier_speech(pre_obs, obs, _pre_mapped, sg,
-                                            said)
+                                            said, _fresh)
             _sbm = getattr(self, "_said_before_meds", None)
             if (said and _sbm and _sbm[0] not in said and said not in _sbm[0]
                     and (_sbm[1] is None
@@ -23768,7 +23779,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # op; the only thing left is the first-op guard, which
                 # stops the very first observation inheriting whatever was
                 # on screen before the run started.
-                heard = said if self._said_ready else ""
+                heard = said if _fresh else ""
                 # THE ROUND THE BAG GREW IS THE ONE TO KEEP WHOLE. What a
                 # giver says as they hand a thing over is what the thing is
                 # for, and it comes at the END of the speech; see
@@ -23810,7 +23821,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             self._item_from[_it] = {
                                 "who": str(step.get("name")), "at": reg,
                                 "said": speech_excerpt(said, 300)}
-                    for _xn, _xs in (_extra if self._said_ready else []):
+                    for _xn, _xs in (_extra if _fresh else []):
                         _xl = f"{_xn}: {speech_excerpt(_xs, 480)}"
                         if _xl not in lst:
                             lst.append(_xl)
