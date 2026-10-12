@@ -11,8 +11,8 @@ coins)", "3=NIDORINA (1200 coins)", "4=CANCEL"], is_choice false, nothing
 bought.
 
 Pinned: the rows come from wd.menu_rows in the item menus' numbering; a
-prize screen is never is_choice in the observation; the shim's own choice
-test is unchanged (the interact's stop at a question rests on it).
+prize screen is never is_choice in the observation, nor in the shim's own
+choice test (interact stops at the list by its own branch).
 Synthetic.
 """
 from __future__ import annotations
@@ -40,9 +40,14 @@ ck("...and nothing for a screen without prizes",
    'type(top.prizes) ~= "table" then return nil end' in fn)
 ck("a prize screen is never a yes/no in the observation",
    "if top.prizes then o.ui.is_choice = false end" in SRC)
-ck("the shim's own choice test is unchanged",
-   re.search(r"local function ui_is_choice\(G\)\n  local t = ui_top\(G\) return t ~= nil "
-             r"and t.index ~= nil and t.items == nil\nend", SRC) is not None)
+# The interact's stop at the counter rested on the shim's choice test calling
+# the list a yes/no, and so did the answer="yes" that took row 1 the next
+# time (run 53, 2026-10-12). The stop is its own branch now
+# (a_prize_list_is_never_pressed_blind), and the choice test agrees with
+# the observation.
+ck("the shim's own choice test excludes a prize list, as the observation does",
+   "and t.items == nil and not t.prizes" in SRC
+   and "opened a prize list" in SRC)
 
 failed = [n for n, ok in checks if not ok]
 for n, ok in checks:

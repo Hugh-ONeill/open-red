@@ -8212,8 +8212,14 @@ end
 local function ui_is_qty(G)
   local t = ui_top(G) return t ~= nil and t.qty ~= nil
 end
+-- ...AND A PRIZE COUNTER IS A LIST, HERE AS IN THE OBSERVATION. The
+-- observation stopped calling it a yes/no (top.prizes); this test did not,
+-- so interact's answer="yes" pressed A on the prize list and took the top
+-- row: run 53 sent "yes" to reopen the counter after CANCEL and bought an
+-- ABRA for 180 coins it never chose (2026-10-12).
 local function ui_is_choice(G)
-  local t = ui_top(G) return t ~= nil and t.index ~= nil and t.items == nil
+  local t = ui_top(G)
+  return t ~= nil and t.index ~= nil and t.items == nil and not t.prizes
 end
 local function ui_press_until(G, pred, btn, tries)
   for _ = 1, tries or 60 do
@@ -13500,6 +13506,19 @@ function OPS.interact(G, c)
           .. "\"index\":N}, or {\"op\":\"tap\",\"btn\":\"b\"} to "
           .. "close it; the next overworld op closes it anyway.")
           :format(who, title, table.concat(labels, ", "))
+      end
+      -- ...AND A PRIZE COUNTER IS ONE, though its rows are `prizes`, not
+      -- `items`. It fell through to the A below (once it stopped reading
+      -- as a yes/no) and took the top row: an ABRA for 180 coins nobody
+      -- chose (run 53, 2026-10-12). Same rule: leave it open, say the rows.
+      if t and type(t.prizes) == "table" then
+        local who = c.name or (c.x and ("%s,%s"):format(tostring(c.x),
+                                                        tostring(c.y)))
+                    or "?"
+        return true, ("%s opened a prize list: %s. Nothing was chosen and "
+          .. "it is left OPEN. Pick a row with {\"op\":\"menu\","
+          .. "\"index\":N}, or {\"op\":\"tap\",\"btn\":\"b\"} to "
+          .. "close it."):format(who, table.concat(wd.menu_rows(t) or {}, ", "))
       end
       if t == ow then return true end
       if t and U.is_battle(t) then return true, "battle started" end
