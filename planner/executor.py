@@ -11021,24 +11021,36 @@ class Executor:
         edges = self._edges_of
 
         _now = getattr(self, "_mark_now", None)
-        seen, q = {frm} | set(avoid or ()), deque([(frm, [])])
-        while q:
-            cur, path = q.popleft()
-            for key, e in edges(cur).items():
-                nxt = e.get("to")
-                if not nxt or nxt in seen:
-                    continue
-                # a hop that failed to land in THIS world state is not
-                # routed again until the world moves (see _walk_route)
-                if (not ignore_blocked and _now is not None
-                        and e.get("blocked_at") == _now):
-                    continue
-                hop = path + [(key, nxt)]
-                if (nxt == to or nxt in AREA_ALIASES.get(to, ())
-                        or self._same_place(nxt, to)):
-                    return hop
-                seen.add(nxt)
-                q.append((nxt, hop))
+        # A WALKED ROUTE BEFORE A GUESSED ONE. The reverse
+        # of a walk inside a map is offered as an inference (_edges_of), and
+        # one hop of it beat two walked ones: Cerulean's back yard, reached
+        # only through the burgled house, read "1 leg(s) away, first: walk
+        # walk:CERULEAN_CITY|26,7" from the square, because the yard had
+        # once been walked down out of into town (run 53, 2026-10-11, the
+        # city's only way south). Searched first on walked edges alone; the
+        # inferred ones (that, and the way back over a road crossed the
+        # other way) only when nothing walked gets there.
+        for _guess in (False, True):
+            seen, q = {frm} | set(avoid or ()), deque([(frm, [])])
+            while q:
+                cur, path = q.popleft()
+                for key, e in edges(cur).items():
+                    nxt = e.get("to")
+                    if not nxt or nxt in seen:
+                        continue
+                    if not _guess and e.get("inferred"):
+                        continue
+                    # a hop that failed to land in THIS world state is not
+                    # routed again until the world moves (see _walk_route)
+                    if (not ignore_blocked and _now is not None
+                            and e.get("blocked_at") == _now):
+                        continue
+                    hop = path + [(key, nxt)]
+                    if (nxt == to or nxt in AREA_ALIASES.get(to, ())
+                            or self._same_place(nxt, to)):
+                        return hop
+                    seen.add(nxt)
+                    q.append((nxt, hop))
         return None
 
     def _cross_by_recall(self, obs, sg, dirname):

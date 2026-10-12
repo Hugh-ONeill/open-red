@@ -1,0 +1,311 @@
+{
+ "explored": {
+  "ROUTE_4|4,4": {
+   "south": {
+    "n": 0,
+    "to": "ROUTE_3|57,0",
+    "inferred": true,
+    "at": [
+     7,
+     17
+    ]
+   },
+   "11,5": {
+    "to": "MT_MOON_POKECENTER|0,3",
+    "n": 1,
+    "land": "3,7"
+   },
+   "18,5": {
+    "n": 3,
+    "to": "MT_MOON_1F|3,2",
+    "land": "14,35"
+   }
+  },
+  "ROUTE_4|36,2": {
+   "24,5": {
+    "to": "MT_MOON_B1F|20,2",
+    "n": 0
+   },
+   "walk:ROUTE_4|63,10": {
+    "n": 1,
+    "to": "ROUTE_4|63,10",
+    "intra": true
+   }
+  },
+  "ROUTE_4|63,10": {
+   "east": {
+    "n": 10,
+    "to": "CERULEAN_CITY|20,0",
+    "cell": [
+     89,
+     10
+    ],
+    "land": "0,18"
+   }
+  },
+  "CERULEAN_CITY|20,0": {
+   "west": {
+    "n": 8,
+    "to": "ROUTE_4|63,10",
+    "inferred": true,
+    "at": [
+     0,
+     18
+    ],
+    "land": "89,10",
+    "cell": [
+     0,
+     18
+    ]
+   },
+   "19,17": {
+    "to": "CERULEAN_POKECENTER|0,3",
+    "n": 3,
+    "land": "3,7"
+   },
+   "25,25": {
+    "to": "CERULEAN_MART|0,2",
+    "n": 1,
+    "land": "3,7"
+   },
+   "9,11": {
+    "n": 18,
+    "to": "CERULEAN_BADGE_HOUSE|2,0",
+    "land": "2,7"
+   },
+   "13,15": {
+    "n": 2,
+    "to": "CERULEAN_TRADE_HOUSE|2,1",
+    "land": "2,7"
+   },
+   "13,25": {
+    "n": 3,
+    "to": "BIKE_SHOP|4,1",
+    "land": "2,7"
+   },
+   "30,19": {
+    "n": 3,
+    "to": "CERULEAN_GYM|0,1",
+    "land": "4,13"
+   },
+   "north": {
+    "n": 8,
+    "to": "ROUTE_24|4,4",
+    "cell": [
+     20,
+     0
+    ],
+    "land": "10,35"
+   },
+   "north#skip1": {
+    "n": 1,
+    "to": "ROUTE_24|4,4",
+    "cell": [
+     21,
+     0
+    ],
+    "land": "11,35"
+   },
+   "27,11": {
+    "n": 9,
+    "to": "CERULEAN_TRASHED_HOUSE|3,0",
+    "land": "2,7"
+   }
+  },
+  "CERULEAN_POKECENTER|0,3": {
+   "3,7": {
+    "n": 6,
+    "to": "CERULEAN_CITY|20,0",
+    "land": "19,18"
+   },
+   "4,7": {
+    "n": 6,
+    "to": "CERULEAN_CITY|20,0",
+    "land": "19,18"
+   }
+  },
+  "CERULEAN_MART|0,2": {
+   "3,7": {
+    "n": 5,
+    "to": "CERULEAN_CITY|20,0",
+    "land": "25,26"
+   },
+   "4,7": {
+    "n": 5,
+    "to": "CERULEAN_CITY|20,0",
+    "land": "25,26"
+   }
+  },
+  "CERULEAN_BADGE_HOUSE|2,0": {
+   "2,7": {
+    "to": "CERULEAN_CITY|20,0",
+    "n": 19,
+    "land": "9,12"
+   },
+   "2,0": {
+    "n": 23,
+    "to": "CERULEAN_CITY|8,7",
+    "land": "9,9"
+   },
+   "3,7": {
+    "n": 19,
+    "to": "CERULEAN_CITY|20,0",
+    "land": "9,12"
+   }
+  },
+  "CERULEAN_TRADE_HOUSE|2,1": {
+   "2,7": {
+    "to": "CERULEAN_CITY|20,0",
+    "n": 2,
+    "land": "13,16"
+   },
+   "3,7": {
+    "n": 2,
+    "to": "CERULEAN_CITY|20,0",
+    "land": "13,16"
+   }
+  },
+  "CERULEAN_GYM|0,1": {
+   "4,13": {
+    "to": "CERULEAN_CITY|20,0",
+    "n": 3,
+    "land": "30,20"
+   },
+   "5,13": {
+    "n": 3,
+    "to": "CERULEAN_CITY|20,0",
+    "land": "30,20"
+   }
+  },
+  "ROUTE_24|4,4": {
+   "south": {
+    "n": 7,
+    "to": "CERULEAN_CITY|20,0",
+    "inferred": true,
+    "at": [
+     10,
+     35
+    ],
+    "cell": [
+     10,
+     35
+    ],
+    "land": "20,0"
+   },
+   "10,35": {
+    "n": 6,
+    "to": "CERULEAN_CITY|20,0",
+    "land": "20,0"
+   },
+   "east": {
+    "n": 1,
+    "to": "ROUTE_25|10,2",
+    "cell": [
+     19,
+     9
+    ],
+    "land": "0,9"
+   },
+   "19,9": {
+    "n": 1,
+    "to": "ROUTE_25|10,2",
+    "land": "0,9"
+   }
+  },
+  "CERULEAN_CITY|8,7": {
+   "9,9": {
+    "to": "CERULEAN_BADGE_HOUSE|2,0",
+    "n": 23,
+    "land": "2,1"
+   }
+  },
+  "CERULEAN_TRASHED_HOUSE|3,0": {
+   "2,7": {
+    "to": "CERULEAN_CITY|20,0",
+    "n": 3,
+    "land": "27,12"
+   },
+   "3,7": {
+    "n": 3,
+    "to": "CERULEAN_CITY|20,0",
+    "land": "27,12"
+   },
+   "3,0": {
+    "n": 7,
+    "to": "CERULEAN_CITY|26,7",
+    "land": "27,9"
+   }
+  },
+  "CERULEAN_CITY|26,7": {
+   "27,9": {
+    "to": "CERULEAN_TRASHED_HOUSE|3,0",
+    "n": 1,
+    "land": "3,1"
+   },
+   "east": {
+    "n": 4,
+    "to": "ROUTE_9|0,8",
+    "cell": [
+     39,
+     17
+    ],
+    "land": "0,9"
+   },
+   "25,25": {
+    "n": 1,
+    "to": "CERULEAN_MART|0,2",
+    "land": "3,7"
+   },
+   "walk:CERULEAN_CITY|20,0": {
+    "n": 2,
+    "to": "CERULEAN_CITY|20,0",
+    "intra": true
+   },
+   "east#skip1": {
+    "n": 1,
+    "to": "ROUTE_9|0,8",
+    "cell": [
+     39,
+     17
+    ],
+    "land": "0,9"
+   },
+   "north": {
+    "n": 1,
+    "to": "ROUTE_24|4,4",
+    "cell": [
+     20,
+     0
+    ],
+    "land": "10,35"
+   },
+   "9,11": {
+    "n": 1,
+    "to": "CERULEAN_BADGE_HOUSE|2,0",
+    "land": "2,7"
+   }
+  },
+  "ROUTE_9|0,8": {
+   "west": {
+    "n": 4,
+    "to": "CERULEAN_CITY|26,7",
+    "inferred": true,
+    "at": [
+     0,
+     8
+    ],
+    "cell": [
+     0,
+     9
+    ],
+    "land": "39,17"
+   },
+   "0,8": {
+    "n": 2,
+    "to": "CERULEAN_CITY|26,7",
+    "land": "39,16"
+   }
+  }
+ },
+ "bad_seam": []
+}

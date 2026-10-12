@@ -497,6 +497,20 @@ def leg_words(ex, here, fk) -> str:
     (16,14)" on Mansion 3F, where no door stands — the drop is taken by
     walking onto it (run 27, 2026-09-18)."""
     fk = str(fk)
+    # A WALK ACROSS THIS MAP TO ANOTHER PART OF IT reads as one, not as its
+    # key ("first: walk walk:CERULEAN_CITY|26,7", run 53, 2026-10-11) — and
+    # a guess is said to be one: the reverse of a walk made the other way,
+    # which a ledge can make false.
+    if fk.startswith("walk:"):
+        _e = {}
+        try:
+            _e = (ex._edges_of(here) or {}).get(fk) or {}
+        except Exception:
+            pass
+        return ("walk across this map" + (
+            " (never walked this way: the reverse of a walk made the other "
+            "way, which a ledge would make impossible)"
+            if _e.get("inferred") else ""))
     if not fk[:1].isdigit():
         return f"walk {fk}"
     _mid = str(here or "").split("|")[0]
