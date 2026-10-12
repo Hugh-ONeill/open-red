@@ -2745,6 +2745,13 @@ class Executor:
         plain = [r.strip().replace(" ", "_")
                  for r in _re.findall(r"\d+=([A-Z0-9 .'-]+?)(?:,|$)", listing)]
         plain = [r for r in plain if r and r != "CANCEL"]
+        # ...BUT A BADGE IS AN ITEM ID AND NO SHOP SELLS ONE. The Cerulean
+        # badge house man's "which badge?" list (1=BOULDERBADGE, ...) was
+        # kept as CERULEAN_CITY's vending stock, every page said the city
+        # had VENDING MACHINES, and run 53 went back there for a drink for
+        # Saffron's guards across two legs (2026-10-12).
+        if any(str(r).endswith("BADGE") for r in plain):
+            return []
         if plain and all(r in _ITEM_IDS for r in plain):
             return plain
         return []
@@ -6569,6 +6576,12 @@ class Executor:
             self._machines_owned = set(data.get("machines_owned") or [])
             self._shelf_reads = data.get("shelf_reads") or {}
             self._shelf_machine = set(data.get("shelf_machine") or [])
+            # a shelf of badges was a "which badge?" question (_menu_rows)
+            for _bm in [m for m, rows in self._shelves.items()
+                        if any(str(r).endswith("BADGE") for r in rows or [])]:
+                self._shelves.pop(_bm, None)
+                self._shelf_machine.discard(_bm)
+                self._shelf_reads.pop(_bm, None)
             self._stow = [str(x) for x in (data.get("stow") or [])]
             self._tm_asked = data.get("tm_asked") or {}
             self._stone_asked = data.get("stone_asked") or {}
