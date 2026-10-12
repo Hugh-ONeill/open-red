@@ -2703,6 +2703,7 @@ class Executor:
         # unsee them, and the guard below deliberately returns before the
         # recording block at the end of this function.
         self._record_machine_stock(region, r.get("detail"))
+        self._record_prize_list(region, name, res_obs)
         if ASKING in str(r.get("detail") or "") \
                 and not self._asks_as_talk(res_obs, name, self._kinds_for(region)):
             return False                       # it asked; nothing answered
@@ -2768,6 +2769,67 @@ class Executor:
         if plain and all(r in _ITEM_IDS for r in plain):
             return plain
         return []
+
+    _PRIZE_RE = _re.compile(r"opened a prize list: (.+?)\. Nothing was chosen")
+
+    def _record_prize_list(self, region, name, res_obs) -> None:
+        """Keep what a prize counter offered, by map and by counter.
+
+        A PRIZE LIST WAS SEEN FOR ONE ROUND AND THEN GONE. Mart shelves are
+        kept and printed on every page; a prize list is not item stock, so
+        nothing kept it. Run 53 read the Game Corner's first counter
+        (ABRA, CLEFAIRY, NIDORINA, CANCEL) and said "the Secret Key is not
+        listed", and the next rewrite, the next pull and the wording rung
+        were shown none of it: the leg was reworded "Purchase the Secret
+        Key from the Game Corner" (2026-10-12, user: "truly a troublesome
+        issue"). The rows as the screen showed them; what they mean, and
+        what the counters never read might hold, stay the model's."""
+        r = ((res_obs or {}).get("result") or {})
+        rows = None
+        m = self._PRIZE_RE.search(str(r.get("detail") or ""))
+        if m:
+            rows = [x.strip() for x in m.group(1).split(", ") if x.strip()]
+        else:
+            ui = (res_obs or {}).get("ui") or {}
+            _rows = [str(x) for x in (ui.get("rows") or [])]
+            if _rows and any(" coins)" in x for x in _rows):
+                rows = _rows
+        if not rows:
+            return
+        rows = [_re.sub(r"^\d+=", "", x) for x in rows]
+        rows = [x for x in rows if x and x != "CANCEL"]
+        mid = str(region or "").split("|")[0]
+        if not rows or not mid or mid == "None" or not name:
+            return
+        if getattr(self, "_prize_lists", None) is None:
+            self._prize_lists = {}
+        if (self._prize_lists.get(mid) or {}).get(str(name)) == rows:
+            return
+        self._prize_lists.setdefault(mid, {})[str(name)] = rows
+        self.log("prize_list", map=mid, counter=str(name), rows=rows)
+        self._save_memory()
+
+    def _prize_lists_line(self) -> str:
+        """PRIZE COUNTERS YOU HAVE READ, for the page: the run's own reads,
+        and which counters in those rooms were never read."""
+        pl = getattr(self, "_prize_lists", None) or {}
+        if not pl:
+            return ""
+        parts = []
+        for mid in sorted(pl):
+            reads = pl[mid] or {}
+            unread = sorted({
+                str(n) for reg, names in (getattr(self, "sightings", None) or {}).items()
+                if str(reg).split("|")[0] == mid
+                for n in (names or [])
+                if "PRIZE_VENDOR" in str(n) and str(n) not in reads})
+            parts.append(
+                f"{mid}: " + "; ".join(f"{n} offered {', '.join(rows)}"
+                                       for n, rows in sorted(reads.items()))
+                + (f" (never read: {', '.join(unread)})" if unread else ""))
+        return ("PRIZE COUNTERS YOU HAVE READ (what each listed when you "
+                "opened it; a counter you have not opened is not listed and "
+                "nothing is claimed about it): " + " | ".join(parts) + "\n")
 
     def _record_machine_stock(self, region, detail) -> None:
         """Keep what a fixture's purchase menu offered, keyed by map.
@@ -6589,6 +6651,7 @@ class Executor:
             self._machines_owned = set(data.get("machines_owned") or [])
             self._shelf_reads = data.get("shelf_reads") or {}
             self._shelf_machine = set(data.get("shelf_machine") or [])
+            self._prize_lists = data.get("prize_lists") or {}
             # a shelf of badges was a "which badge?" question (_menu_rows)
             for _bm in [m for m, rows in self._shelves.items()
                         if any(str(r).endswith("BADGE") for r in rows or [])]:
@@ -7131,6 +7194,7 @@ class Executor:
                  "shelf_reads": getattr(self, "_shelf_reads", {}),
                  "shelf_machine": sorted(getattr(self, "_shelf_machine",
                                                  set())),
+                 "prize_lists": getattr(self, "_prize_lists", None) or {},
                  "stow": list(getattr(self, "_stow", []) or []),
                  "tm_asked": getattr(self, "_tm_asked", {}),
                  "stone_asked": getattr(self, "_stone_asked", {}),
@@ -19579,6 +19643,10 @@ class Executor:
                       "worth is yours to judge.\n") + _rs_line
         except Exception as _e:      # a page must never die of this
             self.log("shop_recall_error", err=str(_e)[:120])
+        try:
+            _rs_line = self._prize_lists_line() + _rs_line
+        except Exception as _e:      # nor of this
+            self.log("prize_recall_error", err=str(_e)[:120])
         # WHAT YOU ARE CARRYING, ON EVERY PAGE. The bag reached the prompt
         # only when a round changed NOTHING (_stale_rounds) or after two
         # blackouts — so a run that is busy is never told what it holds.
@@ -23743,6 +23811,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     self._tried_objs.setdefault(_hr, set()).add(step["name"])
                     self._stamp_touch(_hr)
                     self._mark_touch(_hr, step["name"], obs)
+                    # a prize list the model opened is kept like the
+                    # sweep's (_record_touch); see _record_prize_list
+                    try:
+                        self._record_prize_list(_hr, step["name"], obs)
+                    except Exception as _e:
+                        self.log("prize_list_error", err=str(_e)[:120])
             after = self._snapshot(obs)
             # A MAP OF None IS A MID-TRANSITION READ, NOT A PLACE. An op
             # that ends while a menu or a warp fade is still up snapshots

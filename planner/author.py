@@ -1008,18 +1008,49 @@ def walked_shelves() -> dict:
     return out
 
 
+def prize_lists_text(observed="run/explored.json") -> str:
+    """The prize counters this run has opened and what each listed, with
+    the counters in those rooms it never opened — executor
+    _record_prize_list's record, read back. A list seen once was gone the
+    next round, and run 53's rungs reworded "Purchase the Secret Key from
+    the Game Corner" right after a counter's list had no key on it
+    (2026-10-12). Nothing is claimed about a counter never opened."""
+    try:
+        d = json.loads(Path(observed).read_text() or "{}")
+    except Exception:
+        return ""
+    pl = d.get("prize_lists") or {}
+    if not pl:
+        return ""
+    lines = []
+    for mid in sorted(pl):
+        reads = pl[mid] or {}
+        unread = sorted({str(n) for reg, names in (d.get("sightings") or {}).items()
+                         if str(reg).split("|")[0] == mid
+                         for n in (names or [])
+                         if "PRIZE_VENDOR" in str(n) and str(n) not in reads})
+        for n, rows in sorted(reads.items()):
+            lines.append(f"  {mid}, {n}: " + ", ".join(str(x) for x in rows))
+        if unread:
+            lines.append(f"  {mid}, never opened: " + ", ".join(unread))
+    return ("\n\nPRIZE COUNTERS YOU HAVE READ (what each listed when you "
+            "opened it, coins and all; nothing is known of a counter you "
+            "have not opened):\n" + "\n".join(lines))
+
+
 def read_counters_text() -> str:
     """The counters this run has stood at, and what each was selling —
     the run's own record, for a page that may be about to name one."""
     sh = walked_shelves()
     if not sh:
-        return ""
+        return prize_lists_text()
     return ("\n\nCOUNTERS YOU HAVE READ (what each was selling when you stood "
             "at it; nothing is known of counters you have not stood at):\n"
             + "\n".join(f"  {m}: " + ", ".join(str(x) for x in items[:12])
                         + (" — it has sold something different since"
                            if moved else "")
-                        for m, (items, moved) in sorted(sh.items())))
+                        for m, (items, moved) in sorted(sh.items()))
+            + prize_lists_text())
 
 
 def names_a_counter_without(text: str) -> str | None:
@@ -4706,6 +4737,7 @@ def observed_text(path: Path) -> str:
                     "is not on its list has already failed. Counters the "
                     "run has never stood at are not listed and nothing is "
                     "claimed about them:\n" + "\n".join(_rows[:10]))
+    out += prize_lists_text(path)
     out += wild_met_text(d)
     # Nearness = the maps the run has spent the most time in, which is
     # where it is and where it keeps returning. Mechanical, not a judgment
@@ -7845,7 +7877,8 @@ def confirm_blocker(goal: str, n: int, text: str, gap: int, start: str,
     # exhausted celadon looking for that exact thing already"). The run's
     # own record; what it says about the leg stays the model's.
     _prior = (attempt_yield_text(text)[0]
-              + (looked_text(observed, text) if observed else ""))
+              + (looked_text(observed, text) if observed else "")
+              + (prize_lists_text(observed) if observed else ""))
     if _prior.strip():
         body += ("\n\nTHE LEG YOU WANT TO MOVE HAS BEEN PLAYED BEFORE. Its own "
                  "record follows; \"this objective\" in it means that leg, "
