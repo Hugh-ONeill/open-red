@@ -9356,6 +9356,21 @@ function OPS.use_item(G, c)
       end
     end
     if t == G.overworld then break end
+    -- A FIGHT IS NOT THIS OP'S TO PLAY. The POKE FLUTE's text ends in a
+    -- battle, and these presses rode "SNORLAX woke up! It attacked in a
+    -- grumpy rage!" into it, picked FIGHT and move 1, and GRAVELER's
+    -- EXPLOSION ended it inside the op: no policy turn, and no catch for
+    -- a Pokemon the model had said it would catch (Route 16, run 53,
+    -- 2026-10-12). Same rule as the rod: hand the battle back untouched.
+    do
+      local _st = G.stack and G.stack.states
+      for k = #(_st or {}), 1, -1 do
+        if U.is_battle(_st[k]) then
+          return true, "used " .. c.item .. " — AND A FIGHT BEGAN: the "
+            .. "battle is up now and nothing in it has been pressed"
+        end
+      end
+    end
     -- ONE USE PER OP. After the item acts, the game puts the party menu
     -- back up with the same item in hand, and the A below pressed it again:
     -- one use_item POTION on a DUGTRIO at 20/101 spent all five POTIONs
