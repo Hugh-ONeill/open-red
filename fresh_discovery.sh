@@ -304,6 +304,25 @@ archive_plans_of() {
   return 0
 }
 
+inside_through_rerun() {
+  # NOT MOVED FROM INSIDE THE PLACE IT GOES THROUGH. Run 53's "Navigate Mt.
+  # Moon and fight Team Rocket" met its second plan on MT_MOON_B2F, left by
+  # one mouth, and the unconfirmed push put it behind "Reach Cerulean City",
+  # which only that crossing reaches (2026-10-11, user: "wait how is it on
+  # reach cerulean city already?"). The later rung has refused that since
+  # next138; that push never asked. A fresh plan runs instead while the
+  # leg has been unconfirmed three times or fewer; then the push as before.
+  local _n _in
+  _n=$(grep -cxF -- "$1" run/leg_unconfirmed 2>/dev/null || true)
+  [ "${_n:-0}" -le 3 ] || return 1
+  _in=$(python planner/author.py --inside-through --goal "$1" \
+      --start "$(python planner/state_text.py)" \
+      --observed run/explored.json) || return 1
+  echo "    (not moved: $_in — a fresh plan, run once more)"
+  archive_plans_of "$1"
+  return 0
+}
+
 pushes_in_force() {
   # AT the position it was pushed to is still deferred. push_leg lands the
   # leg exactly ON `after`, so a strict `<` said a push stopped holding the
@@ -1368,6 +1387,7 @@ while :; do
       # 30->32 with the drink given days before). Reword, done-under-
       # another-name and VOID stay the model's answers (wording_rung).
       if wording_rung "done"; then continue; fi
+      if inside_through_rerun "$leg"; then continue; fi
       _after=$((i + 2))
       if [ "$_after" -lt "${#LEGS[@]}" ] \
           && python planner/push_leg.py "$i" "$_after"; then

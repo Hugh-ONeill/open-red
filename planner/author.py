@@ -12452,6 +12452,10 @@ def main():
     ap.add_argument("--check-later", action="store_true",
                     help="ask whether the failed leg is right but too "
                          "early; prints the position it should follow")
+    ap.add_argument("--inside-through", action="store_true",
+                    help="is the run standing inside the place --goal says "
+                         "to go through, left by fewer than two mouths? "
+                         "prints why and exits 0; exits 1 when not")
     ap.add_argument("--pushed", type=int, default=0,
                     help="how many times this objective has been put off "
                          "already (--check-later refuses a third)")
@@ -12622,6 +12626,14 @@ def main():
             print(got[0])
             sys.exit(0)
         sys.exit(3)
+    if args.inside_through:
+        why = _inside_unfinished_through(
+            args.goal or "", args.start or "",
+            args.observed or "run/explored.json")
+        if why:
+            print(why)
+            sys.exit(0)
+        sys.exit(1)
     if args.check_later:
         if not (args.outline_path and args.leg):
             ap.error("--check-later needs --outline-path and --leg")
