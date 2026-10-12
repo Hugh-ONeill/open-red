@@ -8640,8 +8640,53 @@ local function other_counters(all, used)
   return out
 end
 
+-- COINS ARE BOUGHT A FIFTY AT A TIME, AND buy WAS ONLY A MART. Run 53 sent
+-- {"op":"buy","item":"COIN","count":2000,"clerk":"GAMECORNER_CLERK1"} — the
+-- natural sentence — and got "shop menu never opened" (one batch went
+-- through anyway), then fell back to ten interact/yes presses a macro for a
+-- target it said would take forty (2026-10-12, user: "its also doing it one
+-- step at a time which it itself notes it needs to do like 40 total
+-- times"). The clerk's own question is the purchase; ask it until the case
+-- holds the count asked for (TARGET semantics, like the mart), the press
+-- stops adding coins, or the wallet stops. What each press cost is read off
+-- the save, not assumed. On U, not a local: the main chunk is at Lua's
+-- 200-local limit (see wd's note).
+function U.buy_coins(G, c)
+  local who = c.clerk or c.name
+  if not who then
+    return false, "buy COIN needs clerk= — the person here who sells coins"
+  end
+  local want = math.floor(tonumber(c.count) or 0)
+  local coins0 = (G.save and G.save.coins) or 0
+  local money0 = (G.save and G.save.money) or 0
+  if coins0 >= want then
+    return true, ("already have %d coins (asked for %d)"):format(coins0, want)
+  end
+  local presses, last = 0, nil
+  for _ = 1, 250 do
+    local before = (G.save and G.save.coins) or 0
+    if before >= want then break end
+    local ok, det = OPS.interact(G, { name = who, answer = "yes",
+                                       read_question = true })
+    presses = presses + 1
+    last = det
+    local after = (G.save and G.save.coins) or 0
+    if not ok or after <= before then break end
+  end
+  local coins1 = (G.save and G.save.coins) or 0
+  local money1 = (G.save and G.save.money) or 0
+  local head = ("asked %s %d time(s): coins %d -> %d, money %d -> %d")
+    :format(who, presses, coins0, coins1, money0, money1)
+  if coins1 >= want then
+    return true, head .. (" — the case holds the %d asked for"):format(want)
+  end
+  return coins1 > coins0, head .. (" — stopped short of %d: the last press "
+    .. "added no coins (%s)"):format(want, tostring(last or ""):sub(1, 200))
+end
+
 function OPS.buy(G, c)
   if not (c.item and c.count) then return false, "buy needs item, count" end
+  if tostring(c.item):upper() == "COIN" then return U.buy_coins(G, c) end
   -- function-scope: the refusal below names the counter it actually read
   local clerk, all_clerks
   -- ...AND THE FLOOR IT LEFT TO READ IT. A buy from Celadon's 1F lobby

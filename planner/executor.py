@@ -12166,6 +12166,15 @@ class Executor:
                 # (run 47, 2026-10-10). Badges are on the page by themselves.
                 if str(nm).endswith("BADGE"):
                     continue
+                # ...AND COINS ARE IN THE CASE: "I have 190 coins" read back
+                # as "the bag holds no COIN" (run 53, 2026-10-12). The count
+                # is obs["coins"].
+                if nm == "COIN":
+                    try:
+                        if int((obs or {}).get("coins") or 0) > 0:
+                            continue
+                    except (TypeError, ValueError):
+                        pass
                 out.append(nm)
         if not out:
             return ""
@@ -22030,6 +22039,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         # all. Read it from the observation directly and say it either way.
         if isinstance(m0, int) and isinstance(m1, int) and m0 != m1:
             parts.append(f"money {m1 - m0:+d} ({m1} left)")
+        # ...AND THE COIN CASE, which is not the bag either: fifty coins
+        # bought read as "money -1000" and nothing else (run 53, 2026-10-12)
+        c0 = (pre_obs or {}).get("coins")
+        c1 = (obs or {}).get("coins")
+        if isinstance(c0, int) and isinstance(c1, int) and c0 != c1:
+            parts.append(f"coins {c1 - c0:+d} (now {c1})")
         return ("  [" + "; ".join(parts) + "]") if parts else ""
 
     @staticmethod

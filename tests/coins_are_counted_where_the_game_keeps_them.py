@@ -58,6 +58,28 @@ ck("the CARD KEY demand still names CARD_KEY",
    "CARD_KEY" in X._spoken_item_note(f, ['it said: "Darn! It needs a CARD KEY!"'],
                                      {"bag": {"LIFT_KEY": 1}, "coins": 0}))
 
+g = types.SimpleNamespace(_HELD_WORDS=X._HELD_WORDS, _item_word_patterns=X._item_word_patterns,
+                          _same_kind_held=lambda nm, b: "")
+said = "I have the COIN_CASE and 190 coins, so I will buy more."
+ck("a plan holding coins is not told the bag holds no COIN",
+   "of holding COIN;" not in X._held_claim_note(g, said, {"bag": {"COIN_CASE": 1}, "coins": 190}))
+ck("...but is when the case is empty",
+   "of holding COIN;" in X._held_claim_note(g, said, {"bag": {"COIN_CASE": 1}, "coins": 0}))
+
+# ONE OP BUYS THE COUNT. buy COIN was a mart op ("shop menu never opened");
+# it now asks the coin clerk until the case holds the target. Reproduced on a
+# run 53 save at the Game Corner: buy COIN 400 took 90 -> 440 in one op,
+# 7 presses, 72457 -> 65457 money; unpatched: "shop menu never opened".
+sh = (ROOT / "harness" / "shim.lua").read_text()
+bc = sh[sh.index("function U.buy_coins(G, c)"):sh.index("function OPS.buy(G, c)")]
+ck("buy routes COIN to the coin clerk loop",
+   'if tostring(c.item):upper() == "COIN" then return U.buy_coins(G, c) end' in sh)
+ck("...which answers the clerk's question it was sent to answer",
+   'answer = "yes"' in bc and "read_question = true" in bc)
+ck("...stops at the target, or when a press adds no coins",
+   "if before >= want then break end" in bc and "after <= before then break end" in bc)
+ck("...and says coins and money before and after", "coins %d -> %d, money %d -> %d" in bc)
+
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not d else f"  {str(d)[:300]}"))
