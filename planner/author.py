@@ -7817,7 +7817,7 @@ def _phantom_item(text: str) -> str:
 
 
 def confirm_blocker(goal: str, n: int, text: str, gap: int, start: str,
-                    journal: str, model: str, held=None) -> bool:
+                    journal: str, model: str, held=None, observed=None) -> bool:
     """A long pull must name what it provides, or it does not happen.
 
     Leg 11 — "Obtain the Secret Key from the Rocket Hideout", an objective
@@ -7836,6 +7836,20 @@ def confirm_blocker(goal: str, n: int, text: str, gap: int, start: str,
     body = (f"THE STUCK LEG, number {n - gap}: {goal}\n\n"
             f"THE LEG YOU WANT TO MOVE, number {n}, planned {gap} legs "
             f"later: {text}\n\nWHERE THE RUN STANDS: {start}\n{journal}")
+    # ...AND WHAT THAT LEG ALREADY DID WHEN IT RAN. The question showed the
+    # stuck leg's record and none of the one it would move: run 53 pulled
+    # "Retrieve the Secret Key from the Game Corner" ahead of Silph Co. as
+    # providing the CARD KEY, after that leg had run 9 tries over
+    # CELADON_CITY x156, GAME_CORNER x100 and the prize room x35 and found
+    # no key (2026-10-12, user: "it should know its not because its
+    # exhausted celadon looking for that exact thing already"). The run's
+    # own record; what it says about the leg stays the model's.
+    _prior = (attempt_yield_text(text)[0]
+              + (looked_text(observed, text) if observed else ""))
+    if _prior.strip():
+        body += ("\n\nTHE LEG YOU WANT TO MOVE HAS BEEN PLAYED BEFORE. Its own "
+                 "record follows; \"this objective\" in it means that leg, "
+                 "not the stuck one:" + _prior)
     try:
         reply = brock_probe.chat(
             [{"role": "system", "content": PULLCHECK_SYS},
@@ -8065,7 +8079,7 @@ def _blocker_once(goal, body, ahead, start, journal, model, leg, observed,
                   f"standing on it — {_held}. A leg behind a held door is not "
                   f"what moves them: name what does, or another blocker")
     if not confirm_blocker(goal, n, text, gap, start, journal, model,
-                           held=held):
+                           held=held, observed=observed):
         return n, ("asked again what it hands the stuck leg, the answer "
                    "named nothing it provides")
     return n, None
