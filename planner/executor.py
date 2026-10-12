@@ -1789,6 +1789,9 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
                 DAMAGE_FRAC.setdefault(fk, []).append([ratio, 1.0])
 
 
+_NEW_BATTLE = "a NEW battle has begun"   # shim battle ops, at another fight's door
+
+
 def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
                 want=None, ball_cap=None, ball=None, trainee=None):
     """Drive a battle turn-by-turn with a battle_policy spec (rules as data).
@@ -1823,7 +1826,19 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
            # the run's item ledger, shared across battles until the party
            # is made whole (battle_policy.RUN_BUDGET; see log())
            "items_used_run": battle_policy.RUN_BUDGET}
+    _obs_in = obs
     while obs and turns < max_turns:
+        # A NEW BATTLE IS A NEW BATTLE. A trainer who engages as this fight
+        # closes pushes a fresh one; the op stops at its door (shim: "a NEW
+        # battle has begun") and this loop leaves, so the caller opens it
+        # with its own start, kind and recap rather than playing a trainer
+        # as the wild fight that came before (run 54, 2026-10-12). Only an
+        # op sent HERE counts: the observation this loop was handed may
+        # carry the words of the op that left the last fight.
+        if obs is not _obs_in and _NEW_BATTLE in str(
+                ((obs or {}).get("result") or {}).get("detail") or ""):
+            log("battle_loop_left", turn=turns, why="a new battle began")
+            break
         # THE FORCED PICK UNDER A BATTLE FRAME. Since a menu over a fight
         # reports the fight (battle_under_a_menu, 2026-08-26), "Use next
         # POKeMON?" -> party menu arrives as mode=battle with the lead gone
@@ -1935,6 +1950,9 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
                 params={"slot": _to}, why="spec switch rule")
             obs = bridge.send("battle_switch", slot=_to)
             if ((obs or {}).get("result") or {}).get("ok"):
+                if _NEW_BATTLE in str(((obs or {}).get("result") or {})
+                                      .get("detail") or ""):
+                    continue            # the loop's head leaves on it
                 obs = bridge.obs() or obs
                 continue
         # gen1 escape odds IMPROVE with each failed attempt (the formula

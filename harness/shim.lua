@@ -12846,9 +12846,18 @@ function OPS.battle_move(G, c)
   -- 0 hp" with SANDSHREW already out, and the loss told the model the
   -- trainer had only a DIGLETT (run 53, Pewter Gym, 2026-10-11). The loop
   -- still stops at the menu, the battle's end and a move to learn.
+  -- ...AND ONLY THIS BATTLE'S TEXT. A trainer who sees you as a wild
+  -- fight closes pushes a NEW battle frame, which in_battle() reports
+  -- just the same, and these presses rode its intro into its first turn:
+  -- the next turn was chosen as if the wild fight went on, a flee was
+  -- tried on a trainer, and the fight left no recap (run 54, 2026-10-12:
+  -- ZUBAT -> a BUG CATCHER on MT_MOON, PIDGEY -> ROUTE_6's BUTTERFREE;
+  -- none in run 53's 2486 battles, with the cap at 120). A frame that is
+  -- not the one this op began in is another fight: hand it back untouched.
   for _ = 1, 600 do
     local nb = in_battle(G)
     if not nb then return true, "battle ended" end
+    if nb ~= b then return true, "battle ended — and a NEW battle has begun (someone engaged you as it closed); nothing in it has been pressed" end
     if nb.phase == "menu" then return true end
     -- A LEVEL-UP MOVE LIST IS NOT TURN TEXT. Mashing A through it answers
     -- "delete an older move?" with the cursor's YES and then forgets
@@ -12929,7 +12938,11 @@ function OPS.battle_run(G)
   if not battle_menu_to(G, b, 4) then return false, "couldn't reach RUN" end
   U.tap(G, "a"); U.wait(3)
   for _ = 1, 30 do
-    if not in_battle(G) then return true, "fled" end
+    local nb = in_battle(G)
+    if not nb then return true, "fled" end
+    -- a trainer who engages as the escape closes: see battle_move's loop
+    if nb ~= b then return true, "fled — and a NEW battle has begun (someone "
+      .. "engaged you as it closed); nothing in it has been pressed" end
     U.tap(G, "a"); U.wait(3)
   end
   return true, "run attempted"
@@ -12966,6 +12979,7 @@ function OPS.battle_switch(G, c)
   end
   for _ = 1, 60 do
     local nb = in_battle(G)
+    if nb and nb ~= b then return true, "battle ended — and a NEW battle has begun (someone engaged you as it closed); nothing in it has been pressed" end
     if nb and (nb.phase == "menu" or nb.phase == "moveSelect") then
       return true
     end
