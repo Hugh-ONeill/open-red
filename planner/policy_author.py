@@ -87,7 +87,8 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
       {"to": 1-6 OR "resists"|"best_matchup"|"healthiest"|"first_alive",
        "first_turns": 1-8, "max_uses": 1-6,
        "vs": "trainer"|"wild"|"any", "hp_below": null or 0.0-1.0,
-       "only_if_lead": null or 1-6, "out_of_pp": true/false}
+       "only_if_lead": null or 1-6, "out_of_pp": true/false,
+       "no_effect": true/false}
     (A SLOT NUMBER IS A POSITION, NOT A POKEMON. "to": 3 is a different
      animal in every party and at every hour of the same run — v7 named
      slot 3 and it was a PIDGEY at Pewter, a PIDGEOTTO at Vermilion and a
@@ -110,6 +111,13 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      on the fight. A rule carrying out_of_pp is not gated to the first
      turn unless you give it a first_turns of your own, because running
      dry arrives late by definition.)
+    (no_effect: fire only when no damaging move the active mon has PP for
+     can touch this foe at all — every one is 0x on the type chart, the
+     game's "It doesn't affect" — whatever status moves it still has.
+     PIKACHU used THUNDERSHOCK on BROCK's ONIX eight turns running, Onix on
+     5 HP the whole time and a full BULBASAUR on the bench, and the party
+     blacked out (run 54). Like out_of_pp it is not gated to the first
+     turn unless you give it a first_turns of your own.)
   flee_wild: {"when_traversal": true/false, "hp_below": null or 0.0-1.0}
     (when_traversal: flee wild battles while traveling to save HP;
      hp_below: also flee ANY wild when own hp fraction is below this.

@@ -50,7 +50,10 @@ SPEC DSL v1 (all keys optional; unknown keys are validation errors):
               hp_below: float|null  only when the ACTIVE mon's hp frac is
                  below this — omit to switch regardless of health
               only_if_lead: int|null  only when the mon that STARTED this
-                 battle was that slot } ]
+                 battle was that slot
+              out_of_pp: bool    only when no move has PP left
+              no_effect: bool    only when no damaging move with PP left
+                 can touch the foe (all 0x on the chart) } ]
             A switch costs the turn and the foe gets a free hit. Whether
             that price is worth paying, and what for, is yours to decide
             and to write down as conditions.
@@ -554,6 +557,8 @@ def validate_spec(spec) -> list:
                     probs.append(f"switch[{i}].hp_below must be 0.0-1.0")
                 if r.get("out_of_pp") not in (None, True, False):
                     probs.append(f"switch[{i}].out_of_pp must be true/false")
+                if r.get("no_effect") not in (None, True, False):
+                    probs.append(f"switch[{i}].no_effect must be true/false")
     if "setup" in spec:
         if not isinstance(spec["setup"], list):
             probs.append("setup must be a list")
@@ -1203,7 +1208,7 @@ def should_switch(obs: dict, spec: dict | None = None,
         # "switch when I am out of PP" would have read correctly and
         # never fired once. An explicit first_turns is still obeyed.
         _gate = rule.get("first_turns")
-        if _gate is None and not rule.get("out_of_pp"):
+        if _gate is None and not (rule.get("out_of_pp") or rule.get("no_effect")):
             _gate = 1
         if _gate is not None and (ctx.get("turn") or 1) > _gate:
             continue
@@ -1229,6 +1234,22 @@ def should_switch(obs: dict, spec: dict | None = None,
             if not me.get("moves"):
                 continue
             if any((m.get("pp") or 0) > 0 for m in (me.get("moves") or [])):
+                continue
+        # NOTHING IT CAN THROW LANDS. PIKACHU used THUNDERSHOCK on BROCK's
+        # ONIX eight turns running with a full BULBASAUR on the bench (run
+        # 54, 2026-10-12): every damaging move it had was 0x on the chart.
+        # Read off the moves the screen shows (type, power, PP); a move
+        # with no type read, or no foe types, is not called useless.
+        if rule.get("no_effect"):
+            _ft = (b.get("foe") or {}).get("types") or []
+            _mv = [m for m in (me.get("moves") or []) if isinstance(m, dict)]
+            _dmg = [m for m in _mv if (m.get("power") or 0) > 0
+                    and (m.get("pp") is None or (m.get("pp") or 0) > 0)]
+            if not _ft or not _mv or any(not m.get("type") for m in _dmg):
+                continue
+            if any(effectiveness(str(m["type"]).upper(),
+                                 [str(t).upper() for t in _ft]) > 0
+                   for m in _dmg):
                 continue
         lead = rule.get("only_if_lead")
         if lead is not None and ctx.get("started_as") != lead:
