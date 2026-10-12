@@ -1847,7 +1847,19 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
             # ("Use next POKeMON?" -> party menu). With a backup alive,
             # send the replacement the spec's rule chooses — party depth
             # exists precisely so a lead faint is not a blackout.
-            slot = battle_policy.choose_replacement(obs, spec)
+            # THE FOE IS STILL THERE WHEN THE MENU IS UP. The forced pick's
+            # observation carries no foe, so best_matchup found no types,
+            # fell back to health, and a full PIKACHU (slot 2) tied a full
+            # BULBASAUR (slot 3) against BROCK's ONIX: eight THUNDERSHOCKs
+            # that did nothing, three blackouts (run 54, 2026-10-12). The
+            # foe this fight last showed is the one still out.
+            _pick_obs = obs
+            if not ((((obs.get("battle") or {}).get("foe") or {}).get("types"))) \
+                    and ctx.get("last_foe"):
+                _pick_obs = dict(obs)
+                _pick_obs["battle"] = dict(obs.get("battle") or {},
+                                           foe=ctx["last_foe"])
+            slot = battle_policy.choose_replacement(_pick_obs, spec)
             # A UI AFTER A FIGHT IS NOT A PARTY PICK. Any box at all used to
             # count, so every successful catch — which ends on "Do you want
             # to give a nickname to X?" — sent pick_party, and pick_party
@@ -1878,6 +1890,9 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
             break
         turns += 1
         ctx["turn"] = turns
+        _fseen = ((obs.get("battle") or {}).get("foe") or {})
+        if _fseen.get("types"):
+            ctx["last_foe"] = _fseen
         # WHO IS OUT is a decision the policy could not make. It fought
         # with whoever was sent in, so party order was the only lever and
         # a Pokemon too frail to survive a turn could never be in a battle
