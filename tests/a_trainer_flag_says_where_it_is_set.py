@@ -48,8 +48,17 @@ w2 = E.Executor._condition_place_words(fake, "Clear the B1F cabins", {"flag": "E
 ck("no disagreement is claimed when the floors agree", "words say" not in w2 and "set by beating" in w2, w2)
 ck("a flag that is not a trainer's says nothing", E.Executor._condition_place_words(fake, "x", {"flag": "EVENT_GOT_HM01"}) == "")
 src = (ROOT / "planner" / "executor.py").read_text()
-ck("the prompt passes the observation so the counts are live",
-   'f"{self._words_vs_condition(goal, done, obs)}"' in src)
+ck("the prompt passes the raw observation so the counts are live",
+   'f"{self._words_vs_condition(goal, done, start)}"' in src
+   and 'f"{self._words_vs_condition(goal, done, obs)}"' not in src)
+# THE MODEL'S VIEW HAS NO FLAGS. Passing it printed "0 already set, and this
+# one is not" for SILPH_CO_11F with TRAINER_1 beaten (run 53, 2026-10-12).
+raw = {"flags": ["EVENT_BEAT_SILPH_CO_11F_TRAINER_1"], "map": {"id": "SILPH_CO_10F"}}
+ck("the model's view of an observation carries no flags", "flags" not in E.model_view(raw))
+w3 = E.Executor._condition_place_words(fake, "Defeat the Rocket guard on 11F",
+                                       {"flag": "EVENT_BEAT_SILPH_CO_11F_TRAINER_0"}, raw)
+ck("...so with the raw one, a beaten sibling is counted",
+   "2 trainer event(s), 1 already set, and this one is not" in w3, w3)
 
 bad = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:

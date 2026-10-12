@@ -35,7 +35,7 @@ ck("nothing is said when nothing was carried", E.Executor._carried_premise_note(
 ck("...nor when the party did reach that place after all",
    E.Executor._carried_premise_note(fake, plan["subgoals"][1], {"map": {"id": "VERMILION_CITY"}}) == "")
 ck("the escalation prompt carries the note under DONE_WHEN",
-   'f"{self._words_vs_condition(goal, done, obs)}"\n                    f"{self._carried_premise_note(sg, obs)}"' in src)
+   'f"{self._words_vs_condition(goal, done, start)}"\n                    f"{self._carried_premise_note(sg, obs)}"' in src)
 
 bad = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:

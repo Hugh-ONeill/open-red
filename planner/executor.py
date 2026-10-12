@@ -26137,9 +26137,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if plan_echo:
                 self.log("escalate_echo", subgoal=sg["id"], round=rnd,
                          echo=plan_echo[:2000])
+            # _words_vs_condition reads the raw observation: model_view()
+            # strips "flags", and "N already set, and this one is not" read
+            # 0 and "is not" every time (run 53, 2026-10-12: SILPH_CO_11F
+            # "0 already set" with its TRAINER_1 beaten).
             user = (f"SUBGOAL: {goal}\nDONE_WHEN: {pred_text.dumps(done)}"
                     f"{self._area_ids_note(done, obs)}"
-                    f"{self._words_vs_condition(goal, done, obs)}"
+                    f"{self._words_vs_condition(goal, done, start)}"
                     f"{self._carried_premise_note(sg, obs)}"
                     f"{redo_note}\n{memory}\n"
                     f"ATLAS (map edges and doors you have observed so far): "
