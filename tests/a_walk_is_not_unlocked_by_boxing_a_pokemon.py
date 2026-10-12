@@ -41,7 +41,7 @@ r = A.same_failed_walk_problems(plan, goal="Reach Cerulean City")
 ck("boxing a Pokemon does not count as doing something before the same walk",
    r and "this is the same walk" in r[0], r)
 ck("...and the refusal says ground never stood on counts, and healing or the PC does not",
-   r and "new_part" in r[0] and "Healing or putting a Pokemon in the PC does not" in r[0], r)
+   r and "new_part" in r[0] and "Healing, standing on a cell, putting a Pokemon in the PC" in r[0], r)
 deed = {"subgoals": [{"id": "get_cut", "done_when": {"has_item": {"HM_CUT": 1}}},
                      {"id": "walk", "done_when": {"map": "CERULEAN_CITY"}}]}
 ck("a real deed first still lets the walk follow",

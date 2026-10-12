@@ -2745,7 +2745,10 @@ def validate(plan: dict) -> list:
     return probs
 
 
-_TRAVEL_KEYS = {"map", "area", "new_part", "not_area", "party_healthy"}
+# ...AND SO IS STANDING ON A CELL. "travel_to_route_16_south: player_at
+# (26,10)" stood in front of run 53's second walk to ROUTE_17 and passed as a
+# deed (2026-10-12); a cell already walked to is a walk.
+_TRAVEL_KEYS = {"map", "area", "new_part", "not_area", "party_healthy", "player_at"}
 
 
 def untried_leads(run: Path = Path("run"), skip_maps=(), cap: int = 6) -> list:
@@ -2864,7 +2867,8 @@ def same_failed_walk_problems(plan: dict, goal: str | None = None,
                     f"go somewhere else. Ground never stood on counts as "
                     f"something: a step ending on a part of a map you have not "
                     f"stood in ({{\"new_part\": \"MAP\"}}) or on a map never "
-                    f"stood on. Healing or putting a Pokemon in the PC does not."
+                    f"stood on. Healing, standing on a cell, putting a Pokemon in the PC, "
+                    f"or a flag that has already fired does not."
                     + (" PLACES THIS RUN HAS WALKED THAT STILL HAVE SOMETHING "
                        "NEVER TRIED: " + "; ".join(_leads) + "." if _leads else "")]
         # A BOXED POKEMON IS NOT A DEED THE WALK MEETS. Refused this rule five
@@ -2872,6 +2876,18 @@ def same_failed_walk_problems(plan: dict, goal: str | None = None,
         # pc_holds 1" to get past it, and the executor deposited Geodude, Mega
         # Punch and all, "to satisfy the goal" (2026-10-02). Healing was
         # already only travel; putting a member in the PC is the same.
+        # A DEED ALREADY DONE IS NOT DONE FIRST. Refused for walking back to
+        # ROUTE_17, run 53's level-40 leg put "wake_snorlax: flag
+        # EVENT_BEAT_ROUTE16_SNORLAX" in front of the same walk, with that
+        # flag fired an hour before; the step met itself on arrival and the
+        # walk met the same Cycling Road guard (2026-10-12). A flag that has
+        # already fired changes nothing the walk meets.
+        if keys == {"flag"} and isinstance(dw, dict):
+            _fl = dw.get("flag")
+            _fl = {_fl} if isinstance(_fl, str) else {str(f) for f in (_fl or [])
+                                                      if isinstance(f, str)}
+            if _fl and _fl <= _fired_in(run):
+                continue
         if not keys <= (_TRAVEL_KEYS | {"pc_holds"}):
             return []                 # a deed comes first: the walk may follow
         # ...AND SO DOES NEW GROUND. The same walk from the same place meets
@@ -2888,6 +2904,18 @@ def same_failed_walk_problems(plan: dict, goal: str | None = None,
         if tgt and _st is not None and tgt not in places and tgt not in _st:
             return []
     return []
+
+
+def _fired_in(run: Path = Path("run")) -> set:
+    """Event flags set in the run's last observation under `run` (names)."""
+    for src in ("last_state.json", "obs.json"):
+        try:
+            fl = (json.loads((Path(run) / src).read_text() or "{}") or {}).get("flags")
+        except (OSError, ValueError):
+            continue
+        if isinstance(fl, list):
+            return {str(f) for f in fl}
+    return set()
 
 
 def _stood_maps(run: Path = Path("run")):
