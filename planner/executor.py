@@ -1386,6 +1386,19 @@ def pred_holds(pred: dict | None, obs: dict) -> bool:
                     n = int(n)
                 except (TypeError, ValueError):
                     n = 1
+                # COINS ARE NOT IN THE BAG. COIN is an item id the game
+                # defines, so {"has_item":{"COIN":2000}} passed the
+                # validator, but the Coin Case's count is its own field and
+                # no bag ever holds COIN: run 53's "gamble_for_coins" could
+                # only be carried past, never met (2026-10-12).
+                if str(item).upper() == "COIN":
+                    try:
+                        _c = int(obs.get("coins") or 0)
+                    except (TypeError, ValueError):
+                        _c = 0
+                    if _c < n:
+                        return False
+                    continue
                 if not bag or bag.get(item, 0) < n:
                     return False
         elif key in ("lacks_item", "bag_kinds_below"):
@@ -12242,8 +12255,24 @@ class Executor:
             said = t.split("said: ", 1)[1]
             if not _re.search(self.NEED_WORDS, said, _re.I):
                 continue
+            # ...AND A NAME INSIDE A LONGER ONE IS THE LONGER ONE. The
+            # patterns run longest first, but each searched the whole
+            # sentence, so "A COIN CASE is required!" also named COIN; and
+            # coins are counted in obs["coins"], never in the bag (run 53,
+            # 2026-10-12: "spoke of COIN, which you do not hold" with coins
+            # in the case). A matched name's words are used up.
             for nm, pat in self._item_word_patterns():
-                if pat.search(said) and int(bag.get(nm, 0) or 0) <= 0 and nm not in named:
+                if not pat.search(said):
+                    continue
+                said = pat.sub(" ", said)
+                if nm == "COIN":
+                    try:
+                        held = int((obs or {}).get("coins") or 0)
+                    except (TypeError, ValueError):
+                        held = 0
+                else:
+                    held = int(bag.get(nm, 0) or 0)
+                if held <= 0 and nm not in named:
                     named.append(nm)
         if not named:
             return ""
