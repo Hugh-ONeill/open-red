@@ -3536,6 +3536,23 @@ class Executor:
         names = {str(o.get("name") or "")
                  for o in ((obs.get("map") or {}).get("objects") or [])}
         for bk, b in (self.blockers or {}).items():
+            # ...AND A SPEAKER WHO HAS LEFT HAS STOPPED SAYING IT. Route 12's
+            # Snorlax was fought on the Poke Flute and left the map (the
+            # sightings ledger booked it gone at both of Route 12's parts),
+            # but its "A sleeping POKéMON blocks the way!" stayed first on
+            # WAYS THAT HAVE ALREADY TURNED YOU BACK as "turned you back 3x
+            # ... it may answer differently now", and the model walked back
+            # to wake it and pressed a name that was not there four times
+            # (run 54, 2026-10-13). The gone ledger is the same observation
+            # the fence sweep below makes by standing there.
+            if (not b.get("cleared") and b.get("kind") == "said"
+                    and b.get("key") in ((getattr(self, "_gone", {}) or {})
+                                         .get(b.get("where")) or ())):
+                b["cleared"] = True
+                b["cleared_how"] = "who said it is no longer on this map"
+                self.log("blocker_cleared", where=b.get("where"),
+                         key=b.get("key"), how="speaker gone")
+                continue
             if b.get("cleared") or b.get("where") != here:
                 continue
             what = str(b.get("what") or "")
@@ -8271,7 +8288,20 @@ class Executor:
         # does one thing for ever, so every flag that fired anywhere put the
         # Mansion's statues back on the page as rooms worth walking to — and
         # walking to one only undoes the last press (2026-09-10).
+        # ...AND SOMEBODY WHO HAS LEFT HAS NOTHING MORE TO SAY. Gone from
+        # this room, or gone from the room it was seen in and never seen
+        # here at all: ROUTE12_SNORLAX was booked as pressed on ROUTE_13,
+        # a Bird Keeper's words filed under its name, and this list sent
+        # the run back to a Snorlax that had left the map
+        # (run 54, 2026-10-13).
+        _gone_all = getattr(self, "_gone", {}) or {}
+        _seen_here = set((getattr(self, "sightings", {}) or {}).get(region) or ())
+
         def _re_offerable(n) -> bool:
+            if n in (_gone_all.get(region) or ()):
+                return False
+            if n not in _seen_here and any(n in v for v in _gone_all.values()):
+                return False
             return not str(n).startswith("SWITCH_")
         if not backfill:
             return sorted(
