@@ -90,6 +90,29 @@ ck("...nor table accuracy",
 ck("a status move is still told from an attack",
    not bp.damaging({"id": "SAND_ATTACK", "power": 0}) and bp.damaging(ME["moves"][0]))
 
+# A FEW USES ARE NOT A VERDICT (run 55: THUNDERBOLT, one use at 0, never tried
+# again under SWIFT's twenty-nine): a barely tried move gets room to be wrong.
+bp.MOVE_SEEN.clear()
+PK = {"species": "PIKACHU", "types": ["ELECTRIC"],
+      "moves": [{"id": "THUNDERBOLT", "type": "ELECTRIC", "power": 95},
+                {"id": "SWIFT", "type": "NORMAL", "power": 60}]}
+for _ in range(29):
+    bp.note_move_use("SWIFT", "PIKACHU", 1.0, 1.0, 0.33)
+bp.note_move_use("THUNDERBOLT", "PIKACHU", 1.0, 1.0, 0.0)
+ck("one unlucky use does not bury a move under one with a long record",
+   bp.move_strength(PK["moves"][0], PK) > bp.move_strength(PK["moves"][1], PK))
+for _ in range(6):
+    bp.note_move_use("THUNDERBOLT", "PIKACHU", 1.0, 1.0, 0.05)
+ck("...but a move seen to hit weakly again and again stays under it",
+   bp.move_strength(PK["moves"][0], PK) < bp.move_strength(PK["moves"][1], PK))
+# A KNOCKOUT IS NOT FILED AS STRENGTH: it shows only what the foe had left
+bp.MOVE_SEEN.clear()
+ko_before = {"me": ME, "foe": dict(FOE, hp=5), "_text_seq": 0}
+E._journal_damage(ko_before, {"mode": "overworld", "battle_text": "PIDGEOT used WING ATTACK!",
+                              "battle_text_seq": 1, "party": [dict(ME, exp=10)]},
+                  "WING_ATTACK", exp_before=0)
+ck("a knockout hit is not filed as the move's strength", bp.MOVE_SEEN == {}, bp.MOVE_SEEN)
+
 # kept with the run's memory
 src = (ROOT / "planner/executor.py").read_text()
 ck("the record is saved and loaded with explored.json",

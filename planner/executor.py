@@ -1879,8 +1879,11 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
             DAMAGE_JOURNAL.setdefault(key, []).append(hp0)
             if ratio:
                 DAMAGE_FRAC.setdefault(fk, []).append([ratio, 1.0])
-            if mx:
-                _took = hp0 / mx            # at least what it had left
+            # ...BUT NOT TO THE STRENGTH RECORD. A knockout shows only what
+            # the foe HAD left, so filing it as the move's damage marked the
+            # strong moves down, since they are the ones that finish fights:
+            # PSYBEAM read under CONFUSION, RAZOR_LEAF under CUT (run 55,
+            # 2026-10-13). What it did is not known, so it is not filed.
     # ...AND ONLY A TURN THE MOVE WAS USED. Wrapped, fully paralysed,
     # flinched or hurt in confusion, our move never happens; the turn
     # still went by and was filed as the move doing nothing: FEAROW's FLY

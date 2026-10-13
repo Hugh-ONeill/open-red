@@ -191,6 +191,7 @@ state the executor owns: {"turn": n, "used": {move: count},
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 _CHART = json.loads((Path(__file__).parent / "type_chart.json").read_text())
@@ -812,7 +813,9 @@ MOVE_SEEN: dict = {}
 # party's moves do on the middle, else this. A move with a record leans on
 # the mean of everything seen, as much as SEEN_WEIGHT uses.
 UNSEEN_STRENGTH = 0.35
-SEEN_WEIGHT = 1.0
+SEEN_WEIGHT = 1.0          # kept for older readers; move_strength uses PRIOR_USES
+PRIOR_USES = 1.0
+EXPLORE = 1.0
 
 
 def damaging(mv) -> bool:
@@ -848,46 +851,58 @@ def seen_hit_rate(move_id, user) -> float:
 
 
 def move_strength(mv: dict, mon: dict, stab: float = 1.5) -> float:
-    """What this move does per use, as seen; a guess for one never seen.
+    """What this move does per use, as seen; a guess for one never seen;
+    and, while a move has been used only a few times, room to be wrong.
 
-    Seen by this member: its own record, leaned on a guess by SEEN_WEIGHT.
-    The guess: the same move seen used by another member, else this
-    member's best seen move, else the middle of everything seen, else
-    UNSEEN_STRENGTH; the spec's `stab` is laid on a guess for a move of the
-    member's own type (a seen move's record already holds it)."""
+    The guess for a move this member has never used: the same move seen
+    used by another member, else this member's best seen move, else the
+    middle of everything seen, else UNSEEN_STRENGTH; the spec's `stab` is
+    laid on a guess for a move of the member's own type (a seen move's
+    record already holds it).
+
+    A FEW USES ARE NOT A VERDICT. A seen move leaned on the middle of
+    everything with the weight of one use and nothing else, so a new move
+    that missed once sank below the move with three hundred uses and was
+    never tried again: PIKACHU's THUNDERBOLT (one use, 0) under SWIFT,
+    PIDGEOTTO's WING_ATTACK (one) under GUST (329) (run 55, 2026-10-13;
+    user: "im seeing it generally using moves its forced to have already
+    used rather than new moves its learned"). Every move now carries
+    EXPLORE / (its uses + 1)^2 on top of its record: a quarter of EXPLORE
+    after one use, a ninth after two, little by five, so a move is tried
+    again after an unlucky first use and one seen to hit weakly five times
+    stays where its record puts it."""
     if not damaging(mv):
         return 0.0
     mid = str(mv.get("id") or "")
     user = str((mon or {}).get("species") or "")
+    allv = [x for x in (_seen_mean(k) for k in MOVE_SEEN) if x is not None]
+    lean = sum(allv) / len(allv) if allv else UNSEEN_STRENGTH
+    mine_ids = [str(m.get("id")) for m in ((mon or {}).get("moves") or [])
+                if isinstance(m, dict) and damaging(m)]
+    mine = [x for x in (_seen_mean(f"{m}|{user}") for m in mine_ids if m != mid)
+            if x is not None]
+    rec = MOVE_SEEN.get(f"{mid}|{user}")
+    n = rec[0] if rec and rec[0] else 0
+    # a move never used is tried on its guess alone (below); the bonus is
+    # for a move whose few uses may have been unlucky
+    bonus = EXPLORE / (n + 1.0) ** 2 if n else 0.0
+    if n:
+        return (rec[1] + lean * PRIOR_USES) / (n + PRIOR_USES) + bonus
     others = [_seen_mean(k) for k in MOVE_SEEN
               if k.startswith(mid + "|") and k != f"{mid}|{user}"]
     others = [x for x in others if x is not None]
     if others:
         guess = sum(others) / len(others)
     else:
-        mine = [_seen_mean(f"{m.get('id')}|{user}")
-                for m in ((mon or {}).get("moves") or [])
-                if isinstance(m, dict) and m.get("id") != mid and damaging(m)]
-        mine = [x for x in mine if x is not None]
         if mine:
             guess = max(mine)
         else:
-            allv = sorted(x for x in (_seen_mean(k) for k in MOVE_SEEN)
-                          if x is not None)
-            guess = allv[len(allv) // 2] if allv else UNSEEN_STRENGTH
+            srt = sorted(allv)
+            guess = srt[len(srt) // 2] if srt else UNSEEN_STRENGTH
         mine_t = {str(t).upper() for t in ((mon or {}).get("types") or [])}
         if str(mv.get("type") or "").upper() in mine_t:
             guess *= float(stab or 1.0)
-    rec = MOVE_SEEN.get(f"{mid}|{user}")
-    if rec and rec[0]:
-        # a SEEN move leans on the middle of everything seen, not on the
-        # hopeful guess that got it tried: one lucky or unlucky use should
-        # not stand for the move, and a guess must not outlast the record
-        allv = [x for x in (_seen_mean(k) for k in MOVE_SEEN) if x is not None]
-        lean = sum(allv) / len(allv) if allv else UNSEEN_STRENGTH
-        return (rec[1] + lean * SEEN_WEIGHT) / (rec[0] + SEEN_WEIGHT)
     return guess
-
 
 def outgoing(mon_or_types, foe_types) -> float:
     """Best multiplier this member could actually LAND on the foe.
