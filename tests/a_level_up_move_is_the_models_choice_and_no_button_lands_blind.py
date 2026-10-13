@@ -63,7 +63,7 @@ def stub(answer, queue):
     o.FORGET_SYS = E.Executor.FORGET_SYS
     o._is_question = E.Executor._is_question
     o._forget_user = E.Executor._forget_user
-    for m in ("_maybe_forget", "_resolve_learn", "_forget_press"):
+    for m in ("_maybe_forget", "_resolve_learn", "_forget_press", "_abandon_learn"):
         setattr(o, m, types.MethodType(getattr(E.Executor, m), o))
     brock_probe.chat = lambda msgs, model, **kw: (asked.append(msgs) or answer)
     return o
@@ -92,17 +92,22 @@ ck("...and the answer is on record",
        for k, kw in o.logged) and sum(1 for k, _ in o.logged if k == "learn_seen") == 1, o.logged)
 ck("the observation handed back is the settled one", out is DONE)
 
-# ---- keeping the four is a real answer: CANCEL, then the abandon question -------
+# ---- keeping the four is a real answer: B, then the abandon question -----------
+# THE LIST HAS NO CANCEL ROW (MoveLearnMenu: "no CANCEL row"; B asks "Abandon
+# learning X?"). menu index 5 did nothing, and GRAVELER lost DIG to HARDEN after
+# eight asks of "keep" (run 55, 2026-10-13).
 o = stub('{"why":"nothing here is worth Thunderbolt","forget":null}', [LIST, {"mode": "ui", "ui": {"index": 1, "is_choice": True}}, DONE]); asked.clear()
 o._resolve_learn(PAGE, SG)
-ck("a no is CANCEL on the list, then yes to abandoning",
-   ("menu", {"index": 5}) in o.sent and ("tap", {"btn": "a"}) in o.sent[o.sent.index(("menu", {"index": 5})):], o.sent)
+ck("a no is B on the list, then yes to abandoning",
+   ("tap", {"btn": "b"}) in o.sent and ("tap", {"btn": "a"}) in o.sent[o.sent.index(("tap", {"btn": "b"})):], o.sent)
+ck("...and never a press on a row the list does not have",
+   ("menu", {"index": 5}) not in o.sent, o.sent)
 
 # ---- an unreadable answer keeps the four moves ---------------------------------
 o = stub("sure, drop the weak one", [LIST, DONE]); asked.clear()
 o._resolve_learn(LIST, SG)
-ck("an answer that is not JSON keeps the four moves (CANCEL), never slot 1",
-   ("menu", {"index": 5}) in o.sent and ("menu", {"index": 1}) not in o.sent, o.sent)
+ck("an answer that is not JSON keeps the four moves (B), never slot 1",
+   ("tap", {"btn": "b"}) in o.sent and ("menu", {"index": 1}) not in o.sent, o.sent)
 
 # ---- the old shape still works when the shim has not been rebooted yet ----------
 OLD = {"mode": "ui", "party": PARTY, "ui": {"screenId": "MoveLearnMenu", "selecting": True, "index": 1,

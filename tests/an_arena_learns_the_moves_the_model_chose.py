@@ -62,8 +62,8 @@ ck("...and says where the answer came from",
 x.b = FakeBridge(); x._logged = []
 E.Executor.LEARN_TABLE = {}
 x._maybe_forget(obs, {"id": "room"})
-ck("no row keeps the old moves (CANCEL), without a model call",
-   x.b.sent[:1] == [("menu", {"index": 5})]
+ck("no row keeps the old moves (B, the list has no CANCEL row), without a model call",
+   x.b.sent[:1] == [("tap", {"btn": "b"})]
    and not any(k == "forget_chat_error" for k, _ in x._logged), (x.b.sent, x._logged))
 
 src = inspect.getsource(E.Executor._maybe_forget)

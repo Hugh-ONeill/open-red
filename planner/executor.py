@@ -15096,18 +15096,30 @@ class Executor:
             if _u2.get("screenId") == "MoveLearnMenu" and _u2.get("selecting"):
                 self.log("move_forget_refused", subgoal=sg.get("id"),
                          forget=choice)
-                self.b.send("menu", index=len(moves) + 1)     # CANCEL
-                cur = self.settle() or cur
-                if self._is_question(cur):                    # abandon? yes
-                    self.b.send("tap", btn="a")
-                    cur = self.settle() or cur
+                cur = self._abandon_learn(sg, cur)
             return cur
-        # keep the old moves: CANCEL, then "Abandon learning X?" -> yes
-        self.b.send("menu", index=len(moves) + 1)
+        return self._abandon_learn(sg, obs)
+
+    def _abandon_learn(self, sg, obs):
+        """Keep the old moves: B on the list, then YES to "Abandon learning
+        X?".
+
+        THE LIST HAS NO CANCEL ROW. This pressed menu index 5 on a list of
+        four (MoveLearnMenu: "wMaxMenuItem = wNumMovesMinusOne, no CANCEL
+        row"); nothing happened, the list came back, the model was asked
+        eight times in forty seconds to keep GRAVELER's moves and said so
+        each time, and the next op's menu press landed in the list and
+        DIG went for HARDEN (run 55, 2026-10-13; user: "when did grav
+        exchange dig for harden, a move it will never use?"). B is the
+        game's own way out (MoveLearnMenu:update -> confirmAbandon)."""
+        self.b.send("tap", btn="b")
         cur = self.settle() or obs
-        if self._is_question(cur):
+        if self._is_question(cur):                    # abandon? yes
             self.b.send("tap", btn="a")
             cur = self.settle() or cur
+        _u = (cur or {}).get("ui") or {}
+        if _u.get("screenId") == "MoveLearnMenu" and _u.get("selecting"):
+            self.log("learn_abandon_failed", subgoal=sg.get("id"))
         return cur
 
     def _resolve_learn(self, obs, sg):
