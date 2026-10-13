@@ -104,6 +104,15 @@ ck("the game's species table is not read for types",
    'gin_save.GEN / "pokemon.lua"' not in src)
 ck("a never-owned species is asked about once, with no model nothing is asked",
    "def _ask_types(self, species)" in src and "not self.model" in src[src.index("def _ask_types"):][:600])
+# a trainer's NEXT Pokemon is asked about as it comes out (BROCK's ONIX,
+# run 55): the battle loop calls the executor's asker on a species with no
+# types, and an executor with a model sets it
+loop = src[src.index("def _run_policy("):]
+loop = loop[:loop.index("\ndef ", 10)]
+ck("the battle loop asks about a foe it knows no types for",
+   "TYPES_ASKER(_f0.get(\"species\"))" in loop and "obs = type_ledger.scrub(obs)" in loop)
+ck("...set by an executor with a model, never without one",
+   "TYPES_ASKER = self._ask_types if model else None" in src)
 T.reset()
 
 print(f"\n{'FAILED: ' + ', '.join(fails) if fails else 'all ok'}")

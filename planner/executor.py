@@ -1897,6 +1897,10 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
 
 _NEW_BATTLE = "a NEW battle has begun"   # shim battle ops, at another fight's door
 
+# the model's one question about a species never owned (Executor._ask_types),
+# for foes met inside a fight; None without a model (arenas, tests)
+TYPES_ASKER = None
+
 
 def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
                 want=None, ball_cap=None, ball=None, trainee=None):
@@ -1945,6 +1949,15 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
                 ((obs or {}).get("result") or {}).get("detail") or ""):
             log("battle_loop_left", turn=turns, why="a new battle began")
             break
+        # A TRAINER'S NEXT POKEMON IS MET HERE. handle_battle asks the model
+        # about the foe a fight OPENS with; BROCK's ONIX came out second, was
+        # never asked about, and VINE_WHIP scored it neutral (run 55,
+        # 2026-10-13). Asked once per species, as it comes out (TYPES_ASKER,
+        # set by an Executor with a model).
+        _f0 = ((obs or {}).get("battle") or {}).get("foe") or {}
+        if (TYPES_ASKER and _f0.get("species") and not _f0.get("types")
+                and TYPES_ASKER(_f0.get("species"))):
+            obs = type_ledger.scrub(obs)
         # THE FORCED PICK UNDER A BATTLE FRAME. Since a menu over a fight
         # reports the fight (battle_under_a_menu, 2026-08-26), "Use next
         # POKeMON?" -> party menu arrives as mode=battle with the lead gone
@@ -2429,6 +2442,8 @@ class Executor:
         self.max_battle_turns = max_battle_turns
         self.can_escalate = can_escalate
         self.model = model
+        global TYPES_ASKER
+        TYPES_ASKER = self._ask_types if model else None
         # A part named with its page label ("ROUTE_20|44,2 (the west part of
         # ROUTE_20)") equals no region; plans written before the author
         # cleaned it are cleaned here (see author.strip_part_labels).
