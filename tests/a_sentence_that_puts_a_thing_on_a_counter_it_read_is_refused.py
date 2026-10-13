@@ -49,6 +49,8 @@ for why, txt in (("no counter named", "Obtain the FRESH WATER"),
                  ("a counter never read", "Buy a FRESH WATER at the Celadon Mart")):
     ck(f"...and passes {why}", A.names_a_counter_without(txt) is None, txt)
 A.walked_shelves = lambda: {}
+# the prize lists are the live run's explored.json; this test reads none
+A.prize_lists_text = lambda *a, **k: ""
 ck("no counters read, nothing to say",
    A.names_a_counter_without("Obtain the FRESH WATER from the Cerulean City Mart") is None
    and A.read_counters_text() == "")
