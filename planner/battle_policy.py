@@ -9,8 +9,10 @@ record run requires a model-authored spec (policy_author.py).
 
 SPEC DSL v1 (all keys optional; unknown keys are validation errors):
   name: str
-  stab: float 1.0-2.0        same-type attack bonus weight in move scoring
-  accuracy_weight: bool      weight move score by accuracy
+  stab: float 1.0-2.0        same-type bonus a move NOT YET SEEN is given
+                             (a seen move's record already carries it)
+  accuracy_weight: bool      kept for old specs; a move's misses are in what
+                             it has been seen to do, so it changes nothing
   prefer_ko: bool            a move OBSERVED to KO wins over raw score
   ko_margin: float >= 1.0    trust a KO only if the least damage this move
                              has been SEEN to do (this species, our level)
@@ -770,6 +772,101 @@ def incoming(foe_types, mine_types) -> float:
                 for t in (foe_types or [])), default=1.0)
 
 
+# WHAT EACH MOVE HAS BEEN SEEN TO DO, per use. Gen 1 prints a move's power
+# nowhere and its accuracy nowhere; a player learns how hard a move hits
+# from the HP bar, and that it misses from "X's attack missed!". The engine
+# ranked moves by the move table's power and accuracy, which no screen
+# shows (user, 2026-10-13: "this is a serious breach"). Now each use of a
+# damaging move by a party member is filed here, keyed "MOVE|USER": how
+# much of the foe's bar it took, divided by the type chart's multiplier
+# (pamphlet pp.32-33) and by our level over its level, so a hit on a weak
+# foe and one on a strong foe count alike. A miss, a charging turn and a
+# hit the chart made 0x are all on the bar too: a miss files 0, a 0x hit
+# is not filed (it says nothing about the move). Kept with the run's memory
+# (executor: explored.json "move_seen"); [uses, sum, hits].
+MOVE_SEEN: dict = {}
+# A move nobody has seen hit gets what this member's best seen move does
+# (so it is tried, and its first use replaces the guess), else what the
+# party's moves do on the middle, else this. A move with a record leans on
+# the mean of everything seen, as much as SEEN_WEIGHT uses.
+UNSEEN_STRENGTH = 0.35
+SEEN_WEIGHT = 1.0
+
+
+def damaging(mv) -> bool:
+    """Whether a move attacks at all. Status moves are pamphlet tier (the
+    booklet tells you some moves lower stats or put a foe to sleep); the
+    number in the table is not read, only that it is not zero."""
+    return isinstance(mv, dict) and bool(mv.get("power"))
+
+
+def note_move_use(move_id, user, eff, ratio, frac) -> None:
+    """File one use: `frac` of the foe's bar taken (0 for a miss), at chart
+    multiplier `eff` and level ratio `ratio` (ours over its)."""
+    if not move_id or not user or not eff or eff <= 0 or not ratio:
+        return
+    rec = MOVE_SEEN.setdefault(f"{move_id}|{user}", [0, 0.0, 0])
+    rec[0] += 1
+    rec[1] = round(rec[1] + max(0.0, float(frac)) / (eff * float(ratio)), 4)
+    if frac and frac > 0:
+        rec[2] += 1
+
+
+def _seen_mean(key):
+    rec = MOVE_SEEN.get(key)
+    if rec and rec[0]:
+        return rec[1] / rec[0]
+    return None
+
+
+def seen_hit_rate(move_id, user) -> float:
+    """How often this member's move has landed, 1.0 until it has been used."""
+    rec = MOVE_SEEN.get(f"{move_id}|{user}")
+    return (rec[2] + 1) / (rec[0] + 1) if rec and rec[0] else 1.0
+
+
+def move_strength(mv: dict, mon: dict, stab: float = 1.5) -> float:
+    """What this move does per use, as seen; a guess for one never seen.
+
+    Seen by this member: its own record, leaned on a guess by SEEN_WEIGHT.
+    The guess: the same move seen used by another member, else this
+    member's best seen move, else the middle of everything seen, else
+    UNSEEN_STRENGTH; the spec's `stab` is laid on a guess for a move of the
+    member's own type (a seen move's record already holds it)."""
+    if not damaging(mv):
+        return 0.0
+    mid = str(mv.get("id") or "")
+    user = str((mon or {}).get("species") or "")
+    others = [_seen_mean(k) for k in MOVE_SEEN
+              if k.startswith(mid + "|") and k != f"{mid}|{user}"]
+    others = [x for x in others if x is not None]
+    if others:
+        guess = sum(others) / len(others)
+    else:
+        mine = [_seen_mean(f"{m.get('id')}|{user}")
+                for m in ((mon or {}).get("moves") or [])
+                if isinstance(m, dict) and m.get("id") != mid and damaging(m)]
+        mine = [x for x in mine if x is not None]
+        if mine:
+            guess = max(mine)
+        else:
+            allv = sorted(x for x in (_seen_mean(k) for k in MOVE_SEEN)
+                          if x is not None)
+            guess = allv[len(allv) // 2] if allv else UNSEEN_STRENGTH
+        mine_t = {str(t).upper() for t in ((mon or {}).get("types") or [])}
+        if str(mv.get("type") or "").upper() in mine_t:
+            guess *= float(stab or 1.0)
+    rec = MOVE_SEEN.get(f"{mid}|{user}")
+    if rec and rec[0]:
+        # a SEEN move leans on the middle of everything seen, not on the
+        # hopeful guess that got it tried: one lucky or unlucky use should
+        # not stand for the move, and a guess must not outlast the record
+        allv = [x for x in (_seen_mean(k) for k in MOVE_SEEN) if x is not None]
+        lean = sum(allv) / len(allv) if allv else UNSEEN_STRENGTH
+        return (rec[1] + lean * SEEN_WEIGHT) / (rec[0] + SEEN_WEIGHT)
+    return guess
+
+
 def outgoing(mon_or_types, foe_types) -> float:
     """Best multiplier this member could actually LAND on the foe.
 
@@ -778,9 +875,9 @@ def outgoing(mon_or_types, foe_types) -> float:
     double against her WATER half; by typing alone WATER/FLYING reads
     neutral into ICE/WATER and it looks like nobody special (user,
     2026-09-12: "it should be considering the moves it has not just the
-    types"). A move's type and power are on the SUMMARY screen for every
-    party member, so this is eyesight, not inference — the shim publishes
-    them for the bench as of the same day.
+    types"). A known move's type is on the FIGHT menu for every party
+    member, so this is eyesight, not inference — the shim publishes them
+    for the bench as of the same day.
 
     Takes a party member, or a bare list of types for callers that have
     only those. A move with no power is not an attack and cannot land
@@ -798,7 +895,7 @@ def outgoing(mon_or_types, foe_types) -> float:
             if not t:
                 continue
             seen = True
-            if (mv.get("power") or 0) <= 0:
+            if not damaging(mv):
                 continue           # a status move lands no multiplier
             best = max(best, effectiveness(str(t).upper(), foe_types))
         if seen:
@@ -834,47 +931,45 @@ def _hp_frac(mon: dict) -> float:
     return hp / mx if mx else 1.0
 
 
-def punch(mon_or_types, foe_types) -> float:
-    """What this member could actually DO to the foe: its best damaging
-    move's power, with STAB and the chart, on a scale where a 100-power
-    neutral hit without STAB is 1.0.
+def punch(mon_or_types, foe_types, stab: float = 1.5) -> float:
+    """What this member could actually DO to the foe: the most its damaging
+    moves have been SEEN to take per use (move_strength), times the chart.
 
     THE MULTIPLIER ALONE PICKED THE WRONG LEAD. `outgoing` ranks the best
     chart multiplier a member can land, so KABUTOPS read "double" into
     LORELEI's DEWGONG on the strength of a 20-power ABSORB, tied LAPRAS,
     and kept the lead by standing first in line — then Hydro-Pumped a
     Water type for forty turns while Dewgong Rested (2026-09-15, every
-    trial of the real-path league). Power and STAB are on the same summary
-    screen the move's type is on. Falls back to `outgoing` for a bare
-    type list or a bench whose moves carry no power."""
+    trial of the real-path league). It read the move table's power, which
+    no screen shows (2026-10-13); what a move does is now what the HP bar
+    has shown it do. Falls back to `outgoing` for a bare type list or a
+    bench whose moves carry no type."""
     if not isinstance(mon_or_types, dict):
         return outgoing(mon_or_types, foe_types)
     mon = mon_or_types
-    mine = [str(t).upper() for t in (mon.get("types") or [])]
     best, seen = 0.0, False
     for mv in (mon.get("moves") or []):
         if not isinstance(mv, dict):
             continue
-        power, mtype = mv.get("power") or 0, mv.get("type")
-        if not power or not mtype:
+        mtype = mv.get("type")
+        if not damaging(mv) or not mtype:
             continue
         seen = True
         eff = effectiveness(str(mtype).upper(), foe_types)
-        stab = 1.5 if str(mtype).upper() in mine else 1.0
-        best = max(best, power / 100.0 * eff * stab)
+        best = max(best, move_strength(mv, mon, stab) * eff)
     return best if seen else outgoing(mon, foe_types)
 
 
 def score_move(mv: dict, me: dict, foe: dict, spec: dict,
                journal: dict | None = None) -> dict:
+    # WHAT IT HAS BEEN SEEN TO DO, not the move table's power and accuracy
+    # (on no screen; see MOVE_SEEN). Misses are inside the per-use record,
+    # so `acc` is the landed share, read only to order KO candidates.
     mtype = mv.get("type")
-    power = mv.get("power") or 0
     eff = effectiveness(mtype, foe.get("types"))
-    stab = spec.get("stab", 1.5) if mtype in (me.get("types") or []) else 1.0
-    acc = (mv.get("accuracy") or 100) / 100.0
-    score = power * eff * stab
-    if spec.get("accuracy_weight", True):
-        score *= acc
+    strength = move_strength(mv, me, spec.get("stab", 1.5))
+    acc = seen_hit_rate(mv.get("id"), me.get("species"))
+    score = strength * eff * 100.0
     # KO detection is EMPIRICAL (pamphlet standard, no computed internals):
     # the least damage this move has been observed to do to this species at
     # our level, gated by the spec's ko_margin. Unseen matchup -> no KO call.
@@ -884,7 +979,7 @@ def score_move(mv: dict, me: dict, foe: dict, spec: dict,
            and seen >= (foe.get("hp") or 1e9) * spec.get("ko_margin", 1.0))
     return {
         "index": mv.get("index"), "id": mv.get("id"),
-        "power": power, "eff": eff, "stab": stab,
+        "damaging": damaging(mv), "eff": eff, "strength": strength,
         "damage": seen, "acc": acc, "score": score, "kos": kos,
     }
 
@@ -1243,7 +1338,7 @@ def should_switch(obs: dict, spec: dict | None = None,
         if rule.get("no_effect"):
             _ft = (b.get("foe") or {}).get("types") or []
             _mv = [m for m in (me.get("moves") or []) if isinstance(m, dict)]
-            _dmg = [m for m in _mv if (m.get("power") or 0) > 0
+            _dmg = [m for m in _mv if damaging(m)
                     and (m.get("pp") is None or (m.get("pp") or 0) > 0)]
             if not _ft or not _mv or any(not m.get("type") for m in _dmg):
                 continue
@@ -1632,14 +1727,13 @@ def setup_move(name, moves):
     if n in MOVE_CLASSES:
         effs = list(MOVE_CLASSES[n])
         cand = [m for m in moves or []
-                if not m.get("power")
+                if not damaging(m)
                 and str(m.get("effect") or "").upper() in effs]
         if not cand:
             return None
         # the class's own order first (a sharp boost before a mild one),
-        # then the surest, then the one with more PP
+        # then the one with more PP (how sure a move is is on no screen)
         return min(cand, key=lambda m: (effs.index(str(m.get("effect")).upper()),
-                                        -(m.get("accuracy") or 0),
                                         -(m.get("pp") or 0)))
     return next((m for m in moves or [] if m.get("id") == n), None)
 
@@ -1656,7 +1750,7 @@ def foe_carries(move: dict, foe: dict) -> bool:
     """True when the foe already shows what this move would put on it, so
     using it again is a turn spent on "But it failed!"."""
     eff = str((move or {}).get("effect") or "").upper()
-    if (move or {}).get("power"):
+    if damaging(move):
         return False              # a damaging move is never "already done"
     if eff == "LEECH_SEED_EFFECT":
         return bool((foe or {}).get("leechSeeded"))
@@ -1866,7 +1960,7 @@ def choose(obs: dict, spec: dict | None = None,
                          else f"cure {_status} with {item}" if _status
                          else f"heal with {item}")}
     scored = [score_move(m, me, foe, spec, ctx.get("journal")) for m in moves]
-    damaging = [s for s in scored if (s["power"] or 0) > 0]
+    damaging = [s for s in scored if s["damaging"]]
     # ...AND A CATCH NEVER WEAKENS OR PROBES WITH A MOVE THAT FAINTS ITS USER.
     if ctx.get("intent") == "catch":
         damaging = [s for s in damaging

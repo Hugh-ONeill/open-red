@@ -32,8 +32,13 @@ def mv(i, mid, eff, power=0, acc=100, pp=10, cat="status", typ="NORMAL"):
 SURF = mv(1, "SURF", "NO_ADDITIONAL_EFFECT", 95, 100, 15, "special", "WATER")
 HYP = mv(2, "HYPNOSIS", "SLEEP_EFFECT", 0, 60)
 ck("a class finds the move the Pokemon knows", B.setup_move("sleep", [SURF, HYP]) is HYP)
-ck("...and the surest of two",
-   B.setup_move("sleep", [HYP, mv(3, "SLEEP_POWDER", "SLEEP_EFFECT", 0, 75)])["id"] == "SLEEP_POWDER")
+# how sure a move is is on no screen (2026-10-13): of two in the same
+# place in the class's order, the one with more PP, never the table's
+# accuracy
+ck("...and of two, the one with more PP",
+   B.setup_move("sleep", [HYP, mv(3, "SLEEP_POWDER", "SLEEP_EFFECT", 0, 75, 15)])["id"] == "SLEEP_POWDER")
+ck("...whatever the table says of their accuracy",
+   B.setup_move("sleep", [mv(3, "SLEEP_POWDER", "SLEEP_EFFECT", 0, 75), mv(2, "HYPNOSIS", "SLEEP_EFFECT", 0, 60, 20)])["id"] == "HYPNOSIS")
 ck("...never a damaging move that only might do it",
    B.setup_move("paralyze", [mv(1, "BODY_SLAM", "PARALYZE_SIDE_EFFECT2", 85)]) is None
    and B.setup_move("paralyze", [mv(1, "X", "PARALYZE_EFFECT", 40)]) is None)

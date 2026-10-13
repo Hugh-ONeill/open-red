@@ -1780,9 +1780,21 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
     except (TypeError, ValueError):
         ratio = None
     ab = (after_obs or {}).get("battle") or {}
+    # ...AND WHAT THE MOVE DID PER USE, misses included, for the scorer
+    # (battle_policy.MOVE_SEEN). Only a turn our move was ours to take: not
+    # asleep or frozen going in, still standing and still the one out after.
+    _mv = next((m for m in (me.get("moves") or [])
+                if isinstance(m, dict) and m.get("id") == move_id), None)
+    _eff = (battle_policy.effectiveness(_mv.get("type"), foe.get("types"))
+            if _mv and _mv.get("type") and foe.get("types") else None)
+    _took = None
     if (after_obs or {}).get("mode") == "battle" \
             and (ab.get("foe") or {}).get("species") == foe.get("species"):
         d = hp0 - ((ab.get("foe") or {}).get("hp") or 0)
+        _me1 = ab.get("me") or {}
+        if (_me1.get("species") == me.get("species")
+                and (_me1.get("hp") or 0) > 0) and mx:
+            _took = max(0, d) / mx
         if d > 0:
             DAMAGE_JOURNAL.setdefault(key, []).append(d)
             if mx and ratio:
@@ -1803,6 +1815,13 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
             DAMAGE_JOURNAL.setdefault(key, []).append(hp0)
             if ratio:
                 DAMAGE_FRAC.setdefault(fk, []).append([ratio, 1.0])
+            if mx:
+                _took = hp0 / mx            # at least what it had left
+    if (_took is not None and _mv and battle_policy.damaging(_mv) and _eff
+            and ratio and str(me.get("status") or "").upper()[:3]
+            not in ("SLP", "FRZ")):
+        battle_policy.note_move_use(move_id, me.get("species"), _eff, ratio,
+                                    _took)
 
 
 _NEW_BATTLE = "a NEW battle has begun"   # shim battle ops, at another fight's door
@@ -6747,6 +6766,8 @@ class Executor:
             # the world's battle record (see DAMAGE_FRAC, WILD_LEFT)
             DAMAGE_FRAC.clear()
             DAMAGE_FRAC.update(data.get("damage_frac") or {})
+            battle_policy.MOVE_SEEN.clear()
+            battle_policy.MOVE_SEEN.update(data.get("move_seen") or {})
             WILD_LEFT.clear()
             WILD_LEFT.update(data.get("wild_left") or {})
             GOT_AWAY.clear()
@@ -7273,6 +7294,7 @@ class Executor:
                  "swept": sorted(getattr(self, "_swept", set())),
                  "press_log": getattr(self, "_press_log", {}),
                  "damage_frac": DAMAGE_FRAC, "wild_left": WILD_LEFT,
+                 "move_seen": battle_policy.MOVE_SEEN,
                  "got_away": GOT_AWAY,
                  "lever_presses": getattr(self, "_lever_presses", {}),
                  "plan_hist": getattr(self, "_plan_hist", {}),

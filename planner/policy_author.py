@@ -74,8 +74,11 @@ def _bind_books(run_dir: Path) -> None:
 
 DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
   name: short string naming your policy
-  stab: number 1.0-2.0 — weight for same-type (STAB) moves in scoring
-  accuracy_weight: true/false — weight move scores by accuracy
+  stab: number 1.0-2.0 — weight for same-type (STAB) moves your party has
+     not yet been seen to use; moves are scored by what they have been SEEN
+     to do to the foe's HP bar, which already carries STAB and misses
+  accuracy_weight: true/false — no effect (a move's misses are in what it
+     has been seen to do); kept so older policies still load
   prefer_ko: true/false — pick a move estimated to KO over raw score
   ko_margin: number >= 1.0 — only trust a KO if est. damage >= foe hp*this
   avoid_status_moves: true/false — never pick 0-power moves by score
@@ -275,8 +278,9 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
      sending nobody. Outside a fight there is no foe to read and the type
      orders fall back to healthiest.)
   best_matchup, wherever it appears (lead, switch, replacement), weighs
-    what a member can actually DO: its strongest damaging move's power
-    with STAB and the type chart, over what the foe's types do to it. A
+    what a member can actually DO: what its best damaging move has been
+    SEEN to take off a foe's HP bar per use, with the type chart, over what
+    the foe's types do to it. A
     weak ABSORB at double no longer outranks a strong STAB move
     at neutral (it did, and KABUTOPS led LORELEI for forty turns).
 """

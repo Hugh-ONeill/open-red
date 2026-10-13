@@ -110,7 +110,15 @@ bp.reset_run_budget()
 rc = bp.choose(oc, _cspec, {"turn": 1, "intent": "catch",
                             "want": {"species": ["ZUBAT"]}, "journal": {}})
 ck("a catch never weakens or probes with one", rc.get("op") == "throw_ball", rc)
+# "free" scores it like any other: by what it has been SEEN to do (the
+# move table's power is on no screen, 2026-10-13). Seen hitting far harder
+# than ROCK_THROW lands, it wins under "free".
+bp.MOVE_SEEN.clear()
+for _ in range(4):
+    bp.note_move_use("SELFDESTRUCT", "GRAVELER", 1.0, 1.0, 0.9)
+    bp.note_move_use("ROCK_THROW", "GRAVELER", 2.0, 1.0, 0.3)
 rf = bp.choose(obs(), dict(spec, self_ko="free"), ctx)
+bp.MOVE_SEEN.clear()
 ck('self_ko "free" leaves the scoring alone', rf.get("index") == 1, rf)
 o = obs()
 o["battle"]["me"]["moves"] = [{"index": 1, "id": "SELFDESTRUCT", "type": "NORMAL", "power": 130, "pp": 5},

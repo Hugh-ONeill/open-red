@@ -4,7 +4,8 @@ bag, and the model is told what its medicine was worth.
 
 Three pre-v14 changes (user, 2026-09-15: "do the pre-14 steps you
 outlined"):
-  * best_matchup weighs a member's strongest damaging move — power, STAB,
+  * best_matchup weighs a member's strongest damaging move — what it has
+    been seen to do (2026-10-13; power was the move table's), and the
     chart — over what the foe's types do to it. By multiplier alone
     KABUTOPS read "double" into DEWGONG on a 20-power ABSORB, tied LAPRAS
     and led for forty turns.
@@ -50,13 +51,24 @@ LAPRAS = mon("LAPRAS", ["WATER", "ICE"],
 GLOOM = mon("GLOOM", ["GRASS", "POISON"],
             [("PETAL_DANCE", "GRASS", 70), ("SLEEP_POWDER", "GRASS", 0)])
 
-# ---- the matchup weighs power ---------------------------------------------
-ck("by multiplier alone, a 20-power Absorb makes Kabutops read double",
+# ---- the matchup weighs what the moves have been SEEN to do ---------------
+# (2026-10-13: the move table's power is on no screen; the HP bar is.) Five
+# uses each, at even levels and neutral, as the run would have filed them.
+bp.MOVE_SEEN.clear()
+for user, mv, frac in (("KABUTOPS", "ABSORB", 0.08), ("KABUTOPS", "SLASH", 0.30),
+                       ("KABUTOPS", "HYDRO_PUMP", 0.50), ("LAPRAS", "BODY_SLAM", 0.45),
+                       ("LAPRAS", "ICE_BEAM", 0.45), ("LAPRAS", "HYDRO_PUMP", 0.50)):
+    for _ in range(5):
+        bp.note_move_use(mv, user, 1.0, 1.0, frac)
+ck("by multiplier alone, a weak Absorb makes Kabutops read double",
    bp.outgoing(KABUTOPS, DEWGONG) == 2.0)
-ck("weighed by power, Kabutops's best hit is its resisted Hydro Pump",
-   abs(bp.punch(KABUTOPS, DEWGONG) - 0.9) < 1e-6)
-ck("...and Lapras's neutral Body Slam is worth about as much",
-   abs(bp.punch(LAPRAS, DEWGONG) - 0.9) < 1e-6)
+ck("weighed by what was seen, Kabutops's best hit is its neutral Slash",
+   0.25 < bp.punch(KABUTOPS, DEWGONG) < 0.35)
+ck("...and Lapras's neutral Body Slam is worth more",
+   bp.punch(LAPRAS, DEWGONG) > bp.punch(KABUTOPS, DEWGONG) + 0.05)
+ck("no move's table power is read",
+   bp.punch(dict(LAPRAS, moves=[dict(m, power=(1 if m["power"] else 0)) for m in LAPRAS["moves"]]), DEWGONG)
+   == bp.punch(LAPRAS, DEWGONG))
 ck("a bare type list still answers the way outgoing did",
    bp.punch(["GRASS"], DEWGONG) == bp.outgoing(["GRASS"], DEWGONG) == 2.0)
 _nopower = {"types": ["GRASS"], "moves": [{"id": "X", "type": "GRASS"}]}
