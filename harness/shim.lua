@@ -8820,7 +8820,9 @@ function OPS.buy(G, c)
   end
   local idx, sold = nil, {}
   for i, row in ipairs(ui_rows(G)) do
-    sold[#sold + 1] = tostring(row.value)
+    -- the list's CANCEL row carries no item, and tostring(nil) put "nil" on
+    -- the shelf it named: "...CARBOS, CALCIUM, nil" (run 54, CELADON_MART_5F)
+    if row.value ~= nil then sold[#sold + 1] = tostring(row.value) end
     if row.value == c.item then idx = i break end
   end
   if not idx then
