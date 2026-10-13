@@ -49,6 +49,21 @@ ck("it says nothing while the bag lacks the item", e._shut_asked_for_held("SILPH
 ck("...and nothing for a floor that said nothing", e._shut_asked_for_held("SILPH_CO_9F|14,0", {"bag": {"CARD_KEY": 1}}) == "")
 ck("...and nothing with an empty bag", e._shut_asked_for_held("SILPH_CO_3F|20,0", {"bag": {}}) == "")
 ck("a zero count is not holding it", e._shut_asked_for_held("SILPH_CO_3F|20,0", {"bag": {"CARD_KEY": 0}}) == "")
+# ADVICE IS NOT A LOCK. Every word said in the region was read, so a
+# shopper's tip came back as a shut way wanting REVIVE (run 54, CELADON_MART_2F,
+# 2026-10-12). Only a sentence that asks for something counts.
+mart = _E({"CELADON_MART_2F|1,1": [
+    "CELADONMART2F_GIRL: For long outings, you should buy REVIVE.",
+    "someone: For long outings, you should buy REVIVE."]})
+ck("a tip naming an item the bag holds is not a refusal",
+   mart._shut_asked_for_held("CELADON_MART_2F|1,1", {"bag": {"REVIVE": 2}}) == "")
+ck("...while the door's demand on the same floor still is",
+   "CARD_KEY" in _E({"X|0,0": ["someone: For long outings, you should buy REVIVE.",
+                              "DOOR_X: Darn! It needs a CARD KEY!"]})
+   ._shut_asked_for_held("X|0,0", {"bag": {"CARD_KEY": 1, "REVIVE": 1}})
+   and "REVIVE" not in _E({"X|0,0": ["someone: For long outings, you should buy REVIVE.",
+                                     "DOOR_X: Darn! It needs a CARD KEY!"]})
+   ._shut_asked_for_held("X|0,0", {"bag": {"CARD_KEY": 1, "REVIVE": 1}}))
 ck("both remote lines carry it, routed and unrouted",
    ex.count("+ self._shut_asked_for_held(region, obs)\n") == 2)
 ck("the reason is written where the next reader will look", "A shut way THERE once asked for a thing the bag holds NOW." in ex)

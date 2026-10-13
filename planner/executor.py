@@ -9963,7 +9963,14 @@ class Executor:
         bag = (obs or {}).get("bag") or {}
         if not isinstance(bag, dict) or not bag:
             return ""
-        said = " ".join(str(x) for x in (self.hints.get(region) or []))
+        # ...AND ONLY WHAT ASKED FOR SOMETHING. Every word said in the
+        # region was read, so a shopper's tip on CELADON_MART_2F ("For long
+        # outings, you should buy REVIVE.") came back as "something shut
+        # there refused for want of REVIVE" in the list of ways never taken
+        # (run 54, 2026-10-12). A refusal asks: the same demand words the
+        # SAID, AGAINST THE BAG note keys on (_spoken_item_note).
+        said = " ".join(str(x) for x in (self.hints.get(region) or [])
+                        if _re.search(self.NEED_WORDS, str(x), _re.I))
         if not said:
             return ""
         _up = said.upper().replace("é", "E")
