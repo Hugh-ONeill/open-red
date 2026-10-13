@@ -595,8 +595,15 @@ while :; do
   # party member is at least level 12" read as a doubted leg on the page and
   # the HUD (user, run 18, 2026-09-28: "what does this mean? ... the doubt
   # stuff?"). The strippers in planner/ match both forms.
+  # ...AND A PURPOSE IS NOT SHOWN AT ALL. "(you added this when outlining,
+  # for: Retrieve the Silph Scope)" rode on run 54's level-30 leg ahead of
+  # Lt. Surge, and the plan went to Lavender's tower to train for the Scope
+  # instead of training where it stood (user, 2026-10-12: "i think we
+  # shouldnt have those notes they tend to steer it wrong every time"). The
+  # purpose stays in plans/outline.notes, where the party-leg check reads
+  # it (planner/upkeep_ask.py, or_leg.purpose); the objective goes out bare.
   case "$note" in
-    for:*) [ -n "$note" ] && goal="$leg (you added this when outlining, $note)" ;;
+    for:*) : ;;
     *)     [ -n "$note" ] && goal="$leg (a doubt you recorded when outlining: $note)" ;;
   esac
   # ALREADY DONE? Asked once BEFORE any attempt is spent — and before

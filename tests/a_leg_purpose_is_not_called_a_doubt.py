@@ -27,8 +27,15 @@ def ck(name, cond):
 
 
 sh = (ROOT / "fresh_discovery.sh").read_text()
-ck("a for: note is said as a purpose",
-   'for:*) [ -n "$note" ] && goal="$leg (you added this when outlining, $note)"' in sh)
+# ...and since run 54 (2026-10-12) a purpose is not shown at all: it steered
+# the plans toward the leg it was written for. upkeep_ask still reads it
+# from plans/outline.notes.
+ck("a for: note is not put in the goal string",
+   'for:*) : ;;' in sh and "(you added this when outlining, $note)" not in sh)
+import or_leg  # noqa: E402
+ck("...the party-leg check reads the purpose from the notes file, not the goal",
+   "or_leg.purpose(leg)" in (ROOT / "planner" / "upkeep_ask.py").read_text()
+   and 'NOTES = Path("plans/outline.notes")' in (ROOT / "planner" / "or_leg.py").read_text())
 ck("...and anything else is still a doubt",
    '*)     [ -n "$note" ] && goal="$leg (a doubt you recorded when outlining: $note)"' in sh)
 p = "every party member is at least level 12 (you added this when outlining, for: Reach Mt. Moon)"
