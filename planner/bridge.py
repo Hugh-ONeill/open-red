@@ -17,6 +17,12 @@ import sys
 import time
 from pathlib import Path
 
+try:
+    import type_ledger
+except ImportError:                       # imported from outside planner/
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import type_ledger
+
 RUN = Path(os.environ.get("RED_BRIDGE_DIR",
                           Path.home() / "Developer/red-recomp/run"))
 
@@ -84,7 +90,9 @@ class Bridge:
                 json.loads((self.run / "obs.json").read_text()))
         except Exception:
             return None
-        return self._came_from_stamp(o)
+        # A FOE'S TYPES ARE WHAT THE RUN KNOWS OF THEM, not what the game's
+        # memory holds: the battle screen never shows them (type_ledger).
+        return type_ledger.scrub(self._came_from_stamp(o))
 
     def _came_from_stamp(self, o):
         """WHICH MAP THE PARTY CAME FROM, on every observation: the map it

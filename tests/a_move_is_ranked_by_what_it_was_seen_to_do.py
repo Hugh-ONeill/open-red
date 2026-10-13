@@ -48,12 +48,21 @@ ck("with nothing seen, the table's 80 against 35 decides nothing (both guessed a
    s1 == s2, (s1, s2))
 
 # what the bar showed: RAZOR_WIND charges a turn (0) then hits 40%; WING_ATTACK 28% every turn
-before = {"me": ME, "foe": FOE}
-E._journal_damage(before, {"mode": "battle", "battle": {"me": ME, "foe": dict(FOE, hp=100)}}, "RAZOR_WIND")
-E._journal_damage(before, {"mode": "battle", "battle": {"me": ME, "foe": dict(FOE, hp=60)}}, "RAZOR_WIND")
+before = {"me": ME, "foe": FOE, "_text_seq": 0}
+
+
+def turn(hp, line):
+    return {"mode": "battle", "battle_text": line, "battle_text_seq": len(line.split(" / ")),
+            "battle": {"me": ME, "foe": dict(FOE, hp=hp)}}
+
+
+E._journal_damage(before, turn(100, "PIDGEOT used RAZOR WIND! / PIDGEOT made a whirlwind!"), "RAZOR_WIND")
+E._journal_damage(before, turn(60, "PIDGEOT used RAZOR WIND!"), "RAZOR_WIND")
 for _ in range(2):
-    E._journal_damage(before, {"mode": "battle", "battle": {"me": ME, "foe": dict(FOE, hp=72)}}, "WING_ATTACK")
-ck("each use is filed per member, the charging turn as 0",
+    E._journal_damage(before, turn(72, "PIDGEOT used WING ATTACK!"), "WING_ATTACK")
+# WRAPPED: the turn goes by and PIDGEOT never uses its move; nothing is filed
+E._journal_damage(before, turn(100, "Enemy BELLSPROUT's attack continues! / PIDGEOT can't move!"), "WING_ATTACK")
+ck("a turn the move was never used (wrapped) is not filed, and each use is filed per member, the charging turn as 0",
    bp.MOVE_SEEN.get("RAZOR_WIND|PIDGEOT") == [2, 0.4, 1], bp.MOVE_SEEN)
 ck("...and the steady hit as what it took",
    bp.MOVE_SEEN.get("WING_ATTACK|PIDGEOT") == [2, 0.56, 2], bp.MOVE_SEEN)
@@ -63,12 +72,12 @@ ck("the move that takes more per turn is the pick", r.get("index") == 2, r)
 # a 0x hit says nothing about the move; a turn spent asleep is not the move's
 n0 = dict(bp.MOVE_SEEN)
 GHOST = dict(FOE, species="GASTLY", types=["GHOST", "POISON"])
-E._journal_damage({"me": ME, "foe": GHOST}, {"mode": "battle", "battle": {"me": ME, "foe": GHOST}}, "RAZOR_WIND")
-E._journal_damage({"me": dict(ME, status="SLP"), "foe": FOE},
-                  {"mode": "battle", "battle": {"me": ME, "foe": FOE}}, "WING_ATTACK")
+E._journal_damage({"me": ME, "foe": GHOST, "_text_seq": 0}, dict(turn(100, "PIDGEOT used RAZOR WIND! / It doesn't affect enemy GASTLY!"), battle={"me": ME, "foe": GHOST}), "RAZOR_WIND")
+E._journal_damage({"me": dict(ME, status="SLP"), "foe": FOE, "_text_seq": 0},
+                  turn(100, "PIDGEOT used WING ATTACK!"), "WING_ATTACK")
 ck("a 0x hit and an asleep turn are not filed", bp.MOVE_SEEN == n0, bp.MOVE_SEEN)
 # a member that fainted before its move landed is not the move's either
-E._journal_damage(before, {"mode": "battle", "battle": {"me": dict(ME, hp=0), "foe": FOE}}, "WING_ATTACK")
+E._journal_damage(before, dict(turn(100, "PIDGEOT used WING ATTACK!"), battle={"me": dict(ME, hp=0), "foe": FOE}), "WING_ATTACK")
 ck("...nor a turn it fainted in", bp.MOVE_SEEN == n0, bp.MOVE_SEEN)
 
 ck("the hit rate is what landed", abs(bp.seen_hit_rate("RAZOR_WIND", "PIDGEOT") - 2 / 3) < 1e-9)

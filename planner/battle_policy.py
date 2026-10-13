@@ -761,6 +761,28 @@ def effectiveness(move_type: str, foe_types) -> float:
     return mult
 
 
+def foe_eff(move_type, foe: dict) -> float:
+    """The multiplier this move type lands on THIS foe, as the run knows it:
+    what the game said when that type last hit the species (eff_seen), else
+    the chart over the types it is believed to have, else neutral. Its types
+    are on no battle screen (type_ledger)."""
+    mt = str(move_type or "").upper()
+    seen = (foe or {}).get("eff_seen") or {}
+    ts = (foe or {}).get("types")
+    chart = effectiveness(mt, ts) if ts else None
+    if mt in seen:
+        x = float(seen[mt])
+        # "It's super effective!" is said for 2x and 4x alike, so a message
+        # that AGREES with the chart over the believed types leaves the
+        # chart's own number standing; one that disagrees overrules it.
+        def _cls(v):
+            return 0 if v == 0 else (1 if v < 1 else (2 if v == 1 else 3))
+        if chart is not None and _cls(chart) == _cls(x):
+            return chart
+        return x
+    return chart if chart is not None else 1.0
+
+
 def incoming(foe_types, mine_types) -> float:
     """Worst multiplier the FOE's own types would land on this defender.
 
@@ -966,7 +988,7 @@ def score_move(mv: dict, me: dict, foe: dict, spec: dict,
     # (on no screen; see MOVE_SEEN). Misses are inside the per-use record,
     # so `acc` is the landed share, read only to order KO candidates.
     mtype = mv.get("type")
-    eff = effectiveness(mtype, foe.get("types"))
+    eff = foe_eff(mtype, foe)
     strength = move_strength(mv, me, spec.get("stab", 1.5))
     acc = seen_hit_rate(mv.get("id"), me.get("species"))
     score = strength * eff * 100.0
@@ -1333,18 +1355,22 @@ def should_switch(obs: dict, spec: dict | None = None,
         # NOTHING IT CAN THROW LANDS. PIKACHU used THUNDERSHOCK on BROCK's
         # ONIX eight turns running with a full BULBASAUR on the bench (run
         # 54, 2026-10-12): every damaging move it had was 0x on the chart.
-        # Read off the moves the screen shows (type, power, PP); a move
-        # with no type read, or no foe types, is not called useless.
+        # Read off the moves the screen shows (type, PP) against what the
+        # run knows of the foe: "It doesn't affect" said for that move type,
+        # or the chart over its believed types (type_ledger). A move with no
+        # type read, or a foe known nothing of, is not called useless.
         if rule.get("no_effect"):
-            _ft = (b.get("foe") or {}).get("types") or []
+            _f = b.get("foe") or {}
+            _known = set(_f.get("eff_seen") or {})
             _mv = [m for m in (me.get("moves") or []) if isinstance(m, dict)]
             _dmg = [m for m in _mv if damaging(m)
                     and (m.get("pp") is None or (m.get("pp") or 0) > 0)]
-            if not _ft or not _mv or any(not m.get("type") for m in _dmg):
+            if not _mv or any(not m.get("type") for m in _dmg):
                 continue
-            if any(effectiveness(str(m["type"]).upper(),
-                                 [str(t).upper() for t in _ft]) > 0
-                   for m in _dmg):
+            if not _f.get("types") and any(
+                    str(m["type"]).upper() not in _known for m in _dmg):
+                continue
+            if any(foe_eff(m["type"], _f) > 0 for m in _dmg):
                 continue
         lead = rule.get("only_if_lead")
         if lead is not None and ctx.get("started_as") != lead:

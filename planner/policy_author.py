@@ -2628,6 +2628,16 @@ def main():
                 (REPO / "plans/arena_learn.json").read_text()).get(name) or {})
         except (OSError, ValueError):
             ex_mod.Executor.LEARN_TABLE = {}
+        # ...AND SO IS ITS WORD ON A SPECIES' TYPES, which no battle screen
+        # shows (type_ledger): plans/arena_types.json, asked once per species
+        # (tools/arena_types_table.py). The room starts knowing nothing else.
+        import type_ledger
+        type_ledger.reset()
+        try:
+            type_ledger.SAID.update(json.loads(
+                (REPO / "plans/arena_types.json").read_text()) or {})
+        except (OSError, ValueError):
+            pass
         g = Gym(args.plan, args.run_id,
                 model=(args.model if kind == "brock" else ""),
                 from_save=save, arena=kind, trials=args.trials,

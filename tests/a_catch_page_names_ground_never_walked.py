@@ -99,7 +99,11 @@ ck("a long list is cut, and says how many more", "; and 4 more" in wm, wm)
 # pokemon anywhere its been before and go somewhere new")
 class Met(E.Executor):
     def __init__(self, offered, met_types):
+        # a species' types are what the run knows: owned, or the model's
+        # word (type_ledger, 2026-10-13); these stand as the model's word
         self._offered, self._met_types = offered, met_types
+        E.type_ledger.reset()
+        E.type_ledger.SAID.update(met_types)
 
 
 OFFERED = {"ROUTE_1": {"PIDGEY": 15, "RATTATA": 23},
@@ -111,8 +115,9 @@ met = Met(OFFERED, TYPES)
 w2 = met._met_types_note("party_type", "WATER|GRASS")
 ck("a type met nowhere is said once, over every battle of the run",
    w2 == ("IN EVERY WILD BATTLE THIS RUN HAS HAD — 244, on 2 map(s): "
-          "ROUTE_1, VIRIDIAN_FOREST — not one was a GRASS or WATER type. "
-          "Every wild ground you have fought on has shown what it holds, "
+          "ROUTE_1, VIRIDIAN_FOREST — not one was a GRASS or WATER type by "
+          "what you know of their types (the ones you have owned, and your "
+          "own word on the rest). Every wild ground you have fought on has shown what it holds, "
           "and that was not in it."), w2)
 ck("...and one that has been met is named with where and how often",
    met._met_types_note("party_type", "ELECTRIC")
@@ -127,10 +132,16 @@ ck("a goal that is not about what walks out of the grass says nothing",
    and met._met_types_note("map", "PEWTER_CITY") == "")
 ck("no battles yet, nothing to say",
    Met({}, {})._met_types_note("party_type", "GRASS") == "")
-ck("the types are the ones the battle screen showed",
+met = Met(OFFERED, TYPES)
+ck("the types are the ones the run knows (here, the model's word)",
    met._types_met("PIKACHU") == ["ELECTRIC"])
-ck("...and for one met before they were kept, the game's own table",
-   Met({}, {})._types_met("ODDISH") == ["GRASS", "POISON"])
+ck("...and for one it knows nothing of, nothing: never the game's own table",
+   Met({}, {})._types_met("ODDISH") == [])
+m0 = Met({}, {})
+E.type_ledger.OWNED["ODDISH"] = ["GRASS", "POISON"]
+ck("...while one once owned reads its summary screen's",
+   m0._types_met("ODDISH") == ["GRASS", "POISON"])
+E.type_ledger.reset()
 
 src = (ROOT / "planner/executor.py").read_text()
 blk = src[src.index("    def _never_walked_note"):

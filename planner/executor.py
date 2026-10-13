@@ -51,6 +51,7 @@ from pathlib import Path
 
 from bridge import Bridge, RUN
 import battle_policy
+import type_ledger
 import split_roads
 import booklet_items
 from silent_flags import SILENT as _SILENT_FLAGS, announced as _announced
@@ -1766,6 +1767,45 @@ def _party_exp(obs) -> int:
     return sum(int(m.get("exp") or 0) for m in ((obs or {}).get("party") or []))
 
 
+def _our_move_words(after_obs, move_id, seq0=None) -> str | None:
+    """The battle's boxes from our "X used MOVE!" up to the enemy's turn,
+    joined; None when our use of the move is not in them.
+
+    ONLY THIS TURN'S BOXES. battle_text is the fight's last sixteen lines,
+    so a turn whose own "used" box was missing read an EARLIER turn's, on
+    another foe: DEWGONG and JYNX were filed as untouchable by PSYCHIC in
+    the league room (2026-10-13). With the counter from before the op
+    (battle_text_seq), only the lines it added are read; without one,
+    nothing is filed."""
+    if seq0 is None:
+        return None
+    try:
+        added = int((after_obs or {}).get("battle_text_seq")) - int(seq0)
+    except (TypeError, ValueError):
+        return None
+    if added <= 0:
+        return None
+    txt = str((after_obs or {}).get("battle_text") or "")
+    # the screen's name: PSYCHIC_M is "PSYCHIC" (the engine's _M tells the
+    # move from the type)
+    _nm = str(move_id or "").upper()
+    _nm = _nm[:-2] if _nm.endswith("_M") else _nm
+    words = "USED " + _nm.replace("_", " ")
+    boxes = [b.strip() for b in txt.split(" / ")][-added:]
+    at = None
+    for i, b in enumerate(boxes):
+        if words in b.upper() and not b.upper().startswith("ENEMY "):
+            at = i
+    if at is None:
+        return None
+    out = []
+    for b in boxes[at + 1:]:
+        if b.upper().startswith("ENEMY ") and " USED " in b.upper():
+            break
+        out.append(b)
+    return " / ".join(out)
+
+
 def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
                     exp_before: int | None = None):
     me = before_b.get("me") or {}
@@ -1785,8 +1825,32 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
     # asleep or frozen going in, still standing and still the one out after.
     _mv = next((m for m in (me.get("moves") or [])
                 if isinstance(m, dict) and m.get("id") == move_id), None)
-    _eff = (battle_policy.effectiveness(_mv.get("type"), foe.get("types"))
-            if _mv and _mv.get("type") and foe.get("types") else None)
+    # WHAT THE GAME SAID OF THE HIT is the effectiveness this species takes
+    # from that type, and the only one a player learns it from (the battle
+    # screen shows no types; type_ledger). Read off the boxes after OUR use
+    # of the move, before the enemy's own turn speaks.
+    _said = _our_move_words(after_obs, move_id, before_b.get("_text_seq"))
+    _eff = None
+    # ...AND ONLY AN ATTACK'S. "It didn't affect X!" is also what a STATUS
+    # move says when it fails (THUNDER WAVE on a foe already statused), so
+    # GENGAR and GOLBAT were filed as untouchable by ELECTRIC and ARBOK by
+    # NORMAL in the league rooms (2026-10-13).
+    if _mv and _mv.get("type") and _said is not None \
+            and battle_policy.damaging(_mv):
+        _hp1 = (((after_obs or {}).get("battle") or {}).get("foe") or {}).get("hp")
+        _landed = ((after_obs or {}).get("mode") != "battle"
+                   or (_hp1 is not None and _hp1 < hp0))
+        _x = type_ledger.note_hit(foe.get("species"), _mv.get("type"),
+                                  _said, _landed)
+        if _x is not None:
+            # the multiplier to divide by: the chart's own number when the
+            # message agrees with the believed types ("super" is 2x or 4x)
+            _es = dict(foe.get("eff_seen") or {})
+            _es[str(_mv.get("type")).upper()] = _x
+            _eff = battle_policy.foe_eff(_mv.get("type"), dict(foe, eff_seen=_es))
+    if _eff is None and _mv and _mv.get("type") and (
+            foe.get("types") or (foe.get("eff_seen") or {})):
+        _eff = battle_policy.foe_eff(_mv.get("type"), foe)
     _took = None
     if (after_obs or {}).get("mode") == "battle" \
             and (ab.get("foe") or {}).get("species") == foe.get("species"):
@@ -1817,7 +1881,14 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
                 DAMAGE_FRAC.setdefault(fk, []).append([ratio, 1.0])
             if mx:
                 _took = hp0 / mx            # at least what it had left
+    # ...AND ONLY A TURN THE MOVE WAS USED. Wrapped, fully paralysed,
+    # flinched or hurt in confusion, our move never happens; the turn
+    # still went by and was filed as the move doing nothing: FEAROW's FLY
+    # was charged with twelve zero turns under BELLSPROUT's WRAP in the
+    # Celadon room (2026-10-13). The game prints "X used MOVE!" when it is
+    # used; without that line this turn, nothing is filed.
     if (_took is not None and _mv and battle_policy.damaging(_mv) and _eff
+            and _said is not None
             and ratio and str(me.get("status") or "").upper()[:3]
             not in ("SLP", "FRZ")):
         battle_policy.note_move_use(move_id, me.get("species"), _eff, ratio,
@@ -2047,6 +2118,9 @@ def _run_policy(spec, bridge, obs, log, max_turns, intent="fight",
                     log("oracle_score", turn=turns, **sc)
             obs = bridge.obs()   # refresh (probe left a battle obs)
         before_b = (obs or {}).get("battle") or {}
+        # the battle's line counter before this op, so what the op said can
+        # be told from what earlier turns said (_our_move_words)
+        before_b = dict(before_b, _text_seq=(obs or {}).get("battle_text_seq"))
         # HP alongside intent: six logged EMBERs vs a 41-HP Staryu ended in
         # a wipe, which the damage math says is impossible — whether the
         # presses deliver the scored move is only visible as an HP trace.
@@ -6768,6 +6842,7 @@ class Executor:
             DAMAGE_FRAC.update(data.get("damage_frac") or {})
             battle_policy.MOVE_SEEN.clear()
             battle_policy.MOVE_SEEN.update(data.get("move_seen") or {})
+            type_ledger.load(data.get("type_ledger"))
             WILD_LEFT.clear()
             WILD_LEFT.update(data.get("wild_left") or {})
             GOT_AWAY.clear()
@@ -7295,6 +7370,7 @@ class Executor:
                  "press_log": getattr(self, "_press_log", {}),
                  "damage_frac": DAMAGE_FRAC, "wild_left": WILD_LEFT,
                  "move_seen": battle_policy.MOVE_SEEN,
+                 "type_ledger": type_ledger.dump(),
                  "got_away": GOT_AWAY,
                  "lever_presses": getattr(self, "_lever_presses", {}),
                  "plan_hist": getattr(self, "_plan_hist", {}),
@@ -10644,27 +10720,14 @@ class Executor:
         except Exception:
             return ""
 
-    _SPECIES_TYPES_CACHE: dict = {}
-
     def _types_met(self, sp: str) -> list:
-        """A species' types as the battle screen showed them when it was met
-        (_met_types); for one met before that was kept, the game's own
-        species table, which is what that screen was reading."""
+        """A species' types as the run knows them: owned (its summary
+        screen), else the model's own word (type_ledger). The battle screen
+        never showed them, and the game's species table that this once fell
+        back to is on no screen at all (2026-10-13)."""
         sp = str(sp or "").upper()
-        got = (getattr(self, "_met_types", None) or {}).get(sp)
-        if got:
-            return list(got)
-        cache = Executor._SPECIES_TYPES_CACHE
-        if not cache:
-            try:
-                import gin_save
-                data = gin_save.load_lua(gin_save.GEN / "pokemon.lua") or {}
-                cache.update({str(k).upper(): [str(t).upper() for t in
-                                               ((v or {}).get("types") or [])]
-                              for k, v in data.items() if isinstance(v, dict)})
-            except Exception:
-                cache["?"] = []
-        return list(cache.get(sp) or [])
+        got = type_ledger.believed(sp)[0]
+        return list(got or [])
 
     def _met_types_note(self, kind: str, dw_val) -> str:
         """WHAT EVERY WILD BATTLE OF THE RUN HAS OFFERED, against what a
@@ -10705,7 +10768,11 @@ class Executor:
             if not hits:
                 return (f"IN EVERY WILD BATTLE THIS RUN HAS HAD — {total}, on "
                         f"{len(maps)} map(s): {', '.join(sorted(maps))} — not "
-                        f"one was a {said}. Every wild ground you have fought "
+                        f"one was a {said}"
+                        + (" by what you know of their types (the ones you "
+                           "have owned, and your own word on the rest)"
+                           if kind == "party_type" else "")
+                        + ". Every wild ground you have fought "
                         f"on has shown what it holds, and that was not in it.")
             hits.sort(key=lambda t: -t[2])
             return (f"A {said} HAS BEEN MET in this run's wild battles: "
@@ -14852,6 +14919,47 @@ class Executor:
                      text=str(text)[:160], mode=(obs or {}).get("mode"))
         self._ui_pending = 0
         return obs
+
+    TYPES_SYS = (
+        "You are playing Pokemon Red, and a Pokemon you have never owned is "
+        "in front of you. The battle screen shows its name, level and HP "
+        "bar, not its type. From what you know of Pokemon Red, what type or "
+        "types is it? Reply with a JSON object and nothing else: "
+        "{\"types\":[\"<TYPE>\"]} with one or two of NORMAL, FIRE, WATER, "
+        "ELECTRIC, GRASS, ICE, FIGHTING, POISON, GROUND, FLYING, PSYCHIC, "
+        "BUG, ROCK, GHOST, DRAGON — or {\"types\":null} if you do not know.")
+
+    def _ask_types(self, species) -> bool:
+        """The model's word on a species' types, asked once per species and
+        kept (type_ledger.SAID). No model (an arena), an answer that names no
+        type, or one already given: nothing is asked and False comes back."""
+        sp = str(species or "")
+        if not sp or not self.model or sp in type_ledger.SAID \
+                or sp in type_ledger.OWNED:
+            return False
+        asked = getattr(self, "_types_asked", None)
+        if asked is None:
+            asked = self._types_asked = set()
+        if sp in asked:
+            return False
+        asked.add(sp)
+        ts = None
+        try:
+            reply = brock_probe.chat(
+                [{"role": "system", "content": self.TYPES_SYS},
+                 {"role": "user", "content": f"THE POKEMON: {sp}"}], self.model)
+            d = Executor._first_object(reply or "") or {}
+            got = d.get("types")
+            if isinstance(got, str):
+                got = [got]
+            ts = [x for x in (type_ledger.norm_type(t) for t in (got or [])) if x][:2]
+        except Exception as e:
+            self.log("types_chat_error", species=sp, err=str(e))
+        self.log("types_asked", species=sp, said=ts or None)
+        if not ts:
+            return False
+        type_ledger.SAID[sp] = ts
+        return True
 
     FORGET_SYS = (
         "You are playing Pokemon Red. One of your Pokemon has levelled up "
@@ -20392,9 +20500,13 @@ class Executor:
             f"{m.get('nickname') or m.get('species')} ({m.get('species')}) "
             f"L{m.get('level')} {'/'.join(str(t) for t in (m.get('types') or []))}"
             for m in party)
+        # its types are on no battle screen: the run's belief, said as whose
+        _ft = "/".join(str(t) for t in (foe.get("types") or []))
+        _ftw = (f"({_ft}, by your own word — the battle screen does not show "
+                f"types)" if _ft else
+                "(its types are not on the battle screen)")
         user = (f"THE WILD POKEMON: {sp} L{foe.get('level')} "
-                f"({'/'.join(str(t) for t in (foe.get('types') or []))}) — you "
-                f"have never owned one.\n"
+                f"{_ftw} — you have never owned one.\n"
                 f"YOUR PARTY ({len(party)} of 6): {roster}\n"
                 f"IN THE PC BOX: "
                 + (", ".join(f"{m.get('species')} L{m.get('level')}" for m in boxed[:8])
@@ -20682,6 +20794,14 @@ class Executor:
         # matchup — species and levels are on screen the whole fight.
         b0 = (obs or {}).get("battle") or {}
         foe, me = b0.get("foe") or {}, b0.get("me") or {}
+        # A SPECIES NEVER OWNED IS ASKED ABOUT ONCE. Its types are on no
+        # battle screen (type_ledger); the model may know them, and its word
+        # is what the run plays on until the game says otherwise.
+        if foe.get("species") and not foe.get("types") and self._ask_types(
+                foe.get("species")):
+            obs = type_ledger.scrub(obs)
+            b0 = (obs or {}).get("battle") or {}
+            foe = b0.get("foe") or {}
         self._op_battles = getattr(self, "_op_battles", 0) + 1
         if foe.get("species") and isinstance(getattr(self, "_op_foes", None), list):
             self._op_foes.append(f"{foe.get('species')} L{foe.get('level')}")
@@ -20739,8 +20859,9 @@ class Executor:
             _m = getattr(self, "_last_overworld_map", None) or "?"
             book = self._offered.setdefault(_m, {})
             book[str(foe["species"])] = book.get(str(foe["species"]), 0) + 1
-            # ...AND WHAT TYPE IT WAS, as the battle screen showed it, so a
-            # catch page can say what no ground has offered (_met_types_note)
+            # ...AND WHAT TYPE IT IS BELIEVED TO BE (type_ledger: owned, or
+            # the model's word), so a catch page can say what no ground has
+            # offered (_met_types_note)
             if foe.get("types"):
                 self._met_types[str(foe["species"])] = [
                     str(t).upper() for t in foe["types"]]

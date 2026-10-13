@@ -68,7 +68,7 @@ got = ex._ask_new_species(obs(), SG)
 ck("a never-owned species is asked about, and a yes is a catch want for it",
    got == {"want": {"species": {"HITMONLEE"}, "types": set()}}, got)
 ck("...the question carries the species, the roster and its size, the box and the balls",
-   calls and "HITMONLEE L30 (FIGHTING)" in calls[-1] and "YOUR PARTY (5 of 6)" in calls[-1]
+   calls and "HITMONLEE L30 (FIGHTING, by your own word" in calls[-1] and "YOUR PARTY (5 of 6)" in calls[-1]
    and "IN THE PC BOX: nothing" in calls[-1] and "POKE BALLS IN THE BAG (POKE, GREAT, ULTRA): 8" in calls[-1], calls[-1:])
 ck("...and the answer is kept", ex._new_species_asked.get("HITMONLEE", {}).get("catch") is True)
 n = len(calls)

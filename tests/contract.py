@@ -178,8 +178,9 @@ BATTLE = [
     Field("battle.foe.hp", "catch threshold; KO test; damage journal"),
     Field("battle.foe.species", "catch want-match; damage journal"),
     Field("battle.foe.types", "score_move effectiveness; catch want-match",
-          unless=lambda o: bool((o.get("battle") or {}).get("ghost")),
-          note="nil in a GHOST fight -- the screen hides the species and types"),
+          required=False,
+          note="the run's belief, not the game's memory (type_ledger): absent "
+               "for a species never owned and never named by the model"),
     Field("battle.foe.level", "battle_start log line"),
     Field("bag", "battle_items rule; the catch branch's ball count"),
     Field("party[].hp", "switch rules (never switch to a fainted slot)"),
