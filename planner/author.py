@@ -2082,6 +2082,19 @@ def _new_map_from_shut(src: str, path: str = "run/explored.json") -> str:
         if reg.split("|")[0] == src and any(
                 not re.fullmatch(r"\d+,\d+", str(k)) for k in (edges or {})):
             return ""
+    # ...AND ONLY A MAP THAT HAS SHOWN ALL OF ITSELF. The door table holds
+    # the doors that have been ON SCREEN, so a floor just walked into lists
+    # its own entrance and nothing else: MT_MOON_1F, entered a moment
+    # before, read "every way out leads to ROUTE_4" with its ladders still
+    # off screen, every draft of "Navigate Mt. Moon" was refused, and the
+    # leg was pushed behind "Reach Cerulean City" (run 55, 2026-10-13; user:
+    # "its skipped the mt moon leg"). Judged only when every part of src
+    # the run has stood in showed no seen ground ending at unseen ground
+    # (frontier_here, the shim's count at the last visit).
+    fh = {r: v for r, v in (d.get("frontier_here") or {}).items()
+          if r.split("|")[0] == src}
+    if not fh or any(int(v or 0) > 0 for v in fh.values()):
+        return ""
     seen = {r.split("|")[0] for r in (d.get("visits") or {})}
     to = sorted(set(dests.values()))
     if not to or not set(to) <= seen:

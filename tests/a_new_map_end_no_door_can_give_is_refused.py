@@ -41,6 +41,8 @@ REC = {
                    "GAME_CORNER": {"15,17": "CELADON_CITY", "17,4": "ROCKET_HIDEOUT_B1F"},
                    "PEWTER_CITY": {"16,17": "PEWTER_GYM"}},
     "explored": {"PEWTER_CITY|4,2": {"east": {"to": "ROUTE_3|0,0"}}},
+    # B2F has shown all of itself (no seen ground ends at unseen ground)
+    "frontier_here": {"MT_MOON_B2F|20,5": 0, "GAME_CORNER|1,1": 0},
 }
 with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
     json.dump(REC, f)
@@ -55,6 +57,26 @@ part["door_dests"]["MT_MOON_B2F"].pop("15,27")
 with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
     json.dump(part, f)
 ck("a door with no recorded destination passes", A._new_map_from_shut("MT_MOON_B2F", f.name) == "")
+# A FLOOR JUST WALKED INTO HAS SHOWN ONLY ITS ENTRANCE (run 55, MT_MOON_1F):
+# its door table lists the way in and nothing else, and it is not judged.
+new = json.loads(json.dumps(REC))
+new["visits"]["MT_MOON_1F|3,2"] = 1
+new["map_doors"]["MT_MOON_1F"] = ["14,35", "15,35"]
+new["door_dests"]["MT_MOON_1F"] = {"14,35": "ROUTE_4", "15,35": "ROUTE_4"}
+new["frontier_here"]["MT_MOON_1F|3,2"] = 2
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+    json.dump(new, f)
+ck("a floor with seen ground ending at unseen ground is not judged",
+   A._new_map_from_shut("MT_MOON_1F", f.name) == "")
+new["frontier_here"]["MT_MOON_1F|3,2"] = 0
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+    json.dump(new, f)
+ck("...while the same floor fully seen is", "ROUTE_4" in A._new_map_from_shut("MT_MOON_1F", f.name))
+new.pop("frontier_here")
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+    json.dump(new, f)
+ck("...and one with no frontier record is not judged",
+   A._new_map_from_shut("MT_MOON_B2F", f.name) == "")
 src = (ROOT / "planner/author.py").read_text()
 ck("validate refuses it with the reason",
    'elif k == "new_map_from" and _new_map_from_shut(v):' in src)
