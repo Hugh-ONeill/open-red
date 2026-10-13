@@ -16,7 +16,8 @@ refuses every press except from the ops that own the choice, the bridge
 does not ride it, and the observation says a learn is up from its first
 page. The executor walks it: A for a page of text, YES at the yes/no (the
 list is where the choice is made, and CANCEL there is the no), and the
-list goes to the model with each move's type and power. Which move goes
+list goes to the model with each known move's type and PP and the new
+move's name (power is on no screen). Which move goes
 is the model's.
 """
 from __future__ import annotations
@@ -77,16 +78,17 @@ ck("the yes/no is answered YES by cursor, opening the list", o.sent[2] == ("menu
 ck("the list goes to the model, once", len(asked) == 1, len(asked))
 u = asked[0][-1]["content"]
 ck("...with the learner's types", "PIKACHU (ELECTRIC) is trying to learn" in u, u)
-ck("...the new move's type and power", "SWIFT (NORMAL, power 60)" in u, u)
-ck("...and every known move's type and power",
-   "1=THUNDERBOLT (ELECTRIC, power 95)" in u and "2=BODY_SLAM (NORMAL, power 85)" in u
-   and "3=THUNDER_WAVE (ELECTRIC)" in u and "4=QUICK_ATTACK (NORMAL, power 40)" in u, u)
+ck("...the new move by name alone", "is trying to learn SWIFT. It knows" in u, u)
+ck("...and every known move by its type",
+   "1=THUNDERBOLT (ELECTRIC" in u and "2=BODY_SLAM (NORMAL" in u
+   and "3=THUNDER_WAVE (ELECTRIC" in u and "4=QUICK_ATTACK (NORMAL" in u, u)
+ck("...and no move's power", "power" not in u.lower(), u)
 ck("...and what the run is in the middle of", SG["goal_text"] in u)
 ck("the harness recommends nothing",
    not any(w in (u + asked[0][0]["content"]).lower() for w in ("you should", "keep thunderbolt", "forget quick", "stab")), u)
 ck("the model's slot is pressed", o.sent[3] == ("menu", {"index": 4}), o.sent)
 ck("...and the answer is on record",
-   any(k == "move_forget" and kw.get("forget") == "QUICK_ATTACK" and kw.get("new") == "SWIFT (NORMAL, power 60)"
+   any(k == "move_forget" and kw.get("forget") == "QUICK_ATTACK" and kw.get("new") == "SWIFT"
        for k, kw in o.logged) and sum(1 for k, _ in o.logged if k == "learn_seen") == 1, o.logged)
 ck("the observation handed back is the settled one", out is DONE)
 

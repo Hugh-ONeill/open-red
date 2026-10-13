@@ -615,6 +615,22 @@ def model_view(obs: dict, holding_map: bool = False,
         o["pc_mons"] = [{k: v for k, v in (m or {}).items()
                          if k not in HIDDEN_MON_FIELDS} if isinstance(m, dict)
                         else m for m in o["pc_mons"]]
+    # ...AND NO SCREEN SHOWS A MOVE'S POWER. A known move is its name, its
+    # TYPE (the FIGHT menu's box) and its PP; a machine's move is a name
+    # until it is taught. Every page carried "power": 95 on each party move
+    # and the machines ledger's type, power and PP for moves nobody knew
+    # (run 54, 2026-10-13; see _known_move_words).
+    if o.get("party"):
+        o["party"] = [dict(m, moves=[{k: v for k, v in mv.items() if k != "power"}
+                                     if isinstance(mv, dict) else mv
+                                     for mv in (m.get("moves") or [])])
+                      if isinstance(m, dict) and m.get("moves") else m
+                      for m in o["party"]]
+    if isinstance(o.get("machines"), dict):
+        o["machines"] = {k: ({f: v for f, v in m.items()
+                              if f not in ("power", "type", "max_pp")}
+                             if isinstance(m, dict) else m)
+                         for k, m in o["machines"].items()}
     # PP IS A BATTLE LIMIT, AND THIS IS WHERE THE NUMBER IS READ. The party
     # carries every move's PP, which is true and, for a field move, beside
     # the point: the engine's field-move gate checks the badge, the bike
@@ -14837,9 +14853,10 @@ class Executor:
                 and ui.get("screenId") == "MoveLearnMenu"
                 and ui.get("selecting")):
             return obs
-        # THE FACTS THE SUMMARY SCREEN SHOWS, as the TM question has had
-        # since 2026-09-14: the learner's types, the new move's type and
-        # power, each known move's type and power. The question named four
+        # THE FACTS THE SCREENS SHOW, as the TM question has had since
+        # 2026-09-14: the learner's types and each known move's type and PP
+        # (power and the new move's facts are not on any screen; see
+        # _known_move_words). The question named four
         # moves and nothing else, and ZAPPER's THUNDERBOLT went for SWIFT
         # on a page that said neither was ELECTRIC nor NORMAL nor 95 nor
         # 60. What a type match is worth stays the model's to weigh.
@@ -14851,20 +14868,15 @@ class Executor:
                 else {})
         _types = "/".join(str(t).upper() for t in (_mon.get("types") or []))
 
-        def _shown(x):
-            if isinstance(x, dict):
-                bits = [str(x.get("type")).upper()] if x.get("type") else []
-                if x.get("power"):
-                    bits.append(f"power {x.get('power')}")
-                if _pp_words(x):
-                    bits.append(_pp_words(x))
-                return str(x.get("id")) + (f" ({', '.join(bits)})" if bits else "")
-            return str(x)
+        _shown = _known_move_words
         if lr.get("moves"):
             moves = [str((m or {}).get("id") if isinstance(m, dict) else m)
                      for m in lr.get("moves")]
             shown = [_shown(m) for m in lr.get("moves")]
-            new = _shown(lr.get("new_move") or ui.get("new_move") or "?")
+            # THE OFFERED MOVE IS A NAME. "ZIPPY is trying to learn WING
+            # ATTACK!" is all the screen says of it; see _known_move_words.
+            _nm = lr.get("new_move") or ui.get("new_move") or "?"
+            new = str(_nm.get("id") if isinstance(_nm, dict) else _nm)
             who = str(lr.get("learner") or ui.get("learner") or "your Pokemon")
         else:
             moves = [str(m) for m in (ui.get("moves") or [])]
@@ -16396,31 +16408,19 @@ class Executor:
         DIG nor BODYSLAM are stab moves for the mons taught to"). The
         question named the move and the species and nothing about the
         TYPE of either, so the model filled the gap from memory. The
-        summary screen shows a Pokemon's types and each move's type and
-        power; the shim's machines ledger carries the same for the move a
-        machine teaches. Facts only: what a type match is worth, and
+        summary screen shows a Pokemon's types, and the FIGHT menu each
+        known move's type and PP; the machine's own move is a name until it
+        is taught (_known_move_words). Facts only: what a type match is worth, and
         whether it matters here, stays the model's to weigh.
         """
         m = ((obs or {}).get("machines") or {}).get(item) or {}
         party = (obs or {}).get("party") or []
         is_hm = item.startswith("HM_")
 
-        def _shown(x):                 # a move as the summary screen shows it
-            if isinstance(x, dict):
-                bits = [str(x.get("type")).upper()] if x.get("type") else []
-                if x.get("power"):
-                    bits.append(f"power {x.get('power')}")
-                if _pp_words(x):
-                    bits.append(_pp_words(x))
-                return str(x.get("id")) + (f" ({', '.join(bits)})" if bits else "")
-            return str(x)
-
-        _mt = str(m.get("type") or "").upper()
-        _mp = m.get("power")
-        _mpp = m.get("max_pp")
-        mdesc = move + (f" ({_mt}" + (f", power {_mp}" if _mp else "")
-                        + (f", PP {_mpp}" if _mpp else "") + ")"
-                        if _mt else "")
+        _shown = _known_move_words
+        # THE MACHINE'S MOVE IS A NAME: "It contained RAZOR WIND!" is all
+        # the game says of it until it is taught (see _known_move_words).
+        mdesc = move
         rows = []
         for i, sp, mvs in who:
             mon = party[i - 1] if 0 < i <= len(party) and isinstance(party[i - 1], dict) else {}
@@ -17986,12 +17986,9 @@ class Executor:
             able = [str(x) for x in (m.get("able") or [])]
             if not move or move in knows or not able:
                 continue
-            facts = ", ".join(str(x) for x in (m.get("type"), m.get("power")
-                                                and f"{m.get('power')} power",
-                                                m.get("max_pp") and f"PP {m.get('max_pp')}")
-                              if x)
-            row = f"{item} ({move}" + (f": {facts}" if facts else "") + ")" \
-                  + f" [ABLE: {', '.join(able)}]"
+            # a stored machine's move is a name, like any move not yet
+            # taught (see _known_move_words)
+            row = f"{item} ({move})" + f" [ABLE: {', '.join(able)}]"
             asked = [(k, v) for k, v in (getattr(self, "_tm_asked", None) or {}).items()
                      if k.startswith(item + "|")]
             if asked:
@@ -25410,7 +25407,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         added = 0
         for mid, mv, m in todo[:6]:
             others = ", ".join(
-                f"{x.get('id')} ({x.get('type')}, power {x.get('power') or 0})"
+                _known_move_words(x)
                 for x in (m.get("moves") or []) if x.get("id") != mid)
             user = (f"THE MOVE: {mid} ({mv.get('type')}, no power, "
                     f"{mv.get('max_pp') or mv.get('pp')} PP), known by "
@@ -29968,6 +29965,25 @@ def _pp_words(x) -> str:
         return ""
     cur = x.get("pp") if isinstance(x, dict) else None
     return f"PP {cur}/{mx}" if cur is not None else f"PP {mx}"
+
+
+def _known_move_words(x) -> str:
+    """A move the party KNOWS, as the game shows it: name, type, PP.
+
+    The FIGHT menu's box reads "TYPE/" and the PP left; the summary lists
+    the PP. Gen 1 prints a move's POWER nowhere, and a move not yet learned
+    gets its name and nothing else. The level-up and TM questions put
+    "power 80" beside every move, so RAZOR_WIND at 80 read as a plain
+    upgrade on WING_ATTACK at 35 and PIDGEOTTO gave up its only FLYING
+    move (run 54, 2026-10-13; user: "you cant know beforehand what the
+    power is and all that its not on the pamphlet"). How hard a move hits
+    is learned the way a player learns it, from the damage it does."""
+    if not isinstance(x, dict):
+        return str(x)
+    bits = [str(x.get("type")).upper()] if x.get("type") else []
+    if _pp_words(x):
+        bits.append(_pp_words(x))
+    return str(x.get("id")) + (f" ({', '.join(bits)})" if bits else "")
 
 
 def _balls_in(obs) -> bool:

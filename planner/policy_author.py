@@ -277,7 +277,7 @@ DSL_DOC = """SPEC DSL (JSON object; every key optional; no other keys):
   best_matchup, wherever it appears (lead, switch, replacement), weighs
     what a member can actually DO: its strongest damaging move's power
     with STAB and the type chart, over what the foe's types do to it. A
-    20-power ABSORB at double no longer outranks a 120-power STAB move
+    weak ABSORB at double no longer outranks a strong STAB move
     at neutral (it did, and KABUTOPS led LORELEI for forty turns).
 """
 

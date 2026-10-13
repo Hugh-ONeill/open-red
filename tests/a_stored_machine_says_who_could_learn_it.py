@@ -53,8 +53,10 @@ obs = {"bag": {"TM_PSYWAVE": 1},
            "TM_PSYWAVE": {"move": "PSYWAVE", "able": ["LAPRAS", "KADABRA"], "not_able": []}}}
 line = ex._stored_machines_line(obs)
 ck("stored TMs somebody could learn are listed with the machine's ABLE list",
-   "TM_THUNDERBOLT (THUNDERBOLT: ELECTRIC, 95 power, PP 15) [ABLE: LAPRAS, KADABRA]" in line
-   and "TM_BUBBLEBEAM (BUBBLEBEAM: WATER, 65 power, PP 20) [ABLE: LAPRAS]" in line, line)
+   "TM_THUNDERBOLT (THUNDERBOLT) [ABLE: LAPRAS, KADABRA]" in line
+   and "TM_BUBBLEBEAM (BUBBLEBEAM) [ABLE: LAPRAS]" in line, line)
+ck("...naming the machine's move and nothing of it (not yet taught)",
+   "power" not in line and "ELECTRIC" not in line, line)
 ck("...a stored TM nobody can learn is not", "TM_COUNTER" not in line)
 ck("...nor one whose move somebody already knows", "TM_REST" not in line)
 ck("...nor a bag TM, which the teach question already covers", "TM_PSYWAVE" not in line)

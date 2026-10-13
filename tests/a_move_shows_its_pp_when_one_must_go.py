@@ -47,10 +47,11 @@ ck("...counted as the engine counts PP UPs",
    "mdef.pp + (mv.ppUps or 0) * math.floor(mdef.pp / 5)" in PK)
 
 SRC = (ROOT / "planner/executor.py").read_text()
-ck("both questions add the PP words to each move",
-   SRC.count("bits.append(_pp_words(x))") == 2)
-ck("the machine's line carries its PP",
-   'f", PP {_mpp}" if _mpp else ""' in SRC)
+ck("both questions add the PP words to each known move",
+   SRC.count("bits.append(_pp_words(x))") == 1
+   and SRC.count("_shown = _known_move_words") == 2)
+ck("the machine's own move is a name until it is taught",
+   "        mdesc = move\n" in SRC)
 
 failed = [n for n, ok in checks if not ok]
 for n, ok in checks:

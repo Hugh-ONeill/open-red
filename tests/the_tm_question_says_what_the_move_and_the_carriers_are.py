@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""The TM question states the move's type and power and each ABLE
-Pokemon's types and moves as the summary screen shows them.
+"""The TM question names the machine's move and states each ABLE Pokemon's
+types and moves as the screens show them (type and PP; power is on no
+screen, and a move not yet taught is a name).
 
 Dig went to Charmeleon as "valuable STAB" and Body Slam to Pikachu as "a
 powerful STAB move for Pikachu": good teaches, wrong reasons, neither
@@ -45,10 +46,11 @@ SG = {"id": "travel_to_route_5", "goal_text": "Walk north to Route 5."}
 
 who = [(2, "CHARMELEON", ["RAGE", "EMBER", "LEER"])]
 t = q(OBS, "TM_DIG", "DIG", who, SG)
-ck("the machine's move carries its type and power", "teaches DIG (GROUND, power 100)." in t, t)
+ck("the machine's move is a name", "teaches DIG." in t, t)
 ck("the carrier carries its type", "slot 2: CHARMELEON (FIRE) L29" in t, t)
-ck("...and each move it knows carries its type and power",
-   "EMBER (FIRE, power 40)" in t and "RAGE (NORMAL, power 20)" in t, t)
+ck("...and each move it knows carries its type",
+   "EMBER (FIRE" in t and "RAGE (NORMAL" in t, t)
+ck("...and nothing on it says power", "power" not in t.lower(), t)
 ck("a move with no power shows its type alone", "LEER (NORMAL)" in t, t)
 ck("a TM is said to be used up", "A TM IS USED UP" in t)
 ck("the question recommends nothing and names no verdict",
@@ -59,7 +61,7 @@ who2 = [(2, "CHARMELEON", ["RAGE", "EMBER", "LEER"]), (4, "FARFETCHD", ["PECK"])
 t2 = q(OBS, "HM_CUT", "CUT", who2, SG)
 ck("two types are shown both", "FARFETCHD (NORMAL/FLYING) L10" in t2, t2)
 ck("an HM is said to be kept", "An HM is NOT used up" in t2)
-ck("the machine's move: CUT (NORMAL, power 50)", "teaches CUT (NORMAL, power 50)." in t2)
+ck("the machine's move: CUT", "teaches CUT." in t2)
 
 # a party whose moves are bare names (older observations) still reads
 who3 = [(3, "NIDORINO", ["LEER", "TACKLE"])]

@@ -163,7 +163,7 @@ ck("without --stripped the feedback is unchanged",
 ck("the pick breaks ties on the medicine margin, after the points",
    "across[i][0][1].get(\"medicine_margin\"" in PS and "+ cross_key(across[i])[1:]" in PS)
 ck("the model is told about max_share and the weighted matchup",
-   "max_share" in PA.DSL_DOC and "20-power ABSORB" in PA.DSL_DOC)
+   "max_share" in PA.DSL_DOC and "weak ABSORB" in PA.DSL_DOC)
 
 failed = [n for n, ok_ in checks if not ok_]
 for n, ok_ in checks:
