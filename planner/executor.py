@@ -21276,8 +21276,18 @@ class Executor:
                          for m in party)
                      and isinstance(_m0, int) and isinstance(_m1, int)
                      and _m1 < _m0)
+        # ...AND A TRAINER BEATEN PAYS. Every won trainer fight ends on
+        # "<PLAYER> got ¥N for winning!" and the money goes up; the lab
+        # rival's loss has no blackout, no Center and no money taken, so
+        # it carried none of the signs above and every lost lab fight was
+        # recapped as won (runs 54 and 56: CHARMANDER at 2 hp, money still
+        # 3000; user, 2026-10-14: "the events say beat rival even when it
+        # loses"). Out of the fight with no prize paid is not a win.
+        _unpaid = (isinstance(_m0, int) and isinstance(_m1, int)
+                   and _m1 <= _m0 and (after or {}).get("mode") != "battle"
+                   and "for winning" not in _said)
         lost = ((bool(party) and len(fainted) == len(party))
-                or _revived or _woke_out
+                or _revived or _woke_out or _unpaid
                 or "blacked out" in _said or "out of useable" in _said
                 or (("POKECENTER" in _woke or _woke == "REDS_HOUSE_2F")
                     and _woke != (getattr(self, "_last_overworld_map", None)
