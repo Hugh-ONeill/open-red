@@ -29821,6 +29821,24 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     c = subgoals[back]
                     h = pred_holds(c.get("done_when") or {}, at)
                     if not h:
+                        # A CROSSING MADE IS NOT UNDONE BY WALKING ON.
+                        # {"new_map_from": X} holds only on the map the
+                        # crossing led to, so from deeper in it reads false:
+                        # run 57's find_rocket_hideout (new_map_from
+                        # CELADON_CITY) was met, retrieve_silph_scope beat
+                        # GIOVANNI on B4F and ran out of rounds two steps
+                        # from the SILPH SCOPE he left, and the step was
+                        # re-opened, so the model rode the lift up to "find
+                        # the hideout" again and the Scope was left on the
+                        # floor (2026-10-14). A crossing step this plan met
+                        # (not carried past unmet) stays done; the scan goes
+                        # on to an earlier step.
+                        _dw0 = c.get("done_when") or {}
+                        if ("new_map_from" in _dw0 and c.get("id") not in
+                                set(getattr(self, "_carried_ids", None) or [])):
+                            self.log("backtrack_crossing_held",
+                                     failed=sg["id"], candidate=c["id"])
+                            continue
                         # A PLACE STEP IS NOT UNDONE BY GOING DEEPER INTO ITS
                         # BUILDING. enter_ss_anne (map SS_ANNE_1F) stopped
                         # holding from the B1F rooms, so when reach_captain
