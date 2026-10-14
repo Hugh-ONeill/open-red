@@ -65,6 +65,11 @@ ck("the exit row says everything reachable there was done",
        "everything you could reach there was done" in p for p in parts), parts)
 ck("...and still counts the way out no walk reached",
    any("1 way(s) out of it never taken that no walk reached" in p for p in parts), parts)
+o = ex(); o._frontier_left = lambda r: ["north"]
+parts = L._left_parts(o, B2F)
+ck("an exit never taken on the same row: the ground is spent, the part is not",
+   any("none of them reachable from where you last stood" in p for p in parts)
+   and not any("everything you could reach there was done" in p for p in parts), parts)
 parts = L._left_parts(ex(mark_now=(1, 31, 4)), B2F)
 ck("with the world changed since, it says so instead of promising ground",
    any("things have happened since" in p for p in parts), parts)

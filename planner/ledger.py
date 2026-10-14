@@ -585,7 +585,18 @@ def _left_parts(ex, region: str) -> list:
         # REACH HERE IS DONE; the remote row now says the same thing.
         _verdict = (ex._unseen_there(region)[1]
                     if hasattr(ex, "_unseen_there") else "")
-        if _verdict == "done":
+        # ...AND "EVERYTHING WAS DONE" ONLY WHEN NOTHING ELSE ON THE ROW
+        # SAYS OTHERWISE. Pallet Town's row read "still has 2 exit(s) never
+        # taken and 10 spot(s) ... — everything you could reach there was
+        # done", north to Route 1 never walked, and the run spent twelve
+        # rounds pressing every person and sign in the town and the lab for
+        # the starter (run 57, 2026-10-14). The ground is spent; the exits
+        # and things on the same row are not.
+        if _verdict == "done" and parts:
+            parts.append(f"{unseen} spot(s) of ground in there never on "
+                         f"screen, none of them reachable from where you "
+                         f"last stood")
+        elif _verdict == "done":
             parts.append(f"{unseen} spot(s) of ground in there never on "
                          f"screen, none of them reachable from where you "
                          f"last stood — everything you could reach there "
