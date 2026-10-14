@@ -9231,6 +9231,39 @@ function OPS.use_item(G, c)
           .. (#_ab == 0 and " Nobody in this party can take it as they stand."
               or "")
       end
+      -- ...AND A MOVE IT ALREADY KNOWS IS NOT TAUGHT AGAIN. GRAVELER knew
+      -- SELFDESTRUCT; TM36 aimed at it was answered by the four-moves
+      -- guard below, "re-send it with forget= one of those four", and the
+      -- run re-sent it with ROCK_THROW, DOUBLE_EDGE and EARTHQUAKE in turn
+      -- and got the same sentence every time, a bag slot it needed for the
+      -- CARD KEY still full (run 57, 2026-10-14). The game says the
+      -- Pokemon knows the move and teaches nothing; no forget= changes
+      -- that.
+      for _, m in ipairs(_mon.moves or {}) do
+        if tostring(type(m) == "table" and m.id or m) == _mvname then
+          local _others = {}
+          for _, pm in ipairs(_party) do
+            local pd = G.data and G.data.pokemon and G.data.pokemon[pm.species]
+            local okm, has = false, false
+            for _, mvn in ipairs((pd and pd.tmhm) or {}) do
+              if mvn == _mvname then okm = true break end
+            end
+            for _, pmv in ipairs(pm.moves or {}) do
+              if tostring(type(pmv) == "table" and pmv.id or pmv) == _mvname then
+                has = true break
+              end
+            end
+            if okm and not has then _others[#_others + 1] = tostring(pm.species) end
+          end
+          return false, tostring(_mon.species) .. " ALREADY KNOWS " .. _mvname
+            .. " — the machine teaches nothing to a Pokemon that has the move, "
+            .. "so no forget= will help. Party members the machine's screen "
+            .. "marks ABLE that do not know it yet: "
+            .. (#_others > 0 and table.concat(_others, ", ") or "nobody")
+            .. ". Nothing has been opened or spent and you are still standing "
+            .. "where you were."
+        end
+      end
     end
   end
   if (c.item:find("^TM_") or c.item:find("^HM_")) and not c.forget then
