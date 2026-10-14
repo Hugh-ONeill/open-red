@@ -17674,8 +17674,18 @@ class Executor:
             near = (" ANY Center heals; the ones you have walked into, "
                     "nearest first over walked ground: "
                     + ", ".join(rows[:3]) + ".")
-        return (f"IF THE PARTY FAINTS you wake at {rs['map']} — the last "
-                f"Pokemon Center you HEALED at, which is only where you "
+        # ...AND IT IS A CENTER ONLY WHEN IT IS ONE. A new game wakes at
+        # PALLET_TOWN, which has no Center, and the line called it "the
+        # last Pokemon Center you HEALED at": run 57's BULBASAUR at 3/30
+        # planned "return to Pallet Town and heal at the Pokemon Center"
+        # (2026-10-14).
+        _wm = str(rs["map"])
+        _is_center = (_wm.endswith("POKECENTER")
+                      or any(r.split("|")[0] == _wm for r in _nurse_rooms))
+        return (f"IF THE PARTY FAINTS you wake at {_wm}"
+                + (" — the last Pokemon Center you HEALED at" if _is_center
+                   else " — not a Pokemon Center")
+                + f", which is only where you "
                 f"WAKE, not where you must go to heal.{near} Healing at any "
                 f"Center ({{\"op\":\"heal\"}}) makes THAT Center the "
                 f"place you wake, so a heal before a hard stretch is also "
