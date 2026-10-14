@@ -25277,12 +25277,19 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # stops so the next choice is made from the world as it now is.
             # Walks and other ops after it still run; only a press after a
             # press is held.
+            # ...AND A PRESS THAT BROUGHT SOMEONE INTO THE ROOM HOLDS ANY OP.
+            # Run 57 pressed the Cell Separator and walked out in one macro:
+            # "and then BILLSHOUSE_BILL1 appeared in this room", the door ran
+            # next, and the S.S. Ticket he hands over was never asked for
+            # (2026-10-14). Whoever came in is on screen; the next choice is
+            # made with them in it.
             if op == "interact":
                 _f0 = set((pre_obs or {}).get("flags") or [])
                 _f1 = set(_announced((obs or {}).get("flags") or [])) | _f0
                 _nxt = macro[_mi + 1] if _mi + 1 < len(macro) else None
+                _came = "appeared in this room" in str(r.get("detail") or "")
                 if (_f0 and _f1 - _f0 and isinstance(_nxt, dict)
-                        and _nxt.get("op") == "interact"):
+                        and (_nxt.get("op") == "interact" or _came)):
                     self.log("macro_cut_after_event", subgoal=sg.get("id"),
                              after=step.get("name") or op,
                              flags=sorted(_f1 - _f0)[:6],
@@ -25290,7 +25297,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     trace.append(
                         f"— stopped here: that press changed the world "
                         f"({', '.join(sorted(_f1 - _f0)[:3])}), so the "
-                        f"{len(macro) - _mi - 1} press(es) after it were not "
+                        f"{len(macro) - _mi - 1} "
+                        + ("op(s)" if _came else "press(es)")
+                        + f" after it were not "
                         f"made; choose them again from things as they are "
                         f"now.")
                     break

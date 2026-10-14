@@ -63,8 +63,11 @@ blk = SRC[SRC.index("A PRESS THAT MOVED THE WORLD ENDS A RUN OF PRESSES."):]
 blk = blk[:blk.index("if not ignore_done and pred_holds(done, self.settle()):")]
 ck("the cut is for an interact whose press fired a flag",
    'if op == "interact":' in blk and "_f1 - _f0" in blk)
-ck("...only when the next op is another press",
+ck("...when the next op is another press",
    '_nxt.get("op") == "interact"' in blk and "macro[_mi + 1]" in blk)
+ck("...or, whatever the next op, when the press brought someone into the room "
+   "(run 57: Cell Separator then the door, Bill never spoken to)",
+   '_came = "appeared in this room" in' in blk and 'or _came)' in blk)
 ck("...and says what happened and logs what was dropped",
    "— stopped here: that press changed the world" in blk
    and 'self.log("macro_cut_after_event"' in blk and "dropped=" in blk)
