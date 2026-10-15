@@ -1594,11 +1594,21 @@ def new_ground_problems(plan: dict, goal: str | None = None,
     unwalked = sorted({t for m in stood for t in (MAP_EDGES.get(m) or {}).values()
                        if t not in stood and t not in failed})
     leads = untried_leads(run, skip_maps=failed)
-    return [f"this objective's plans have failed walking to "
-            f"{', '.join(sorted(failed))} {n} times, and this plan walks only "
-            f"on ground the run has already stood on. A plan for it now has to "
-            f"take in somewhere never stood on (a map, or a new part of one) "
-            f"other than those; which, and why, is yours."
+    # ...AND THE PLACE IT FAILED TO REACH IS NOT COUNTED, SAID SO. Run 57's
+    # Indigo Plateau leg was refused thirteen drafts running with "this plan
+    # walks only on ground the run has already stood on" — every one of them
+    # ended on INDIGO_PLATEAU, never stood on, the place the earlier plans
+    # failed to reach (2026-10-15). The sentence was false as read; the rule
+    # was right. Say which new ground does not count and why.
+    _f = ", ".join(sorted(failed))
+    return [f"this objective's plans have failed walking to {_f} {n} times, "
+            f"and apart from {_f} itself — which a plan cannot count as new "
+            f"ground, because walking to it is what failed — this plan walks "
+            f"only on ground the run has already stood on. A plan for it now "
+            f"has to take in somewhere never stood on besides it (a map, or a "
+            f"new "
+            f"part of one, as {{\"new_part\": MAP}} or a map/area step) on the "
+            f"way; which, and why, is yours."
             + (" Maps the printed map joins to ones you have walked, never stood "
                "on: " + ", ".join(unwalked[:8]) + "." if unwalked else "")
             + (" Walked places with something never tried: "

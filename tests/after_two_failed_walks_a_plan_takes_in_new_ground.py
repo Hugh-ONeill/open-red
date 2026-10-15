@@ -67,6 +67,10 @@ try:
        A.new_ground_problems(plan("ROUTE_25", "VERMILION_CITY"), G) == [])
     ck("the failed place itself does not count as new",
        A.new_ground_problems(plan("VERMILION_CITY"), G) != [])
+    _pv = A.new_ground_problems(plan("VERMILION_CITY"), G)
+    ck("...and the refusal says the failed place is the exception, not that the "
+       "plan stands only on walked ground (run 57: thirteen Indigo drafts refused)",
+       _pv and "apart from VERMILION_CITY itself" in _pv[0], _pv)
     ck("a new part of a walked map counts",
        A.new_ground_problems({"subgoals": [{"id": "a", "goal_text": "x",
                                             "done_when": {"new_part": "ROUTE_24"}}]}, G) == [])
