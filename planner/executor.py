@@ -4641,44 +4641,69 @@ class Executor:
         _fs = _m.get("frontier_stale") or []
         if (_fs and not _params.get("no_sweep")
                 and _params.get("until") != "doors_only"):
-            _s0 = _fs[0]
-            self.log("explore_step", subgoal=sg.get("id"), step="stale",
-                     to=f"{_s0.get('x')},{_s0.get('y')}",
-                     wall=f"{_s0.get('wx')},{_s0.get('wy')}",
-                     frontier_stale=len(_fs))
-            ok, tr, cl = self._run_traced(
-                sg, [{"op": "walk_to", "x": int(_s0.get("x")),
-                      "y": int(_s0.get("y"))}], ignore_done=ignore_done)
-            tr = [f"explore (walking to ({_s0.get('x')},"
-                  f"{_s0.get('y')}), beside ({_s0.get('wx')},"
-                  f"{_s0.get('wy')}) — a cell that was a WALL the "
-                  f"last time it was on screen; standing there is "
-                  f"how you find out what it is now): {t}" for t in tr]
-            # ...AND WHAT THE LOOK FOUND IS SAID, AND SWEPT. The walk's own
-            # verdict is "walk_to: ok" whatever the look turned up, so on
-            # Mansion B1F the look opened (9,6) and put 6 spots of unseen
-            # ground in reach, the page said only "ok", and the model read
-            # that as nothing and flipped the statue back — shutting it
-            # again (run 27, 2026-09-18; user: "it had all this new frontier
-            # it could see was open, then it chose to go back and press the
-            # statue again"). Unseen ground in reach is explore's first
-            # rule; after the look, it applies at once.
-            if not ok:
+            # ...AND ONE LOOK IS NOT ALL OF THEM. A look can open nothing
+            # and still show the next moved wall: on Mansion B1F with the
+            # statue flipped, (13,23) was still shut, the look put (26,18)
+            # on the stale list, and THAT one opened the floor's north half
+            # (the second statue and the ball at 10,2). Explore looked once,
+            # said "no unseen ground came within reach", and the run spent
+            # hours on the other floors (run 57, 2026-10-14; probed on its
+            # save: the second look opened 22 spots). Up to four looks per
+            # op, each at the nearest wall not yet looked at this op; the
+            # first that opens unseen ground is swept.
+            ok, tr, cl = False, [], []
+            _looked = set()
+            _m_cur = _m
+            for _look in range(4):
+                _cands = [f for f in (_m_cur.get("frontier_stale") or [])
+                          if f"{f.get('wx')},{f.get('wy')}" not in _looked]
+                if not _cands:
+                    break
+                _s0 = _cands[0]
+                _wall = f"{_s0.get('wx')},{_s0.get('wy')}"
+                _looked.add(_wall)
+                self.log("explore_step", subgoal=sg.get("id"), step="stale",
+                         to=f"{_s0.get('x')},{_s0.get('y')}", wall=_wall,
+                         frontier_stale=len(_cands), look=_look + 1)
+                ok, tr1, cl1 = self._run_traced(
+                    sg, [{"op": "walk_to", "x": int(_s0.get("x")),
+                          "y": int(_s0.get("y"))}], ignore_done=ignore_done)
+                cl = list(cl or []) + list(cl1 or [])
+                tr += [f"explore (walking to ({_s0.get('x')},"
+                       f"{_s0.get('y')}), beside ({_wall}) — "
+                       f"a cell that was a WALL the last time it was on "
+                       f"screen; standing there is "
+                       f"how you find out what it is now): {t}"
+                       for t in tr1]
+                if ok:
+                    break
+                # ...AND WHAT THE LOOK FOUND IS SAID, AND SWEPT. The walk's
+                # own verdict is "walk_to: ok" whatever the look turned up,
+                # so on Mansion B1F the look opened (9,6) and put 6 spots of
+                # unseen ground in reach, the page said only "ok", and the
+                # model read that as nothing and flipped the statue back —
+                # shutting it again (run 27, 2026-09-18; user: "it had all
+                # this new frontier it could see was open, then it chose to
+                # go back and press the statue again"). Unseen ground in
+                # reach is explore's first rule; after the look, it applies
+                # at once.
                 try:
                     o2 = self.settle() or self.b.obs() or {}
                     while o2 and o2.get("mode") == "battle":
                         o2 = self.handle_battle(sg, o2)
                         o2 = self.settle() or {}
                     _m2 = (o2 or {}).get("map") or {}
-                    _wall = f"{_s0.get('wx')},{_s0.get('wy')}"
                     _still = any(f"{f.get('wx')},{f.get('wy')}" == _wall
                                  for f in (_m2.get("frontier_stale") or []))
-                    if (_m2.get("id") == _m.get("id") and _m2.get("frontier")
+                    if not (_m2.get("id") == _m.get("id")
                             and o2.get("mode") == "overworld"):
+                        break
+                    if _m2.get("frontier"):
                         _n2 = int((_m2.get("seen") or {}).get("frontier_n")
                                   or len(_m2.get("frontier") or []))
                         self.log("explore_step", subgoal=sg.get("id"),
-                                 step="stale_then_sweep", frontier=_n2)
+                                 step="stale_then_sweep", frontier=_n2,
+                                 look=_look + 1)
                         _st2 = self._sweep_step(self._where(o2))
                         for _k in ("until", "steps"):
                             if _params.get(_k) is not None:
@@ -4693,12 +4718,21 @@ class Executor:
                         self._count_dry_walk(self._where(o2), tr2)
                         tr += [f"explore (sweeping unseen ground): {t}" for t in tr2]
                         cl = list(cl or []) + list(cl2 or [])
-                    elif _m2.get("id") == _m.get("id") and o2.get("mode") == "overworld":
-                        tr.append(f"explore: from there, ({_wall}) "
-                                  + ("is still a wall, " if _still else "")
-                                  + "and no unseen ground came within reach")
+                        break
+                    _left = [f for f in (_m2.get("frontier_stale") or [])
+                             if f"{f.get('wx')},{f.get('wy')}" not in _looked]
+                    tr.append(f"explore: from there, ({_wall}) "
+                              + ("is still a wall, " if _still else "")
+                              + "and no unseen ground came within reach"
+                              + (f"; {len(_left)} other wall(s) that may have "
+                                 f"moved are still unlooked-at, nearest beside "
+                                 f"({_left[0].get('wx')},{_left[0].get('wy')})"
+                                 + (" — the next look goes there" if _look < 3
+                                    else "") if _left else ""))
+                    _m_cur = _m2
                 except Exception as _e:
                     self.log("stale_then_sweep_failed", why=str(_e)[:200])
+                    break
             return ok, tr, cl
         cands = ledger.build(self, obs, target,
                              outcomes=self._outcomes_here(obs),
