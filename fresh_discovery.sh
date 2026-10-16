@@ -523,7 +523,13 @@ while :; do
   done_legs=$(cat "$PROGRESS" 2>/dev/null || echo 0)
   i=$((done_legs + 1))
   if [ "$i" -gt "${#LEGS[@]}" ]; then
-    echo "=== OUTLINE CHAIN COMPLETE: all ${#LEGS[@]} legs ==="
+    # past the end is not the end of the game: say which it is
+    if python planner/finished.py >/dev/null 2>&1; then
+      echo "=== OUTLINE CHAIN COMPLETE: all ${#LEGS[@]} legs ==="
+    else
+      echo "=== OUTLINE CHAIN ENDED: past all ${#LEGS[@]} legs, the Hall of Fame not reached" \
+           "(stepped over: $(tr '\n' ' ' < run/outline_unauthored 2>/dev/null)) ==="
+    fi
     exit 0
   fi
   leg="${LEGS[$((i - 1))]}"
@@ -753,8 +759,12 @@ while :; do
       _prior=$(awk -F'\t' -v L="$leg" \
           '$1 == L && $4 ~ /^DISPOSED: authoring failed/ { n++ } END { print n+0 }' \
           run/attempt_yield 2>/dev/null) || _prior=0
-      if [ "${_prior:-0}" -ge 1 ]; then
-        echo "!! authoring failed AGAIN for leg $i ($goal) — not pushed again:" \
+      # THE LAST LEG HAS NOWHERE TO BE PUSHED. "after leg 58" at leg 58 was
+      # refused, the step-over set the progress past the end, and the chain
+      # printed "COMPLETE: all 58 legs" on Victory Road with no Hall of Fame
+      # (run 57, 2026-10-16). It goes to the ladder on the first failure.
+      if [ "${_prior:-0}" -ge 1 ] || [ "$i" -ge "${#LEGS[@]}" ]; then
+        echo "!! authoring failed for leg $i ($goal) — not pushed:" \
              "to the ladder (it moves, changes, or goes)"
         _no_plan=1
       else

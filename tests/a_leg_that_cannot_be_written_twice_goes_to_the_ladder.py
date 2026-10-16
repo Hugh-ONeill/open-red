@@ -16,11 +16,11 @@ def ck(name, ok): checks.append((name, bool(ok)))
 sh = (ROOT / "fresh_discovery.sh").read_text()
 ck("the script parses", subprocess.run(["bash", "-n", str(ROOT / "fresh_discovery.sh")]).returncode == 0)
 i = sh.index('if [ "$_arc" != 0 ]; then')
-blk = sh[i:i + 1600]
+blk = sh[i:i + 2200]
 ck("an authoring failure writes a NOTHING row into the yield ledger",
    "no plan could even be written" in blk and ">> run/attempt_yield" in blk)
 ck("...counts the earlier authoring-failed dispositions of this leg", "DISPOSED: authoring failed" in blk)
-ck("...and the second failure sets the no-plan flag instead of pushing", "_no_plan=1" in blk and "not pushed again" in blk)
+ck("...and the second failure sets the no-plan flag instead of pushing", "_no_plan=1" in blk and "not pushed:" in blk)
 ck("the first failure still pushes and marks it", 'disposed "authoring failed; moved to after leg $_after"' in blk)
 ck("the could-not-push fallback stays inside the push branch",
    blk.index("could not push leg") < blk.index("_no_plan=1") or
