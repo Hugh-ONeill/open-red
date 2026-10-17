@@ -523,7 +523,18 @@ while :; do
   done_legs=$(cat "$PROGRESS" 2>/dev/null || echo 0)
   i=$((done_legs + 1))
   if [ "$i" -gt "${#LEGS[@]}" ]; then
-    # past the end is not the end of the game: say which it is
+    # past the end is not the end of the game: say which it is, and while
+    # a passed-over leg has returns left, go back to it rather than stop
+    if ! python planner/finished.py >/dev/null 2>&1 \
+        && _ret=$(python planner/return_leg.py "$i" 2>/dev/null); then
+      _rp=${_ret%%$'\t'*}; _rt=${_ret#*$'\t'}
+      echo "=== past the last leg with no Hall of Fame — going back to leg $_rp, which was passed over: $_rt ==="
+      echo $((_rp - 1)) > "$PROGRESS"
+      printf '%s\t%s\t0\tDISPOSED: %s\n' "$_rt" "$_rp" \
+        "gone back to from past the last leg" >> run/attempt_yield
+      archive_plans_of "$_rt"
+      continue
+    fi
     if python planner/finished.py >/dev/null 2>&1; then
       echo "=== OUTLINE CHAIN COMPLETE: all ${#LEGS[@]} legs ==="
     else
@@ -780,6 +791,8 @@ while :; do
       # step over this one rather than stopping everything.
       echo "!! could not push leg $i — skipping it for now"
       echo "$i" >> run/outline_unauthored
+      # stepped over is passed over: open, and gone back to like one
+      echo "$leg" >> run/outline_passed
       echo "$i" > "$PROGRESS"
       continue
       fi

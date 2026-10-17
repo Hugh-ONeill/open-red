@@ -20,6 +20,7 @@ game. Each leg is gone back to at most RETURNS times a chain
 
 Usage: return_leg.py <i>    prints "<p>\\t<text>" and exits 0 to go back
                             to leg p; exits 1 to play leg i as it stands.
+                            i = the leg count + 1 asks from past the end.
 """
 import os
 import sys
@@ -92,7 +93,7 @@ def waits_on(text: str, needs: dict) -> set:
 
 def pick(i: int):
     lines = _lines(OUT)
-    if not 1 <= i <= len(lines):
+    if not 1 <= i <= len(lines) + 1:
         return None
     passed = set(_lines(PASSED))
     if not passed:
@@ -100,6 +101,16 @@ def pick(i: int):
     used: dict = {}
     for t in _lines(RETURNS_LOG):
         used[t] = used.get(t, 0) + 1
+    # PAST THE END, EVERYTHING PASSED OVER IS STILL OPEN. The chain stepped
+    # over run 57's last leg and ended on Victory Road with "Defeat the Elite
+    # Four" passed over and never gone back to, since nothing recorded the
+    # final fight waiting on it (2026-10-16). With no leg left to play,
+    # going back costs nothing that stopping would not: the earliest one
+    # with returns left, whatever waits on it.
+    if i == len(lines) + 1:
+        left = [k + 1 for k, t in enumerate(lines)
+                if t in passed and used.get(t, 0) < RETURNS]
+        return (left[0], lines[left[0] - 1]) if left else None
     needs = _needs()
     here = lines[i - 1]
     behind = {t: k + 1 for k, t in enumerate(lines[:i - 1])}
