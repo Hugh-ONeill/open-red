@@ -3818,6 +3818,43 @@ class Executor:
             self._save_memory()
         return added
 
+    def _note_cut_refused(self, pre_obs, step: dict, note: str):
+        """A BUSH NOBODY COULD CUT TURNED THE RUN BACK, and nothing said so.
+        Cerulean's south: walk_to(19,28) "you stand beside it now",
+        field_move CUT "no party Pokemon knows CUT and NO TM/HM for it is in
+        the bag", and the turned-back list named a Cool Trainer and two
+        Viridian rows but not the bush (run 58, 2026-10-17; user: "build and
+        stage that"). The bush rows (_note_bush_ways) are shown only once
+        CUT is known, as ways on. Evidence only, as every blocker is: the
+        bush, where it stands, and the game's refusal; never what lifts it.
+        The bush is the one aimed at, else a CUT_TREE beside the player."""
+        if (str(step.get("move") or "").upper() != "CUT"
+                or "no party Pokemon knows CUT" not in str(note)):
+            return
+        here = self._where(pre_obs)
+        if not here or "None" in str(here):
+            return
+        bx, by = step.get("x"), step.get("y")
+        if bx is None or by is None:
+            pl = (pre_obs or {}).get("player") or {}
+            px, py = pl.get("x"), pl.get("y")
+            if px is None or py is None:
+                return
+            for o in (((pre_obs or {}).get("map") or {}).get("objects") or []):
+                if (str(o.get("name") or "").upper().startswith("CUT_TREE")
+                        and o.get("x") is not None
+                        and abs(int(o["x"]) - int(px)) + abs(int(o["y"]) - int(py)) == 1):
+                    bx, by = o["x"], o["y"]
+                    break
+        if bx is None or by is None:
+            return
+        _why = str(note).split("FAILED", 1)[-1].lstrip(" —:-")
+        _why = _why.split(" — someone in the world")[0].strip()
+        self._note_blocker(here, f"{bx},{by}", "cell",
+                           f"CUT_TREE (a bush CUT clears) at ({bx},{by}) — "
+                           f"field_move CUT said: {_why[:140]}")
+        self._save_memory()
+
     def _record_outcome(self, pre_obs, op: str, step: dict, note: str):
         """The outcome ledger: per (target|area) per key, how many times
         THIS subgoal did this thing here and what happened last, verbatim
@@ -3826,6 +3863,9 @@ class Executor:
         says "taken 4x — ok (map->ROUTE_1, crossed)" or "pressed 3x — the
         world did not change, but it SPOKE — it said: ...". A wiped-out op
         is recorded like any other: what happened is what happened."""
+        if op == "field_move":
+            self._note_cut_refused(pre_obs, step, note)
+            return
         if op == "use_warp":
             key = f"{step.get('x')},{step.get('y')}"
         elif op == "cross":
