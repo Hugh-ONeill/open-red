@@ -7760,9 +7760,34 @@ function OPS.cross(G, c)
         end
       end
     end
+    -- A PERSON WITH REACHED GROUND ALL ROUND STOPS NOTHING. Cerulean's
+    -- east walk named CERULEANCITY_COOLTRAINER_M at 31,20 "right where the
+    -- walk stopped", four cells from the stall point, while the search had
+    -- already reached 34,21 past him; the planner filed him as the fence
+    -- of the way east (run 58, 2026-10-17; user: "they arent blocking
+    -- anything"). If every walkable cell beside someone was reached, the
+    -- ground is the same with them gone. Off-screen or unreached walkable
+    -- neighbors keep them in.
+    local function opens_more(nx, ny)
+      if not (seen_cells and lm and lm.isWalkableCell) then return true end
+      for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+        local ax, ay = nx + d[1], ny + d[2]
+        if ax >= 0 and ay >= 0 and ax < W and ay < H
+           and not seen_cells[ax .. "," .. ay]
+           and lm:isWalkableCell(ax, ay) then
+          return true
+        end
+      end
+      return false
+    end
     for _, npc in ipairs((ow.npcs) or {}) do
       local nx, ny = npc.cellX, npc.cellY
-      if nx and ny then
+      if nx and ny and not opens_more(nx, ny) then
+        if #elsewhere < 4 and (not mask0 or mask0[nx .. "," .. ny]) then
+          elsewhere[#elsewhere + 1] = ("%s at %d,%d"):format(
+            package.loaded.red_public_names.of((G.overworld.map or {}).id, npc, "someone"), nx, ny)
+        end
+      elseif nx and ny then
         local by_stall = stallx and stally
           and (math.abs(nx - stallx) + math.abs(ny - stally)) <= 1
         if fences_pocket(nx, ny) and not by_stall
