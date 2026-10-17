@@ -3474,6 +3474,14 @@ class Executor:
             _wall = f"{m.group(4)},{m.group(5)}"
             self._note_blocker(region, _wall, "wall",
                                "a sweep was stopped standing here — " + what)
+            # ONE REFUSAL, ONE ROW. The wall is for the sweeps; on the page
+            # it was a second "turned you back 1x" for the same old man's
+            # same words (run 58, 2026-10-17; user: "the viridian blockers
+            # should only have one"). It rides with its cell, and goes
+            # when that does.
+            _wb = self.blockers.get(f"{region}|{_wall}")
+            if _wb is not None and _wall != key:
+                _wb["of"] = key
         self.log("sweep_refused", region=str(region), cell=key, who=who,
                  said=said[:120], wall=_wall)
         return key
@@ -3547,6 +3555,33 @@ class Executor:
             b["cleared"] = True
             b["cleared_how"] = (how or "")[:160]
             self.log("blocker_cleared", where=area, key=str(key), how=how)
+            for _ck, _cb in list((self.blockers or {}).items()):
+                if (_cb.get("where") == area and _cb.get("of") == str(key)
+                        and not _cb.get("cleared")):
+                    self._clear_blocker(area, _cb.get("key"), how)
+
+    def _clear_headed_for(self, area: str, dst: str):
+        """A REFUSAL ON THE WAY TO A MAP IS OVER ONCE YOU GO ON TO IT FROM
+        THERE. Viridian's old man turned the run back heading for ROUTE_2
+        ("You can't go through here! This is private property!"); after the
+        parcel he got up, the run crossed north from that same part onto
+        Route 2 and on to Pewter, and both rows still read "turned you back
+        1x" on every page in Cerulean (run 58, 2026-10-17; user: "they
+        should both be gone because weve gotten past them"). A row written
+        while the step was headed for a map is disproved by walking from
+        that part onto that map. Only the walk and script classes (cell,
+        wall): a door or a seam is cleared by its own key opening."""
+        dmap = str(dst or "").split("|")[0]
+        if not area or not dmap:
+            return
+        for _bk, b in list((self.blockers or {}).items()):
+            if (b.get("cleared") or b.get("where") != area
+                    or b.get("kind") not in ("cell", "wall") or b.get("of")):
+                continue
+            if str(b.get("last") or b.get("first") or "") == f"map:{dmap}":
+                self._clear_blocker(area, b.get("key"),
+                                    f"you went on from here to {dmap}, where you "
+                                    f"were headed when this turned you back")
 
     # Which badge lets a field move be used outside battle: the gym
     # leaders say it out loud, and the party menu lists the move only once
@@ -3719,7 +3754,7 @@ class Executor:
         here = self._where(obs)
         rows = []
         for bk, b in self.blockers.items():
-            if b.get("cleared"):
+            if b.get("cleared") or b.get("of"):
                 continue
             path = self._route(here, b["where"]) if here else None
             dist = (len(path) if path is not None
@@ -10199,6 +10234,7 @@ class Executor:
             if step.get("surf"):
                 e["surf"] = True
             self._clear_blocker(src, k, f"it opened — you came out at {dst}")
+            self._clear_headed_for(src, dst)
             # WHERE THIS DOOR PUT YOU. Only the region label was kept, and
             # a region is coarse: Cerulean's front door and the hole in the
             # trashed house's back wall both read CERULEAN_CITY|20,0, so
