@@ -186,6 +186,7 @@ class Candidate:
     opens: dict = field(default_factory=dict)
                                  # boulders: what one shove opens, from the
                                  # shim ({"dir": ..., "n": cells})
+    beaten: bool = False         # trainers: the save says you beat them
     toggle: str = ""             # fixtures: this thing is one end of a
                                  # SHARED lever, and this is how that lever
                                  # is set right now ("PRESSED"/"UNPRESSED").
@@ -1676,6 +1677,14 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                 c.status = "touched"
         else:
             c.status = "unspoken" if kind in ("npc", "trainer") else "untouched"
+            # ...AND A TRAINER WHO CAME AT YOU WAS SPOKEN TO. A fight a
+            # trainer starts by sight is never a press, so the B4F Rocket
+            # who holds the LIFT KEY read "never spoken to" with his beat
+            # flag set, and the run rode the dead lift and left (run 58,
+            # 2026-10-17; user: "it looks like the rocket didnt drop the
+            # lift key"). The save says he was beaten; the row says so.
+            if kind == "trainer" and o.get("beaten") is True:
+                c.beaten = True
             if not o.get("reachable"):
                 # the verdict lives in the rendered words (with the pad
                 # recall's ops contract beside it); the note keeps only
@@ -2614,6 +2623,7 @@ _STATUS_WORDS = {
                  "you out is set by the panel, not by which door you pick",
     "untouched": "never pressed",
     "unspoken": "never spoken to",
+    "beaten_unspoken": "beaten in a fight they started; never spoken to since",
     "unbeaten": "pressed {n}x and still standing here — you have not "
                 "beaten them",
     "touched": "pressed {n}x",
@@ -3974,6 +3984,8 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
         _st = c.status
         if _st == "sealed" and not c.n:
             _st = "sealed_untried"
+        if _st == "unspoken" and c.beaten:
+            _st = "beaten_unspoken"
         words = _STATUS_WORDS.get(_st, _st).format(n=c.n)
         # WHAT THE SHOVE OPENS, the boulder's twin of the bush's "walkable
         # ground past it" (shim wd.boulder_opens; run 41, 2026-10-10, Victory
