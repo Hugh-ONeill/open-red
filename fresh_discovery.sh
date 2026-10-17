@@ -919,6 +919,16 @@ while :; do
     python planner/insert_leg.py "$i" "$missing"
     disposed "a step was put before it: $missing"
     echo "LEG=$leg|$missing" >> run/outline_inserts
+    # AN OBJECTIVE ASKED FOR AGAIN IS DRAFTED AGAIN. "Exit Victory Road"
+    # closed as leg 56 by walking out the door it came in by; the rung put
+    # it back in front of leg 57, the chain found the plan that had just
+    # "done" it, kept it, walked out the same door and closed it again
+    # (run 57, 2026-10-16). A plan that met its conditions without the
+    # deed is the one thing the new leg must not inherit.
+    if [ "$(grep -cxF -- "$missing" plans/outline.txt)" -gt 1 ]; then
+      echo "    (this objective is already in the outline behind it: its old plans are archived, so it is drafted again)"
+      archive_plans_of "$missing"
+    fi
     return 0
   }
   # NEUTRALLY ASCRIBED PROGRESS, per run: what the world gained while these
