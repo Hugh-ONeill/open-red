@@ -8705,14 +8705,47 @@ class Executor:
                 return ""
             here = str(((obs or {}).get("map") or {}).get("id") or "")
             rows = sorted(looked.items(), key=lambda kv: -kv[1])
+            # STANDING ON A MAP IS NOT HAVING LOOKED AT ALL OF IT. "ROUTE_25
+            # (7x) — you are on it now ... What it wants was not on any of
+            # them" opened the page whose next lines said 60 cells of Route
+            # 25 had ever been on screen and no sweep of it had been made;
+            # Bill's house is at its far end, and the model read Routes 24
+            # and 25 as exhausted (run 58, 2026-10-17). Each map says what
+            # of it is still unknown, from the same records the floors list
+            # reads; the verdict is only as wide as the looking was.
+            _rs = getattr(self, "region_seen", None) or {}
+            _fr = getattr(self, "frontier", None) or {}
+            _ex = getattr(self, "explored", None) or {}
+
+            def _left(m):
+                spots = sum(int(v or 0) for r, v in _rs.items()
+                            if str(r).split("|")[0] == m)
+                ways = sum(len(set(_fr.get(r) or ()) - set(_ex.get(r) or {}))
+                           for r in _fr if str(r).split("|")[0] == m)
+                sides = [str(x) for x in ((getattr(self, "_sides_unseen", None)
+                                          or {}).get(m) or [])]
+                bits = ([f"{spots} spot(s) of its ground never on screen"]
+                        if spots else []) + ([f"{ways} way(s) out never taken"]
+                                             if ways else []) + (
+                    [f"its {', '.join(sides)} side(s) never on screen"]
+                    if sides else [])
+                return " and ".join(bits)
+            parts, still = [], 0
+            for m, n in rows[:10]:
+                lf = _left(m)
+                still += bool(lf)
+                parts.append(f"{m} ({n}x" + (f": {lf}" if lf else "") + ")"
+                             + (" — you are on it now" if m == here else ""))
             return ("WHERE THIS LEG HAS ALREADY LOOKED, across its "
                     f"{tries} attempt(s): "
-                    + ", ".join(f"{m} ({n}x)" + (" — you are on it now"
-                                                 if m == here else "")
-                                for m, n in rows[:10])
+                    + ", ".join(parts)
                     + (f", and {len(rows) - 10} more" if len(rows) > 10
                        else "")
-                    + ". What it wants was not on any of them.\n")
+                    + (". What it wants was not found where you looked; "
+                       f"{still} of these still have ground or ways you have "
+                       "not seen, and it was not looked for there.\n"
+                       if still else
+                       ". What it wants was not on any of them.\n"))
         except Exception:
             return ""
 
