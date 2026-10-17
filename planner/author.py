@@ -8631,6 +8631,45 @@ def _through_place_mouths(goal: str, observed=None, exit_too: bool = False):
     return None
 
 
+def _exit_by_way_in(goal: str, observed=None) -> str | None:
+    """An objective that says to EXIT a place this run has left by one mouth
+    only, onto a road, while ways out of it it has seen were never taken.
+    Names the place, the mouth and those ways, or None.
+
+    "Exit Victory Road" was judged done "standing in ROUTE_23, which is the
+    area reached after exiting Victory Road": the party had walked out of
+    1F by the door it went in through, gained nothing and entered nothing
+    new, with 2F's (25,14), (27,7) and (29,7) on its own page as ways out
+    never taken (run 57, 2026-10-16). The refusal side of the through rule
+    does not read EXIT, since "Exit the Pokemon Mansion" has one mouth and
+    leaving by it is the whole deed; that place opens on a town, and its
+    record holds no way out unwalked. Here all three facts are the run's:
+    the walked edges, the road the one mouth lands on, the untaken doors."""
+    if not _re.search(r"\bexit(?:s|ed|ing)?\b", str(goal or ""), _re.I):
+        return None
+    got = _through_place_mouths(f"{goal} through", observed)
+    if not got:
+        return None
+    fam, out = got
+    if len(out) != 1:
+        return None
+    mouth = next(iter(out))
+    m = mouth.split("|")[0]
+    if m not in (MAP_EDGES or {}) or m.endswith(("_CITY", "_TOWN", "_ISLAND")):
+        return None
+    try:
+        d = json.loads(Path(observed).read_text() or "{}") if observed else {}
+    except (OSError, ValueError, TypeError):
+        return None
+    _fam = lambda r: _re.sub(r"_(B?\d+F|ROOF|ELEVATOR)$", "", str(r).split("|")[0])
+    left = sorted({f"{str(r).split('|')[0]} ({w})"
+                   for r, ws in (d.get("unreached_at") or {}).items()
+                   if _fam(r) == fam for w in (ws or [])})
+    if not left:
+        return None
+    return f"{fam}: out only onto {mouth}; never taken: {', '.join(left[:6])}"
+
+
 def _through_by_record(goal: str, observed=None) -> str | None:
     """A place the objective says to go THROUGH, and the record shows two
     of its mouths used: a walked way out of it lands on one region, and
@@ -12395,6 +12434,12 @@ def check_done(goal: str, start: str, model: str,
               f"and every way out of it this run has walked lands on the "
               f"same ground: {_through} — one mouth used, and a way through "
               f"has two ends")
+        return False
+    _wayin = _exit_by_way_in(goal, observed)
+    if _wayin:
+        print(f"[check-done] refused: this objective says to EXIT a place, "
+              f"every way out of it this run has walked lands on one road, "
+              f"and ways out of it it has seen were never taken — {_wayin}")
         return False
     gone = _never_held(goal, start)
     if gone:
