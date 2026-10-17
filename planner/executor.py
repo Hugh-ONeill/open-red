@@ -10165,8 +10165,21 @@ class Executor:
         # there refused for want of REVIVE" in the list of ways never taken
         # (run 54, 2026-10-12). A refusal asks: the same demand words the
         # SAID, AGAINST THE BAG note keys on (_spoken_item_note).
-        said = " ".join(str(x) for x in (self.hints.get(region) or [])
-                        if _re.search(self.NEED_WORDS, str(x), _re.I))
+        # ...AND IN ONE SENTENCE, NEVER ONE THAT HANDS IT OVER. Route 24's
+        # Rocket said "PIXEL received a NUGGET! / ... join TEAM ROCKET? ..."
+        # and a demand word later in the speech made the whole hint a
+        # refusal: "something shut there refused for want of NUGGET, which
+        # your bag holds NOW", and the model went north to trade the Nugget
+        # for HM CUT (run 58, 2026-10-17). The demand and the item have to
+        # share a sentence, and a sentence that gives is not one that asks.
+        _sents = []
+        for x in (self.hints.get(region) or []):
+            for sn in _re.split(r"(?<=[.!?])\s+|\s*/\s*", str(x)):
+                if (_re.search(self.NEED_WORDS, sn, _re.I)
+                        and not _re.search(r"\b(?:received|got|obtained|found|"
+                                           r"put\b.*\bin)\b", sn, _re.I)):
+                    _sents.append(sn)
+        said = " ".join(_sents)
         if not said:
             return ""
         _up = said.upper().replace("é", "E")
