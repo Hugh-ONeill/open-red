@@ -573,11 +573,19 @@ local function party(G)
           m.moves[j].type = mdef.type
           m.moves[j].power = mdef.power
           -- ...AND ITS MAXIMUM PP, which the summary shows beside the PP
-          -- left ("PP 12/25"), PP UPs counted as the engine counts them
-          -- (Pokemon.lua: base + ups * floor(base / 5))
+          -- left ("PP 12/25"), PP UPs counted as the engine counts them.
+          -- The engine's own Pokemon.maxPP when it has one: upstream caps
+          -- each PP UP's bonus at 7 (item_effects.asm), and a copy of the
+          -- old formula here read a 40-PP move with three ups as 64, not
+          -- 61 (2026-10-17). The copy below is that same cap.
           if mdef.pp then
             local _ups = tonumber(m.moves[j].ppUps) or 0
-            m.moves[j].max_pp = mdef.pp + _ups * math.floor(mdef.pp / 5)
+            local _okP, _P = pcall(require, "src.pokemon.Pokemon")
+            if _okP and type(_P) == "table" and _P.maxPP then
+              m.moves[j].max_pp = _P.maxPP(mdef.pp, _ups)
+            else
+              m.moves[j].max_pp = mdef.pp + _ups * math.min(7, math.floor(mdef.pp / 5))
+            end
           end
         end
       end

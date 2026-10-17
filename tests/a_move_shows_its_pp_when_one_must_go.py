@@ -37,14 +37,16 @@ ck("an offered move reads its max",
 ck("no max, no PP words", E._pp_words({"id": "X", "pp": 5}) == "")
 
 SH = (ROOT / "harness/shim.lua").read_text()
-ck("party moves carry max PP with PP UPs counted",
-   "m.moves[j].max_pp = mdef.pp + _ups * math.floor(mdef.pp / 5)" in SH)
+ck("party moves carry max PP with PP UPs counted, by the engine's own maxPP",
+   "m.moves[j].max_pp = _P.maxPP(mdef.pp, _ups)" in SH
+   and "mdef.pp + _ups * math.min(7, math.floor(mdef.pp / 5))" in SH)
 ck("a move being learned carries max PP, and the known ones their PP too",
    "max_pp = md and md.pp or nil }" in SH and "known[i].pp = m.pp" in SH)
 ck("a machine's move carries max PP", "max_pp = mdef and mdef.pp," in SH)
 PK = (Path.home() / "Developer/gen1recomp/src/pokemon/Pokemon.lua").read_text()
-ck("...counted as the engine counts PP UPs",
-   "mdef.pp + (mv.ppUps or 0) * math.floor(mdef.pp / 5)" in PK)
+ck("...counted as the engine counts PP UPs (each worth at most 7)",
+   "function Pokemon.maxPP(basePP, ppUps)" in PK
+   and "math.min(7, math.floor((basePP or 0) / 5))" in PK)
 
 SRC = (ROOT / "planner/executor.py").read_text()
 ck("both questions add the PP words to each known move",
