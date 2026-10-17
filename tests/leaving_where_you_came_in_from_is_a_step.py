@@ -36,8 +36,12 @@ ck("far-side words keep the old refusal alive",
    A._SIDE.search("exit onto the east side of Route 4") and A._SIDE.search("come out the other side")
    and not A._SIDE.search("exit the S.S. Anne to Vermilion City"))
 src = (ROOT / "planner" / "author.py").read_text()
-ck("the exit rule consults both",
-   "and not (_came_from(_from5, _m5) and not _SIDE.search(_w5))" in src)
+# a road is not "back outside" (run 57: Victory Road onto Route 23); the
+# ship's case is a town, which the rule exempts on its own
+ck("the exit rule consults both, for anything but a road",
+   "and not (_came_from(_from5, _m5) and not _SIDE.search(_w5)\n"
+   "                         and not _road5)" in src
+   and "_road5 = _m5 in (MAP_EDGES or {})" in src)
 
 ck("the from-map falls back to last_state.json, since obs.json carries no map",
    A._map_now({}, {"map": "SS_ANNE_2F"}) == "SS_ANNE_2F"

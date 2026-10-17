@@ -882,6 +882,20 @@ def _came_out_onto(from_map: str, to_map: str, explored=None, side=None) -> list
             to = str((e or {}).get("to") or "")
             if to.split("|")[0].upper() == str(to_map).upper() and int((e or {}).get("n") or 0) > 0:
                 near.add(to)
+    # ...AND WHAT YOU CAN WALK TO FROM THE NEAR SIDE IS THE NEAR SIDE. The
+    # run came onto ROUTE_23|10,104 from the Route 22 gate and walked north
+    # to |4,31, Victory Road's mouth; the door out of 1F lands there, and
+    # this named |4,31 the far side: "that part IS it" (run 57, 2026-10-16).
+    # Walk edges only: a door or a cave between two parts is what makes
+    # them two sides.
+    todo = list(near)
+    while todo:
+        for k, e in ((ex or {}).get(todo.pop()) or {}).items():
+            nxt = str((e or {}).get("to") or "")
+            if (str(k).startswith("walk:") and nxt not in near
+                    and nxt.split("|")[0].upper() == str(to_map).upper()):
+                near.add(nxt)
+                todo.append(nxt)
     cands = []
     for reg, edges in (ex or {}).items():
         if _root(reg) != root:
@@ -2523,9 +2537,16 @@ def validate(plan: dict) -> list:
         # Teeth leg was pushed behind the leg that needs its HM (run 16,
         # 2026-09-08). Coming out into a town is coming out into the town.
         _town5 = _m5.endswith(("_CITY", "_TOWN", "_ISLAND"))
+        # ...AND A ROAD IS NOT "BACK OUTSIDE". The came-from pass was written
+        # for the S.S. Anne and Vermilion, a town, which the line above now
+        # exempts on its own. Onto a road it let "Exit Victory Road and
+        # reach Route 23" end on {"map": "ROUTE_23"}, the road the run went
+        # in from, and the leg closed on the near side (run 57, 2026-10-16).
+        _road5 = _m5 in (MAP_EDGES or {})
         if (_m5 in _walked_now and _map_has_more(_m5) and not _town5
                 and not _walked_door_from_into(_from5, _m5, _vr5)
-                and not (_came_from(_from5, _m5) and not _SIDE.search(_w5))
+                and not (_came_from(_from5, _m5) and not _SIDE.search(_w5)
+                         and not _road5)
                 and _OUT.search(_w5)):
             _parts5 = sorted(r for r in _vr5 if str(r).split("|")[0] == _m5)
             # SAY WHICH IT IS: stood on, or merely reached by an earlier step
@@ -2662,7 +2683,13 @@ def validate(plan: dict) -> list:
     # flag rule above, and the same answer: a finish line that holds before
     # the plan takes a step cannot say the deed happened. Travel objectives
     # are exempt — going back somewhere IS the deed there.
-    goal = str(plan.get("goal") or plan.get("objective") or "").strip()
+    # ...AND THE OBJECTIVE SAYS WHICH IT IS, NOT THE DRAFT'S RESTATEMENT OF
+    # IT. "Exit Victory Road" was drafted as a plan whose own goal began
+    # "Reach", that made it travel, and its last step {"map": "ROUTE_23"}
+    # passed on the near side the run had stood on 45 times; the leg was
+    # closed walking back out the door it came in by (run 57, 2026-10-16).
+    goal = str(_re_goal.sub("", str(_AUTHORING_GOAL or "")).strip()
+               or plan.get("goal") or plan.get("objective") or "").strip()
     _TRAVEL = ("go", "travel", "return", "reach", "head", "walk", "fly",
                "enter", "visit", "arrive")
     if subs and goal and goal.split()[0].lower().rstrip(",:") not in _TRAVEL:
