@@ -1852,6 +1852,7 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
             foe.get("types") or (foe.get("eff_seen") or {})):
         _eff = battle_policy.foe_eff(_mv.get("type"), foe)
     _took = None
+    _ko = None
     if (after_obs or {}).get("mode") == "battle" \
             and (ab.get("foe") or {}).get("species") == foe.get("species"):
         d = hp0 - ((ab.get("foe") or {}).get("hp") or 0)
@@ -1884,12 +1885,27 @@ def _journal_damage(before_b: dict, after_obs: dict, move_id: str,
             # strong moves down, since they are the ones that finish fights:
             # PSYBEAM read under CONFUSION, RAZOR_LEAF under CUT (run 55,
             # 2026-10-13). What it did is not known, so it is not filed.
+            # ...AND LEFT OUT, THE RECORD KEPT ONLY ITS MISSES. PIKACHU's
+            # THUNDERBOLT knocked out nearly everything it hit in sixty uses;
+            # the three filed were the turns it did nothing, so it read
+            # 3 uses, 0 hits, worth nothing, and RAICHU fought the rival's
+            # PIDGEOT and GYARADOS with SWIFT (run 58, 2026-10-18; user:
+            # "odd that its using swift over thunderbolt on pidgeot"). A
+            # knockout is a hit that took at least what the bar held: it is
+            # filed as that, or as what the move is already seen to do when
+            # that is more, so it can raise the record and never lower it.
+            if mx:
+                _ko = hp0 / mx
     # ...AND ONLY A TURN THE MOVE WAS USED. Wrapped, fully paralysed,
     # flinched or hurt in confusion, our move never happens; the turn
     # still went by and was filed as the move doing nothing: FEAROW's FLY
     # was charged with twelve zero turns under BELLSPROUT's WRAP in the
     # Celadon room (2026-10-13). The game prints "X used MOVE!" when it is
     # used; without that line this turn, nothing is filed.
+    if _took is None and _ko is not None and _eff and ratio:
+        _rec = battle_policy.MOVE_SEEN.get(f"{move_id}|{me.get('species')}")
+        _mean = (_rec[1] / _rec[0] * _eff * ratio) if _rec and _rec[0] else 0.0
+        _took = max(_ko, _mean)
     if (_took is not None and _mv and battle_policy.damaging(_mv) and _eff
             and _said is not None
             and ratio and str(me.get("status") or "").upper()[:3]

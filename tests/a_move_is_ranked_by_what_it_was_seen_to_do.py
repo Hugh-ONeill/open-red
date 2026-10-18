@@ -105,13 +105,42 @@ for _ in range(6):
     bp.note_move_use("THUNDERBOLT", "PIKACHU", 1.0, 1.0, 0.05)
 ck("...but a move seen to hit weakly again and again stays under it",
    bp.move_strength(PK["moves"][0], PK) < bp.move_strength(PK["moves"][1], PK))
-# A KNOCKOUT IS NOT FILED AS STRENGTH: it shows only what the foe had left
+# A KNOCKOUT SHOWS ONLY WHAT THE FOE HAD LEFT, so it may never mark a move
+# down (run 55); left out altogether, the record kept only the misses
+# (run 58, 2026-10-18: PIKACHU's THUNDERBOLT, sixty uses, filed as 3 uses
+# and 0 hits, and RAICHU fought the rival with SWIFT). It is filed as a
+# landed hit: what the bar held, or what the move is seen to do if more.
+def ko(hp, seq=1):
+    E._journal_damage({"me": ME, "foe": dict(FOE, hp=hp), "_text_seq": 0},
+                      {"mode": "overworld", "battle_text": "PIDGEOT used WING ATTACK!",
+                       "battle_text_seq": seq, "party": [dict(ME, exp=10)]},
+                      "WING_ATTACK", exp_before=0)
 bp.MOVE_SEEN.clear()
-ko_before = {"me": ME, "foe": dict(FOE, hp=5), "_text_seq": 0}
-E._journal_damage(ko_before, {"mode": "overworld", "battle_text": "PIDGEOT used WING ATTACK!",
-                              "battle_text_seq": 1, "party": [dict(ME, exp=10)]},
-                  "WING_ATTACK", exp_before=0)
-ck("a knockout hit is not filed as the move's strength", bp.MOVE_SEEN == {}, bp.MOVE_SEEN)
+ko(100)
+r = bp.MOVE_SEEN.get("WING_ATTACK|PIDGEOT")
+ck("a knockout from a full bar is filed as one landed hit of all of it",
+   r is not None and r[0] == 1 and r[2] == 1 and abs(r[1] - 1.0) < 1e-6, r)
+bp.MOVE_SEEN.clear()
+for _ in range(4):
+    bp.note_move_use("WING_ATTACK", "PIDGEOT", 1.0, 1.0, 0.5)
+ko(5)
+r = bp.MOVE_SEEN.get("WING_ATTACK|PIDGEOT")
+ck("...a knockout of a foe with a sliver left does not mark the move down",
+   r is not None and r[0] == 5 and abs(r[1] / r[0] - 0.5) < 1e-6, r)
+bp.MOVE_SEEN.clear()
+for _ in range(3):
+    bp.note_move_use("WING_ATTACK", "PIDGEOT", 1.0, 1.0, 0.0)
+for _ in range(5):
+    ko(100)
+r = bp.MOVE_SEEN.get("WING_ATTACK|PIDGEOT")
+ck("...and a move that misses three times and knocks out five is not worth nothing",
+   r is not None and r[0] == 8 and r[2] == 5 and r[1] > 0, r)
+bp.MOVE_SEEN.clear()
+E._journal_damage({"me": ME, "foe": dict(FOE, hp=100), "_text_seq": 0},
+                  {"mode": "overworld", "battle_text": "", "battle_text_seq": 0,
+                   "party": [dict(ME, exp=10)]}, "WING_ATTACK", exp_before=0)
+ck("...but a battle that ended with no use of the move on screen files nothing",
+   bp.MOVE_SEEN == {}, bp.MOVE_SEEN)
 
 # kept with the run's memory
 src = (ROOT / "planner/executor.py").read_text()
