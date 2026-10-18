@@ -4113,6 +4113,12 @@ local function observe(G, seq, result)
                  page = top.pageIndex, pages = #top.pages,
                  waiting = top.waiting and true or false,
                  done = top.done and true or false }
+    -- ...AND THE FIGHT BEHIND IT. "VENUSAUR grew to level 43!" over a
+    -- battle still on screen read as plain dialog, the fight's recap called
+    -- it over with no prize paid, and a Silph 7F Scientist went on the
+    -- record as a loss the run went on to win (run 58, 2026-10-18; user:
+    -- "9:54 lost to scientist"). The battle screen is still drawn there.
+    if battle_frame(G) then o.dialog.over_fight = true end
   elseif naming_on_stack(G) then
     -- A NAMING SCREEN IS NOT A FIGHT, even after a catch with the battle
     -- still on the stack under it: reported as battle, the policy would

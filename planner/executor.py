@@ -21449,8 +21449,13 @@ class Executor:
         # recapped as won (runs 54 and 56: CHARMANDER at 2 hp, money still
         # 3000; user, 2026-10-14: "the events say beat rival even when it
         # loses"). Out of the fight with no prize paid is not a win.
+        # ...BUT A TEXT BOX OVER THE FIGHT IS NOT OUT OF IT. A level-up line
+        # mid-fight read as dialog, and a Scientist the run beat a turn
+        # later was recapped as a loss (run 58, 2026-10-18).
+        _over_fight = bool(((after or {}).get("dialog") or {}).get("over_fight"))
         _unpaid = (isinstance(_m0, int) and isinstance(_m1, int)
                    and _m1 <= _m0 and (after or {}).get("mode") != "battle"
+                   and not _over_fight
                    and "for winning" not in _said)
         lost = ((bool(party) and len(fainted) == len(party))
                 or _revived or _woke_out or _unpaid

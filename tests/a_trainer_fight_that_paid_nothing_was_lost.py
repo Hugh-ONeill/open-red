@@ -27,7 +27,7 @@ def ck(name, cond, detail=""):
     checks.append((name, bool(cond), detail))
 
 
-def recap(m0, m1, party, said="", mode="overworld"):
+def recap(m0, m1, party, said="", mode="overworld", dialog=None):
     x = object.__new__(E.Executor)
     f = Path(tempfile.mkdtemp()) / "log.jsonl"
     f.write_text(json.dumps({"kind": "battle_turn", "op": "battle_move",
@@ -39,6 +39,8 @@ def recap(m0, m1, party, said="", mode="overworld"):
               "battle": {"trainer": "MILO", "foe": {"species": "CHARMANDER", "level": 5}}}
     after = {"money": m1, "party": party, "map": {"id": "OAKS_LAB"},
              "mode": mode, "recent_text": said}
+    if dialog is not None:
+        after["dialog"] = dialog
     x._note_fight(before, after, 0)
     return getattr(x, "_last_fight", {}) or {}
 
@@ -54,6 +56,19 @@ ck("money unread on either side: this rule says nothing",
    recap(None, 3000, hurt).get("lost") is False)
 ck("still in the fight when read: this rule says nothing",
    recap(3000, 3000, hurt, mode="battle").get("lost") is False)
+
+# Run 58, 2026-10-18: "VENUSAUR grew to level 43!" over a live fight with a
+# Silph Scientist; the recap was written then and read as a loss.
+ck("a text box over a fight still on screen: this rule says nothing",
+   recap(3000, 3000, hurt, mode="dialog",
+         dialog={"text": "VENUSAUR grew to level 43!", "over_fight": True}
+         ).get("lost") is not True)
+ck("...and a text box with no fight under it, money not up: still lost",
+   recap(3000, 3000, healed, mode="dialog",
+         dialog={"text": "MILO: Yeah! Am I great or what?"}).get("lost") is True)
+lua = (ROOT / "harness/shim.lua").read_text()
+ck("the shim marks a text box with a battle frame under it",
+   "if battle_frame(G) then o.dialog.over_fight = true end" in lua)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, det in checks:
