@@ -11863,6 +11863,24 @@ class Executor:
             self._uncork_left = len(_skips) if _skips is not None else None
         return final if self._where(final) != here else None
 
+    def _cut_still_down(self, obs, mid) -> str:
+        """The bushes the party cut on `mid` this visit that the screen does
+        not show standing again, as "(x,y), (x,y)"; "" when none."""
+        _dn = getattr(self, "_cut_down", None)
+        if not (isinstance(_dn, dict) and _dn.get("map") == mid
+                and _dn.get("xy")):
+            return ""
+        _stand = {f"{o.get('x')},{o.get('y')}"
+                  for o in (((obs or {}).get("map") or {}).get("objects") or [])
+                  if str(o.get("name") or "").startswith("CUT_TREE")}
+        return ", ".join(f"({c})" for c in _dn["xy"] if c not in _stand)
+
+    @staticmethod
+    def _route_leaves_map(path, mid) -> bool:
+        """Whether a walked route of (exit, destination) hops sets foot off
+        map `mid` on the way."""
+        return any(str(d).split("|")[0] != mid for _k, d in (path or []))
+
     def _recross_for_target(self, obs, sg, tx, ty):
         """THE TARGET IS ON THIS MAP AND THIS PART OF IT CANNOT REACH IT.
 
@@ -23722,12 +23740,26 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     _here = self._where(_pre)
                     _mid = _here.split("|")[0]
                     _tried_regions = 0
+                    # ...AND NOT OFF THIS MAP WHILE A BUSH IT CUT IS DOWN.
+                    # The pad ride below already keeps to the map then; this
+                    # walk to another part of it did not, and Route 16's
+                    # other part is reached through the gate. The run cut
+                    # (34,9), asked for a cell beside SNORLAX, was walked
+                    # through the gate and back, the bush grew again and the
+                    # flute was played from the far side of the map (run 58,
+                    # 2026-10-18; user: "its playing kind of stupid around
+                    # the cut bush and snorlax").
+                    _kept_cut = self._cut_still_down(_pre, _mid)
+                    _kept_off = 0
                     for _reg in sorted(set(list(self.explored)
                                            + list(self.visits))):
                         if _reg.split("|")[0] != _mid or _reg == _here:
                             continue
                         _path = self._route(_here, _reg)
                         if not _path or _tried_regions >= 2:
+                            continue
+                        if _kept_cut and self._route_leaves_map(_path, _mid):
+                            _kept_off += 1
                             continue
                         _tried_regions += 1
                         self.log("walk_to_via_region", subgoal=sg.get("id"),
@@ -23809,7 +23841,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             + (f"; {_rides} pad ride(s) you have made "
                                f"before were re-ridden onto this map too, "
                                f"without finding a stand the walk could "
-                               f"finish from" if _rides else ""))
+                               f"finish from" if _rides else "")
+                            + (f"; {_kept_off} other part(s) of {_mid} you "
+                               f"have walked to were not walked to, because "
+                               f"the way there leaves {_mid} and the bush you "
+                               f"cut at {_kept_cut} grows back when you leave"
+                               if _kept_off else ""))
                         self._record_outcome(_pre, op, step,
                                              f"walk_to: FAILED — {_d0}")
                         self._strike(sig, _d0)
