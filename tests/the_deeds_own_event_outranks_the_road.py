@@ -47,7 +47,7 @@ try:
        "EVENT_BEAT_ROUTE16_SNORLAX" in got, got)
     got = A._events_bearing("Defeat the trainers in the Cinnabar Island gym")
     ck("the town's own trainers rank ahead of the road's",
-       got.split(": ", 1)[1].startswith("EVENT_BEAT_CINNABAR_GYM_TRAINER_0"), got)
+       got.split(": ", 1)[1].startswith("EVENT_BEAT_CINNABAR_GYM_TRAINER_"), got)
     ck("a road alone brings nothing", A._events_bearing("Walk Route 10") == "")
 finally:
     os.chdir(here)

@@ -8763,8 +8763,23 @@ def _events_bearing(goal: str) -> str:
             hit.append((-len(words & fw), f))
     if not hit:
         return ""
+    # ...AND A ROOM OF GRUNTS IS ONE ENTRY. Ten numbered trainer flags
+    # (EVENT_BEAT_ROCKET_HIDEOUT_1_TRAINER_0 ...) filled all ten places and
+    # EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI, the deed itself, was cut; asked
+    # whether "Defeat the Team Rocket Boss in the Celadon hideout" was done,
+    # the model argued from the Silph Scope, was refused, and the run went
+    # back into the beaten hideout for the boss (run 58, 2026-10-18). Each
+    # name is still said once, with how many there are.
+    _grp: dict = {}
+    for _n, f in sorted(hit):
+        _k = re.sub(r"_TRAINER_\d+$", "_TRAINER_N", f)
+        _grp.setdefault(_k, [_n, 0, f])
+        _grp[_k][1] += 1
+    _rows = sorted(_grp.items(), key=lambda kv: (kv[1][0], kv[0]))
     return ("\n\nEVENTS ALREADY RECORDED THAT MENTION THIS OBJECTIVE'S OWN "
-            "WORDS: " + ", ".join(f for _n, f in sorted(hit)[:10]))
+            "WORDS: " + ", ".join(
+                (f0 if c == 1 else f"{k} x{c} (numbered trainers beaten)")
+                for k, (_n, c, f0) in _rows[:10]))
 
 
 _BEARING_PLACE_WORDS = {"ROUTE", "CITY", "TOWN", "ISLAND"}
