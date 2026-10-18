@@ -4381,8 +4381,16 @@ class Executor:
             arrived = self._where(arrived)
         cur = self.settle() or {}
         at = arrived or self._where(cur) or "an unexpected stop"
+        # ...AND WHICH CELL. An area's name is the cell it was first named
+        # from, so "now at ROUTE_16|27,10" read as standing ON (27,10), beside
+        # SNORLAX at (26,10); the run was at the gate door (24,4) and played
+        # the flute at nothing (run 58, 2026-10-18).
+        _pl = cur.get("player") or {}
+        _cell = (f", standing at ({_pl.get('x')},{_pl.get('y')})"
+                 if _pl.get("x") is not None and _pl.get("y") is not None
+                 and isinstance(at, str) and "|" in at else "")
         tr = [f"go: walked {len(path)} leg(s) over walked ground toward "
-              f"{region} — now at {at}"]
+              f"{region} — now at {at}{_cell}"]
         if _choice_note:
             tr.append(_choice_note)
         if not ignore_done and pred_holds(sg.get("done_when"), cur):

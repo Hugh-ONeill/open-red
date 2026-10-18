@@ -41,6 +41,9 @@ ck("walk_to's other-part detour keeps to the map while a bush is down",
    "if _kept_cut and self._route_leaves_map(_path, _mid):" in src)
 ck("...and says so when it fails",
    "the way there leaves {_mid} and the bush you" in src)
+ck("go says the cell it ended on",
+   "standing at ({_pl.get('x')},{_pl.get('y')})" in src
+   and "{region} — now at {at}{_cell}" in src)
 
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
