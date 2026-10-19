@@ -879,6 +879,19 @@ local function real_water(G, map, x, y)
   if map.isWalkableCell and map:isWalkableCell(x, y) then return false end
   return true
 end
+-- A SHORE THE GAME WILL NOT BOARD FROM. ItemUseSurfboard checks
+-- TilePairCollisionsWater before it lets you on (CAVERN $14/$05: Seafoam's
+-- cave floor beside its water), the same pair that refuses getting off.
+-- The pickers chose the nearest land-beside-water cell without it, so
+-- walk_to boarded at Seafoam B3F (16,4)->(16,3) into a pocket it could not
+-- walk out of (run 58, 2026-10-19). The engine's own pair table decides.
+function board_blocked(map, sx, sy, wx, wy)   -- global: the main chunk is at its 200-local limit
+  local okc, Collision = pcall(require, "src.world.Collision")
+  if not (okc and Collision and Collision.pairBlocked and map) then return false end
+  local ok, blocked = pcall(Collision.pairBlocked, map, { surfing = true },
+                            sx, sy, wx, wy)
+  return ok and blocked or false
+end
 local SEEN = {}                 -- map id -> { n = count, ["x,y"] = true }
 local WALK = {}                 -- map id -> { ["x,y"] = on-foot walkable AT LAST VIEW }
 local last_frontier = {}        -- the last observation's frontier, for the overlay
@@ -6892,7 +6905,8 @@ local function walk_to_body(G, c)
             local wx, wy = sx + d[1], sy + d[2]
             if ow.map:inBounds(wx, wy)
                and (blind or _wm[wx .. "," .. wy])
-               and real_water(G, ow.map, wx, wy) then
+               and real_water(G, ow.map, wx, wy)
+               and not board_blocked(ow.map, sx, sy, wx, wy) then
               local dd = math.abs(wx - c.x) + math.abs(wy - c.y)
               if not bd or dd < bd then
                 bd, bx, by, bland = dd, wx, wy, { sx, sy }
@@ -12399,7 +12413,7 @@ local RODS = { OLD_ROD = true, GOOD_ROD = true, SUPER_ROD = true }
 -- THE SHORE: the nearest cell you can walk to with seen water beside it.
 -- Returns the water cell, then { land_x, land_y, facing }, or nil and a
 -- reason. Shared by the rod (cast from here) and sweep's surf= (mount here).
-local function nearest_shore(G)
+local function nearest_shore(G, to_board)
   local ow = G.overworld
   local p, map = ow.player, ow.map
   local reach = seen_reach(G) or {}
@@ -12412,7 +12426,9 @@ local function nearest_shore(G)
       for dn, d in pairs(DIRS) do
         local wx, wy = sx + d[1], sy + d[2]
         if map:inBounds(wx, wy) and _gm[wx .. "," .. wy]
-           and real_water(G, map, wx, wy) then
+           and real_water(G, map, wx, wy)
+           -- a rod casts across any shore; only boarding minds the pair
+           and not (to_board and board_blocked(map, sx, sy, wx, wy)) then
           local dd = math.abs(sx - p.cellX) + math.abs(sy - p.cellY)
           if not bd or dd < bd then
             bd, bx, by, bland = dd, wx, wy, { sx, sy, dn }
@@ -12605,6 +12621,7 @@ function OPS.grind(G, c)
         local wx, wy = sx + d[1], sy + d[2]
         if map.isWaterCell and map:inBounds(wx, wy)
            and _gm0[wx .. "," .. wy]
+           and not board_blocked(map, sx, sy, wx, wy)
            and map:isWaterCell(wx, wy) then
           local dd = math.abs(wx - p.cellX) + math.abs(wy - p.cellY)
           if not bd or dd < bd then
@@ -14347,7 +14364,7 @@ function OPS.sweep(G, c)
       return false, "no party Pokemon knows SURF, so the water here cannot "
         .. "be swept"
     end
-    local bx, by, bland = nearest_shore(G)
+    local bx, by, bland = nearest_shore(G, true)
     if not bx then return false, bland end
     if p.cellX ~= bland[1] or p.cellY ~= bland[2] then
       OPS.walk_to(G, { x = bland[1], y = bland[2], max_steps = 200 })

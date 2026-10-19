@@ -34,7 +34,7 @@ def ck(name, cond):
 sw = sh[sh.index("function OPS.sweep(G, c)"):sh.index("function OPS.overlay(G, c)")]
 ck("sweep mounts the water when asked and not already afloat", "if c.surf and not p.surfing then" in sw)
 ck("...refusing when nobody knows SURF", 'return false, "no party Pokemon knows SURF, so the water here cannot "' in sw)
-ck("...from the same shore a rod is cast from", "local bx, by, bland = nearest_shore(G)" in sw and "local function nearest_shore(G)" in sh)
+ck("...from the same shore a rod is cast from", "local bx, by, bland = nearest_shore(G, true)" in sw and "local function nearest_shore(G, to_board)" in sh)
 ck("...riding on with the game's own field move, whose refusal names the badge", 'OPS.field_move(G, { move = "SURF", x = bx, y = by })' in sw and 'if not ok2 or not p.surfing then' in sw)
 ck("the mount happens before the frontier is read, so the frontier includes water", sw.index("if c.surf and not p.surfing then") < sw.index("seen_paint(G)"))
 ck("the shim marks the water frontier shut while the SOULBADGE is missing", 'm.seen.surf_badge_missing = "SOULBADGE"' in sh and "KNOWING SURF IS NOT BEING ALLOWED TO" in sh)
