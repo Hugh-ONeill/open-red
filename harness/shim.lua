@@ -10193,6 +10193,12 @@ function OPS.field_move(G, c)
   -- been said before we touched anything; if the game speaks while we are
   -- in the menu, its words are the answer.
   local _txt_before = tostring(last_text or "")
+  -- ...AND THE SAME WORDS SAID AGAIN ARE STILL SAID. Compared by text, a
+  -- refusal the game had already printed once read as silence: walk_to's
+  -- mount at Seafoam B3F got "No SURFing on FIZZY here!" a second time and
+  -- reported "SURF did not fire (the menus closed without it)" with our own
+  -- reason about facing the water (2026-10-19). A line printed is counted.
+  local _seq_before = text_seq
   local slot
   for i, mon in ipairs((G.save and G.save.party) or {}) do
     for _, m in ipairs(mon.moves or {}) do
@@ -10590,7 +10596,8 @@ function OPS.field_move(G, c)
           .. " {\"op\":\"field_move\",\"move\":\"SURF\",\"x\":..,\"y\":..}"
       end
       local _txt_now = tostring(last_text or "")
-      if _txt_now ~= "" and _txt_now ~= _txt_before then
+      if _txt_now ~= "" and (_txt_now ~= _txt_before
+                             or text_seq ~= _seq_before) then
         -- ...AND THE REST OF THE PAGE MUST STOP RECOMMENDING IT. Seafoam
         -- B4F answered SURF with "The current is much too fast!" and the
         -- very next line of the same failure read "a party Pokemon knows
