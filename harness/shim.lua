@@ -4762,6 +4762,44 @@ local function bushes_blocking(G, tx, ty, reach)
               or ("CUT_TREE (a bush CUT clears) at (%d,%d)"))
       :format(out[i].x, out[i].y)
   end
+  -- ...AND WATER THAT CARRIES YOU IS NAMED FOR WHAT IT DOES. Seafoam B3F's
+  -- pocket ends at (18,7)/(19,7), currents seen_reach rides to the far
+  -- shore; the walk refuses to plan over one, so its edge read "WATER at
+  -- (19,7) ... does not reach it either" while the page listed unseen
+  -- ground past it and every sweep walked 0 steps (run 58, 2026-10-19).
+  -- Where the ride sets you down is the engine's own field data, the same
+  -- landing the reach already counts. Aimed AT, a current cell is ridden.
+  local _carried = {}
+  do
+    local _fc = ((G.overworld or {}).player or {}).surfing and seafoam_forced
+                and seafoam_forced(G)
+    for k, v in pairs(_fc or {}) do
+      if v == "carried" then
+        local cx, cy = k:match("^(-?%d+),(-?%d+)$")
+        cx, cy = tonumber(cx), tonumber(cy)
+        local touches = false
+        for _, d in ipairs({ {0, 1}, {0, -1}, {1, 0}, {-1, 0} }) do
+          if cx and reach[(cx + d[1]) .. "," .. (cy + d[2])] then touches = true end
+        end
+        if touches then
+          local lx, ly = seafoam_landing(G, cx, cy)
+          if lx then
+            _carried[#_carried + 1] = { x = cx, y = cy, lx = lx, ly = ly,
+                                        d = math.abs(cx - tx) + math.abs(cy - ty) }
+          end
+        end
+      end
+    end
+    table.sort(_carried, function(a, b) return a.d < b.d end)
+    for i = 1, math.min(#_carried, 2) do
+      local c = _carried[i]
+      txt[#txt + 1] = ("a CURRENT at (%d,%d) — water that carries you: riding "
+        .. "onto it sets you down at (%d,%d); a walk does not plan over one, "
+        .. "and walk_to aimed at the current's own cell rides it")
+        :format(c.x, c.y, c.lx, c.ly)
+      if wx_ == c.x and wy_ == c.y then wx_ = nil end
+    end
+  end
   if wx_ then
     local _ks = false
     for _, mon in ipairs((G.save or {}).party or {}) do
