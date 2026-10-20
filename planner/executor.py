@@ -9899,6 +9899,24 @@ class Executor:
                          found="steps.log")
                 _approach = self._approach_on(str(src).split("|")[0],
                                               str(dst).split("|")[0])
+            # ...AND A HOLE NOT ON THE LIST YET IS STILL A HOLE. The list is
+            # only the holes that have been on screen; a sweep on Mansion 3F
+            # stepped onto (16,14) before it was ever seen and landed on 1F
+            # at (16,14). Unfiled, `go` from 1F's front hall answered "no
+            # walked way ... to POKEMON_MANSION_1F|12,14 is known" for hours
+            # while the model flipped the statue (run 59, 2026-10-20; user:
+            # "it doesnt seem to get why 'go' wont work"). The last cell on
+            # this floor, not a doorway, with the landing on the same cell of
+            # the floor below, is how this game's holes drop you; a blackout,
+            # a Fly or a rope lands somewhere else.
+            _pl = (after_obs or {}).get("player") or {}
+            if (key is None and _cell is not None and _door is None
+                    and (_pl.get("x"), _pl.get("y")) == tuple(_cell)):
+                key = f"{_cell[0]},{_cell[1]}"
+                self.log("transition_by_fall", frm=src, to=dst, via=key,
+                         found="steps.log, a hole not yet listed")
+                _approach = self._approach_on(str(src).split("|")[0],
+                                              str(dst).split("|")[0])
         if key is None:
             if src.split("|")[0] != dst.split("|")[0]:
                 self._note_arrival(src, dst, before_obs, after_obs)
