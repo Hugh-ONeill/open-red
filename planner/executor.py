@@ -4312,7 +4312,9 @@ class Executor:
                     f"({len(_p)} leg(s)), and it is not being replayed "
                     f"because one leg of it would not land the last time "
                     f"it was tried in this world state: {_src} --{_k}--> "
-                    f"{_dst}. Walking the legs yourself is still open, and "
+                    f"{_dst}"
+                    + self._switch_words(_src, _k, obs)
+                    + f". Walking the legs yourself is still open, and "
                     f"whatever stopped that one is what has to change"
                     + self._blocked_words(_src, _k, _dst)], []
             # THE CUT RULE'S HONEST TWIN. A hop stopped by a bush is cut
@@ -10275,6 +10277,16 @@ class Executor:
             # (user, 2026-08-28: "took it into seafoam for some reason").
             if step.get("surf"):
                 e["surf"] = True
+            # ...AND WITH THE STATUES AS THEY STOOD. The Mansion's walls are
+            # one shared lever: 2F's stairs to 3F want it one way and 3F's
+            # holes the other, so a walked route needs a press partway and a
+            # replay stalls at the leg walked in the other state (run 59,
+            # 2026-10-20; user: "the state to get to the stairs on 2F is
+            # different from the state required to get to the holes on 3F").
+            # Where the floor shows a lever, what it read is kept per leg.
+            _sw0 = ((before_obs or {}).get("map") or {}).get("switches_on")
+            if _sw0 is not None:
+                e["switches"] = "PRESSED" if _sw0 else "UNPRESSED"
             self._clear_blocker(src, k, f"it opened — you came out at {dst}")
             self._clear_headed_for(src, dst)
             # WHERE THIS DOOR PUT YOU. Only the region label was kept, and
@@ -10292,6 +10304,21 @@ class Executor:
         self.log("explored", frm=src, via=str(key), to=dst,
                  times=node[key]["n"])
         self._save_memory()
+
+    def _switch_words(self, frm, key, obs) -> str:
+        """When a walked leg was walked with this floor's statues one way and
+        they stand the other way now, say so: ", walked with the statues
+        PRESSED; they are UNPRESSED now". Nothing about which to press."""
+        e = ((self.explored or {}).get(str(frm)) or {}).get(str(key)) or {}
+        was = e.get("switches")
+        now = ((obs or {}).get("map") or {}).get("switches_on")
+        if not was or now is None:
+            return ""
+        now_w = "PRESSED" if now else "UNPRESSED"
+        if was == now_w:
+            return ""
+        return (f" — that leg was walked with this building's switch statues "
+                f"{was}, and they are {now_w} now")
 
     def _shut_asked_for_held(self, region, obs) -> str:
         """A shut way THERE once asked for a thing the bag holds NOW.
@@ -14853,6 +14880,7 @@ class Executor:
                     self._save_memory()
                 self._route_why = (
                     f"the leg {str(key)} toward {nxt} would not land"
+                    + self._switch_words(frm, key, o)
                     + (f", and what it said was: "
                        f"{str(_last_det)[:self.WHY_BUDGET]}"
                        if _last_det else ""))
