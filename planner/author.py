@@ -9203,6 +9203,12 @@ def _map_name_words() -> set:
     return _MAP_NAME_WORDS
 
 
+# what the screen shows that is never a person: an object named for it (BOOK_
+# MR_FUJIS_HOUSE_3_3) cannot be the house's owner (untouched_named)
+_NOT_A_BODY = {"BOOK", "BOOKS", "BOOKSHELF", "PAPER", "POSTER", "CLIPBOARD",
+               "TV", "PC", "TRASH", "STATUE", "MAP", "FOSSIL", "BALL"}
+
+
 def untouched_named(text: str, observed=None) -> list:
     """(region, name) for things the run has SEEN and never pressed whose
     name holds a word the text names — "Talk to Bill" and BILLSHOUSE_BILL1.
@@ -9246,6 +9252,25 @@ def untouched_named(text: str, observed=None) -> list:
                 # one spelled with the S), so the Pidgey in VERMILION_PIDGEY_
                 # HOUSE is not "a Pidgey" and FUCHSIA is not a person.
                 _mw = _mid.split("_")
+                # ...AND ONLY A BODY CAN BE THE OWNER. A book on the owner's
+                # shelf is not the owner: "Retrieve the Pokemon Flute from Mr.
+                # Fuji", the Flute in the bag and EVENT_GOT_POKE_FLUTE fired,
+                # was refused on BOOK_MR_FUJIS_HOUSE_3_3 "never spoken to or
+                # pressed" by every rung, VOID included, and passed over (run
+                # 59, 2026-10-19). What the screen shows decides: a person or a
+                # Pokemon may be whoever lives there; paper and furniture not.
+                _what = re.sub(r"_%s$" % re.escape(_mid), "", str(n).rsplit("_", 2)[0])
+                if _what in _NOT_A_BODY:
+                    continue
+                # ...NOR ONCE THE OWNER HAS BEEN MET. Mr. Fuji's PSYDUCK and
+                # NIDORINO are bodies, and refused the same leg after the book
+                # was set aside, with MRFUJISHOUSE_MR_FUJI pressed and the
+                # Flute given (run 59). A pet stands in for the owner only
+                # while nobody pressed in the room carries the owner's words.
+                if any((words & {re.sub(r"\d+$", "", t) for t in
+                                 str(_t).upper().split("_")[1:]})
+                       for _t in done):
+                    continue
                 toks = ({w[:-1] for w in _mw if len(w) >= 4 and w.endswith("S")}
                         if "HOUSE" in _mw else set())
                 if toks & words:
