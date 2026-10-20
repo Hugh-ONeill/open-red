@@ -26148,6 +26148,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         self._bo_here = 0         # wipes this subgoal has taken
         self._bo_ops: list = []   # ...and the macro that took each of them
         self._stale_fp = None
+        self._fp_seen = set()     # world fingerprints this subgoal has been in
         self._left_target = set() # target maps walked out of on purpose
         self._dead_why = getattr(self, "_dead_why", {})
         self._idle_rounds = 0     # laps count per subgoal, not per run
@@ -29015,8 +29016,22 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             _looked = _mid_now in _seen_hi and _seen_n > _seen_hi[_mid_now]
             if _mid_now:
                 _seen_hi[_mid_now] = max(_seen_n, _seen_hi.get(_mid_now, 0))
-            _moved_world = bool(_fresh_ground or _looked
-                                or _fp != self._stale_fp)
+            # ...AND A STATE THIS STEP HAS ALREADY BEEN IN IS NOT A CHANGE.
+            # The Mansion's statue is one flag flipped back and forth: every
+            # press read as the world moving, each repeat of the same plan
+            # was echoed "-> something changed", and the model ran it for
+            # hours not seeing it had (run 59, 2026-10-20; user: "its also
+            # not getting that its done exactly what its planning to do ...
+            # with no changes except the switch state"). Only a fingerprint
+            # this subgoal has not been in before is the world moving.
+            _fps = getattr(self, "_fp_seen", None)
+            if _fps is None:
+                _fps = self._fp_seen = set()
+            _new_fp = _fp != self._stale_fp and _fp not in _fps
+            _fps.add(_fp)
+            if self._stale_fp is not None:
+                _fps.add(self._stale_fp)
+            _moved_world = bool(_fresh_ground or _looked or _new_fp)
             if _moved_world:
                 self._stale_rounds = 0
                 # a dry stretch that ended pays its thinking budget back:
