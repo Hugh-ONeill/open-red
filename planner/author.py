@@ -3686,6 +3686,22 @@ def witness_holds_now(dw, obs, trust_bag: bool = False) -> "bool | None":
                 return None
             got = _ledger_names("touched")
             out.append(all(n in got for n in names))
+        elif k == "player_at":
+            # where you stand, read as pred_holds reads it. "Speak to Bill in
+            # Cerulean City" ended both steps on {"player_at": {"x": 0, "y":
+            # 3, "radius": 2}}, the cell the run stood on, so the plan passed
+            # here, did nothing, and the leg was counted (run 60, 2026-10-21)
+            pl = obs.get("player") or {}
+            if (obs.get("mode") != "overworld" or not isinstance(v, dict)
+                    or pl.get("x") is None or pl.get("y") is None):
+                return None
+            try:
+                r = v.get("radius", 4)
+                r = r if isinstance(r, (int, float)) and not isinstance(r, bool) else 4
+                out.append(abs(pl["x"] - float(v["x"])) <= r
+                           and abs(pl["y"] - float(v["y"])) <= r)
+            except (KeyError, TypeError, ValueError):
+                return None
         elif k == "badge":
             if not badges:
                 return None
