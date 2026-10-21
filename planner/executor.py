@@ -16930,6 +16930,10 @@ class Executor:
                 elif forget and forget in self.FIELD_MOVE_WORDS:
                     bad = f"{forget} is an HM move and cannot be forgotten"
             if not bad:
+                # a free slot takes the move with nothing forgotten, whatever
+                # the answer named, so the record and the log say so
+                if row is not None and len(row[2]) < 4:
+                    forget = None
                 break
             refused.append(bad)
             self.log("teach_reasked", subgoal=sg.get("id"), item=item,
