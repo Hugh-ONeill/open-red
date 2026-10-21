@@ -126,11 +126,17 @@ PREDICATES = {
               "settling rides plain text to the next decision, so the box "
               "has always closed by then. Mark a conversation that matters "
               "by what it CHANGED — an event flag, an item, a party "
-              "member — not by the box it was said in",
+              "member — or by WHO was spoken to (spoke_to), not by the box "
+              "it was said in",
     "party_nonempty": "true = have at least one Pokemon",
     "party_alive": "true = at least one Pokemon with HP > 0",
     "badge": "VALUE badge earned (e.g. {\"badge\":\"BOULDERBADGE\"})",
     "flag": "a save event flag is set (e.g. {\"flag\":\"EVENT_GOT_POKEDEX\"})",
+    "spoke_to": "you have spoken to (or pressed) the named person or thing, "
+                "by the name the observation gives it (e.g. {\"spoke_to\":"
+                "\"CERULEANCITY_GUARD2\"}); a list means every one of them. "
+                "Only a name you have SEEN, and only one not yet spoken to: "
+                "a talk already had is true before the step begins",
     "no_battle": "true = not currently in a battle",
     "party_healthy": "true = every party Pokemon at full HP with no status "
                      "(use for Pokemon Center heal stops)",
@@ -3492,6 +3498,23 @@ def _check_pred_shapes(dw: dict, tag: str, sid, probs: list):
             if not isinstance(v["slot"], int) or isinstance(v["slot"], bool):
                 probs.append(f"{tag} ({sid}) knows_move slot must be a "
                              f"whole number")
+        elif k == "spoke_to":
+            names = ([v] if isinstance(v, str) else
+                     [n for n in v if isinstance(n, str)]
+                     if isinstance(v, list) and v else [])
+            if not names or (isinstance(v, list) and len(names) != len(v)):
+                probs.append(f"{tag} ({sid}) spoke_to needs a name, or a "
+                             f"list of names, as the observation gives them")
+            else:
+                _seen = _ledger_names("sightings") | _ledger_names("touched")
+                _never = [n for n in names if n not in _seen]
+                if _seen and _never:
+                    probs.append(
+                        f"{tag} ({sid}) spoke_to names {_never[0]}, which is "
+                        f"not a name this run has seen. Only someone already "
+                        f"seen can be named, by the name the observation "
+                        f"gave them; a person not yet met is marked by what "
+                        f"meeting them changes")
         elif k == "bag_kinds_below":
             if not isinstance(v, int) or isinstance(v, bool) or v < 1:
                 probs.append(f"{tag} ({sid}) bag_kinds_below needs a whole "
@@ -3590,6 +3613,16 @@ def _region_now(obs=None, last=None) -> "str | None":
     return None
 
 
+def _ledger_names(field: str, observed=None) -> set:
+    """Every name under one region-keyed field of the ledger ("touched",
+    "sightings"), whichever region it was filed in."""
+    try:
+        data = json.loads(Path(observed or "run/explored.json").read_text())
+    except (OSError, ValueError, TypeError):
+        return set()
+    return {str(n) for v in (data.get(field) or {}).values() for n in (v or [])}
+
+
 def witness_holds_now(dw, obs, trust_bag: bool = False) -> "bool | None":
     """Whether a done_when is ALREADY true on the current observation, when
     the harness can read it off: True/False, or None when it cannot (an
@@ -3646,6 +3679,13 @@ def witness_holds_now(dw, obs, trust_bag: bool = False) -> "bool | None":
             if not flags:
                 return None
             out.append(str(v) in flags)
+        elif k == "spoke_to":
+            names = ([v] if isinstance(v, str) else
+                     [str(n) for n in v] if isinstance(v, (list, tuple)) else [])
+            if not names:
+                return None
+            got = _ledger_names("touched")
+            out.append(all(n in got for n in names))
         elif k == "badge":
             if not badges:
                 return None
@@ -3719,7 +3759,8 @@ def witness_already_true_problems(plan: dict, obs: dict | None = None) -> list:
                 f"deed makes true: a thing GONE that you hold NOW (lacks_item "
                 f"of something not in the bag is true already), FEWER kinds in "
                 f"the bag (bag_kinds_below), a flag that fires, a place not "
-                f"yet stood in." + _unreached_step_words(plan)]
+                f"yet stood in, someone seen and not yet spoken to "
+                f"(spoke_to)." + _unreached_step_words(plan)]
     return []
 
 
@@ -9289,7 +9330,9 @@ def untouched_named_text(goal: str) -> str:
     if not rows:
         return ""
     return ("\n\nSEEN AND NEVER SPOKEN TO OR PRESSED, AND NAMED IN THIS "
-            "OBJECTIVE: " + "; ".join(f"{n} in {r}" for r, n in rows[:4]) + ".")
+            "OBJECTIVE: " + "; ".join(f"{n} in {r}" for r, n in rows[:4])
+            + " ({\"spoke_to\": NAME} is true once that one has been spoken "
+              "to or pressed).")
 
 
 def check_already_done(deed: str, start: str, model: str,
@@ -11157,7 +11200,7 @@ def held_doors_into(named: set, o: dict, now_flags: "int | None" = None) -> "str
 
 _DEED_KEYS = {"flag", "badge", "has_item", "lacks_item", "bag_kinds_below",
               "party_type", "has_species", "party_size", "knows_move",
-              "dex_owned"}
+              "dex_owned", "spoke_to"}
 
 
 # terrain that stands on a door and the move that clears it (the shim names

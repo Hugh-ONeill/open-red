@@ -1180,6 +1180,13 @@ def split_heard(said: str):
     return main, groups[0][0], extra
 
 
+def spoken_names() -> set:
+    """Every name this run has spoken to or pressed (the touch ledger, read
+    through the executor itself like the walked graph: see _WALKED_REF)."""
+    return {n for v in (getattr(_WALKED_REF[0], "_tried_objs", None) or {}).values()
+            for n in (v or ())}
+
+
 def pred_holds(pred: dict | None, obs: dict) -> bool:
     if not pred:
         return True
@@ -1534,6 +1541,19 @@ def pred_holds(pred: dict | None, obs: dict) -> bool:
                 return False
         elif key == "flag":
             if want not in (obs.get("flags") or []):
+                return False
+        elif key == "spoke_to":
+            # A PERSON SPOKEN TO, BY NAME, from the run's own touch ledger.
+            # The restored Bill (BILLSHOUSE_BILL1) stood unspoken-to after
+            # the Cell Separator; check-done refused "Help Bill" on exactly
+            # that, and the author then had nothing to end a plan on: every
+            # flag it knew had fired and every map had been stood on, fifteen
+            # rounds refused (run 60, 2026-10-21). The talk is the deed.
+            names = ([want] if isinstance(want, str)
+                     else [str(n) for n in want] if isinstance(want, (list, tuple))
+                     else [])
+            got = spoken_names()
+            if not names or any(n not in got for n in names):
                 return False
         elif key == "no_battle":
             want = _as_bool(want)

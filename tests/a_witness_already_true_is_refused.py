@@ -65,7 +65,7 @@ ck("...and nothing when every earlier step is on walked ground",
    A._unreached_step_words(tower, stood={"POKEMON_TOWER_1F", "POKEMON_TOWER_7F"}, stood_regions=set()) == "")
 ck("...nor for a one-step plan", A._unreached_step_words({"subgoals": [tower["subgoals"][-1]]}, stood=set(), stood_regions=set()) == "")
 src = (ROOT / "planner" / "author.py").read_text()
-ck("the already-true refusal carries it", 'yet stood in." + _unreached_step_words(plan)]' in src)
+ck("the already-true refusal carries it", '(spoke_to)." + _unreached_step_words(plan)]' in src)
 ck("...and so do the unknown-flag and already-stood-in refusals",
    'probs = [p + _way if (("is not an event this game defines" in p' in src and 'or "has ALREADY stood in" in p) else p' in src)
 ck("the author asks it in the same round as validation", "probs = (validate(plan) or witness_already_true_problems(plan)" in src)
