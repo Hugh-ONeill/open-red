@@ -2134,6 +2134,23 @@ def _plan_explore_words(ex, obs: dict, cands: list[Candidate] | None = None,
                 f"seen across it, ({_f.get('x')},{_f.get('y')}), and sweep "
                 f"from there — {_nw} such spot(s) on this floor that only a "
                 f"swim reaches; nothing past them is known yet")
+    # ...THEN THE WALLS THAT MAY HAVE MOVED (the deed looks at them next,
+    # up to four an op, and sweeps what opens; see executor _explore_step).
+    # This line skipped them, so on Mansion B1F item 1 read "THIS AREA IS
+    # FULLY WORKED ... explore walks there" toward another floor while the
+    # deed would have walked to (26,18) first, the look that opens the
+    # floor's north half and then the key's corner. Runs 59 and 60 believed
+    # the line and left; the good runs had sent explore anyway (2026-10-22,
+    # user: "i cant shake the feeling that we broke something").
+    _fs0 = _m0.get("frontier_stale") or []
+    if _fs0:
+        _s = _fs0[0]
+        return (f"walk beside the nearest cell that was a WALL the last time "
+                f"it was on screen, ({_s.get('x')},{_s.get('y')}) beside "
+                f"({_s.get('wx')},{_s.get('wy')}), to see what it is now, "
+                f"and sweep whatever ground that opens; {len(_fs0)} such "
+                f"cell(s) on this floor, up to four looked at in one go. "
+                f"Whether any has opened is not known yet")
     order = {"item": 0, "fixture": 1, "cut_tree": 1, "boulder": 1,
              "shut_door": 1, "npc": 2, "trainer": 2, "sign": 3}
     # THIRTY-SIX OF A THING IS ONE THING. The kind order above is fixed —
@@ -3135,7 +3152,9 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                  f"has opened is not known here. If you have reason to "
                  f"think one has — a switch you pressed — a walk_to or "
                  f"use_warp you send goes through it if it is open now, "
-                 f"and says so; explore's own walks will not.")
+                 f"and says so; explore's own walks will not cross one, "
+                 f"but explore does walk beside them to look, after any "
+                 f"ground never on screen and before it leaves this floor.")
     if m.get("slope"):
         head += (f". THIS MAP IS A SLOPE: whenever you are not holding a "
                  f"direction the game moves you one cell {m['slope']}. "
