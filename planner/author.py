@@ -1103,6 +1103,55 @@ def names_a_counter_without(text: str) -> str | None:
     return None
 
 
+def names_an_emptied_floor(text: str, observed=None) -> str | None:
+    """A sentence that puts a thing on a floor this run has walked to the
+    end of, with nothing left on it to press or take — the counter rule
+    above, for a floor instead of a shelf.
+
+    The wording rung rewrote "Retrieve the Secret Key from the Pokemon
+    Mansion" into "... Mansion 1F" on "the Secret Key is located on the 1st
+    floor (specifically in the south section)", with both parts of 1F walked
+    to their edges and both its item balls taken; the run then spent seven
+    plans on 1F while the key sat in the basement's unseen corner (run 60,
+    2026-10-22; user: "it shouldnt be able to set that 1F is where it is
+    after 1F has been *entirely* explored"). A floor counts only when every
+    part of it stood in has no seen ground left ending there and nothing
+    sighted on it is untouched. Nothing here says where the thing IS."""
+    item = leg_condition(text).get("item")
+    if not item:
+        return None
+    try:
+        d = json.loads(Path(observed or "run/explored.json").read_text() or "{}")
+    except (OSError, ValueError):
+        return None
+    words = set(re.sub(r"[^A-Z0-9]+", " ", str(text or "").upper()).split())
+    visits = d.get("visits") or {}
+    edge = d.get("frontier_here") or {}
+    sight = d.get("sightings") or {}
+    touched = d.get("touched") or {}
+    for mid in sorted({str(r).split("|")[0] for r in visits}):
+        parts = mid.split("_")
+        if len(parts) < 2 or not all(w in words for w in parts):
+            continue
+        regs = sorted(r for r in visits if str(r).split("|")[0] == mid)
+        if any(r not in edge or int(edge.get(r) or 0) > 0 for r in regs):
+            continue
+        # ...TAKEN ANYWHERE ON THE FLOOR. One statue is sighted from each
+        # part it can be seen from and touched in the one it was pressed
+        # from, so 2F's (2,11) kept that floor "open" from the other part
+        _done = {n for r in regs for n in (touched.get(r) or [])}
+        left = [n for r in regs for n in (sight.get(r) or [])
+                if n not in _done
+                and not str(n).startswith(("SIGN_", "TEXT_"))]
+        if left:
+            continue
+        return (f"names {mid}, which this run has walked to the end of: "
+                f"every part of it ({', '.join(regs)}) has all its ground on "
+                f"screen, and everything seen on it has been pressed or "
+                f"taken. {item} was not among them")
+    return None
+
+
 def fired_flags() -> list:
     """Every event flag this run has watched fire, oldest first — the only
     flag names the harness may volunteer (they are history, not contents)."""
@@ -10092,6 +10141,13 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
             turned_down.append((ins, _sh + "; a deed that buys it there "
                                      "cannot be done"))
             continue
+        _ef = names_an_emptied_floor(ins, observed)
+        if _ef:
+            print(f"[missing] turned down {ins!r}: {_ef} — {_why}",
+                  file=sys.stderr)
+            turned_down.append((ins, _ef + "; a deed that finds it there "
+                                     "cannot be done"))
+            continue
         _ph_item = _premise_item_not_held(_why, start)
         if _ph_item:
             print(f"[missing] turned down {ins!r}: its reason says you hold "
@@ -11970,6 +12026,12 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
     _sh = names_a_counter_without(new)
     if _sh:
         print(f"[wording] refused: {new!r} {_sh} — a sentence that puts a "
+              f"thing where the run has seen it is not is not evidence; the "
+              f"wording stands", file=sys.stderr)
+        return ""
+    _ef = names_an_emptied_floor(new, observed)
+    if _ef:
+        print(f"[wording] refused: {new!r} {_ef} — a sentence that puts a "
               f"thing where the run has seen it is not is not evidence; the "
               f"wording stands", file=sys.stderr)
         return ""
