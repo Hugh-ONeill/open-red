@@ -4379,6 +4379,14 @@ class Executor:
                            + ' then {"op":"walk_to","x":' + str(_bx) + ',"y":' + str(_by) + '}'
                            + f" toward {_gb}, or explore on {_gm}, is how they join, if the "
                            f"ground between can be walked that way.")
+                # ...and how the statues stood when the far part's way on was
+                # walked, where they stand otherwise now (see _switch_words)
+                for _gk, _ge in self._edges_of(_gb).items():
+                    _sw = self._switch_words(_gb, _gk, obs)
+                    if _sw and isinstance(_ge, dict) and _ge.get("to"):
+                        _note_g += (f" From {_gb} the way on ({_gk} -> "
+                                    f"{_ge.get('to')}){_sw}.")
+                        break
             _note_m = ""
             try:
                 _note_m = self._printed_road_note(here, want, _gap)
@@ -11390,9 +11398,17 @@ class Executor:
                 y = str((e or {}).get("to") or "")
                 if y and not (e or {}).get("shut"):
                     rev.setdefault(y, set()).add(r)
+        # A PART ASKED FOR IS THAT PART. With every part of its map taken as
+        # a goal, a go between two parts of ONE floor counted the part stood
+        # in as arrived, found the chain whole, and said nothing: Mansion
+        # 1F's north part to its south part, the record breaking inside 2F
+        # (two parts joined only with the statues the other way), answered
+        # "no walked way" eleven rounds while the model flipped the 1F
+        # statue back and forth (run 60, 2026-10-22).
         goals = {r for r in list(self.explored or {}) + [want]
-                 if r == want or r.split("|")[0] == str(want).split("|")[0]
-                 or r in AREA_ALIASES.get(want, ())}
+                 if r == want or r in AREA_ALIASES.get(want, ())
+                 or ("|" not in str(want)
+                     and r.split("|")[0] == str(want).split("|")[0])}
         back = set(goals); q = deque(goals)
         while q:
             y = q.popleft()
@@ -11413,9 +11429,13 @@ class Executor:
             except (IndexError, ValueError):
                 return (0, 0)
         for m, (a, b) in sorted(by_map.items()):
-            if a and b and not (a & b):
+            # the place stood in to the place asked for is the question, not
+            # where the record breaks
+            pairs = [(x, y) for x in a for y in b
+                     if (x, y) != (here, str(want))]
+            if pairs and not (a & b):
                 # the two parts nearest each other: that is where the unwalked hop lies
-                pa, pb = min(((x, y) for x in a for y in b),
+                pa, pb = min(pairs,
                              key=lambda t: abs(_xy(t[0])[0] - _xy(t[1])[0]) + abs(_xy(t[0])[1] - _xy(t[1])[1]))
                 return m, pa, pb
         return None
