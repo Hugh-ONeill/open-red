@@ -892,6 +892,31 @@ function board_blocked(map, sx, sy, wx, wy)   -- global: the main chunk is at it
                             sx, sy, wx, wy)
   return ok and blocked or false
 end
+-- THE NAMES THIS GROUND CARRIES, BY HOW MUCH OF EACH IT CARRIES. A name
+-- painted on a few reachable cells is not a place joined to this one: the
+-- Mansion's statues reshape 1F, so after the south half was walked a corner
+-- of its paint sat inside the north half's component in one setting while
+-- its basement stairs stayed walled off. parts_here said both names, the
+-- executor made them one place, and `go` from the north planned the south
+-- half's stairs and called itself arrived, eight rounds over two hours (run
+-- 60, 2026-10-22). The name this place answers to always counts; another
+-- counts when most of its ground is walkable from here, the share the split
+-- rule asks for, or when it names too little ground to judge.
+function joined_parts(known, rreach, name)   -- global: the main chunk is at its 200-local limit
+  local total, here_n = {}, {}
+  for k, v in pairs(known) do
+    total[v] = (total[v] or 0) + 1
+    if rreach[k] then here_n[v] = (here_n[v] or 0) + 1 end
+  end
+  local parts = {}
+  for v, n in pairs(here_n) do
+    if v == name or (total[v] or 0) < 12 or n * 10 >= total[v] * 7 then
+      parts[#parts + 1] = v
+    end
+  end
+  table.sort(parts)
+  return parts
+end
 local SEEN = {}                 -- map id -> { n = count, ["x,y"] = true }
 local WALK = {}                 -- map id -> { ["x,y"] = on-foot walkable AT LAST VIEW }
 local last_frontier = {}        -- the last observation's frontier, for the overlay
@@ -3213,12 +3238,7 @@ local function observe(G, seq, result)
           -- landed on 14,0 and called it arrival, fifty rounds running
           -- (2026-08-28). What is joined right now is readable: the names
           -- painted on the cells of this component.
-          local parts, seenp = {}, {}
-          for k in pairs(rreach) do
-            local v = known[k]
-            if v and not seenp[v] then seenp[v] = true; parts[#parts + 1] = v end
-          end
-          table.sort(parts)
+          local parts = joined_parts(known, rreach, name)
           if _junction then parts = { name } end
           o.map.parts_here = parts
           if split_from then
