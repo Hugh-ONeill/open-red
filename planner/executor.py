@@ -28833,8 +28833,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     # press put new words on the screen.
                     self._last_press_name = None
                     _prev_text = (cur or {}).get("last_text")
+                    _sent, _failed = [], []
                     for name in loose[:8]:
                         o2 = self._send_safe("interact", name=name)
+                        _sent.append(name)
                         if o2 and (o2.get("last_text") or "") not in ("", _prev_text):
                             self._last_press_name = name
                             _prev_text = o2.get("last_text")
@@ -28879,6 +28881,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                 asked_back.append(name)
                             elif LIST_OPEN in _det:
                                 listed_back.append(name)
+                            else:
+                                _failed.append((name, _det))
                         elif ASKING in _det:
                             # a PERSON who asked: spoken to, the question
                             # kept as what they said (_record_outcome), and
@@ -28914,13 +28918,31 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             f"{{\"op\":\"interact\",\"name\":"
                             f"\"{_skipped_boss[0]}\"}} when you mean to "
                             f"fight)")
-                    _pressed = list(loose[:8])
-                    _left = list(loose[8:])
-                    if _pressed and not _left:
+                    # WHAT WAS PRESSED, NOT WHAT WAS MEANT TO BE. This listed
+                    # the eight names the sweep set out to press, so a press
+                    # that failed and the ones a break never sent were
+                    # "pressed" too: Silph 5F's Card Key ball came back "no
+                    # reachable tile", was never taken, and the line said
+                    # it was pressed and "everything reachable here ... has
+                    # now been tried" (run 62, 2026-10-23); the run then
+                    # hunted the Card Key across ten floors.
+                    _fn = {n for n, _ in _failed}
+                    _pressed = [n for n in _sent if n not in _fn]
+                    _left = [n for n in loose if n not in _sent]
+                    if _failed:
+                        trace.append(
+                            "(the sweep could NOT press "
+                            + "; ".join(f"{n}: {d[:120]}" for n, d in _failed[:4])
+                            + " — still never touched)")
+                    if _pressed and not _left and not _failed:
                         trace.append(
                             f"(swept this area: pressed A on "
                             f"{', '.join(_pressed)} — everything reachable "
                             f"here that PRESSES has now been tried)")
+                    elif _pressed and not _left:
+                        trace.append(
+                            f"(swept this area: pressed A on "
+                            f"{', '.join(_pressed)})")
                     elif _pressed:
                         # ...AND "EVERYTHING" ONLY WHEN IT WAS EVERYTHING.
                         # It said so after eight of twenty-eight.

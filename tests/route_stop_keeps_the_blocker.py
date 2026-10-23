@@ -45,7 +45,7 @@ ck("the sweep still reports itself", i > 0)
 blk = src[max(0, i - 3600):i + 2800]
 flat = _flat(blk)
 ck("...pressing is reported for what presses",
-   "_pressed = list(loose[:8])" in blk
+   "_pressed = [n for n in _sent if n not in _fn]" in blk
    and "pressed A on {', '.join(_pressed)}" in flat)
 ck("...and the claim covers only that",
    "everything reachable here that PRESSES has now been tried" in flat
