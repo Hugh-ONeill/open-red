@@ -6055,9 +6055,38 @@ class Executor:
         if _then is None or _now is None:          # a ledger from before the levers
             _then = (getattr(self, "_region_mark", None) or {}).get(region)
             _now = getattr(self, "_mark_now", None)
+            # ...WHOSE MARK STILL HOLDS THE LEVERS. A part last stood in
+            # before the lever-free mark existed has only the full one, and
+            # a statue flip since read as "changed" for ever: Viridian's 23
+            # spots, looked out from with the statues one way, drew explore
+            # off Cinnabar six legs by Surf with them the other way (run 62,
+            # 2026-10-24). If setting the known levers some way makes
+            # today's mark that one, only levers have moved.
+            if (_then is not None and _now is not None
+                    and list(_then) != list(_now)
+                    and getattr(self, "_mark_differs_only_by_levers",
+                                lambda m: False)(_then)):
+                return water, ("" if water else "done")
         if _then is not None and _now is not None and list(_then) == list(_now):
             return water, ("" if water else "done")
         return unseen + water, "changed"
+
+    def _mark_differs_only_by_levers(self, then) -> bool:
+        """Today's world, with the flags seen both set and cleared each set
+        or not, gives `then`'s mark. A digest cannot have the levers taken
+        out, so they are put back in every way (at most four of them)."""
+        tg = sorted(set(getattr(self, "_toggled_flags", None) or ()))[:4]
+        o = getattr(self, "_mark_obs", None)
+        if not tg or not o:
+            return False
+        from itertools import combinations
+        base = set(o.get("flags") or []) - set(tg)
+        for n in range(len(tg) + 1):
+            for on in combinations(tg, n):
+                if list(self._world_mark(dict(o, flags=sorted(base | set(on))))) \
+                        == list(then):
+                    return True
+        return False
 
     def _floor_walked_out(self, map_id) -> bool:
         """Every part of this map the run has stood in was walked to its
@@ -6591,6 +6620,9 @@ class Executor:
         self._mark_now_nt = self._world_mark(
             dict(obs or {}, flags=[f for f in ((obs or {}).get("flags") or [])
                                    if f not in _tg]))
+        self._mark_obs = {"badges": list((obs or {}).get("badges") or []),
+                          "flags": list((obs or {}).get("flags") or []),
+                          "bag": dict((obs or {}).get("bag") or {})}
         _bag = (obs or {}).get("bag") or {}
         if isinstance(_bag, dict) and any(str(k).startswith("TM_") for k in _bag):
             if not isinstance(getattr(self, "_machines_owned", None), set):
