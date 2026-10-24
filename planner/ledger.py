@@ -1641,6 +1641,15 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                         if knows_cut else "bush")
         elif not o.get("reachable") and kind != "item":
             c.status = "unreachable"
+            # ...BUT ONE ALREADY PRESSED IS NOT A WAY IN TO LOOK FOR. Mansion
+            # 2F's book at (3,22), read from two of the floor's parts, stood
+            # behind the statue walls from the third, and explore's line said
+            # "Everything you can REACH here is done (BOOK_..._3_22 sits where
+            # no walk from here goes — the way in is what is missing)"; the
+            # run flipped the statues round for it, plan after plan, while
+            # the basement held the Secret Key (run 62, 2026-10-24).
+            if name in tried:
+                c.done_elsewhere = True
             # ...AND WATER IS NOT A WALL WHEN THE PARTY CARRIES SURF. The
             # shim marks by_water on a thing the swum reach touches; the
             # bare verdict ranked Articuno with the furniture.
@@ -2009,7 +2018,8 @@ def _stuck_things(cands: list) -> list:
     reach from this floor, and that is the honest report.
     """
     _stuck = [c for c in cands if c.status == "unreachable"
-              and c.kind not in ("op", "door", "seam")]
+              and c.kind not in ("op", "door", "seam")
+              and not getattr(c, "done_elsewhere", False)]
     if any(getattr(c, "toggle", "") and c.reachable for c in cands):
         _stuck = [c for c in _stuck if not getattr(c, "toggle", "")]
     return _stuck
