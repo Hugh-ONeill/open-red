@@ -2413,6 +2413,22 @@ def push_went_down_hole(pre_obs, obs, to_x, to_y) -> bool:
     return _n(m1) < _n(m0)
 
 
+def stood_switches_from_edges(explored: dict) -> dict:
+    """region -> the switch statue settings the run is on record as standing
+    there under, read from walked edges that left it or arrived in it (each
+    carries "switches" on a floor with statues). The ledger's backfill for
+    _stood_switches. Pure over its argument."""
+    out: dict = {}
+    for region, edges in (explored or {}).items():
+        for e in (edges or {}).values():
+            if not isinstance(e, dict) or not e.get("switches"):
+                continue
+            out.setdefault(str(region), set()).add(str(e["switches"]))
+            if e.get("to"):
+                out.setdefault(str(e["to"]), set()).add(str(e["switches"]))
+    return out
+
+
 def drop_edges_contradicting_doors(explored: dict, door_dests: dict) -> int:
     """Drop every door edge whose destination map contradicts the door's
     own table, and say how many.
@@ -6067,10 +6083,26 @@ class Executor:
                     and list(_then) != list(_now)
                     and getattr(self, "_mark_differs_only_by_levers",
                                 lambda m: False)(_then)):
+                if getattr(self, "_behind_a_lever_unstood", lambda r: False)(region):
+                    return unseen + water, "changed"
                 return water, ("" if water else "done")
         if _then is not None and _now is not None and list(_then) == list(_now):
+            if getattr(self, "_behind_a_lever_unstood", lambda r: False)(region):
+                return unseen + water, "changed"
             return water, ("" if water else "done")
         return unseen + water, "changed"
+
+    def _behind_a_lever_unstood(self, region) -> bool:
+        """This part, on a floor with switch statues, has been stood in under
+        one statue setting only. Its spots where seen ground ends may be the
+        edge of what the other setting opens, and nobody has looked from here
+        with the walls the other way: B1F's corner, stood in only PRESSED,
+        read "done" while the Secret Key's ball sat in it (run 62,
+        2026-10-24; user: "explore should count ground hidden behind a lever
+        as unfinished but only if its never been there before"). A part stood
+        in both ways is done as before; a floor with no statues is untouched."""
+        st = (getattr(self, "_stood_switches", None) or {}).get(region)
+        return bool(st) and len(set(st)) < 2
 
     def _mark_differs_only_by_levers(self, then) -> bool:
         """Today's world, with the flags seen both set and cleared each set
@@ -6648,6 +6680,12 @@ class Executor:
                 if not isinstance(getattr(self, "_region_mark_nt", None), dict):
                     self._region_mark_nt = {}
                 self._region_mark_nt[_hr] = list(self._mark_now_nt)
+                _sw = ((obs or {}).get("map") or {}).get("switches_on")
+                if _sw is not None:
+                    if not isinstance(getattr(self, "_stood_switches", None), dict):
+                        self._stood_switches = {}
+                    self._stood_switches.setdefault(_hr, set()).add(
+                        "PRESSED" if _sw else "UNPRESSED")
         except Exception:
             pass
         self._watch_for_a_wipe(obs)
@@ -6796,6 +6834,10 @@ class Executor:
             self._region_mark = data.get("region_mark") or {}
             self._region_mark_nt = data.get("region_mark_nt") or {}
             self._toggled_flags = data.get("toggled_flags") or []
+            self._stood_switches = {k: set(v) for k, v in
+                                    (data.get("stood_switches") or {}).items()}
+            if "stood_switches" not in data:
+                self._stood_switches = stood_switches_from_edges(self.explored)
             self.frontier = data.get("frontier", {})
             # a seam cell is a way only while its edge earns it (see
             # note_frontier); the keys are re-minted per observation
@@ -7520,6 +7562,8 @@ class Executor:
                  "region_mark": getattr(self, "_region_mark", {}),
                  "region_mark_nt": getattr(self, "_region_mark_nt", {}),
                  "toggled_flags": list(getattr(self, "_toggled_flags", None) or []),
+                 "stood_switches": {k: sorted(v) for k, v in
+                                    (getattr(self, "_stood_switches", None) or {}).items()},
                  "sightings": self.sightings, "searched": self.searched,
                  "gone": {r: sorted(v) for r, v in
                           (getattr(self, "_gone", {}) or {}).items()},
