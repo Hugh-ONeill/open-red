@@ -11694,9 +11694,9 @@ class Executor:
         # inferred ones (that, and the way back over a road crossed the
         # other way) only when nothing walked gets there.
         for _guess in (False, True):
-            seen, q = {frm} | set(avoid or ()), deque([(frm, [])])
+            seen, q = {frm} | set(avoid or ()), deque([(frm, [], None)])
             while q:
-                cur, path = q.popleft()
+                cur, path, _land = q.popleft()
                 for key, e in edges(cur).items():
                     nxt = e.get("to")
                     if not nxt or nxt in seen:
@@ -11705,15 +11705,27 @@ class Executor:
                         continue
                     # a hop that failed to land in THIS world state is not
                     # routed again until the world moves (see _walk_route)
+                    # ...UNLESS THIS ROUTE COMES INTO THE PART SOMEWHERE ELSE.
+                    # One part name can cover two pockets: Mansion 2F|10,1
+                    # names the 1F stairs' landing and a 3F hole's, the
+                    # (6,1) stair failed from the hole's side, and `go` then
+                    # refused 1F -> 2F -> (6,1), which walks from the stairs'
+                    # landing (probed, run 62, 2026-10-24). A route that
+                    # lands at a recorded cell other than where the failed
+                    # try stood tries it; a fail there stamps that cell. A
+                    # stamp older than the cell is tried once from a known
+                    # landing, and takes its cell if it fails again.
                     if (not ignore_blocked and _now is not None
                             and e.get("blocked_at") == _now):
-                        continue
+                        _bf = e.get("blocked_from")
+                        if not (_land and str(_land) != str(_bf or "")):
+                            continue
                     hop = path + [(key, nxt)]
                     if (nxt == to or nxt in AREA_ALIASES.get(to, ())
                             or self._same_place(nxt, to)):
                         return hop
                     seen.add(nxt)
-                    q.append((nxt, hop))
+                    q.append((nxt, hop, e.get("land")))
         return None
 
     def _cross_by_recall(self, obs, sg, dirname):
@@ -14973,6 +14985,11 @@ class Executor:
                             rec["blocked_at"] = self._world_mark(o)
                             rec["blocked_why"] = str(_last_det or "")[
                                 :self.WHY_BUDGET]
+                            # ...AND FROM WHERE. A part's name can cover
+                            # two pockets (see _route's arrival check).
+                            _pp = (pre or {}).get("player") or {}
+                            if _pp.get("x") is not None:
+                                rec["blocked_from"] = f"{_pp.get('x')},{_pp.get('y')}"
                             self.log("edge_blocked", frm=frm, via=key,
                                      to=nxt, n=rec.get("n"),
                                      why=_last_det[:200])
