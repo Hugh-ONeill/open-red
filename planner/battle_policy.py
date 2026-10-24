@@ -1743,6 +1743,40 @@ def class_of_move(name) -> str | None:
     return None
 
 
+def policy_never_picks(move_id, spec) -> str | None:
+    """A sentence when THIS policy can never choose `move_id` while a damaging
+    move has PP, else None. Read off the policy's own rules, the way
+    choose() applies them: a move that does damage is ranked by score; one
+    that does none is chosen only through a setup rule naming it or its class
+    (or once nothing damaging is left). Nothing here rates the move.
+
+    Run 62 carried DOUBLE_TEAM, SWORDS_DANCE, MEDITATE, REST and METRONOME
+    under a policy whose setup rules cover paralyze, sleep and raise_speed
+    only: five of its twenty-four move slots that no fight would ever use
+    (user, 2026-10-24: "maybe we should warn the bot against letting them
+    learn a move the policy doesnt use")."""
+    if not isinstance(spec, dict):
+        return None
+    table = _move_effects()
+    mid = str(move_id or "").upper()
+    if mid not in table:
+        return None
+    eff, power = table[mid]
+    if power:
+        return None
+    rules = [r for r in (spec.get("setup") or []) if isinstance(r, dict)]
+    for r in rules:
+        n = str(r.get("move") or "")
+        if n.upper() == mid or (n in MOVE_CLASSES and eff in MOVE_CLASSES[n]):
+            return None
+    named = sorted({str(r.get("move")) for r in rules if r.get("move")})
+    return (f"your battle policy ({spec.get('name') or 'the active one'}) never "
+            f"picks {mid} while a damaging move has PP: it chooses by damage, "
+            f"and uses a move that does no damage only through its setup rules ("
+            + (", ".join(named) if named else "it has none")
+            + f"), none of which covers {mid}")
+
+
 def class_name_problems(spec: dict) -> list:
     """WHEN A CLASS COVERS A MOVE, A POLICY NAMES THE CLASS (user, 2026-10-01:
     "i thought we werent doing just move buffs anymore"). v19's GROWTH rule

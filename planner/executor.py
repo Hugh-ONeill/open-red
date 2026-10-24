@@ -15326,7 +15326,8 @@ class Executor:
             who = str(ui.get("learner") or "your Pokemon")
         user = Executor._forget_user(
             who, _types, new, shown,
-            sg.get('goal_text') or sg.get('id') or 'make progress')
+            sg.get('goal_text') or sg.get('id') or 'make progress',
+            spec=ACTIVE_SPEC)
         choice = None
         why = ""
         # A ROOM WITHOUT A MODEL READS ITS TABLE. A savepoint arena never asks
@@ -15371,12 +15372,21 @@ class Executor:
     LEARN_TABLE: dict = {}
 
     @staticmethod
-    def _forget_user(who, types, new, shown, goal) -> str:
+    def _forget_user(who, types, new, shown, goal, spec=None) -> str:
         """The learn-move question, as the model is asked it — live, and once
-        per arena offer by tools/arena_learn_table.py."""
+        per arena offer by tools/arena_learn_table.py. With a policy, says
+        which of the moves on the screen it never picks (policy_never_picks)."""
+        def _np(m):
+            return battle_policy.policy_never_picks(
+                str(m).split(" ")[0].replace("(", ""), spec) if spec else None
+        _new_np = _np(new)
+        _idle = [str(m).split(" ")[0] for m in shown if _np(m)]
         return (f"{who}" + (f" ({types})" if types else "")
                 + f" is trying to learn {new}. It knows: "
                 + ", ".join(f"{i}={m}" for i, m in enumerate(shown, 1))
+                + (f".\nMIND: {_new_np}" if _new_np else "")
+                + (f".\nOf the moves it knows, your battle policy never picks "
+                   f"{', '.join(_idle)}" if _idle else "")
                 + f".\nWHAT YOU ARE TRYING TO DO RIGHT NOW: {goal}\n"
                   "Which move should be forgotten for it, if any?")
 
@@ -16879,12 +16889,18 @@ class Executor:
             mon = party[i - 1] if 0 < i <= len(party) and isinstance(party[i - 1], dict) else {}
             types = "/".join(str(t).upper() for t in (mon.get("types") or []))
             shown = [_shown(x) for x in (mon.get("moves") or [])] or list(mvs)
+            _idle = [str(mv).upper() for mv in mvs
+                     if battle_policy.policy_never_picks(mv, ACTIVE_SPEC)]
             rows.append(f"  slot {i}: {sp}" + (f" ({types})" if types else "")
                         + f" L{mon.get('level')} — knows "
                         + (", ".join(shown) if shown else "nothing")
+                        + (f"  (your battle policy never picks "
+                           f"{', '.join(_idle)})" if _idle else "")
                         + ("  (FOUR moves: one must go)" if len(mvs) >= 4 else ""))
+        _never = battle_policy.policy_never_picks(move, ACTIVE_SPEC)
         return (
             f"THE MACHINE: {self._disp_item(item)} teaches {mdesc}.\n"
+            + (f"MIND: {_never}.\n" if _never else "")
             + ("An HM is NOT used up: teaching it costs a move slot and "
                "nothing else, and it can be taught again later.\n" if is_hm
                else "A TM IS USED UP THE MOMENT IT WORKS. You hold one and "
