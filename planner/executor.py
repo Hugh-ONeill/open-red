@@ -8232,7 +8232,15 @@ class Executor:
             _dd = self.door_dests.setdefault(_mid, {})
             for _w in (_m.get("warps") or []):
                 if _w.get("x") is not None and _w.get("dest") is not None:
-                    _dd[f"{_w.get('x')},{_w.get('y')}"] = str(_w.get("dest"))
+                    # ...AND A LAST_MAP DOOR IS FILED AS ONE. The shim names
+                    # it by the last outdoor map stood on, which is one side
+                    # of a two-sided gate: ROUTE_22_GATE's north door was
+                    # filed ROUTE_22, the walk through it to ROUTE_23 was
+                    # dropped as contradicting it, and `go` from Route 23
+                    # knew no way back (run 62, 2026-10-24). Its readers
+                    # leave a LAST_MAP door alone; the name hid that it was one.
+                    _dd[f"{_w.get('x')},{_w.get('y')}"] = (
+                        "LAST_MAP" if _w.get("returns") else str(_w.get("dest")))
         # A visit is a VISIT, counted on arrival — not only on a recorded
         # transition. Regions whose transitions landed under other labels
         # (the hop-free relabeling) collected zero visits however often
