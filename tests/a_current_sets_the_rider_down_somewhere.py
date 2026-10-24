@@ -56,7 +56,7 @@ if got:
     ck("a cell that is not a current has no landing", got[3][2:] in ([], ["nil"]), got[3])
 
 wr = shim[shim.index("  local FORCED = ((surf or (p and p.surfing)) and seafoam_forced(G)) or nil"):]
-wr = wr[:4000]
+wr = wr[:5000]  # widened 2026-10-23 (boarding is not a ridden step)
 ck("the flood still refuses the current cell itself",
    'seen[key(nx, ny)] = nil' in wr)
 ck("...and marks and continues from where the current sets the rider down",

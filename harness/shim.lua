@@ -5211,7 +5211,18 @@ function warp_reach(G, no_ledges, surf, start)
               q[#q + 1] = { x = sx, y = sy }
             end
             seen[key(nx, ny)] = true
-          elseif FORCED and FORCED[key(nx, ny)] then
+          elseif FORCED and FORCED[key(nx, ny)]
+                 and real_water(G, ow.map, cur.x, cur.y) then
+            -- ...ONLY WHEN THE STEP IS RIDDEN. The engine carries a rider
+            -- whose step ends on a current (checkSeafoamCurrent, step end,
+            -- p.surfing); boarding onto one from the shore is not such a
+            -- step. B3F's entry current (15,8) sits beside the land at
+            -- (15,7): the walker boards there and swims on east to (26,8)
+            -- and the (25,14) ladder, while this fill sent every step onto
+            -- (15,8) to the south door, reached 209 cells to the walk's
+            -- 208, and the page called the way out unreachable (run 62,
+            -- 2026-10-23; probed on its save: walk_to(26,8, surf) then
+            -- use_warp(25,14) lands on B2F).
             -- reached and refused: the ride carries you off it again, so
             -- it is neither somewhere you end up nor somewhere you cross
             seen[key(nx, ny)] = nil
