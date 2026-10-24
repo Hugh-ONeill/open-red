@@ -27,7 +27,7 @@ src = (ROOT / "planner/executor.py").read_text()
 i = src.index("# A ROUND THAT CHANGED THE WORLD IS NOT A ROUND THAT WENT")
 blk = src[i:i + 2200]
 ck("the snapshot's party and flag fields decide it",
-   "(sig1[4], sig1[5]) != (sig0[4], sig0[5])" in blk)
+   "(sig1[4], _nf(cur)) != (sig0[4], _nf(start))" in blk)
 ck("it shares the find allowance, capped at the step's rounds",
    "_news_bonus < rounds" in blk and "_news_bonus += 1" in blk)
 ck("a round already credited as a find is not credited twice",

@@ -28741,8 +28741,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # 2026-10-04; user: "it defeated the rockets but didnt talk to
             # fuji"). A round that fired a flag or changed the party moves
             # the cap out by one, inside the same allowance as a find.
+            # ...AND A LEVER THROWN IS NOT NEWS. A flag seen both set and
+            # cleared (_toggled_flags) moves the count each flip, so the
+            # Mansion's statues bought the step a round per flip, and run
+            # 62's defeat_blaine flipped them past its idle end to round
+            # 21 and on (2026-10-24). The count is taken without them.
+            _tgl = set(getattr(self, "_toggled_flags", None) or ())
+            _nf = lambda o: len([f for f in ((o or {}).get("flags") or [])
+                                 if f not in _tgl])
             if (rnd and getattr(self, "_esc_news_at", None) != rnd
-                    and (sig1[4], sig1[5]) != (sig0[4], sig0[5])
+                    and (sig1[4], _nf(cur)) != (sig0[4], _nf(start))
                     and _news_bonus < rounds):
                 _news_bonus += 1
                 self._esc_news_at = rnd
