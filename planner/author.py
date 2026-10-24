@@ -2131,6 +2131,19 @@ def strip_part_labels(plan: dict) -> None:
         for k in ("area", "not_area"):
             if k in dw:
                 dw[k] = _fix(dw[k])
+        # ...AND AN AREA THAT IS A WHOLE MAP IS THE MAP. An area is "MAP|x,y";
+        # a bare map name in it can equal no region, so run 63's
+        # {"area": "CERULEAN_POKECENTER", "party_healthy": true} was carried
+        # past NOT achieved with the party healed inside that Center
+        # (2026-10-24). Spelling, not meaning: it becomes {"map": ...}, or
+        # goes when the step already names that map.
+        _a = dw.get("area")
+        if isinstance(_a, str) and re.fullmatch(r"[A-Z0-9_]+", _a):
+            dw.pop("area")
+            if dw.get("map") in (None, _a):
+                dw["map"] = _a
+            else:
+                dw["area"] = _a       # two different places: left for validation
         for alt in (dw.get("any") or []) if isinstance(dw.get("any"), list) else []:
             _walk(alt)
     for sg in plan.get("subgoals") or []:
