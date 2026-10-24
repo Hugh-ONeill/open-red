@@ -2175,9 +2175,17 @@ def _new_map_from_shut(src: str, path: str = "run/explored.json") -> str:
     if not fh or any(int(v or 0) > 0 for v in fh.values()):
         return ""
     seen = {r.split("|")[0] for r in (d.get("visits") or {})}
-    to = sorted(set(dests.values()))
-    if not to or not set(to) <= seen:
+    # ...AND A LAST_MAP DOOR LEADS BACK OUTSIDE, to a map already stood on:
+    # the door table files it as LAST_MAP (the walk through a two-sided gate
+    # was dropped while it carried the outdoor map's name), and read as a
+    # map name it was never one stood on, so this never fired for a floor
+    # with a mouth, Mt Moon 1F's included (run 63, 2026-10-24).
+    _back = any(str(v) == "LAST_MAP" for v in dests.values())
+    to = sorted(set(str(v) for v in dests.values()) - {"LAST_MAP"})
+    if not (to or _back) or not set(to) <= seen:
         return ""
+    if _back:
+        to = to + ["the outdoor map you came in from"]
     return (f"every way out of {src} this run has seen — {len(doors)} door(s) — "
             f"leads to {', '.join(to)}, where you have already stood, and "
             f"new_map_from wants a map never stood on; end the step on the "
