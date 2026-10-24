@@ -10400,6 +10400,29 @@ class Executor:
         return (f" — that leg was walked with this building's switch statues "
                 f"{was}, and they are {now_w} now")
 
+    def _route_switch_words(self, frm, legs) -> str:
+        """The switch statue setting each leg still ahead was walked with,
+        when they are not all the same: "; the legs from here on were
+        walked with this building's switch statues set: A --k--> B
+        UNPRESSED, C --k--> D PRESSED". Mansion run 62, 2026-10-24: the
+        walked way to B1F runs up 2F's (6,1) stair, walked UNPRESSED, and
+        down 3F's hole (16,14), walked PRESSED; go stopped at whichever leg
+        disagreed with the statues and said that leg's setting alone, and
+        the model flipped and re-ran go, lap after lap, never told the
+        record asks for a flip partway. The record only; nothing about
+        which statue to press or when."""
+        out, cur, seen = [], str(frm), set()
+        for key, nxt in legs or []:
+            e = ((self.explored or {}).get(cur) or {}).get(str(key)) or {}
+            if e.get("switches"):
+                out.append(f"{cur} --{key}--> {nxt} {e['switches']}")
+                seen.add(e["switches"])
+            cur = str(nxt)
+        if len(seen) < 2:
+            return ""
+        return ("; the legs from here on were walked with this building's "
+                "switch statues set: " + ", ".join(out))
+
     def _shut_asked_for_held(self, region, obs) -> str:
         """A shut way THERE once asked for a thing the bag holds NOW.
 
@@ -14247,7 +14270,7 @@ class Executor:
         # Distilled macros already carry `when: {map}` for exactly this,
         # "so a diverged trajectory SKIPS misplaced ops instead of
         # misfiring them"; route walking had no such guard.
-        for key, nxt in path:
+        for _hop_i, (key, nxt) in enumerate(path):
             _now = self.b.obs() or {}
             _m = (_now.get("map") or {})
             # A HOLE HOP: walk onto the hole and let the floor drop you.
@@ -14973,6 +14996,7 @@ class Executor:
                 self._route_why = (
                     f"the leg {str(key)} toward {nxt} would not land"
                     + self._switch_words(frm, key, o)
+                    + self._route_switch_words(frm, path[_hop_i:])
                     + (f", and what it said was: "
                        f"{str(_last_det)[:self.WHY_BUDGET]}"
                        if _last_det else ""))
