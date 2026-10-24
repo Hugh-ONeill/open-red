@@ -8881,7 +8881,15 @@ def _events_bearing(goal: str) -> str:
         _k = re.sub(r"_TRAINER_\d+$", "_TRAINER_N", f)
         _grp.setdefault(_k, [_n, 0, f])
         _grp[_k][1] += 1
-    _rows = sorted(_grp.items(), key=lambda kv: (kv[1][0], kv[0]))
+    # ...AND A NAMED DEED BEFORE A ROOM OF GRUNTS. Among events sharing as
+    # many of the objective's words, the cap of ten went alphabetically, so
+    # "Clear the Team Rocket takeover of Silph Co. in Saffron City" was shown
+    # hideout, Saffron Gym and Silph floor grunts and not
+    # EVENT_BEAT_SILPH_CO_GIOVANNI, the deed itself; the judge argued from
+    # the Silph Scope, was refused, and the beaten building went back in
+    # front of Giovanni's gym (run 62, 2026-10-24).
+    _rows = sorted(_grp.items(),
+                   key=lambda kv: (kv[1][0], kv[0].endswith("_TRAINER_N"), kv[0]))
     return ("\n\nEVENTS ALREADY RECORDED THAT MENTION THIS OBJECTIVE'S OWN "
             "WORDS: " + ", ".join(
                 (f0 if c == 1 else f"{k} x{c} (numbered trainers beaten)")
