@@ -27129,7 +27129,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     + ("(last_text is WHAT WAS SAID LAST, not what is on "
                        "screen now — text_on_screen says whether a box is "
                        "actually up.)\n"
-                       if (obs or {}).get("last_text") is not None else "")
+                       if (obs or {}).get("last_text") is not None
+                       and (obs or {}).get("text_on_screen") is not False else "")
                     + f"CURRENT_OBSERVATION: "
                     f"{json.dumps(_obs_nosketch(obs), separators=(',', ':'))}\n"
                     "Author the op-list macro to achieve DONE_WHEN from here. "
@@ -31249,13 +31250,28 @@ def bootstrap(b: Bridge, cont: bool = False):
 def _obs_nosketch(obs):
     """The observation without the drawn map — it is printed above the
     JSON in words, and shipping the rows twice pays for them twice in a
-    prompt already near its cap."""
-    if not isinstance(obs, dict) or not (obs.get("map") or {}).get("sketch"):
+    prompt already near its cap.
+
+    ...AND WHAT WAS SAID LAST, SAID AS CLOSED WHEN ITS BOX IS. last_text
+    outlives the box that printed it, and a question in it read as one still
+    asked: run 63 "answered" a nickname box closed four rounds before, the
+    Pewter guide's pitch, a Link receptionist and a trade offer, each with a
+    menu op that failed "no list menu on top" (2026-10-24; user: "yeah add
+    it"). With text_on_screen false the words stay, under a name that says
+    the box is shut."""
+    if not isinstance(obs, dict):
         return obs
-    o2 = dict(obs)
-    m2 = dict(o2.get("map") or {})
-    m2.pop("sketch", None)
-    o2["map"] = m2
+    o2 = obs
+    if (obs.get("map") or {}).get("sketch"):
+        o2 = dict(obs)
+        m2 = dict(o2.get("map") or {})
+        m2.pop("sketch", None)
+        o2["map"] = m2
+    if obs.get("text_on_screen") is False and obs.get("last_text") is not None:
+        o2 = dict(o2) if o2 is obs else o2
+        o2["said_last_box_closed"] = (
+            f"{o2.pop('last_text')} (that box has closed; anything it asked "
+            "was already answered)")
     return o2
 
 
