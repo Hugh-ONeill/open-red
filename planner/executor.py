@@ -5166,7 +5166,19 @@ class Executor:
             # (see _unseen_there): a part stood in with nothing reachable
             # left, and nothing changed since, ranks 0 for unseen ground
             unseen = self._unseen_there(region)[0]
-            unseen = max(unseen, _reach_from.get(region, 0))
+        # ...BUT NOT FROM A PART THAT WAS LOOKED OUT FROM IN FULL. Seen ground
+        # another part reaches is a reason to walk there while that part may
+        # still show something new; one stood in with nothing unseen left in
+        # reach (frontier_here == 0) can only be walked across, all of it
+        # already looked at. Mansion 2F's three parts each "reached" the
+        # others' seen floor, 47 cells offered as "spots where its seen
+        # ground ends", and explore sent run 62 round the floor's parts in
+        # turn while the basement's unseen corner waited (2026-10-24).
+            _rf = _reach_from.get(region, 0)
+            if _rf and int((getattr(self, "frontier_here", None) or {})
+                           .get(region, -1)) == 0:
+                _rf = 0
+            unseen = max(unseen, _rf)
             if not (left or unpressed or unseen or _unr):
                 continue
             path = self._route(here, region)
