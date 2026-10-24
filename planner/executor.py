@@ -2644,6 +2644,7 @@ class Executor:
         # reached, so nothing about them was recordable (see _spent_exits)
         self._exit_tries: dict = {}
         self._mark_now = None               # world mark as of the last settle
+        self._mark_now_nt = None            # the same, levers (toggled flags) left out
         self._region_mark: dict = {}       # region -> world mark when the run last stood there
         self._rounds_here: dict = {}        # target|region -> rounds spent
         self._fight_region: str | None = None   # where the last trainer fought
@@ -6049,8 +6050,11 @@ class Executor:
         _fh = (getattr(self, "frontier_here", None) or {}).get(region)
         if _fh != 0 or region not in (getattr(self, "visits", None) or {}):
             return unseen + water, ""
-        _then = (getattr(self, "_region_mark", None) or {}).get(region)
-        _now = getattr(self, "_mark_now", None)
+        _then = (getattr(self, "_region_mark_nt", None) or {}).get(region)
+        _now = getattr(self, "_mark_now_nt", None)
+        if _then is None or _now is None:          # a ledger from before the levers
+            _then = (getattr(self, "_region_mark", None) or {}).get(region)
+            _now = getattr(self, "_mark_now", None)
         if _then is not None and _now is not None and list(_then) == list(_now):
             return water, ("" if water else "done")
         return unseen + water, "changed"
@@ -6576,6 +6580,17 @@ class Executor:
             self._last_map = str(_m)
         self._mark_now = self._world_mark(obs)
         self._drop_what_a_thrown_away_world_did(obs)
+        # ...AND THE SAME MARK WITHOUT THE LEVERS. A flag the run has seen both
+        # set and cleared is a switch, not something carried: the Mansion's
+        # statues flip EVENT_MANSION_SWITCH_ON back and forth, and every flip
+        # moved the mark, so _unseen_there's "stood there, nothing left,
+        # nothing changed" never held in the Mansion and a looked-out part's
+        # old count stayed live. Read only there; _mark_now still moves with
+        # a lever (blocked hops and the statue-state words depend on that).
+        _tg = set(getattr(self, "_toggled_flags", None) or ())
+        self._mark_now_nt = self._world_mark(
+            dict(obs or {}, flags=[f for f in ((obs or {}).get("flags") or [])
+                                   if f not in _tg]))
         _bag = (obs or {}).get("bag") or {}
         if isinstance(_bag, dict) and any(str(k).startswith("TM_") for k in _bag):
             if not isinstance(getattr(self, "_machines_owned", None), set):
@@ -6597,6 +6612,9 @@ class Executor:
                 if not hasattr(self, "_region_mark"):
                     self._region_mark = {}
                 self._region_mark[_hr] = list(self._mark_now)
+                if not isinstance(getattr(self, "_region_mark_nt", None), dict):
+                    self._region_mark_nt = {}
+                self._region_mark_nt[_hr] = list(self._mark_now_nt)
         except Exception:
             pass
         self._watch_for_a_wipe(obs)
@@ -6743,6 +6761,8 @@ class Executor:
             self.dead_ends = data.get("dead_ends", {})
             self.visits = data.get("visits", {})
             self._region_mark = data.get("region_mark") or {}
+            self._region_mark_nt = data.get("region_mark_nt") or {}
+            self._toggled_flags = data.get("toggled_flags") or []
             self.frontier = data.get("frontier", {})
             # a seam cell is a way only while its edge earns it (see
             # note_frontier); the keys are re-minted per observation
@@ -7465,6 +7485,8 @@ class Executor:
                 {"explored": self.explored, "dead_ends": self.dead_ends,
                  "visits": self.visits, "frontier": self.frontier,
                  "region_mark": getattr(self, "_region_mark", {}),
+                 "region_mark_nt": getattr(self, "_region_mark_nt", {}),
+                 "toggled_flags": list(getattr(self, "_toggled_flags", None) or []),
                  "sightings": self.sightings, "searched": self.searched,
                  "gone": {r: sorted(v) for r, v in
                           (getattr(self, "_gone", {}) or {}).items()},
@@ -7680,6 +7702,10 @@ class Executor:
             self._known_flags = flags
             return
         fresh = flags - self._known_flags
+        _cleared = self._known_flags - flags
+        if _cleared:
+            self._toggled_flags = sorted(set(getattr(self, "_toggled_flags", None)
+                                             or ()) | _cleared)
         self._known_flags = flags
         if not fresh:
             return
