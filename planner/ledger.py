@@ -3887,7 +3887,21 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
     if _kin:
         _bits = []
         for _r3, _v3, _went in _kin[:3]:
+            # ...AND HOW YOU CAME INTO IT. Ways out alone left the way IN to
+            # the model's memory: Mansion 1F's south part, entered every time
+            # by falling through 3F's hole (16,14), read only "whose ways out
+            # led to CINNABAR_ISLAND, B1F", and run 62 flipped 1F's statue
+            # round after round to walk there from the north half (2026-10-24).
+            # The run's own record of edges that arrived there.
+            _came = sorted({f"{_r4} by ({_k4})"
+                            for _r4, _ex4 in (getattr(ex, "explored", {}) or {}).items()
+                            if _r4 != _r3
+                            for _k4, _e4 in (_ex4 or {}).items()
+                            if isinstance(_e4, dict) and str(_e4.get("to")) == _r3
+                            and int(_e4.get("n") or 0) > 0 and str(_k4)[:1].isdigit()})
             _bits.append(f"{_r3}" + (f", stood in {_v3}x" if _v3 else "")
+                         + (", which you have come into from "
+                            + ", ".join(_came[:3]) if _came else "")
                          + ", whose ways out you have taken led to "
                          + ", ".join(_went[:3]))
         head += (". THIS FLOOR HAS ANOTHER PART YOU HAVE WALKED: "
