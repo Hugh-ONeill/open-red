@@ -13728,9 +13728,14 @@ function OPS.interact(G, c)
         -- pressing the switch, just have it auto-activate"). Where the
         -- thing being pressed is a switch statue, the answer stands on
         -- the first press.
+        -- ...AND A STATUE PRESSED BY NAME IS ONE. The test read only the
+        -- op's own x/y, and the model presses statues by name
+        -- (SWITCH_POKEMON_MANSION_2F_2_11), so the exemption never fired
+        -- and each flip spent a round answering "Press it?" (run 62,
+        -- 2026-10-24). tx/ty are the tile the name resolved to.
         local _is_switch = false
         do
-          local _sx, _sy = c.x, c.y
+          local _sx, _sy = tx or c.x, ty or c.y
           if _sx and _sy and ow.map and ow.map.cellTile then
             local _okt, _t = pcall(ow.map.cellTile, ow.map, _sx, _sy)
             _is_switch = _okt and _t == 61
