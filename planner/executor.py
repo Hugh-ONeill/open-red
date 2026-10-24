@@ -3300,6 +3300,21 @@ class Executor:
         only: a part of the map entered from another map is not ruled out,
         and the words say so."""
         dw = (sg or {}).get("done_when")
+        # ...AND A NEW MAP FROM A FLOOR WHOSE EVERY WAY OUT IS GROUND STOOD ON.
+        # The author refuses {"new_map_from": X} once X has shown all of
+        # itself and every door of it leads where the run has stood; a plan
+        # written before that (Mt Moon 1F, 34 spots still unseen) went
+        # through, and run 63 and run 64 each spent a dozen rounds walking
+        # the ladders and the mouth for a third way that is not there
+        # (2026-10-24). The same record, read as the step goes.
+        if (isinstance(dw, dict) and dw.get("new_map_from")
+                and not (set(dw) - {"new_map_from", "not_maps"})):
+            try:
+                import author as _au
+                _why = _au._new_map_from_shut(str(dw["new_map_from"]), str(self.MEMORY))
+            except Exception:
+                _why = ""
+            return _why.split("; end the step", 1)[0] if _why else None
         if not (isinstance(dw, dict) and dw.get("map") and dw.get("not_area")
                 and not (set(dw) - self.WAYPOINT_KEYS)):
             return None
