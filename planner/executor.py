@@ -2630,6 +2630,7 @@ class Executor:
         self.map_forced: dict = {}          # map id -> cells the water bumps
                                             # you off (seen while standing
                                             # there; see note_frontier)
+        self.center_doors: dict = {}        # map -> {door: region seen from}, POKé-faced buildings
         self.door_dests: dict = {}          # map id -> {key: destMap} —
         _WALKED_REF[0] = self
                                             # INTERNAL, never printed: kept
@@ -7383,6 +7384,7 @@ class Executor:
                                    for k, v
                                    in (data.get("reach_settings") or {}).items()}
             self.door_dests = data.get("door_dests") or {}
+            self.center_doors = data.get("center_doors") or {}
             # ...and no door edge may contradict it (see the helper)
             _nd = drop_edges_contradicting_doors(self.explored, self.door_dests)
             if _nd:
@@ -7686,7 +7688,8 @@ class Executor:
                                         for k2, v2 in (v or {}).items()}
                                     for k, v
                                     in (self.reach_settings or {}).items()},
-                 "door_dests": self.door_dests},
+                 "door_dests": self.door_dests,
+                 "center_doors": getattr(self, "center_doors", {}) or {}},
                 indent=1)
             tmp = self.MEMORY.with_suffix(".json.tmp")
             tmp.write_text(payload)
@@ -8274,6 +8277,16 @@ class Executor:
                         _bx, _by = int(_mb.group(1)), int(_mb.group(2))
                         if -4 <= _bx - _px <= 5 and -4 <= _by - _py <= 4:
                             self._gone.setdefault(_reg, set()).add(_nm)
+            # ...AND WHICH DOORWAYS ARE SET IN A BUILDING WITH POKé ON ITS
+            # FACE, kept once the party leaves the map: the look is what the
+            # screen shows, and the heal line reads it (_respawn_line).
+            for _b in (_m.get("buildings") or []):
+                if isinstance(_b, dict) and "POKé written across its face" in str(_b.get("look") or ""):
+                    _cd = self.center_doors.setdefault(_mid, {}) if isinstance(
+                        getattr(self, "center_doors", None), dict) else None
+                    if _cd is not None and _b.get("doors"):
+                        # one entry a building: its doorway tiles are one door
+                        _cd.setdefault(";".join(sorted(str(_dk) for _dk in _b["doors"])), here)
             _dd = self.door_dests.setdefault(_mid, {})
             for _w in (_m.get("warps") or []):
                 if _w.get("x") is not None and _w.get("dest") is not None:
@@ -18171,6 +18184,21 @@ class Executor:
             p2 = self._route(here, r)
             if p2 is not None:
                 cents.append((len(p2), m))
+        # ...AND THE ONES SEEN AND NEVER WALKED INTO. A building with POKé on
+        # its face is a Center to anyone looking at it, and the line named
+        # only Centers walked into: grinding on Mt Moon 1F, with one such
+        # door at its mouth on Route 4, the run walked ten legs back to
+        # Viridian to heal, twice (run 63, 2026-10-24). Named as it looks,
+        # where it stands, by walked legs to where it was seen from.
+        seen_c = []
+        for _cm, _cds in (getattr(self, "center_doors", None) or {}).items():
+            for _ckey, _from in (_cds or {}).items():
+                _cks = [k for k in str(_ckey).split(";") if k]
+                if not _cks or any(self._walked_dest(_cm, k) for k in _cks):
+                    continue
+                _p3 = self._route(here, _from) if _from else None
+                if _p3 is not None:
+                    seen_c.append((len(_p3), _cm, _cks[0]))
         near = ""
         if cents:
             cents.sort()
@@ -18183,6 +18211,17 @@ class Executor:
             near = (" ANY Center heals; the ones you have walked into, "
                     "nearest first over walked ground: "
                     + ", ".join(rows[:3]) + ".")
+        if seen_c:
+            seen_c.sort()
+            _rows2, _sm = [], set()
+            for n, cm, ck in seen_c:
+                if cm in _sm:
+                    continue
+                _sm.add(cm)
+                _rows2.append(f"the doorway at ({ck}) on {cm}"
+                              + (f" ({n} leg(s))" if n else " (here)"))
+            near += (" Seen and never walked into: a building with POKé "
+                     "written across its face at " + ", ".join(_rows2[:3]) + ".")
         # ...AND IT IS A CENTER ONLY WHEN IT IS ONE. A new game wakes at
         # PALLET_TOWN, which has no Center, and the line called it "the
         # last Pokemon Center you HEALED at": run 57's BULBASAUR at 3/30
