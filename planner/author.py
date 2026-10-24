@@ -4776,6 +4776,20 @@ def observed_text(path: Path) -> str:
             _gw = _objective_words(_AUTHORING_GOAL)
             _hit = [ln for ln in fresh
                     if _gw & set(re.findall(r"[A-Z]{4,}", ln.upper()))]
+            # ...AND A LINE THAT STOPPED THE RUN, NEXT. The blocker record
+            # quotes what a shut way said where it said it; Cinnabar's four
+            # lines were three signs and "REDDY got on PUDGE!", and "The door
+            # is locked..." from the GYM door it had walked into four times
+            # was cut, so the rewrite's ideas read "The gym is currently open
+            # and enterable (from: memory) — heard: nothing heard" and planned
+            # the walk to the locked door again (run 62, 2026-10-24).
+            _bw = {str(b.get("what") or "").strip().strip('"').strip()
+                   for b in (d.get("blockers") or {}).values()
+                   if isinstance(b, dict) and b.get("where") == r}
+            _bw.discard("")
+            _blk = [ln for ln in fresh if ln not in _hit
+                    and any(w in ln.partition(": ")[2] for w in _bw)]
+            _hit = _hit + _blk
             _rest = [ln for ln in fresh if ln not in _hit]
             picked = (_hit[-4:] + _rest[-max(0, 4 - len(_hit[-4:])):]
                       if len(_hit[-4:]) < 4 else _hit[-4:])
