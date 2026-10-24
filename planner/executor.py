@@ -9467,12 +9467,17 @@ class Executor:
                    f"but a computer stores and a sign reads: neither "
                    f"opens ground.)" if _talk else ""))
         elif not _far:
+            # ...AND NO "EXCEPT" WITH NOTHING AFTER IT. With no PC or sign
+            # here the line read "tried except , and a computer stores while
+            # a sign reads" on Mansion 1F (run 62, 2026-10-24).
             trace.append(
-                f"Everything here that presses has now been tried "
-                f"except {', '.join(str(x) for x in _talk[:4])}, and "
-                f"a computer stores while a sign reads — neither "
-                f"opens ground, so neither is what is stopping you. "
-                f"The way on is not in this room.")
+                (f"Everything here that presses has now been tried "
+                 f"except {', '.join(str(x) for x in _talk[:4])}, and "
+                 f"a computer stores while a sign reads — neither "
+                 f"opens ground, so neither is what is stopping you. "
+                 if _talk else
+                 "Everything here that presses has now been tried. ")
+                + "The way on is not in this room.")
         return trace
 
     def _drop_pad_arrivals(self) -> int:
