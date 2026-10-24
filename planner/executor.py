@@ -2560,6 +2560,7 @@ class Executor:
         # visible to the one who is doing it. Its words, unedited.
         self._plans_said: list = []
         self._skipped = None        # subgoal id the model declared moot
+        self._ruled_out_ids: set = set()    # steps answered "ruled out" this plan
         self._step_blocked = None   # {"subgoal","wall","where","why"} from {"op":"blocked"}
         self._entered_map: dict = {}   # "target|map" -> entries for target
         self._revisit_refusals: dict = {}   # target -> refusals spent
@@ -28126,6 +28127,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     return True, []
                 _ruled = self._new_part_ruled_out(sg, cur)
                 if _ruled:
+                    getattr(self, "_ruled_out_ids", set()).add(sg["id"])  # backtrack passes it
                     self.log("subgoal_ruled_out", subgoal=sg["id"], round=rnd,
                              why=_ruled, at=self._where(cur))
                     print(f"   ({sg['id']} answered: {_ruled})")
@@ -29588,6 +29590,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     return True
                 _ruled = self._new_part_ruled_out(sg, obs)
                 if _ruled:
+                    getattr(self, "_ruled_out_ids", set()).add(sg["id"])  # backtrack passes it
                     self.log("subgoal_ruled_out", subgoal=sg["id"], why=_ruled,
                              at=self._where(obs), via="pre-check")
                     print(f"   ({sg['id']} answered: {_ruled})")
@@ -29850,6 +29853,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             _ruled0 = None
         if _ruled0:
             print(f"== subgoal: {sg['id']} (answered: {_ruled0})")
+            getattr(self, "_ruled_out_ids", set()).add(sg["id"])  # backtrack passes it
             self.log("subgoal_ruled_out", subgoal=sg["id"], why=_ruled0,
                      via="entry")
             return True
@@ -30016,6 +30020,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         return PARTY_FLOOR
 
     def run_plan(self, plan: dict) -> bool:
+        self._ruled_out_ids = set()
         # WHICH HARNESS PLAYED THIS ATTEMPT. Fixes land at the next boot,
         # so one run's journal is several harnesses in a row; the meter
         # can only split a run cleanly if each attempt says which it was
@@ -30325,6 +30330,17 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 elsewhere = []
                 for back in range(idx - 1, max(-1, idx - 5), -1):
                     c = subgoals[back]
+                    # A STEP ALREADY ANSWERED IS NOT REDONE. One the harness
+                    # ruled out this plan ("every bit of CINNABAR_ISLAND a
+                    # walk reaches has been on screen") was re-opened by
+                    # each failed enter_cinnabar_gym, walked the party out
+                    # of the Mansion, and was ruled out again, twice a plan
+                    # (run 62, 2026-10-24; user: "backtrack should skip the
+                    # ruled out steps"). The scan goes on past it.
+                    if c.get("id") in getattr(self, "_ruled_out_ids", ()):
+                        self.log("backtrack_ruled_out_passed",
+                                 failed=sg["id"], candidate=c["id"])
+                        continue
                     h = pred_holds(c.get("done_when") or {}, at)
                     if not h:
                         # A CROSSING MADE IS NOT UNDONE BY WALKING ON.

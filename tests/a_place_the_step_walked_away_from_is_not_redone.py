@@ -35,7 +35,7 @@ ck("the earlier place steps that hold are noted before the step runs",
    i < src.index("            ok = self._attempt(sg)\n            _ran_any = True")
    and "_held_at_start = {" in src[i:i + 900]
    and 'set(s0.get("done_when") or {}) <= {"map", "area", "not_area"}' in src[i:i + 900])
-loop = src[src.index("for back in range(idx - 1, max(-1, idx - 5), -1):"):][:7000]
+loop = src[src.index("for back in range(idx - 1, max(-1, idx - 5), -1):"):][:8000]
 ck("a candidate that held then and was walked away from ends the scan",
    'if c.get("id") in _held_at_start:' in loop
    and 'cand = None\n                            break' in loop.split('if c.get("id") in _held_at_start:', 1)[1][:400])
