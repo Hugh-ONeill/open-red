@@ -29200,9 +29200,19 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     _pressed = [n for n in _sent if n not in _fn]
                     _left = [n for n in loose if n not in _sent]
                     if _failed:
+                        # ...SAID AS WHEN IT HAPPENED. The shim's "stuck in a
+                        # menu/dialog" is the box up at that press, and read
+                        # rounds later it was a box still open: Viridian's
+                        # youngster box "closed" with tap and menu two rounds
+                        # running, text_on_screen false (run 64, 2026-10-24).
+                        def _when(d):
+                            d = str(d)
+                            if "stuck in a menu/dialog" in d:
+                                return "a box was up when it tried"
+                            return d[:120]
                         trace.append(
                             "(the sweep could NOT press "
-                            + "; ".join(f"{n}: {d[:120]}" for n, d in _failed[:4])
+                            + "; ".join(f"{n}: {_when(d)}" for n, d in _failed[:4])
                             + " — still never touched)")
                     if _pressed and not _left and not _failed:
                         trace.append(
