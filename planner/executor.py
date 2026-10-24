@@ -14370,6 +14370,33 @@ class Executor:
         for _hop_i, (key, nxt) in enumerate(path):
             _now = self.b.obs() or {}
             _m = (_now.get("map") or {})
+            # A LEG WALKED WITH THE STATUES ONE WAY IS REPLAYED THAT WAY. The
+            # walked way to Mansion B1F climbs 2F's (6,1) stair, walked with
+            # the statues UNPRESSED, and drops down 3F's hole (16,14), walked
+            # PRESSED; `go` replayed the legs and not the presses between
+            # them, stopped at whichever leg disagreed, and the model flipped
+            # and re-ran go for hours with every fact on its page (run 62,
+            # 2026-10-24; user: "it SHOULD have the exact information it
+            # needs to get into the basement, its a matter of putting it
+            # together and making sure its actually following through the
+            # plan"). The run's own record says how the leg was walked; a
+            # statue on this floor that a walk reaches sets it so, and the
+            # hop goes on. No statue in reach: the hop runs as before and
+            # says the setting if it fails (_switch_words).
+            _lr = ((getattr(self, "explored", None) or {}).get(self._where(_now)) or {}).get(str(key)) or {}
+            _want_sw = _lr.get("switches")
+            _on = _m.get("switches_on")
+            if _want_sw and _on is not None and (_want_sw == "PRESSED") != bool(_on):
+                _st = next((x for x in (_m.get("objects") or [])
+                            if str(x.get("name") or "").startswith("SWITCH_")
+                            and x.get("reachable")), None)
+                if _st:
+                    self._send_safe("interact", name=_st["name"], answer="yes")
+                    _now = self.b.obs() or {}
+                    _m = (_now.get("map") or {})
+                    self.log("route_set_statues", subgoal=sg.get("id"),
+                             statue=_st["name"], want=_want_sw, frm=self._where(_now),
+                             via=str(key), set_now=_m.get("switches_on"))
             # A HOLE HOP: walk onto the hole and let the floor drop you.
             # A fall on record is an edge like any other, so the route runs
             # through it — and this loop only knew doors and seams, found no
