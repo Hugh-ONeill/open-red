@@ -8249,7 +8249,16 @@ class Executor:
         if not hasattr(self, "unreached_at"):
             self.unreached_at = {}
         _taken_now = set(self._taken_here(here) or {})
-        _unr = [k for k in _unr if k not in _taken_now]
+        # ...AND A DOORWAY IS ONE DOOR. Mansion 1F's front mat is four
+        # tiles, (4,27)-(7,27); the run came in by (5,27), and from the
+        # south half the other three were "ways out never taken that no
+        # walk reached", so explore sent it off B1F to "look for the way to
+        # 4,27, 6,27" while the key's corner of the basement lay unseen
+        # (run 62, 2026-10-24; run 60 the same). A tile of a doorway another
+        # tile of which is taken is taken (_door_groups).
+        _grp_u = self._door_groups(m.get("warps") or [])
+        _unr = [k for k in _unr if k not in _taken_now
+                and not (set(_grp_u.get(k, ())) & _taken_now)]
         if (self.unreached_at.get(here) or []) != _unr:
             if _unr:
                 self.unreached_at[here] = _unr

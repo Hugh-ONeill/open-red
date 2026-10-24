@@ -26,7 +26,7 @@ ck("unreachable untaken ways are remembered per region and persisted",
    and '"unreached_at": getattr(self, "unreached_at", {})' in src
    and 'self.unreached_at = data.get("unreached_at", {}) or {}' in src)
 ck("...and dropped once that way has been walked",
-   "_unr = [k for k in _unr if k not in _taken_now]" in src)
+   "_unr = [k for k in _unr if k not in _taken_now\n" in src)
 ck("the deed counts them as something left, and says so in the trace",
    "if not (left or unpressed or unseen or _unr):" in src
    and "way(s) out never taken that no walk reached when you " in src)
