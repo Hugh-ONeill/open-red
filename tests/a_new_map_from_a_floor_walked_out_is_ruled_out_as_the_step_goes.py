@@ -45,6 +45,20 @@ ck("a walked-out floor answers the step", w and "every way out of MT_MOON_1F" in
 ck("...in the run's words, not the author's advice", w and "end the step" not in w, w)
 ck("it says nothing while the floor has ground unseen", ruled(34) is None)
 
+# a town with road edges, none walked, is never judged (run 65's Pallet)
+d2 = {"map_doors": {"PALLET_TOWN": ["5,5", "13,5", "12,11"]},
+      "door_dests": {"PALLET_TOWN": {"5,5": "REDS_HOUSE_1F", "13,5": "BLUES_HOUSE", "12,11": "OAKS_LAB"}},
+      "explored": {"PALLET_TOWN|10,0": {"5,5": {"to": "REDS_HOUSE_1F|0,0"}}},
+      "frontier_here": {"PALLET_TOWN|10,0": 0},
+      "visits": {"PALLET_TOWN|10,0": 5, "REDS_HOUSE_1F|0,0": 2, "BLUES_HOUSE|2,1": 1, "OAKS_LAB|4,1": 3}}
+p2 = Path(tempfile.mkdtemp()) / "explored.json"
+p2.write_text(json.dumps(d2))
+ex2 = E.Executor.__new__(E.Executor)
+ex2.MEMORY = p2
+ck("a town with road edges nobody has walked is not ruled out",
+   ex2._new_part_ruled_out({"id": "go_to_prof_oak_lab", "done_when": {"new_map_from": "PALLET_TOWN"}},
+                           {"mode": "overworld", "map": {"id": "PALLET_TOWN"}}) is None)
+
 failed = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not d else f"  {str(d)[:300]}"))

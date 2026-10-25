@@ -2174,6 +2174,14 @@ def _new_map_from_shut(src: str, path: str = "run/explored.json") -> str:
         if reg.split("|")[0] == src and any(
                 not re.fullmatch(r"\d+,\d+", str(k)) for k in (edges or {})):
             return ""
+    # ...AND A ROAD EDGE NOT YET WALKED IS STILL ONE. Only walked edges were
+    # read, so a town whose roads nobody had taken yet read as doors only:
+    # PALLET_TOWN's three houses and the lab, north to ROUTE_1 untaken, and
+    # next236's mid-leg check ruled "go to Prof Oak's lab" out as a step no
+    # way off Pallet could finish (run 65, 2026-10-24). The game's own edge
+    # table, internal, as the docstring always meant.
+    if (MAP_EDGES or {}).get(src):
+        return ""
     # ...AND ONLY A MAP THAT HAS SHOWN ALL OF ITSELF. The door table holds
     # the doors that have been ON SCREEN, so a floor just walked into lists
     # its own entrance and nothing else: MT_MOON_1F, entered a moment
