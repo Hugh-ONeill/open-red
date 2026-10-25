@@ -21,6 +21,10 @@ checks = []
 def ck(n, ok, d=""): checks.append((n, bool(ok), d))
 
 A.holding_town_map = lambda: True        # the run has the map for this test
+# ...and has never come out of either place: _walked_landings reads
+# run/explored.json, and a run that walked out of Rock Tunnel onto Route 10
+# is told that instead of new_part (run 65, 2026-10-25)
+A._walked_landings = lambda *a, **k: []
 pe = A._printed_entrances("ROCK_TUNNEL_B1F")
 ck("Rock Tunnel, any floor, is pinned to Route 10", pe and pe[0] == "ROCK TUNNEL" and pe[1] == {"ROUTE_10"}, pe)
 pe2 = A._printed_entrances("DIGLETTS_CAVE")
