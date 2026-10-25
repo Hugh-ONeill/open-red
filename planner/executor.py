@@ -28108,6 +28108,13 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # and the potion stop it guarded never happened: the run
                 # entered the mountain with an empty bag again.
                 routed = None
+                # ...AND NEVER TO A PART THE STEP RULES OUT. Mt Moon's
+                # reach_mt_moon_east_exit was {"map": "ROUTE_4", "not_area":
+                # ["ROUTE_4|4,4"]}; from the fossil room this walked the party
+                # three legs to ROUTE_4|4,4, the one part it may not end in,
+                # round after round (run 65, 2026-10-24).
+                _na = (sg.get("done_when") or {}).get("not_area") or []
+                _na = {_na} if isinstance(_na, str) else {str(x) for x in _na}
                 if tk.startswith(("map:", "area:")):
                     dest = tk.split(":", 1)[1]
                     if "|" in dest:
@@ -28116,6 +28123,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         for region in set(list(self.explored)
                                           + list(self.visits)):
                             if region.split("|")[0] != dest:
+                                continue
+                            if region in _na:
                                 continue
                             p = self._route(here, region)
                             if p and (routed is None or len(p) < len(routed)):
