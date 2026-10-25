@@ -12848,6 +12848,31 @@ class Executor:
         target = done.get("map")
         if not isinstance(target, str) and isinstance(done.get("area"), str):
             target = done["area"].split("|")[0]
+        # A NEW MAP FROM A NAMED ONE, SAID IN WORDS. "Enter Professor Oak's
+        # lab" over {"new_map_from": "PALLET_TOWN", "not_maps": ["BLUES_HOUSE",
+        # "OAKS_LAB", "REDS_HOUSE_1F"]}: frozen as the step began, after the
+        # step before it had searched the lab for Oak, so the lab its words
+        # name was the one map ruled out. The page showed only the JSON, and
+        # the run walked out of the lab and back in, rounds running, "to
+        # trigger the new_map_from condition" (run 66, 2026-10-25). Say what
+        # holds it, and that the words name a map it rules out. Which map
+        # that leaves stays the model's to see.
+        if isinstance(done.get("new_map_from"), str) and isinstance(done.get("not_maps"), list):
+            _from = done["new_map_from"]
+            _nm = [str(m) for m in done["not_maps"]]
+            _gw = set(_re.findall(r"[A-Z0-9]+", str(goal_text or "").upper()
+                                  .replace("'S", "S").replace("’S", "S")))
+            _named = [m for m in _nm
+                      if all(t in _gw for t in m.split("_") if t)]
+            out = (f"\nTHE CONDITION IS THE STEP: it holds the moment you stand on a map "
+                   f"you had not stood on when this step began, entered from {_from} — "
+                   f"any map but {', '.join(_nm)}.")
+            if _named:
+                out += (f" This step's words name {', '.join(_named)}, which the "
+                        f"condition rules out: going in there, or out and back in, "
+                        f"never meets it. What the words call the place is the "
+                        f"plan-writer's guess.")
+            return place + out
         if not isinstance(target, str) or not target.strip():
             # A CONDITION THAT NAMES NO PLACE holds wherever it comes true.
             # "Buy Fresh Water from the clerk on the first floor" over
