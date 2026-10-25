@@ -49,7 +49,7 @@ ck("a person nearby is named, with how far off", got and got[0][2] == "PEWTERCIT
 src = (ROOT / "planner/executor.py").read_text()
 ck("'standing there' is written only within one cell",
    "if who and far is not None and far <= 1" in src
-   and "nearest person \"\n                            f\"{who}, {far} cells off" in src)
+   and "nearest {_nearest_kind(who)} \"\n                            f\"{who}, {far} cells off" in src)
 
 with tempfile.TemporaryDirectory() as td:
     rec = {"visits": {"PEWTER_CITY|4,2": 5},

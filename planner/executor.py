@@ -2489,6 +2489,22 @@ LEAGUE_MAPS = ("INDIGO_PLATEAU_LOBBY", "LORELEIS_ROOM", "BRUNOS_ROOM",
                "AGATHAS_ROOM", "LANCES_ROOM", "CHAMPIONS_ROOM")
 
 
+
+def _nearest_kind(name) -> str:
+    """"person", or "thing" for an object on a sprite no person stands on.
+
+    A FOSSIL IS NOT A PERSON. The shim lists every sprite that is not a
+    ball, a trainer, a boulder or a sign as an npc, so Mt Moon B2F's two
+    fossils, lying across the corridor to the exit ladder, read "the way
+    onto it is blocked; nearest person FOSSIL_MT_MOON_B2F_12_6, 8 cells off"
+    on every floor's page, and run 66 left the cave three times by the west
+    mouth before it picked one up (2026-10-25). The ledger learned this for
+    the same fossil on 2026-08-29; this line had not. Named as the screen
+    shows it (harness/public_names.lua THING_SPRITES)."""
+    return ("thing" if str(name or "").startswith(("FOSSIL_", "CLIPBOARD_",
+                                                     "BOOK_", "PAPER_"))
+            else "person")
+
 class Executor:
     def __init__(self, bridge: Bridge, max_battle_turns: int = 40,
                  can_escalate: bool = False, model: str = "",
@@ -8492,7 +8508,7 @@ class Executor:
                             f"it yet; this floor has {_unseen_n} spot(s) "
                             f"never on screen, and the way may run through "
                             f"them)" if _unseen_n
-                       else f"{k} (the way onto it is blocked; nearest person "
+                       else f"{k} (the way onto it is blocked; nearest {_nearest_kind(who)} "
                             f"{who}, {far} cells off)" if who
                        else f"{k} (the way onto it is blocked; nobody is "
                             f"standing there)")
@@ -19798,7 +19814,7 @@ class Executor:
             _fmap = int((((obs or {}).get("map") or {}).get("seen") or {})
                         .get("frontier_map_n") or 0)
             _names = ", ".join(
-                f"({k})" + (f", nearest person {who}" if who else "")
+                f"({k})" + (f", nearest {_nearest_kind(who)} {who}" if who else "")
                 for k, _d, who, _far in shut[:4])
             if _fmap > 0 and self._floor_walked_out(
                     ((obs or {}).get("map") or {}).get("id")):
