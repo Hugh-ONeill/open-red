@@ -35,14 +35,16 @@ ck("the cut names its bush and its map", "bush at (5,8)" in note and "ROUTE_9" i
 ck("...says it grows back when the map is left and re-entered",
    "grows back the moment you leave its map and come back" in note, note)
 ck("...and which side lies past it, from the way the party faced",
-   "past it is the EAST side" in note, note)
+   "past it is the ground just east of the bush" in note, note)
+ck("...named from the bush, never as the map's side",
+   "EAST side" not in note and "not the east edge of ROUTE_9" in note, note)
 ck("...without saying where to go",
    not any(w in note.lower() for w in ("you should", "go east", "head east", "celadon")), note)
 obs2 = {"map": {"id": "CERULEAN_CITY"}, "player": {"facing": "up"}}
-ck("facing up reads as the NORTH side",
-   "NORTH side" in e._cut_aftermath({"move": "CUT", "x": 19, "y": 28}, obs2))
+ck("facing up reads as north of the bush",
+   "just north of the bush" in e._cut_aftermath({"move": "CUT", "x": 19, "y": 28}, obs2))
 ck("no facing, no side claimed",
-   "side" not in e._cut_aftermath({"move": "CUT", "x": 1, "y": 1}, {"map": {"id": "X"}}))
+   "of the bush," not in e._cut_aftermath({"move": "CUT", "x": 1, "y": 1}, {"map": {"id": "X"}}))
 pre = {"map": {"id": "ROUTE_10", "seen": {"n": 580}, "seen_unreached": {"n": 230}}}
 post_more = {"map": {"id": "ROUTE_10", "seen": {"n": 592}, "seen_unreached": {"n": 230},
              }, "player": {"facing": "right"}}

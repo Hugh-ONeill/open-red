@@ -23484,7 +23484,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 f"only while you stay on {mid}: a cut bush grows back the "
                 f"moment you leave its map and come back, so what lies past "
                 f"it can be reached only while it is down"
-                + (f"; past it is the {side} side, the way you faced to cut"
+                # THE BUSH'S SIDE, NOT THE MAP'S. "past it is the SOUTH side"
+                # sat beside "no cell of the south side of ROUTE_16 has ever
+                # been ON SCREEN", and the run re-cut Route 16's (34,9) bush
+                # for its map's south edge and Route 17, rounds on end (run
+                # 65, 2026-10-25). Same words, two places: the ground past a
+                # bush is named from the bush.
+                + (f"; past it is the ground just {side.lower()} of the bush, "
+                   f"the way you faced to cut (the bush's own neighbor, not "
+                   f"the {side.lower()} edge of {mid})"
                    if side else "") + opened + ".")
 
     def _note_cut(self, pre_obs, step) -> None:
