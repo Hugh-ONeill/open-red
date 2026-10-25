@@ -8718,7 +8718,14 @@ def _item_not_held(goal: str, start: str) -> str | None:
     for _n in re.findall(r"\bHM\s*0?([1-5])\b", goal.upper()):
         if not re.search(r"\bHM0" + _n + r"\b", _up):
             return f"HM0{_n}"
-    g = re.sub(r"[^A-Z]+", "", goal.upper())
+    # ...AND BY THE NAME A PERSON SAYS. The game's id is POKE_FLUTE; an
+    # objective says "Pokemon Flute" or "Poké Flute", and neither squashed
+    # to POKEFLUTE (the é was dropped, POKEMON is not POKE), so "Retrieve
+    # the Pokemon Flute from Mr. Fuji" went to the model with no flute in
+    # the bag, was judged done, and the Flash leg after it was skipped as
+    # "the Flute is already retrieved" (run 65, 2026-10-25).
+    _plain = unicodedata.normalize("NFKD", goal).encode("ascii", "ignore").decode()
+    g = re.sub(r"[^A-Z]+", "", _plain.upper()).replace("POKEMON", "POKE")
     have = re.sub(r"[^A-Z]+", "", (start or "").upper())
     for it in sorted(ENGINE_ITEMS, key=len, reverse=True):
         squashed = re.sub(r"[^A-Z]+", "", it.upper())
