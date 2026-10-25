@@ -12756,6 +12756,20 @@ class Executor:
                              f"was carried past; this step's words may assume it was.")
         if not lines:
             return ""
+        # ...AND A LEVEL NAMES NO PLACE. "Battle wild Pokemon on Route 17
+        # until Fearow reaches level 35" read, beside "written for someone
+        # standing in ROUTE_17", as a step about Route 17, and the run spent
+        # three attempts of a leg re-cutting Route 16's bush for a road behind
+        # Snorlax, with Route 16's own grass under its feet (run 65,
+        # 2026-10-25). Where to train was the plan-writer's pick; the
+        # condition is levels, and levels are won on any wild ground. Not
+        # for catching steps: there, where you stand decides what you meet.
+        _sdw = sg.get("done_when") if isinstance(sg.get("done_when"), dict) else {}
+        if _sdw and set(_sdw) <= {"slot_level", "lead_level", "party_min_level"}:
+            lines.append(f"This step's condition ({', '.join(sorted(_sdw))}) names no "
+                         f"place: where its words say to train was the plan-writer's "
+                         f"choice, not part of the condition, and a wild fought on any "
+                         f"ground counts toward it.")
         return "\nPREMISE UNMET: " + " ".join(lines)
 
     def _area_ids_note(self, done, obs) -> str:
