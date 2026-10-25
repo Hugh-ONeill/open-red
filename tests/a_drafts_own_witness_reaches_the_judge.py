@@ -52,6 +52,22 @@ try:
        A.witness_text(G + " (a doubt you recorded when outlining: for: x)") == t)
     (d / "run/obs.json").write_text(json.dumps({"flags": []}))
     ck("a witness the game no longer has is not shown", A.witness_text(G) == "")
+
+    # run 65, 2026-10-25: a refused draft for the tower ended on Oak's
+    # Pokedex event, which shares no word with the objective
+    (d / "run/obs.json").write_text(json.dumps({"flags": ["EVENT_GOT_POKEDEX"]}))
+    (d / "run/executor_log.jsonl").write_text(json.dumps(
+        {"kind": "flag_fired", "flag": "EVENT_GOT_POKEDEX", "t": 1}) + "\n")
+    A.OWN_WITNESS.clear()
+    T = "Clear the Pokemon Tower"
+    probs = A.validate({"goal": T, "subgoals": [{"id": "clear", "goal_text": "Clear it",
+                                                 "done_when": {"flag": "EVENT_GOT_POKEDEX"}}]})
+    ck("an already-fired flag sharing no word with the objective is still refused",
+       any("ALREADY FIRED" in p for p in probs), probs)
+    ck("...and is NOT kept as the objective's witness", A.OWN_WITNESS == set(), A.OWN_WITNESS)
+    (d / "run/leg_witness.json").write_text(json.dumps({T: ["EVENT_GOT_POKEDEX"]}))
+    ck("...nor shown to the judge from a witness file written before",
+       A.witness_text(T) == "", A.witness_text(T))
 finally:
     os.chdir(here)
 src = (ROOT / "planner/author.py").read_text()

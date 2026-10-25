@@ -2821,7 +2821,9 @@ def validate(plan: dict) -> list:
         fl = dw0.get("flag") if isinstance(dw0, dict) else None
         _lv0 = _live_flags()
         if fl and fl in set(fired_flags()) and (_lv0 is None or fl in _lv0):
-            OWN_WITNESS.add(fl)
+            if _flag_shares_a_word(fl, plan.get("goal") or plan.get("objective")
+                                   or _AUTHORING_GOAL or ""):
+                OWN_WITNESS.add(fl)
             probs.append(
                 f"subgoal[{len(subs) - 1}] ({last0.get('id')}) ends on flag "
                 f"'{fl}', which ALREADY FIRED earlier in this run — it holds "
@@ -4032,6 +4034,30 @@ OWN_WITNESS: set = set()
 WITNESS_FILE = Path("run/leg_witness.json")
 
 
+def _flag_shares_a_word(flag: str, goal: str) -> bool:
+    """Does this event's name share a word with the objective's? Stems of
+    five letters, so GUARDS is GUARD and BATTLED is BATTLE.
+
+    A WITNESS IS ABOUT ITS OBJECTIVE. Refused for "not an event this game
+    defines" round after round, a draft for "Clear the Pokemon Tower" ended
+    on EVENT_GOT_POKEDEX, Oak's gift from the first hour; it was kept as the
+    model's own witness, the judge was told "YOUR OWN PLANS FOR THIS
+    OBJECTIVE NAMED EVENT_GOT_POKEDEX as the record that it is done", and
+    the leg was crossed off with the ghost never passed (run 65,
+    2026-10-25). The drink, the rival and the S.S. Ticket each share a word
+    with their event (GUARD, RIVAL, TICKET); the tower and the Pokedex share
+    none."""
+    def _stems(text, drop):
+        return {w[:5] for w in re.findall(r"[A-Z]{4,}", str(text or "").upper())
+                if w not in drop}
+    ev = _stems(re.sub(r"^EVENT_", "", str(flag or "").upper()).replace("_", " "),
+                {"BEAT", "GAVE", "FIRST"})
+    gl = _stems(goal, {"THE", "FROM", "WITH", "INTO", "THAT", "THIS", "FIRST",
+                       "TIME", "OBTAIN", "RECEIVE", "RETRIEVE", "DEFEAT",
+                       "REACH", "CLEAR"})
+    return bool(ev & gl)
+
+
 def _record_witness(goal: str) -> None:
     if not OWN_WITNESS:
         return
@@ -4057,7 +4083,8 @@ def witness_text(goal: str) -> str:
     g = _DOUBT_NOTE.sub("", goal).strip() or goal
     fl = d.get(g) or []
     live = _live_flags()
-    fl = [f for f in fl if live is None or f in live]
+    fl = [f for f in fl if (live is None or f in live)
+          and _flag_shares_a_word(f, g)]
     if not fl:
         return ""
     return ("\n\nYOUR OWN PLANS FOR THIS OBJECTIVE NAMED "
