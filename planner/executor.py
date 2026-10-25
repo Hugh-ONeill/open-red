@@ -14743,6 +14743,22 @@ class Executor:
                 _x, _y = (int(v) for v in key.split(","))
                 _has = any(w.get("x") == _x and w.get("y") == _y
                            for w in (_m.get("warps") or []))
+                # ...AND A TILE WITH NO DOOR, ON A ROAD THE MAP HAS TO THAT
+                # PLACE, IS THE ROAD. A seam crossing was filed under its cell:
+                # ROUTE_24|4,4 holds "10,35 -> CERULEAN_CITY" beside "south",
+                # the walked one was routed, and every go from Route 24 to the
+                # Cerulean Center died "the next leg was 10,35 and this map has
+                # no such way out" (run 65, 2026-10-24; run 63's Route 25 "0,9"
+                # the same). The game's edge table says which side it is.
+                if not _has:
+                    _nm = str(nxt).split("|")[0]
+                    _dirs = [d for d, nb in ((MAP_EDGES or {}).get(str(_m.get("id") or "")) or {}).items()
+                             if str(nb) == _nm]
+                    if len(_dirs) == 1:
+                        self.log("route_door_key_is_seam", subgoal=sg.get("id"),
+                                 key=str(key), dir=_dirs[0], to=str(nxt))
+                        key = _dirs[0]
+                        _has = True
             else:
                 _has = str(key).split("#", 1)[0] in (_m.get("connections") or {})
             if _m.get("id") and not _has:
