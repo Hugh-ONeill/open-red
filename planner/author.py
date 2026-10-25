@@ -733,21 +733,56 @@ def visited_maps() -> set:
 def _walked_door_from_into(from_map, to_map, stood) -> bool:
     """Has the run walked a DOOR from any part of `from_map` into a part of
     `to_map` it has stood on? Then stepping out lands on known ground."""
+    return bool(_walked_landings(from_map, to_map, stood, hops=0))
+
+
+def _walked_landings(from_map, to_map, stood, hops: int = 2) -> list:
+    """The parts of `to_map` the run has stood on and has walked a door onto
+    from inside the place `from_map` belongs to: [(part, door, room)].
+
+    ...THE PLACE, NOT ITS ONE MAP. The Underground Path is a corridor and
+    two small rooms, one at each mouth: no door of UNDERGROUND_PATH_NORTH_
+    SOUTH opens onto ROUTE_5, its Route 5 room's does. Asked of the corridor
+    alone, the printed-map hint told the author to write {"new_part":
+    "ROUTE_5"} "if that is a part you have never stood on", and it froze to
+    "not ROUTE_5|1,0", the only part Route 5 has (run 65, 2026-10-25).
+    Rooms reached from it by walked doors, never crossing a road or a town,
+    are the same place. hops=0 is the map's own doors only, which is what
+    the near-door guard asks."""
     if not from_map or not to_map:
-        return False
+        return []
     try:
         d = json.loads(Path("run/explored.json").read_text() or "{}")
     except (OSError, ValueError, json.JSONDecodeError):
-        return False
+        return []
+    ex = d.get("explored") or {}
     stood = {str(r) for r in (stood or ())}
-    for reg, edges in (d.get("explored") or {}).items():
-        if str(reg).split("|")[0] != str(from_map):
+    place, frontier = {str(from_map)}, {str(from_map)}
+    for _ in range(max(0, hops)):
+        nxt = set()
+        for reg, edges in ex.items():
+            if str(reg).split("|")[0] not in frontier:
+                continue
+            for _k, e in (edges or {}).items():
+                tm = str((e or {}).get("to") or "").split("|")[0]
+                if (tm and tm not in place and tm != str(to_map)
+                        and tm not in (MAP_EDGES or {})
+                        and int((e or {}).get("n") or 0) > 0):
+                    nxt.add(tm)
+        place |= nxt
+        frontier = nxt
+        if not frontier:
+            break
+    out = []
+    for reg, edges in ex.items():
+        room = str(reg).split("|")[0]
+        if room not in place:
             continue
         for k, e in (edges or {}).items():
             to = str((e or {}).get("to") or "")
             if to.split("|")[0] == str(to_map) and (not stood or to in stood):
-                return True
-    return False
+                out.append((to, str(k), room))
+    return sorted(set(out))
 
 
 def _came_from(from_map, to_map, explored=None, hops: int = 3) -> bool:
@@ -2604,14 +2639,28 @@ def validate(plan: dict) -> list:
                                             and _m5 in MAP_EDGES) else None)
         if _pe and _m5 not in _pe[1] and _m5 != _from5:
             _roads = sorted(_pe[1])
+            # ...AND WHERE THE RUN HAS ALREADY COME OUT, SAY SO. "if that is a
+            # part you have never stood on, write new_part" asked the author
+            # a question the run's record answers: it had come out of the
+            # Underground Path onto ROUTE_5|1,0, Route 5's only part, and
+            # new_part froze to excluding it (run 65, 2026-10-25).
+            _out_on = [(r, _walked_landings(_from5, r, _vr5)) for r in _roads]
+            _known = "".join(
+                f" You have come out of it onto {r} before, onto "
+                f"{', '.join(dict.fromkeys(p for p, _d, _rm in ls))} (the door at "
+                f"{ls[0][1]} in {ls[0][2]}): to come out there, end on "
+                + '{"map": "' + r + '"}.'
+                for r, ls in _out_on if ls)
+            _never = [r for r, ls in _out_on if not ls]
             probs.append(
                 f"subgoal[{_i5}] ({_s5.get('id')}) comes OUT of {_from5} onto "
                 f"{_m5}, but the printed map pins {_pe[0]} to "
                 f"{' and '.join(_roads)}: its doorway is there, and no doorway "
                 f"on {_m5} leads into it, so coming out of it cannot land on "
-                f"{_m5}. Coming out lands on {' or '.join(_roads)}; if that is a "
-                f"part of {_roads[0]} you have never stood on, write "
-                f"{{\"new_part\": \"{_roads[0]}\"}}.")
+                f"{_m5}. Coming out lands on {' or '.join(_roads)}."
+                + _known
+                + (f" If that is a part of {_never[0]} you have never stood on, "
+                   f"write {{\"new_part\": \"{_never[0]}\"}}." if _never else ""))
             continue
         # A TOWN IS NEVER A "NEW PART" CLAIM. The rule below was written for
         # split routes and cave mouths, where "exit onto ROUTE_4" can be met
@@ -2627,7 +2676,42 @@ def validate(plan: dict) -> list:
         # reach Route 23" end on {"map": "ROUTE_23"}, the road the run went
         # in from, and the leg closed on the near side (run 57, 2026-10-16).
         _road5 = _m5 in (MAP_EDGES or {})
+        # ...AND A PLAN THAT GOES IN FROM ANOTHER ROAD COMES OUT SOMEWHERE
+        # ELSE. The loophole is the door you went in by, so it needs the plan
+        # to go in from this map or its neighbor. Leg 20 was written in
+        # Vermilion and went into the Underground Path by Route 6; its
+        # Route 5 step was refused as "true on the part you started from",
+        # and the new_part it was told to write froze to excluding Route 5's
+        # only part (run 65, 2026-10-25). Victory Road's exit, written from
+        # inside the cave, is still refused.
+        _enter5 = next((_j for _j, _x in enumerate(subs[:_i5])
+                        if isinstance(_x, dict) and isinstance(_x.get("done_when"), dict)
+                        and str(_x["done_when"].get("map") or "") == str(_from5 or "")), None)
+        _before5 = ""
+        if _enter5 is not None:
+            _before5 = next((str(_x["done_when"].get("map") or "")
+                             for _x in reversed(subs[:_enter5])
+                             if isinstance(_x, dict) and isinstance(_x.get("done_when"), dict)
+                             and _x["done_when"].get("map")), "") or str(_map_now() or "")
+        # Which door it goes in by is the printed entrance nearest where the
+        # plan stands before it, by the road map: Vermilion is one road from
+        # Route 6's and three from Route 5's. A place with one entrance road
+        # (Seafoam, Rock Tunnel, Victory Road) is gone into from that road.
+        _elsewhere5 = False
+        _pe5 = _printed_entrances(_from5) if (_from5 and _road5) else None
+        if _pe5 and _m5 in _pe5[1] and len(_pe5[1]) > 1 and _before5 in (MAP_EDGES or {}):
+            _dist5, _q5 = {_before5: 0}, [_before5]
+            while _q5:
+                _c5 = _q5.pop(0)
+                for _n5 in (MAP_EDGES.get(_c5) or {}).values():
+                    if _n5 not in _dist5:
+                        _dist5[_n5] = _dist5[_c5] + 1
+                        _q5.append(_n5)
+            _far5 = 10 ** 6
+            _elsewhere5 = any(_dist5.get(r, _far5) < _dist5.get(_m5, _far5)
+                              for r in _pe5[1] if r != _m5)
         if (_m5 in _walked_now and _map_has_more(_m5) and not _town5
+                and not _elsewhere5
                 and not _walked_door_from_into(_from5, _m5, _vr5)
                 and not (_came_from(_from5, _m5) and not _SIDE.search(_w5)
                          and not _road5)
