@@ -1712,6 +1712,19 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
         # has not interacted with the poster yet, the rocket is still in
         # front of it"). The save knows, and so does any player: a
         # trainer you have beaten does not fight you again.
+        # ...AND A BEATEN ONE SAYS SO IN EVERY ROW, not only the never-pressed
+        # one. Mt Moon B2F's ROCKET3 was beaten ("beaten": true on the page's
+        # own observation) and his rows read "pressed 1x" from his part and
+        # "you cannot walk to it ... the ground you stood on in
+        # MT_MOON_B2F|27,5 DOES reach it" from the other, under "Every entry
+        # above may be taken"; a step waiting on an unnamed TRAINER_3 flag
+        # took him for it and shuttled between the two parts (run 65,
+        # 2026-10-24).
+        if kind == "trainer" and o.get("beaten") is True:
+            c.beaten = True
+            if c.status != "unspoken":
+                c.note = _join(c.note, "you have beaten them — there is no "
+                                       "fight left with them")
         if kind == "trainer" and o.get("beaten") is False:
             # ...BUT ONE YOU CANNOT WALK TO IS STILL ONE YOU CANNOT WALK TO.
             # "unbeaten" replaced "unreachable", so ROCKET4 on Mt Moon B2F
@@ -2017,9 +2030,12 @@ def _stuck_things(cands: list) -> list:
     When NO statue here is reachable, they stay: the lever really is out of
     reach from this floor, and that is the honest report.
     """
+    # (a trainer the save says is beaten is not a thing still to reach:
+    # Mt Moon B2F's ROCKET3, run 65)
     _stuck = [c for c in cands if c.status == "unreachable"
               and c.kind not in ("op", "door", "seam")
-              and not getattr(c, "done_elsewhere", False)]
+              and not getattr(c, "done_elsewhere", False)
+              and not (c.kind == "trainer" and getattr(c, "beaten", False))]
     if any(getattr(c, "toggle", "") and c.reachable for c in cands):
         _stuck = [c for c in _stuck if not getattr(c, "toggle", "")]
     return _stuck
