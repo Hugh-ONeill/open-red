@@ -18215,28 +18215,30 @@ class Executor:
                 if _p3 is not None:
                     seen_c.append((len(_p3), _cm, _cks[0]))
         near = ""
-        if cents:
-            cents.sort()
-            seen, rows = set(), []
-            for n, m in cents:
-                if m in seen:
-                    continue
-                seen.add(m)
-                rows.append(f"{m} ({n} leg(s))" if n else f"{m} (here)")
-            near = (" ANY Center heals; the ones you have walked into, "
-                    "nearest first over walked ground: "
-                    + ", ".join(rows[:3]) + ".")
-        if seen_c:
-            seen_c.sort()
-            _rows2, _sm = [], set()
-            for n, cm, ck in seen_c:
-                if cm in _sm:
-                    continue
-                _sm.add(cm)
-                _rows2.append(f"the doorway at ({ck}) on {cm}"
-                              + (f" ({n} leg(s))" if n else " (here)"))
-            near += (" Seen and never walked into: a building with POKé "
-                     "written across its face at " + ", ".join(_rows2[:3]) + ".")
+        # ONE LIST, NEAREST FIRST, the seen ones in their place. Two lists put
+        # the walked-into Centers first as "the ones you can use": on Route 3
+        # the line read VIRIDIAN_POKECENTER (8 legs), then the Pewter Center
+        # seen at 1 leg as an afterthought, and the run walked to Viridian
+        # (run 65, 2026-10-24).
+        rows_all, _done = [], set()
+        for n, m in sorted(cents):
+            if m in _done:
+                continue
+            _done.add(m)
+            rows_all.append((n, f"{m} ({n} leg(s))" if n else f"{m} (here)"))
+        for n, cm, ck in sorted(seen_c):
+            if ("seen", cm) in _done:
+                continue
+            _done.add(("seen", cm))
+            rows_all.append((n, f"the building with POKé written across its "
+                                f"face at ({ck}) on {cm}, seen and never "
+                                f"walked into"
+                                + (f" ({n} leg(s))" if n else " (here)")))
+        if rows_all:
+            rows_all.sort(key=lambda t: t[0])
+            near = (" ANY Center heals; the ones you know of, nearest first "
+                    "over walked ground: "
+                    + ", ".join(r for _, r in rows_all[:4]) + ".")
         # ...AND IT IS A CENTER ONLY WHEN IT IS ONE. A new game wakes at
         # PALLET_TOWN, which has no Center, and the line called it "the
         # last Pokemon Center you HEALED at": run 57's BULBASAUR at 3/30
