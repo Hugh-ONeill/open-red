@@ -12716,6 +12716,22 @@ class Executor:
                     f"this flag.")
         return out
 
+    def _empty_cell_note(self, obs, x, y) -> str:
+        """What this observation shows at a cell a press could not reach,
+        when it shows nothing there; and who this room's record has lost
+        since (see the press-by-coordinates failure in the round loop)."""
+        _m = (obs or {}).get("map") or {}
+        if any(o.get("x") == x and o.get("y") == y
+               for o in (_m.get("objects") or [])):
+            return ""
+        _left = sorted((getattr(self, "_gone", {}) or {})
+                       .get(self._where(obs)) or ())
+        return (f"Nothing this observation lists stands at ({x},{y}) now: "
+                f"no person, sign or item is there"
+                + (f". Seen in this room before and not in it now: "
+                   f"{', '.join(_left)}" if _left else "")
+                + ".")
+
     def _carried_premise_note(self, sg, obs) -> str:
         """AN EARLIER STEP CARRIED UNMET IS A PREMISE THIS STEP LACKS. The
         Bike Voucher plan's first step, travel_to_vermilion, failed and was
@@ -25426,6 +25442,21 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                         f"map too, without finding a "
                                         f"stand {name} could be reached "
                                         f"from")
+                # A PRESS AT A CELL NOBODY STANDS ON. The Game Corner Rocket
+                # was beaten at (9,5), said "I better tell BOSS!" and left;
+                # the run pressed (9,5) to ask him for the Secret Key and
+                # read "no reachable tile adjacent to target — standing on
+                # the tiles you would press from: POSTER at (9,4)" as a man
+                # still there and out of reach, rounds running (run 65,
+                # 2026-10-25). Say what this observation shows at the cell,
+                # and who this room's record has lost since.
+                if (op == "interact" and not step.get("name")
+                        and step.get("x") is not None
+                        and step.get("y") is not None
+                        and "no reachable tile adjacent" in det):
+                    _e9 = self._empty_cell_note(obs, step["x"], step["y"])
+                    if _e9:
+                        trace.append(_e9)
                 # THE SAME RECALL FOR A PRESS BY COORDINATES. Watched live
                 # (2026-08-22): the model's walk_to(21,16) was refused, it
                 # pressed (21,16) by number in the very next op — and the
