@@ -23639,6 +23639,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 f"floor: {{\"op\":\"buy\",\"item\":X,\"count\":N,"
                 f"\"clerk\":\"<its name>\"}}.")
 
+    @staticmethod
+    def _press_moved_puzzle(line) -> bool:
+        """Did this press's own result say a lock puzzle changed state —
+        a lock opened, or the locks were reset? Read from the game's words
+        in the op's result line, nothing else (see _run_traced)."""
+        return bool(_re.search(r"electric locks? (?:were reset|opened)|"
+                               r"\b(?:1st|2nd) electric lock opened",
+                               str(line or ""), _re.I))
+
     def _run_traced(self, sg, macro, ignore_done=False):
         """Run a proposed macro step-by-step, returning (done, trace, clean).
         `trace` is plain-English per-op outcomes for feedback (incl. 'ran but
@@ -23699,6 +23708,24 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     f"{len(macro) - _mi} step(s) after that were written for "
                     f"{self._macro_end_map}, so they were not made; choose "
                     f"them again from where you stand.")
+                break
+            # ...AND ONCE A PRESS SAYS THE PUZZLE MOVED, STOP PRESSING. Lt.
+            # Surge's cans were pressed six to twelve a round; the round went
+            # on after "The 1st electric lock opened!", the next wrong can
+            # reset both locks, and the cans after a reset were pressed into
+            # a puzzle the round had been written before. Run 66 spent about
+            # 30 rounds in the gym (run 65: 18). The rest of the round was
+            # chosen before the game said what changed; choose it again
+            # from what it said. Names no can.
+            if (_mi > 0 and self._macro_prev_op == "interact" and trace
+                    and self._press_moved_puzzle(trace[-1])):
+                self.log("macro_cut_lock_moved", subgoal=sg.get("id"),
+                         dropped=len(macro) - _mi)
+                trace.append(
+                    f"— stopped here: that press changed the locks, and the "
+                    f"{len(macro) - _mi} press(es) after it were chosen before "
+                    f"it did, so they were not made; choose them again from "
+                    f"what it said.")
                 break
             self._macro_end_map = _now_map
             self._macro_prev_op = op
