@@ -4354,8 +4354,10 @@ class Executor:
                     + f". Nothing you have seen of {want} lies outside that "
                       f"part: from it the seen ground ends nowhere, so there "
                       f"is no further ground in {want} to walk to from here. "
-                      f"Whatever is in {want} is in the part you are "
-                      f"standing in.")
+                      f"Whatever is in {want} is in {best[0]}.")
+                # (said before the walk, so it names the part: the run read
+                # "the part you are standing in" from SILPH_CO_5F after a go
+                # to the Pokemon Center fell short, run 66, 2026-10-25)
             else:
                 _choice_note = (
                     f"go: {best[0]} is the ONLY part of {want} you have "
