@@ -56,6 +56,14 @@ o = ex()
 r = o._note_round_trip({"id": "s"}, 1, UP, snap("A"), snap("A"), [])
 ck("a round that never left the map is not a trip (the existing gate owns it)", r == "")
 
+PADS = ("SILPH_CO_4F|10,2", '[{"op":"use_warp","x":11,"y":7},{"op":"walk_to","x":9,"y":11},{"op":"use_warp","x":9,"y":11}]', "m", 0)
+TR = ["use_warp(x=11,y=7): ok (map->SILPH_CO_10F, moved, warped)", "walk_to(9,11): ok",
+      "use_warp(x=9,y=11): ok (map->SILPH_CO_4F, moved, warped)"]
+o = ex()
+r = o._note_round_trip({"id": "s"}, 1, PADS, snap("SILPH_CO_4F"), snap("SILPH_CO_4F"), list(TR))
+ck("a round that warps out and back is a round trip (run 66, Silph 4F/10F pads)",
+   r == "SILPH_CO_4F -> SILPH_CO_10F -> SILPH_CO_4F" and PADS in o._spent_macros)
+
 src = (ROOT / "planner/executor.py").read_text()
 ck("the round loop calls it before the feedback is logged",
    src.index("self._note_round_trip(sg, rnd,") < src.index('self.log("escalate_feedback", subgoal=sg["id"], round=rnd,'))

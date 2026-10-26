@@ -23279,16 +23279,28 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         if news or mac_key is None or a is None or b is None:
             trail.clear()
             return ""
-        trail.append((mac_key, a, b))
+        # ...AND A ROUND CAN BE THE WHOLE TRIP. Silph 4F's (11,7) pad up to
+        # 10F, a walk, and 10F's (9,11) pad back down ran as ONE macro three
+        # rounds running: each began and ended on 4F, so no round "changed
+        # map" by its ends and the stretch was never called a loop (run 66,
+        # 2026-10-25). A warp inside the round is a map change too.
+        _hop = [m.group(1) for t in (trace or [])
+                for m in _re.finditer(r"map->([A-Z0-9_]+)", str(t))]
+        trail.append((mac_key, a, b, _hop))
         del trail[:-4]
         for j in range(len(trail) - 1, -1, -1):
             if trail[j][1] != b:
                 continue
             leg = trail[j:]
-            if not any(t[1][0] != t[2][0] for t in leg):
+            if not any(t[1][0] != t[2][0] or t[3] for t in leg):
                 continue
-            path = " -> ".join([str(leg[0][1][0])] + [str(t[2][0]) for t in leg])
-            for k, _a, _b in leg:
+            _stops = [str(leg[0][1][0])]
+            for t in leg:
+                for m in list(t[3]) + [str(t[2][0])]:
+                    if m != _stops[-1]:
+                        _stops.append(m)
+            path = " -> ".join(_stops)
+            for k, _a, _b, _h in leg:
                 rec = self._spent_macros.setdefault(k, {"n": 0, "why": ""})
                 rec["n"] = max(int(rec.get("n") or 0), 1)
                 rec["why"] = (f"it was a round trip — {path} — ending where "
