@@ -22235,7 +22235,15 @@ class Executor:
                 continue
             op = str(nxt.get("op"))
             aimed = nxt.get("name") is not None or nxt.get("x") is not None
-            finds_own_way = (op in cls.SELF_WALKING_OPS
+            # ...BUT AN ITEM USED ON NO SLOT ACTS FROM WHERE YOU STAND. The
+            # flute played from (30,2) did nothing ("A field item acts on what
+            # you are standing RIGHT NEXT TO"); [walk_to (26,11), use_item
+            # POKE_FLUTE] beside the Snorlax was the fix, and it was refused
+            # five rounds as the same ops behind a decoy walk (run 66,
+            # 2026-10-25). A potion on slot 3 finds its own way; a flute or a
+            # rod is the walk before it.
+            _here_item = op == "use_item" and nxt.get("slot") is None
+            finds_own_way = ((op in cls.SELF_WALKING_OPS and not _here_item)
                              or (op in ("interact", "use_warp", "field_move")
                                  and aimed))
             if finds_own_way:

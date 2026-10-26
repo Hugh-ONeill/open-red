@@ -58,6 +58,13 @@ door = {"op": "use_warp", "x": 12, "y": 19}
 ck("a walk before a door op is not", K([W(12, 20), door]) == ([door], 1))
 go = {"op": "go", "to": "ROUTE_5"}
 ck("a walk before a go is not", K([W(1, 1), go]) == ([go], 1))
+# run 66, 2026-10-25: the flute played from the wrong cell did nothing, and
+# the walk beside the Snorlax was the fix
+flute = {"op": "use_item", "item": "POKE_FLUTE"}
+potion = {"op": "use_item", "item": "POTION", "slot": 3}
+ck("a walk before an item used on no slot is kept (it acts from where you stand)",
+   K([W(26, 11), flute]) == ([W(26, 11), flute], 0))
+ck("...but one before an item on a party slot is not", K([W(2, 2), potion]) == ([potion], 1))
 ck("a trailing walk is left to the strip that owns it", K([P14, W(3, 9)]) == ([P14, W(3, 9)], 0))
 ck("non-dict entries are ignored", K([None, "x", P14]) == ([P14], 0))
 ck("an empty macro keys empty", K([]) == ([], 0) and K(None) == ([], 0))
