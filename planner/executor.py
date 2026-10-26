@@ -9677,6 +9677,22 @@ class Executor:
             _out_now = ((after_obs or {}).get("map") or {}).get("outdoor")
             _from_in = (((before_obs or {}).get("map") or {})
                         .get("outdoor") is False)
+            # ...BUT A CAR'S DOOR LEADS WHERE THE PANEL SAYS. Stepping into
+            # the Silph car from 1F filed "(1,3) -> 1F" on the car; `go`
+            # from 5F to the Pokemon Center then walked into the car and
+            # straight out of that door, onto 5F, with no ride (run 66,
+            # 2026-10-25). What entering proves is that the car serves the
+            # floor you came from: the same lift edge a ride there writes.
+            if (dmap.endswith("_ELEVATOR")
+                    or ((after_obs or {}).get("map") or {}).get("lift_floors")):
+                if _smap != dmap:
+                    _back = self.explored.setdefault(dst, {})
+                    _lk = f"lift:{_smap}"
+                    if _lk not in _back:
+                        _back[_lk] = {"to": src, "n": 0}
+                        self.log("reverse_edge", frm=dst, via=_lk, to=src)
+                        self._save_memory()
+                return
             for _w in ((after_obs or {}).get("map") or {}).get("warps") or []:
                 _wk = f"{_w.get('x')},{_w.get('y')}"
                 try:
