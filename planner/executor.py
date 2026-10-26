@@ -30381,6 +30381,41 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         self.log("party_floor", goal=leg, floor=PARTY_FLOOR, size=size)
         return PARTY_FLOOR
 
+    @staticmethod
+    def _resume_before_deed(subgoals, resume, at0):
+        """(resume, deed id or None). The resume point is the furthest
+        positional step that holds where the party stands; when a deed
+        before it has not happened, the deed is not started from there.
+        Leg 31 v3 was enter_silph_co {map 1F} / reach_giovanni {map 11F} /
+        defeat_giovanni {flag} / exit_silph_co {map SAFFRON_CITY} / ...,
+        written from Saffron; exit_silph_co held where it stood, so the two
+        travel steps were honored and the Giovanni step began on the
+        street, where the model went back to pressing the gym's Rockets
+        (run 66, 2026-10-25). The resume is looked for again before the
+        first deed that has not happened."""
+        _pos = {"map", "area", "not_area", "player_at"}
+        for j in range(resume):
+            dwj = subgoals[j].get("done_when")
+            if not isinstance(dwj, dict) or pred_keys(dwj) <= _pos:
+                continue
+            try:
+                if pred_holds(dwj, at0) is not False:
+                    continue
+            except Exception:
+                continue
+            for i in range(j - 1, -1, -1):
+                dw = subgoals[i].get("done_when")
+                if not (isinstance(dw, dict) and ("map" in dw or "area" in dw)
+                        and pred_keys(dw) <= _pos):
+                    continue
+                try:
+                    if pred_holds(dw, at0):
+                        return i + 1, subgoals[j].get("id")
+                except Exception:
+                    continue
+            return 0, subgoals[j].get("id")
+        return resume, None
+
     def run_plan(self, plan: dict) -> bool:
         self._ruled_out_ids = set()
         # WHICH HARNESS PLAYED THIS ATTEMPT. Fixes land at the next boot,
@@ -30509,6 +30544,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     break
             except Exception:
                 continue
+        # ...AND A WAYPOINT PAST AN UNDONE DEED IS NOT WHERE THE DEED STARTS
+        # (see _resume_before_deed).
+        _was, _deed = resume, None
+        resume, _deed = self._resume_before_deed(subgoals, resume, at0)
+        if _deed:
+            self.log("resume_held_before_deed", deed=_deed, was=_was, now=resume)
         idx = -1
         self._plan_regress = None
         # ...AND WHETHER ANY STEP HAS ACTUALLY RUN. The "objective already
