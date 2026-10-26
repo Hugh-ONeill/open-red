@@ -52,6 +52,23 @@ ck("not in a part the step does not rule out",
 ck("not for a step that asks anything else",
    ex._new_part_ruled_out({"id": "x", "done_when": {"map": "ROUTE_3"}}, obs()) is None)
 
+# run 67, 2026-10-26: "a part of ROUTE_4 not 4,4" from the west mouth, with
+# Mt Moon (its door) still holding ladders never taken
+ex4 = object.__new__(E.Executor)
+ex4._where = lambda o: f"{o['map']['id']}|{o['map']['region']}"
+ex4.explored = {"ROUTE_4|4,4": {"18,5": {"to": "MT_MOON_1F|3,2", "n": 3},
+                                "11,5": {"to": "MT_MOON_POKECENTER|0,3", "n": 1}},
+                "MT_MOON_B2F|23,21": {"15,27": {"to": "MT_MOON_B1F|24,14", "n": 1}}}
+ex4.visits = {"MT_MOON_B1F|4,4": 1}
+ex4._frontier_left = lambda r: ["21,17"] if r == "MT_MOON_B2F|23,21" else []
+SG4 = {"id": "exit_mt_moon_east", "done_when": {"map": "ROUTE_4", "not_area": ["ROUTE_4|4,4"]}}
+o4 = obs(id="ROUTE_4", region="4,4")
+ck("not while a door of the map leads into a place with ways never taken",
+   ex4._new_part_ruled_out(SG4, o4) is None, ex4._new_part_ruled_out(SG4, o4))
+ex4._frontier_left = lambda r: []
+ck("...but answered once that place has none left",
+   bool(ex4._new_part_ruled_out(SG4, o4)))
+
 src = (ROOT / "planner/executor.py").read_text()
 ck("checked at step entry, before a replay, and each escalation round",
    src.count("self._new_part_ruled_out(sg,") == 3)

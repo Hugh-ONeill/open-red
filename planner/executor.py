@@ -3346,6 +3346,24 @@ class Executor:
             return None
         if m.get("frontier"):
             return None
+        # ...AND NOT WHILE A DOOR OF THIS MAP LEADS INTO A PLACE WITH WAYS
+        # NEVER TAKEN. The words below say "a part of it entered from another
+        # map is not ruled out", and the step was skipped as answered all the
+        # same: "a part of ROUTE_4 not 4,4" was ended on round 1 from the
+        # west mouth while Mt Moon, its door, still had ladders never taken
+        # and its far mouth unfound (run 67, 2026-10-26). The road case it was
+        # written for (run 29, ROUTE_3) has no door into anywhere unfinished.
+        _fam = lambda r: _re.sub(r"_(B?\d+F|ROOF|ELEVATOR)$", "", str(r).split("|")[0])
+        _exd = getattr(self, "explored", None) or {}
+        _into = {_fam((e or {}).get("to")) for r, ex in _exd.items()
+                 if str(r).split("|")[0] == mp
+                 for k, e in (ex or {}).items()
+                 if isinstance(e, dict) and "," in str(k)
+                 and not str(k).startswith(("walk:", "lift:"))
+                 and _fam((e or {}).get("to")) not in ("", _fam(mp))}
+        if _into and any(_fam(r) in _into and self._frontier_left(r)
+                         for r in list(_exd) + list(getattr(self, "visits", None) or {})):
+            return None
         su = m.get("seen_unreached") or {}
         if int(su.get("n") or 0) - int(su.get("beside_n") or 0) > 0:
             # ...UNLESS WHAT IS LEFT IS PAST A BUSH THE PARTY CANNOT CUT.
