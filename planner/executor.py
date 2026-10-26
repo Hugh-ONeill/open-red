@@ -13606,8 +13606,6 @@ class Executor:
         said = str(plan_said or "")
         mid = str(((obs or {}).get("map") or {}).get("id") or "")
         rows = (getattr(self, "_shelves", None) or {}).get(mid)
-        if not rows or not said:
-            return ""
         words = _re.sub(r"[^A-Z0-9_ ]+", " ", said.upper()).split()
         named = set()
         for n in (1, 2, 3):
@@ -13615,6 +13613,33 @@ class Executor:
                 cand = "_".join(words[i:i + n])
                 if cand in _ITEM_IDS:
                     named.add(cand)
+        # ...AND A PRIZE COUNTER IS A COUNTER TOO. The three vendors of the
+        # Celadon prize room were read (ABRA ... TM50, no SECRET_KEY), and
+        # the run wrote "the Secret Key is not available with my current
+        # 2044 coins" and went back to the slots to win more (run 66,
+        # 2026-10-25). With every counter in the room read, an item none of
+        # them lists is not a prize here, whatever the coins.
+        _pz = (getattr(self, "_prize_lists", None) or {}).get(mid) or {}
+        if _pz and said and not rows:
+            _unread = {
+                str(n) for reg, names in (getattr(self, "sightings", None) or {}).items()
+                if str(reg).split("|")[0] == mid
+                for n in (names or [])
+                if "PRIZE_VENDOR" in str(n) and str(n) not in _pz}
+            _offered = " ".join(" ".join(r) for r in _pz.values()).upper()
+            _offsq = _re.sub(r"[^A-Z0-9]+", "", _offered)
+            _miss = sorted(x for x in named
+                           if _re.sub(r"[^A-Z0-9]+", "", x) not in _offsq
+                           and not x.startswith(("TM_", "HM_")))
+            if _miss and not _unread:
+                return (f"(You said {', '.join(_miss)}, and none of the "
+                        f"{len(_pz)} prize counter(s) here lists it — every "
+                        f"counter in this room has been read, and what they "
+                        f"offer is on this page with its price. It is not a "
+                        f"prize here at any number of coins. Nothing here "
+                        f"says where it IS; only that it is not here.)")
+        if not rows or not said:
+            return ""
         missing = sorted(x for x in named if x not in set(rows))
         if not missing:
             return ""
