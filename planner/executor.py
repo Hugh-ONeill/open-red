@@ -20383,8 +20383,13 @@ class Executor:
         for region, names in self.sightings.items():
             if region == here:
                 continue
-            got = self._tried_objs.get(region, set())
-            left = [n for n in names if n not in got
+            # the ledger's own subtraction: a press from any part of the
+            # map, a thing gone, and a trainer the screen showed beaten all
+            # count. This kept its own (this part only, nothing beaten), so
+            # Mt Moon 1F's four beaten trainers, pressed from the other
+            # part, read "SEEN ... never touched" (run 67, 2026-10-26).
+            _ut = set(ledger.untouched_in(self, region))
+            left = [n for n in names if n in _ut
                     and not self._lever_already_thrown(n, region)]
             if not left:
                 continue
