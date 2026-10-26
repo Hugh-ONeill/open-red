@@ -6826,6 +6826,16 @@ class Executor:
         # place that must not learn a road from it.
         if self._faint_at:
             return
+        # A PAD RIDE IS NOT A WALK EITHER. Silph 8F's (11,9) pad put the
+        # party in the floor's |1,1 part and this wrote walk edges both
+        # ways beside the pad's own; `go` then led with "walk:8F|14,0"
+        # from a pocket no walk leaves, and spent a round on "no path"
+        # (run 66, 2026-10-25). A walk never ends on a warp tile: standing
+        # on one now means one put you here.
+        _pp = self._pos(obs)
+        if any(isinstance(w, dict) and (w.get("x"), w.get("y")) == _pp
+               for w in (((obs or {}).get("map") or {}).get("warps") or [])):
+            return
         e = self.explored.setdefault(prev, {})
         k = f"walk:{here}"
         rec = e.setdefault(k, {"n": 0, "to": here, "intra": True})
