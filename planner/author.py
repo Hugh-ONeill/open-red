@@ -8659,7 +8659,19 @@ def _premise_item_not_held(why: str, start: str) -> str | None:
         pat = (r"\b(obtained|has|have|got|gotten|holds|holding|acquired|received|"
                r"carrying|carries|possesses|owns|own)\b[^.;]{0,40}?\b"
                + re.escape(pretty) + r"\b")
-        if re.search(pat, w, re.I):
+        for m in re.finditer(pat, w, re.I):
+            # ...AND A HOLDING SAID UNDER "ONCE" OR "UNTIL" IS A CONDITION.
+            # "the Rocket members only leave the Saffron Gym once the player
+            # has defeated the boss of Silph Co. and obtained the Master
+            # Ball" claims nothing is held; it was turned down as "your
+            # reason says you hold MASTER_BALL" and the right leg went with
+            # it (run 66, 2026-10-25).
+            # (a sentence ends at a stop before a capital: "Silph Co. and"
+            # is one clause)
+            _cl = re.split(r"[;,]|\.\s+(?=[A-Z])", w[:m.start()])[-1]
+            if re.search(r"\b(once|until|unless|after|before|when|whenever|"
+                         r"if|till)\b", _cl, re.I):
+                continue
             if re.sub(r"[^A-Z]+", "", it.upper()) not in have:
                 return it
     return None
@@ -8865,6 +8877,13 @@ def _blocks_a_place_you_have_walked(why: str, observed=None) -> str | None:
         if len(_spoken) < 5:
             continue
         for _m in _re.finditer(_re.escape(_spoken), _w, _re.I):
+            # ...AND A NAME THAT GOES ON IS ANOTHER PLACE. "block the
+            # entrance to the Saffron City Gym" read as the way into
+            # SAFFRON_CITY, walked, and the Giovanni leg was turned down
+            # on it (run 66, 2026-10-25). A capitalized word straight after
+            # is the rest of the name.
+            if _re.match(r"\s+[A-Z][a-z]", _w[_m.end():]):
+                continue
             if _BLOCK_TO.search(_w[:_m.start()]):
                 return _map
     return None
