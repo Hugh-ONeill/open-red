@@ -2327,10 +2327,20 @@ def validate(plan: dict) -> list:
                     (f"REMOVE {tag} ({sid}) and end the leg on the step before "
                      f"it, or give {tag} a condition from the list above that "
                      f"only this deed makes true"))
-            probs[-1] += (f" No event in this game's list begins with {_stem}, "
-                          f"and whether it keeps one under another name is not "
-                          f"yours to look up. Two edits work, nothing else will: "
-                          f"{_fix}. Do not spell another event name.")
+            # ...AND "NONE BEGINS WITH" ONLY WHEN NONE DOES. Guessed as
+            # EVENT_BEAT_GIOVANNI_SILPH, this said no event begins with
+            # EVENT_BEAT_GIOVANNI — which is itself one — and of
+            # EVENT_SILPH_CO_BOSS_DEFEATED that none begins with
+            # EVENT_SILPH_CO, with eleven door events that do (run 66,
+            # 2026-10-25). Which ones they are is still not said.
+            _none = not any(str(f).startswith(_stem) for f in (ENGINE_FLAGS or ()))
+            probs[-1] += ((f" No event in this game's list begins with {_stem}, "
+                           f"and whether it keeps one under another name is not "
+                           f"yours to look up." if _none else
+                           f" Whether this game keeps an event for it, and under "
+                           f"what name, is not yours to look up.")
+                          + f" Two edits work, nothing else will: "
+                            f"{_fix}. Do not spell another event name.")
     # A PLACE IS NOT THE DEED. Leg 11 of run 13 ("Chase the Team Rocket
     # thief out of the burgled house") ended on confront_thief:
     # {"map":"CERULEAN_CITY"} — walking out of the house satisfied it, the
@@ -4054,6 +4064,18 @@ OWN_WITNESS: set = set()
 WITNESS_FILE = Path("run/leg_witness.json")
 
 
+_PLACE_STEMS = None
+
+
+def _place_stems() -> set:
+    """Five-letter stems of every word in this game's map ids."""
+    global _PLACE_STEMS
+    if _PLACE_STEMS is None:
+        _PLACE_STEMS = {w[:5] for m in (ROUTE_MAPS or ())
+                        for w in re.findall(r"[A-Z]{4,}", str(m).upper())}
+    return _PLACE_STEMS
+
+
 def _flag_shares_a_word(flag: str, goal: str) -> bool:
     """Does this event's name share a word with the objective's? Stems of
     five letters, so GUARDS is GUARD and BATTLED is BATTLE.
@@ -4075,7 +4097,11 @@ def _flag_shares_a_word(flag: str, goal: str) -> bool:
     gl = _stems(goal, {"THE", "FROM", "WITH", "INTO", "THAT", "THIS", "FIRST",
                        "TIME", "OBTAIN", "RECEIVE", "RETRIEVE", "DEFEAT",
                        "REACH", "CLEAR"})
-    return bool(ev & gl)
+    # ...AND A PLACE IS NOT THE DEED. "Defeat Giovanni in the Silph Co.
+    # building" kept EVENT_SILPH_CO_9_UNLOCKED_DOOR4 on SILPH alone, and the
+    # judge crossed the leg off on a door (run 66, 2026-10-25). A word every
+    # event of a building carries says where, not what.
+    return bool((ev & gl) - _place_stems())
 
 
 def _record_witness(goal: str) -> None:
