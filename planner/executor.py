@@ -19738,11 +19738,33 @@ class Executor:
                         and static_cost(_doorstep(r.split("|")[0]), _goal,
                                         {}, _links) == _pick[3]
                         and (self._route(here, r) is not None))
+                    # ...AND A BUILDING IS ENTERED FROM ITS OWN STREET. Aimed
+                    # at SAFFRON_GYM from Silph Co. 10F, this said "0 leg(s)
+                    # from this map" and listed SAFFRON_CITY|12,0 as one of
+                    # 22 equal parts beside Silph's own floors, alphabetical;
+                    # the run rode Silph's pads and stairs looking for a way
+                    # out to the gym (run 66, 2026-10-25). The map counts
+                    # every room of a town as the town; the town's own ground
+                    # is what a building of it opens onto, so it goes first,
+                    # and a page standing in another building says so.
+                    _ties.sort(key=lambda r: r.split("|")[0] != _goal)
+                    _inside = ""
+                    _hm = here.split("|")[0]
+                    if (_ties and want_map != _goal and _hm != _goal
+                            and _ties[0].split("|")[0] == _goal):
+                        _counts = ("the printed map counts"
+                                   if self._holding_town_map(obs)
+                                   else "your own walking counts")
+                        _inside = (f" {want_map} is a building of {_goal}, "
+                                   f"and you are inside {_hm}, another one "
+                                   f"{_counts} as {_goal}; a building's "
+                                   f"door is on its town's own ground, and "
+                                   f"the walked part of that is {_ties[0]}.")
                     if _ties:
                         route_line = (
                             f"\n{'The printed map' if self._holding_town_map(obs) else 'Your own walking'} puts {want_map} {_pick[3]} "
                             f"leg(s) from this map, and you are standing on "
-                            f"a part of it you have walked. It CANNOT say "
+                            f"a part of it you have walked.{_inside} It CANNOT say "
                             f"which part touches the way on — these other "
                             f"walked parts are exactly as near by that "
                             f"measure and are different places: "
