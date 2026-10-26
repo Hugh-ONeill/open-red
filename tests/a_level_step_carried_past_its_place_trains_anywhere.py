@@ -42,7 +42,7 @@ for dw in ({"slot_level": {"slot": 1, "min": 35}}, {"party_min_level": 35},
     t = note(dw)
     ck(f"{list(dw)[0]}: the carried place is still said", "written for someone standing in ROUTE_17" in t, t)
     ck(f"{list(dw)[0]}: ...and that a level names no place", SAY in t
-       and "a wild fought on any ground counts toward it" in t, t)
+       and "wherever wild POKEMON appear counts toward it" in t, t)
 for dw in ({"party_type": "FLYING"}, {"map": "FUCHSIA_CITY"},
            {"party_min_level": 35, "map": "ROUTE_17"}):
     t = note(dw)

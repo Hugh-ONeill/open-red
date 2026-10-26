@@ -12841,8 +12841,10 @@ class Executor:
         if _sdw and set(_sdw) <= {"slot_level", "lead_level", "party_min_level"}:
             lines.append(f"This step's condition ({', '.join(sorted(_sdw))}) names no "
                          f"place: where its words say to train was the plan-writer's "
-                         f"choice, not part of the condition, and a wild fought on any "
-                         f"ground counts toward it.")
+                         f"choice, not part of the condition, and a wild fought "
+                         f"wherever wild POKEMON appear counts toward it.")
+            # ("on any ground" read as "a building floor counts as wild
+            # ground": Silph 2F, grind earned 0 exp, run 66, 2026-10-25)
         return "\nPREMISE UNMET: " + " ".join(lines)
 
     def _area_ids_note(self, done, obs) -> str:
