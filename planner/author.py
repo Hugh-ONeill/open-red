@@ -3957,20 +3957,40 @@ def witness_already_true_problems(plan: dict, obs: dict | None = None) -> list:
     # a CARD KEY!") before the plan was written, so the step read done on
     # entry and the plan walked on with the door shut (run 66, 2026-10-25).
     _got = _ledger_names("touched")
-    for sg in subs[:-1]:
+    # ...AND A TRAINER ALREADY BEATEN HAS NOTHING LEFT BUT A LINE. Leg 8 of
+    # run 67 ended "Navigate Mt. Moon" on spoke_to of six 1F trainers, every
+    # one beaten when they walked up (never pressed), and walked the run
+    # back up from B2F, away from the exit, to hear them (2026-10-26). The
+    # screen's own "beaten" is kept in the ledger (beaten_seen, next262).
+    try:
+        _beat = set(json.loads(Path("run/explored.json").read_text())
+                    .get("beaten_seen") or [])
+    except (OSError, ValueError, TypeError, AttributeError):
+        _beat = set()
+    for sg in subs:
         dw = (sg or {}).get("done_when")
         if not (isinstance(dw, dict) and set(dw) == {"spoke_to"}):
             continue
         v = dw["spoke_to"]
         names = [v] if isinstance(v, str) else [str(n) for n in v or []]
-        if names and all(n in _got for n in names):
-            return [f"subgoal ({sg.get('id')}) done_when "
-                    f"{pred_text.dumps(dw)} ALREADY HOLDS: this run has "
-                    f"pressed {', '.join(names)} before, so the step counts "
-                    f"as done the moment it starts and nothing it says is "
-                    f"done. End it on what the deed changes instead: a "
-                    f"place not yet stood in, an item gained or gone, a "
-                    f"flag that fires."]
+        if not names or not all(n in _got or n in _beat for n in names):
+            continue
+        if sg is subs[-1] and not any(n in _beat for n in names):
+            continue                  # the objective rule above owns presses
+        _won = [n for n in names if n in _beat]
+        return [f"subgoal ({sg.get('id')}) done_when "
+                f"{pred_text.dumps(dw)} ALREADY HOLDS"
+                + (f": {', '.join(_won)} "
+                   f"{'is' if len(_won) == 1 else 'are'} already beaten — the "
+                   f"screen shows it — so the fight this step is for is over "
+                   f"and pressing them only hears a line" if _won else "")
+                + (f"; this run has pressed "
+                   f"{', '.join(n for n in names if n not in _beat)} before"
+                   if any(n not in _beat for n in names) else "")
+                + ". The step counts as done the moment it starts and nothing "
+                  "it says is done. End it on what the deed changes instead: "
+                  "a place not yet stood in, an item gained or gone, a flag "
+                  "that fires."]
     return []
 
 

@@ -50,6 +50,18 @@ try:
     p = A.witness_already_true_problems(
         plan({"spoke_to": ["SILPHCO10F_ROCKET", "SILPHCO10F_SCIENTIST"]}), OBS)
     ck("a list with someone not yet pressed stands", p == [], p)
+    # run 67, 2026-10-26: Mt Moon 1F's trainers fought on sight, never pressed
+    (d / "run/explored.json").write_text(json.dumps(
+        {"touched": {}, "beaten_seen": ["MTMOON1F_HIKER", "MTMOON1F_YOUNGSTER1"]}))
+    nav = {"goal": "Navigate Mt. Moon", "subgoals": [
+        {"id": "up", "done_when": {"area": "MT_MOON_1F|3,2"}},
+        {"id": "clear", "done_when": {"spoke_to": ["MTMOON1F_HIKER", "MTMOON1F_YOUNGSTER1"]}}]}
+    p = A.witness_already_true_problems(nav, OBS)
+    ck("a last step on trainers the screen showed beaten is refused",
+       p and "already beaten" in p[0] and "MTMOON1F_HIKER" in p[0], p)
+    nav["subgoals"][1]["done_when"]["spoke_to"].append("MTMOON1F_SUPER_NERD")
+    p = A.witness_already_true_problems(nav, OBS)
+    ck("...but one with a trainer not yet beaten stands", p == [], p)
 finally:
     os.chdir(here)
 
