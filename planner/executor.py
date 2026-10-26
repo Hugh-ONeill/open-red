@@ -25824,6 +25824,31 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _sh = _re.search(
                     r"shelf, which holds: ([A-Z0-9_, ]+)", det)
                 _alone = "THIS FLOOR HAS OTHER COUNTERS" not in det
+                # ...AND A FLOOR WHOSE EVERY COUNTER HAS BEEN READ IS READ.
+                # Celadon 2F's two clerks were read on consecutive rounds,
+                # neither stocking FRESH_WATER, and each reading pointed at
+                # the other as "reads that one instead" — the counter read
+                # the round before (run 67, 2026-10-26). Each counter's own
+                # shelf is kept for this floor; once every counter the
+                # result names is on that record without the item, it says
+                # so. Which floor or shop does stock it is not said.
+                _ck = _re.search(r" is not on ([A-Z0-9_]+)'s shelf", det)
+                _cmap = ((obs or {}).get("map") or {}).get("id")
+                if _sh and _ck and _cmap and not _alone:
+                    _cs = self.__dict__.setdefault("_counter_shelves", {})
+                    _cs.setdefault(_cmap, {})[_ck.group(1)] = [
+                        x.strip() for x in _sh.group(1).split(",") if x.strip()]
+                    _oth = _re.search(r"carry different stock: ([A-Z0-9_, ]+?) —", det)
+                    _names = ([x.strip() for x in _oth.group(1).split(",")]
+                              if _oth else []) + [_ck.group(1)]
+                    _it = str(step.get("item") or "")
+                    _read = _cs.get(_cmap) or {}
+                    if _it and all(n in _read and _it not in _read[n] for n in _names):
+                        trace.append(
+                            f"EVERY COUNTER ON {_cmap} HAS NOW BEEN READ — "
+                            f"{', '.join(sorted(_names))} — and none of "
+                            f"them stocks {_it}: it is not sold on this "
+                            f"floor. Nothing here says where it IS sold.")
                 if _sh:
                     _cm = ((obs or {}).get("map") or {}).get("id")
                     if _cm and _alone:
