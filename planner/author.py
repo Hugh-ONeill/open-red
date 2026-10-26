@@ -2230,6 +2230,24 @@ def _new_map_from_shut(src: str, path: str = "run/explored.json") -> str:
           if r.split("|")[0] == src}
     if not fh or any(int(v or 0) > 0 for v in fh.values()):
         return ""
+    # ...AND NOT WHILE SOMEONE IN IT HAS NEVER BEEN PRESSED. A way out can
+    # be opened by a press: the Game Corner's stairs down stand behind a
+    # poster a Rocket guards, and "enter the Rocket base" from GAME_CORNER
+    # was refused on its two front doors with the Rocket, nine gamblers and
+    # a clerk never spoken to; the leg failed and the outline pulled a
+    # Secret Key leg in front of it (run 67, 2026-10-26). Signs read, slot
+    # machines play, and a trainer already beaten has nothing left to open.
+    _got = {str(n) for r, v in (d.get("touched") or {}).items()
+            if r.split("|")[0] == src for n in (v or [])}
+    _gone = {str(n) for r, v in (d.get("gone") or {}).items()
+             if r.split("|")[0] == src for n in (v or [])}
+    _beat = set(d.get("beaten_seen") or [])
+    _left = {str(n) for r, v in (d.get("sightings") or {}).items()
+             if r.split("|")[0] == src for n in (v or [])
+             if not str(n).startswith(("SIGN_", "SLOT_MACHINE", "ITEM_", "CUT_TREE"))
+             } - _got - _gone - _beat
+    if _left:
+        return ""
     seen = {r.split("|")[0] for r in (d.get("visits") or {})}
     # ...AND A LAST_MAP DOOR LEADS BACK OUTSIDE, to a map already stood on:
     # the door table files it as LAST_MAP (the walk through a two-sided gate
