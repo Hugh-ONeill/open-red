@@ -26973,14 +26973,25 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 ((start or {}).get("map") or {}).get("id"))
             redo_note = ""
             if redo:
+                # A GUESS IS SAID AS ONE. This used to read "turned out to be
+                # impossible from here, which means this map has more than one
+                # area ... and you reached the wrong one": the gym step had
+                # failed on a Rocket standing in the door ("Get out of the
+                # way!"), and the run, told it was in the wrong part of
+                # Saffron, wrote "the previous objective failed because I was
+                # at the wrong location within the city" and walked to Route
+                # 7 (run 66, 2026-10-25). Which part of a map leads on is a
+                # claim; that the next step was not done is the record.
                 redo_note = (
-                    "\n\nREDO: you ALREADY satisfy DONE_WHEN — but you are in "
-                    "the WRONG PLACE. The next objective (" + blocked_by +
-                    ") turned out to be impossible from here, which means this "
-                    "map has more than one area that satisfies DONE_WHEN and "
-                    "you reached the wrong one. Get to a DIFFERENT place that "
-                    "also satisfies it — typically by going back the way you "
-                    "came and taking another route. Standing still is failure.")
+                    "\n\nREDO: you ALREADY satisfy DONE_WHEN, and the next "
+                    "objective (" + blocked_by + ") was not done from where "
+                    "you stood. This map has other parts you have walked that "
+                    "also satisfy DONE_WHEN, and one of them may lead on where "
+                    "this one did not; whether that is why, or whether what "
+                    "stopped you is something on the way that is not passable "
+                    "yet, this page's record of what was tried and said is the "
+                    "evidence. This step is done when you stand in a DIFFERENT "
+                    "part that satisfies DONE_WHEN.")
             memory = self.exploration_text(start, self._target_key(sg), sg)
             if USE_LEDGER:
                 memory += self._reset_flag_note(start, sg)
