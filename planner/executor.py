@@ -3215,10 +3215,18 @@ class Executor:
                     if isinstance(s2, dict) and s2.get("id") == sg.get("id")), None)
         if idx is None or idx == len(subs) - 1:
             return None
+        # ...AND A LATER FLAG THAT WAS SET BEFORE THE PLAN BEGAN PROVES NO
+        # PASSING. Leg 29 of run 67 put save_mr_fuji {flag EVENT_GOT_POKEDEX}
+        # after three Tower waypoints; the flag was Oak's, from the first
+        # hour, and all three read as passed at entry (2026-10-26).
+        _pre = getattr(self, "_flags_at_plan", None) or set()
         for s2 in subs[idx + 1:]:
             if not isinstance(s2, dict):
                 return None
             dw2 = s2.get("done_when")
+            if (isinstance(dw2, dict) and set(dw2) == {"flag"}
+                    and dw2.get("flag") in _pre):
+                return None
             try:
                 if dw2 and pred_holds(dw2, obs):
                     return s2.get("id")
@@ -30715,6 +30723,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         # what the record says of a THROUGH objective as the plan starts:
         # only a change from here is news (see _leg_through_now)
         self._thr_at_start = self._leg_through_now()
+        # the flags set as the plan begins, for _waypoint_passed: a later
+        # step on one of these was true before anything was walked
+        self._flags_at_plan = set(((self.settle() or {}).get("flags")) or [])
         self._leg_met_by_record = ""
         while idx + 1 < len(subgoals):
             idx += 1

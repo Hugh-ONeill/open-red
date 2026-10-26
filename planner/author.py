@@ -2839,6 +2839,27 @@ def validate(plan: dict) -> list:
                 f"'{fl}', which ALREADY FIRED earlier in this run — it holds "
                 f"before the plan takes a single step, so it cannot witness "
                 f"this leg's deed. End on what THIS deed leaves behind.")
+    # ...AND A MIDDLE STEP ON ONE IS DONE BEFORE IT STARTS. Leg 29 of run 67
+    # put save_mr_fuji {flag EVENT_GOT_POKEDEX} — Oak's gift from the first
+    # hour — between climbing the Tower and the flute, so the rescue read as
+    # done at entry and the plan walked on to an empty house (2026-10-26).
+    # Not a witness either: only the last step's flag is kept for the judge.
+    if subs and len(subs) > 1:
+        _fired_m = set(fired_flags())
+        _lv_m = _live_flags()
+        for i, s0 in enumerate(subs[:-1]):
+            if not isinstance(s0, dict):
+                continue
+            dw0 = s0.get("done_when") or {}
+            fl = dw0.get("flag") if isinstance(dw0, dict) else None
+            if (fl and set(dw0) == {"flag"} and fl in _fired_m
+                    and (_lv_m is None or fl in _lv_m)):
+                probs.append(
+                    f"subgoal[{i}] ({s0.get('id')}) ends on flag '{fl}', "
+                    f"which ALREADY FIRED earlier in this run — it holds "
+                    f"before the plan takes a single step, so this step "
+                    f"counts as done the moment it starts and its deed is "
+                    f"not waited for. End it on what THIS deed leaves behind.")
     # A FLAG THAT FIRED AND IS NOT SET NOW cannot be waited on from
     # anywhere (see reset_flag_problem). Every subgoal, not just the last.
     _fired_now = set(fired_flags()) if subs else set()
