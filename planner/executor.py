@@ -5189,6 +5189,15 @@ class Executor:
             if (self._same_area(here, region) or self._same_area(region, here)
                     or self._same_place(here, region)):
                 continue
+            # ...NOR A LIFT CAR. Its one doorway is re-pointed by the panel,
+            # so it reads as an exit never taken from every floor, and its
+            # panel as a thing never pressed; the row text skips cars for
+            # that (ledger._left_parts), and this picker did not. Each round
+            # of "elevator B4F, explore" in the Rocket Hideout rode down and
+            # was walked straight back into the car (run 66, 2026-10-25).
+            # Riding is the elevator op's, chosen by the model.
+            if str(region).split("|")[0].endswith("_ELEVATOR"):
+                continue
             left = self._frontier_left(region)
             # WORK EXPLORE HAS ALREADY REFUSED IS NOT WORK LEFT. The PC, a
             # Center's nurse and a gym's own leader are things explore will
