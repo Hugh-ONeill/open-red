@@ -3941,6 +3941,26 @@ def witness_already_true_problems(plan: dict, obs: dict | None = None) -> list:
                 f"the bag (bag_kinds_below), a flag that fires, a place not "
                 f"yet stood in, someone seen and not yet spoken to "
                 f"(spoke_to)." + _unreached_step_words(plan)]
+    # ...AND A STEP ENDING ON A PRESS ALREADY MADE IS SKIPPED, WHEREVER IT
+    # SITS. "Use the Card Key to unlock the door" ended on {"spoke_to":
+    # "DOOR_SILPH_CO_10F_10_8"}, a door the run had pressed ("Darn! It needs
+    # a CARD KEY!") before the plan was written, so the step read done on
+    # entry and the plan walked on with the door shut (run 66, 2026-10-25).
+    _got = _ledger_names("touched")
+    for sg in subs[:-1]:
+        dw = (sg or {}).get("done_when")
+        if not (isinstance(dw, dict) and set(dw) == {"spoke_to"}):
+            continue
+        v = dw["spoke_to"]
+        names = [v] if isinstance(v, str) else [str(n) for n in v or []]
+        if names and all(n in _got for n in names):
+            return [f"subgoal ({sg.get('id')}) done_when "
+                    f"{pred_text.dumps(dw)} ALREADY HOLDS: this run has "
+                    f"pressed {', '.join(names)} before, so the step counts "
+                    f"as done the moment it starts and nothing it says is "
+                    f"done. End it on what the deed changes instead: a "
+                    f"place not yet stood in, an item gained or gone, a "
+                    f"flag that fires."]
     return []
 
 
