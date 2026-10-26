@@ -27,6 +27,9 @@ for nm in ("MTMOONB2F_SUPER_NERD", "CERULEANCITY_COP", "", None):
 src = (ROOT / "planner" / "executor.py").read_text()
 ck("both blocked-door lines use the word", src.count("nearest {_nearest_kind(who)}") == 2
    and "nearest person {who}" not in src)
+shim = (Path(__file__).resolve().parents[1] / "harness/shim.lua").read_text()
+ck("a sweep's sighting of a thing sprite is labelled a thing (run 67: BOOK_OAKS_LAB_2_1 (person))",
+   'elseif (package.loaded.red_public_names.THING_SPRITES or {})[d.sprite] then\n            kind = "thing"' in shim)
 
 bad = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:

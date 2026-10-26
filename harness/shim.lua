@@ -14605,6 +14605,11 @@ function OPS.sweep(G, c)
           elseif d.trainerClass then kind = "trainer"
           elseif d.sprite == "SPRITE_BOULDER" then kind = "boulder"
           elseif name:find("SIGN") or (d.text and not d.sprite) then kind = "sign"
+          -- a book, a fossil, a clipboard or a paper is a thing: Oak's
+          -- bookshelves came into view as "BOOK_OAKS_LAB_2_1 (person)" (run
+          -- 67, 2026-10-26); the blocked-door lines learned this in 573eacf
+          elseif (package.loaded.red_public_names.THING_SPRITES or {})[d.sprite] then
+            kind = "thing"
           end
           name = package.loaded.red_public_names.object(
             map0, d, npc.cellX, npc.cellY)
