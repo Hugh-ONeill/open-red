@@ -82,7 +82,7 @@ ck("the full macro is kept for the deed note and the verdict",
    and "_deed = self._deed_note(_macro_full, self._plan_said, trace)" in src
    and "_macro_full, self._plan_said, trace)" in src)
 ck("the truncation note states the new rule",
-   "onto ground you have never walked" in src
+   "A door or crossing never taken from where you " in src
    and "Ops after a crossing or door onto \"\n                        f\"ground you HAVE walked do run" in src)
 
 bad = [n for n, ok, _ in checks if not ok]

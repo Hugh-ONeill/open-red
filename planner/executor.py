@@ -27595,12 +27595,17 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             f" ({_s.get('x')},{_s.get('y')})"
                             if _s.get("x") is not None else ""))
                         for _s in macro[cut + 1:][:4])
+                    # (run 66, 2026-10-25: Silph 4F's lift door, never
+                    # taken from 4F, was cut as "onto ground you have never
+                    # walked" with the car visited nine times)
                     _trunc_note = (
                         f"({len(macro) - cut - 1} op(s) after your "
                         f"{macro[cut].get('op')} were NOT run: {_dropped}. "
-                        f"A map change onto ground you have never walked "
-                        f"ends the macro — whatever comes after it would be "
-                        f"written blind. Ops after a crossing or door onto "
+                        f"A door or crossing never taken from where you "
+                        f"stand ends the macro, even into a place you know — "
+                        f"which part of it you land in is not on record, so "
+                        f"whatever comes after it would be written blind. "
+                        f"Ops after a crossing or door onto "
                         f"ground you HAVE walked do run, as does a go. If "
                         f"those were more legs of a journey over ground you "
                         f"have walked, "
