@@ -13588,6 +13588,43 @@ class Executor:
             cur = land
         return None
 
+    # words every event name carries, which say nothing about which deed
+    _KIN_GENERIC = {"EVENT", "BEAT", "GOT", "GAVE", "GET", "THE", "TRAINER",
+                    "FIRST", "SECOND", "TALKED", "TO", "IN", "OF", "UNLOCKED",
+                    "DOOR", "1F", "2F", "3F", "B1F", "B2F", "B3F", "B4F"}
+
+    def _kin_flag_note(self, sg, obs) -> str:
+        """A step ending on a flag that has not fired, beside fired flags that
+        share its distinctive word, and where each fired.
+
+        Leg 31 v4 ended defeat_giovanni on EVENT_BEAT_GIOVANNI (this port's
+        Viridian Gym fight) and walked the run down the Rocket Hideout to
+        B4F, where EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI had fired hours before;
+        nothing on the page said so, and the run looked for a Giovanni who
+        was not there (run 66, 2026-10-25). The record's own lines; which
+        one the step means is not said."""
+        dw = (sg or {}).get("done_when")
+        fl = str(dw.get("flag") or "") if isinstance(dw, dict) else ""
+        fired = set((obs or {}).get("flags") or [])
+        if not fl or fl in fired:
+            return ""
+        words = set(fl.split("_")) - self._KIN_GENERIC
+        if not words:
+            return ""
+        kin = sorted(f for f in fired
+                     if f != fl and words & set(str(f).split("_")))
+        if not kin:
+            return ""
+        sites = getattr(self, "flag_sites", None) or {}
+        rows = [f"{f}" + (f" (fired in {sites[f]})" if sites.get(f) else "")
+                for f in kin[:4]]
+        return (f"\nTHE RECORD, BESIDE YOUR CONDITION: {fl} has not fired. "
+                f"Fired in this run, sharing its name's "
+                f"{'/'.join(sorted(words))}: " + "; ".join(rows)
+                + (f" (+{len(kin) - 4} more)" if len(kin) > 4 else "")
+                + ". Which of these, if any, is the deed this step means is "
+                  "yours to judge.")
+
     def _shelf_note(self, plan_said, obs) -> str:
         """An item the plan's WORDS named, at a counter the run has read that
         has never listed it — said on the round that arrived there.
@@ -27040,6 +27077,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # played its "got it!" text into a 20-of-20 bag and vanished.
             # The game normally says "no room" on screen; say it here.
             memory += self._bag_pressure_line(start)
+            memory += self._kin_flag_note(sg, start)
             # WHAT KEEPS KILLING YOU, said plainly and kept. A wipe was
             # reported once, in the trace of the round it happened in, and
             # the next round's plan opened "I will first explore the
