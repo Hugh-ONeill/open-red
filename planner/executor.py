@@ -6891,6 +6891,7 @@ class Executor:
             self.sightings = data.get("sightings", {})
             self._gone = {r: set(v) for r, v in
                           (data.get("gone") or {}).items()}
+            self._beaten_seen = set(data.get("beaten_seen") or [])
             self.region_anchors = data.get("region_anchors", {}) or {}
             self._parts_by_map = data.get("parts_by_map", {}) or {}
             self.searched = data.get("searched", {})
@@ -7610,6 +7611,7 @@ class Executor:
                  "stood_switches": {k: sorted(v) for k, v in
                                     (getattr(self, "_stood_switches", None) or {}).items()},
                  "sightings": self.sightings, "searched": self.searched,
+                 "beaten_seen": sorted(getattr(self, "_beaten_seen", None) or ()),
                  "gone": {r: sorted(v) for r, v in
                           (getattr(self, "_gone", {}) or {}).items()},
                  "touch_bag": self._touch_bag,
@@ -7932,6 +7934,17 @@ class Executor:
         # meant to prevent.
         names = sorted({o.get("name") for o in (m.get("objects") or [])
                         if o.get("name") and o.get("reachable")})
+        # ...AND WHO HAS BEEN BEATEN, as the save says on screen. A trainer
+        # who walks up and fights is never PRESSED, so the touched ledger
+        # never learns him, and the rows for doors into Silph 4F read "4
+        # thing(s) never pressed (..., SILPHCO4F_ROCKET1, SILPHCO4F_ROCKET2)"
+        # with both beaten; the level leg went floor to floor for them (run
+        # 66, 2026-10-25). Names are unique per map.
+        _bt = {str(o.get("name")) for o in (m.get("objects") or [])
+               if o.get("name") and o.get("kind") == "trainer"
+               and o.get("beaten") is True}
+        if _bt - (getattr(self, "_beaten_seen", None) or set()):
+            self._beaten_seen = set(getattr(self, "_beaten_seen", None) or ()) | _bt
         self._note_bush_ways(obs, here)
         self._note_sides_unseen(obs)
         if not names:

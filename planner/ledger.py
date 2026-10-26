@@ -483,6 +483,9 @@ def untouched_in(ex, region: str) -> list:
     # ledger). Counting the Lift Key's empty spot as "1 thing never pressed"
     # sent the run back to B4F for it (2026-09-07).
     gone = (getattr(ex, "_gone", {}) or {}).get(region, set()) or set()
+    # ...AND WHO WAS BEATEN: a trainer who fought on sight was never pressed
+    # and has nothing left to give (see Executor.note_sightings)
+    gone = set(gone) | set(getattr(ex, "_beaten_seen", None) or ())
     return sorted(n for n in names if n not in got and n not in gone)
 
 
