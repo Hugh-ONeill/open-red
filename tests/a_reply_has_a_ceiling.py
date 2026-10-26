@@ -20,7 +20,10 @@ def ck(name, cond): checks.append((name, bool(cond)))
 
 import brock_probe as B
 src = Path("planner/brock_probe.py").read_text()
-ck("the request carries a token ceiling", '"num_predict": (NUM_PREDICT_THINK' in src)
+ck("the request carries a token ceiling",
+   '"num_predict": (int(predict) if predict\n' in src and 'else NUM_PREDICT_THINK if think' in src)
+ck("a caller asking a one-line question caps its own reply (run 67: the types question ran to 3072)",
+   "predict=None" in src and "predict=48" in Path("planner/executor.py").read_text())
 ck("the ceiling is a few thousand tokens: room for a plan, not for a runaway",
    1024 <= B.NUM_PREDICT <= 8192)
 ck("it can be raised or lowered by environment like the window",

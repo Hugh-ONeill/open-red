@@ -341,7 +341,7 @@ def _read_stream(r, deadline, live, every=None):
     return final
 
 
-def chat(msgs, model, retries=2, think=False, temp=None):
+def chat(msgs, model, retries=2, think=False, temp=None, predict=None):
     """Ask the model, and do not lose a whole round to one bad second.
 
     `think` is per-call and defaults to off, so every existing caller keeps
@@ -370,7 +370,7 @@ def chat(msgs, model, retries=2, think=False, temp=None):
     last, attempt = None, 0
     while True:
         try:
-            return _chat_once(msgs, model, think, temp)
+            return _chat_once(msgs, model, think, temp, predict)
         except Exception as e:
             last = e
             # a timeout has already spent its full 300s, so it gets one
@@ -461,7 +461,7 @@ def _warm(msgs, model, think, temp) -> bool:
         return False
 
 
-def _chat_once(msgs, model, think=False, temp=None):
+def _chat_once(msgs, model, think=False, temp=None, predict=None):
     _warm(msgs, model, think, temp)
     # A REPLY HAS A CEILING. Nothing capped the generation, so a reply that
     # fell into a repetition loop ran on at 22 tok/s until the client's
@@ -502,7 +502,10 @@ def _chat_once(msgs, model, think=False, temp=None):
                        "options": {"temperature": (0.3 if temp is None
                                                    else float(temp)),
                                    "num_ctx": NUM_CTX,
-                                   "num_predict": (NUM_PREDICT_THINK if think
+                                   # a caller asking a one-line question
+                                   # caps its own reply (see chat's predict)
+                                   "num_predict": (int(predict) if predict
+                                                   else NUM_PREDICT_THINK if think
                                                    else NUM_PREDICT)}}).encode()
     req = urllib.request.Request(OLLAMA, body,
                                  {"Content-Type": "application/json"})
@@ -554,7 +557,7 @@ def _chat_once(msgs, model, think=False, temp=None):
     # and costs the round with nothing on the page to say why. The prompt
     # side has said so since run 16; the reply side never did, and thinking
     # is what makes it likely: the trace eats the budget the macro needs.
-    _cap = NUM_PREDICT_THINK if think else NUM_PREDICT
+    _cap = int(predict) if predict else NUM_PREDICT_THINK if think else NUM_PREDICT
     _g = d.get("eval_count") or 0
     if _g >= _cap:
         print(f"[reply] TRUNCATED: generation stopped at the {_cap}-token "

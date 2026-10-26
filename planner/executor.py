@@ -15681,9 +15681,14 @@ class Executor:
         asked.add(sp)
         ts = None
         try:
+            # A ONE-LINE ANSWER GETS A ONE-LINE CEILING. Asked of CLEFAIRY
+            # in Mt Moon, the reply ran on to the 3072-token cap: 1m50s with
+            # the battle frozen, cut mid-text, no type kept (run 67,
+            # 2026-10-26). {"types":["NORMAL","FLYING"]} is a dozen tokens.
             reply = brock_probe.chat(
                 [{"role": "system", "content": self.TYPES_SYS},
-                 {"role": "user", "content": f"THE POKEMON: {sp}"}], self.model)
+                 {"role": "user", "content": f"THE POKEMON: {sp}"}], self.model,
+                predict=48)
             d = Executor._first_object(reply or "") or {}
             got = d.get("types")
             if isinstance(got, str):
