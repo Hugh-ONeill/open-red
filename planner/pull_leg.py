@@ -94,6 +94,24 @@ def records() -> list:
 INSERTS = Path("run/outline_inserts")
 
 
+REWORDINGS = Path("run/outline_rewordings")
+
+
+def _latest(text: str) -> str:
+    """A leg's current words: run/outline_rewordings ("n<TAB>old<TAB>new")
+    followed to its last rewording."""
+    step = {}
+    for row in _lines(REWORDINGS):
+        parts = row.split("\t")
+        if len(parts) >= 3 and parts[1].strip() and parts[2].strip():
+            step[parts[1].strip()] = parts[2].strip()
+    cur, seen = text.strip(), set()
+    while cur in step and cur not in seen:
+        seen.add(cur)
+        cur = step[cur]
+    return cur
+
+
 def prerequisites_of(text: str) -> set:
     """Every leg the ladder put before `text` as needed first
     (run/outline_inserts "LEG=<needs>|<needed>"), and what those need in
@@ -105,12 +123,18 @@ def prerequisites_of(text: str) -> set:
             dep, pre = row[4:].split("|", 1)
             if pre.startswith("PULL "):
                 pre = pre[5:]
-            rows.append((dep.strip(), pre.strip()))
-    out, todo = set(), [text.strip()]
+            # ...UNDER THEIR WORDS NOW. "Give the GOLD TEETH to the Warden
+            # in the Safari Zone Gate" was put before "Retrieve the HM04",
+            # was then reworded "...at the Safari Zone Gate", and the
+            # blocker rung pulled the HM04 leg ahead of it: the ledger's
+            # words no longer matched the list's (run 67, 2026-10-27).
+            rows.append((_latest(dep), _latest(pre)))
+    me = _latest(text)
+    out, todo = set(), [me]
     while todo:
         cur = todo.pop()
         for dep, pre in rows:
-            if dep == cur and pre and pre != text.strip() and pre not in out:
+            if dep == cur and pre and pre != me and pre not in out:
                 out.add(pre)
                 todo.append(pre)
     return out
