@@ -5754,6 +5754,10 @@ local function route_gate(G, thaw)
   end
 end
 
+-- the ground the last failed walk could reach, kept for "who is in the
+-- way" (see SAY WHO IS IN THE WAY in use_warp); a global, as the main
+-- chunk is at Lua's 200-local limit
+LAST_BFS = nil
 local function bfs_dir_pass(G, tx, ty, wblock, gate)
   local Collision = require("src.world.Collision")
   local ow = G.overworld
@@ -5820,6 +5824,7 @@ local function bfs_dir_pass(G, tx, ty, wblock, gate)
   -- reach the warp tile (no path)") and the model is left to invent a
   -- cause. Say how far the walk got, which reachable cell came closest,
   -- and what stands between that ground and the rest of the map.
+  LAST_BFS = { map = (ow.map or {}).id, x = p.cellX, y = p.cellY, seen = seen }
   local nseen, bx, by, best = 0, nil, nil, 1e9
   for k in pairs(seen) do
     nseen = nseen + 1
@@ -7447,6 +7452,27 @@ function OPS.use_warp(G, c)
   local blockers = {}
   local _bm = ((c.blind and true) or BLIND_ROUTING) and nil
               or (SEEN[startMap] or {})
+  -- ...AND ONLY SOMEONE AT THE EDGE OF THE GROUND YOU CAN WALK. A person
+  -- in another room is not in your way: Saffron Gym's (11,15) pad is in
+  -- the entrance room, the run stood in a pad cell walled off from it,
+  -- and the GYM_GUIDE beside the pad was named as "standing by it", so
+  -- the model spent rounds pressing people to clear him (run 67,
+  -- 2026-10-27). Pathfinding routes around a body; a body blocks only
+  -- if it stands on, or right beside, ground the walk reached.
+  local _pl = (ow.player or {})
+  local _lb = LAST_BFS
+  if not (_lb and _lb.map == ((ow.map or {}).id)
+          and _lb.x == _pl.cellX and _lb.y == _pl.cellY) then
+    _lb = nil
+  end
+  local function borders_walk(npc)
+    if not _lb then return true end
+    local nx, ny = npc.cellX or -99, npc.cellY or -99
+    for _, d in ipairs({ { 0, 0 }, { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+      if _lb.seen[(nx + d[1]) .. "," .. (ny + d[2])] then return true end
+    end
+    return false
+  end
   for _, npc in ipairs(ow.npcs or {}) do
     for _, t in ipairs(tiles) do
       -- ...AND "BY IT" MEANS ON IT OR BESIDE IT. The radius was 2, which
@@ -7462,7 +7488,8 @@ function OPS.use_warp(G, c)
       if math.abs((npc.cellX or -99) - t.x)
          + math.abs((npc.cellY or -99) - t.y) <= 1
          and (not _bm
-              or _bm[(npc.cellX or -99) .. "," .. (npc.cellY or -99)]) then
+              or _bm[(npc.cellX or -99) .. "," .. (npc.cellY or -99)])
+         and borders_walk(npc) then
         local nm = (npc.def or {}).name and
           package.loaded.red_public_names.of((G.overworld.map or {}).id, npc)
         if nm and not blockers[nm] then
