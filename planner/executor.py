@@ -25950,7 +25950,14 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             self._snapshot_anywhere(pre_obs)
             else:
                 chg = []
-                if before[0] != after[0]:
+                if before[0] != after[0] and after[0] is None:
+                    # A BOX ON SCREEN IS NOT A MAP. The Safari exit's
+                    # "Leaving early?" is asked with no map read, and the
+                    # round said "map->None" and "back on None|None" (run 67,
+                    # 2026-10-27); say what is known instead.
+                    chg.append("a box is open on screen, so the map you are "
+                               "on is not read yet")
+                elif before[0] != after[0]:
                     chg.append(f"map->{after[0]}")
                     # A SCRIPT THAT MOVES YOU IS AN ARRIVAL TOO. Doors and
                     # seams go through note_transition, which remembers the
@@ -26096,6 +26103,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     _ns = types.SimpleNamespace(_arrived=_arr_snap[0],
                                                 _came_from=_arr_snap[1])
                     _land = str(self._where(obs))
+                    if _land.startswith("None"):
+                        # a box is open (see A BOX ON SCREEN IS NOT A MAP):
+                        # the door's far side is where you came from
+                        _land = str(_arr_snap[1] or _land)
                     if ledger._came_in_by(_ns, pre_obs, self._where(pre_obs),
                                           f"{step.get('x')},{step.get('y')}",
                                           _land.split("|")[0]):
