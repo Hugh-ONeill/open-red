@@ -414,6 +414,13 @@ for _row in _engine_names("engine_machines.txt"):
     _parts = _row.split()
     if len(_parts) == 2:
         MACHINE_MOVES[_parts[0].upper()] = _parts[1].upper()
+# The number the bag prints for each machine -> its item id ("HM04" ->
+# HM_STRENGTH). Same tier: the bag shows HM04, the id is the harness's word.
+MACHINE_NUMBER_ITEM = {}
+for _row in _engine_names("engine_tm_numbers.txt"):
+    _parts = _row.split()
+    if len(_parts) == 2:
+        MACHINE_NUMBER_ITEM[_parts[1].upper()] = _parts[0].upper()
 # Which place each trainer-beaten event belongs to: gen1recomp
 # data/generated/trainer_headers.lua lists trainers map by map with the
 # event each fight sets; the map's CamelCase name is folded to the engine's
@@ -3405,6 +3412,16 @@ def _check_pred(dw: dict, tag: str, sid, probs: list):
                             item, ENGINE_ITEMS, n=4, cutoff=0.4)
                         hint = (f" — did you mean {', '.join(near)}?"
                                 if near else "")
+                        # ...BUT A MACHINE'S NUMBER IS ITS NAME, NOT A TYPO.
+                        # "HM04" got "did you mean HM_FLY, HM_CUT?" (the
+                        # spelling nearest), the author wrote HM_FLY for
+                        # STRENGTH, and the leg waited on the wrong HM (run
+                        # 67, 2026-10-27). The bag's own number says which.
+                        _num = re.sub(r"[\s_]", "", str(item).upper())
+                        if _num in MACHINE_NUMBER_ITEM:
+                            hint = (f" — {_num} is what the bag calls "
+                                    f"{MACHINE_NUMBER_ITEM[_num]}; that is "
+                                    f"the id to write")
                         probs.append(f"{tag} ({sid}) '{item}' is not an item "
                                      f"id this game defines{hint}")
             elif k == "flag" and ENGINE_FLAGS and v not in ENGINE_FLAGS:
