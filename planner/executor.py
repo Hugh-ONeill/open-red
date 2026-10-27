@@ -7051,6 +7051,8 @@ class Executor:
                 except Exception:
                     continue
             self._exit_tries = data.get("exit_tries") or {}
+            # doors taken onto a box (note_transition) outlive a restart
+            self._boxed_doors = data.get("boxed_doors") or {}
             self.flag_sites = data.get("flag_sites") or {}
             # Entries written before the destination was removed still read
             # "4,11->CERULEAN_CAVE_1F (POLICEMAN is standing there)", and the
@@ -7698,6 +7700,7 @@ class Executor:
                               for k, v in self._dead_ops.items()],
                  "dead_ops_rev": self._harness_rev,
                  "exit_tries": self._exit_tries,
+                 "boxed_doors": getattr(self, "_boxed_doors", None) or {},
                  "flag_sites": self.flag_sites,
                  "shut_doors": self.shut_doors,
                  "hints": self.hints,

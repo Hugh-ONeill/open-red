@@ -53,6 +53,10 @@ src = (ROOT / "planner/executor.py").read_text() + (ROOT / "planner/ledger.py").
 ck("a boxed door is not said to stop you before the doorway",
    src.count("time a box opened on screen before any map") == 2)
 
+ck("the boxed doors are saved and loaded",
+   '"boxed_doors": getattr(self, "_boxed_doors", None) or {},' in src
+   and 'self._boxed_doors = data.get("boxed_doors") or {}' in src)
+
 bad = [n for n, ok, _ in checks if not ok]
 for n, ok, dd in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not dd else f"  {str(dd)[:300]}"))
