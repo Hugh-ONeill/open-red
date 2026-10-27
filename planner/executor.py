@@ -23326,7 +23326,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         pl = o.get("player") or {}
         return (((o.get("map") or {}).get("id")), pl.get("x"), pl.get("y"))
 
-    def _strike(self, sig, det, pre=None, post=None):
+    def _strike(self, sig, det, pre=None, post=None, at=None):
         """One failure (or ran-and-changed-nothing) against this exact
         action. Counts live per world mark — the count resets the first
         time the world moves after the last strike — and persist in the
@@ -23365,6 +23365,9 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             self._dead_at[sig] = _mk
         self._dead_ops[sig] = self._dead_ops.get(sig, 0) + 1
         self._dead_why[sig] = self._strike_why(det)
+        if at is not None:
+            self.__dict__.setdefault("_dead_spots", {}).setdefault(
+                sig, set()).add(at)
 
     def _named(self, op, step):
         """The op as SENT: a destination the model named may thaw a wall.
@@ -23481,6 +23484,21 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         2026-09-17). Both halves are on screen: what the refusal said, and
         that the way is clear now. Only lifts, never strikes."""
         why = str(self._dead_why.get(sig) or "")
+        # ...AND A FIELD ITEM USED FROM A NEW TILE. The area is the strike
+        # key, but a field item acts on what is RIGHT NEXT TO you, and its
+        # own line says so: the POKE FLUTE came to nothing three times from
+        # (26,8), the party then stood at (27,10) beside ROUTE16_SNORLAX,
+        # and the flute was refused "with nothing about you changed since"
+        # (run 67, 2026-10-27). The tiles it was tried from are kept.
+        if op == "use_item" and "NOTHING HAPPENED" in why:
+            _at = (getattr(self, "_dead_spots", None) or {}).get(sig)
+            _now = self._spot(obs)
+            if _at and _now[1] is not None and _now not in _at:
+                _was = ", ".join(f"({x},{y})" for _m, x, y in sorted(
+                    _at, key=lambda t: (t[1] or 0, t[2] or 0)))
+                return (f"you stand at ({_now[1]},{_now[2]}) now, and every "
+                        f"time it came to nothing you stood at {_was}")
+            return ""
         if not why or not self._BLOCKED_WHY.search(why):
             return ""
         m = (obs or {}).get("map") or {}
@@ -25517,9 +25535,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                              was=self._dead_ops.get(sig))
                 self._dead_ops.pop(sig, None)
                 self._dead_why.pop(sig, None)
+                (getattr(self, "_dead_spots", None) or {}).pop(sig, None)
                 self._dead_at.pop(sig, None)
             if _noeff:
-                self._strike(sig, r.get("detail"))
+                self._strike(sig, r.get("detail"), at=self._spot(pre_obs))
             if not r.get("ok"):
                 # THREE FAILURES ARE THREE FAILURES IN ONE WORLD. The
                 # refusal below is absolute and never expired, so an op
