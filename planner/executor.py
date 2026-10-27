@@ -5714,6 +5714,10 @@ class Executor:
         """Un-write a provisional touch the interaction did not earn."""
         if region and name:
             self._tried_objs.get(region, set()).discard(name)
+            # ...the world-mark too, or a press that never landed is
+            # re-offered as "somebody worth another word" (see
+            # _worth_another_word)
+            (getattr(self, "_touch_mark", None) or {}).get(region, {}).pop(name, None)
 
     def _walked_dest(self, map_id: str, key: str):
         """Where this run has actually come out when it took that door.
@@ -8836,7 +8840,20 @@ class Executor:
         _gone_all = getattr(self, "_gone", {}) or {}
         _seen_here = set((getattr(self, "sightings", {}) or {}).get(region) or ())
 
+        # ...AND NOBODY THE RUN NEVER SAW. A press on a name the model made
+        # up -- interact(name=SAFARI_ZONE_GATE_WARDEN), "not visible" -- was
+        # marked on intent and never unmarked, and this list then told the
+        # model "SAFARI_ZONE_GATE|3,0 (SAFARI_ZONE_GATE_WARDEN)" was worth
+        # another word: a warden at the gate, which is the wrong fact it had
+        # been looping on for hours (run 67, 2026-10-27).
+        _seen_map = set()
+        for _r, _ns in (getattr(self, "sightings", {}) or {}).items():
+            if str(_r).split("|")[0] == str(region).split("|")[0]:
+                _seen_map |= set(_ns or ())
+
         def _re_offerable(n) -> bool:
+            if _seen_map and n not in _seen_map:
+                return False
             if n in (_gone_all.get(region) or ()):
                 return False
             if n not in _seen_here and any(n in v for v in _gone_all.values()):
