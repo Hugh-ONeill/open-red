@@ -14506,6 +14506,14 @@ class Executor:
             del lr[:-200]
             self._attempt_rounds = int(getattr(self, "_attempt_rounds", 0) or 0) + 1
             w = lr[-self.LEG_DRY_WINDOW:]
+            # ...BUT NEVER ON THE ROUND THAT FOUND SOMETHING. The window was
+            # judged on the round that walked into FUCHSIA_MEETING_ROOM, a
+            # map never stood on, the first of three Fuchsia doors the
+            # model had at last turned to, and the leg went to the ladder
+            # with the other two untried (run 67, 2026-10-27). Counted, not
+            # cut: the next dry round can still end it.
+            if gained:
+                return False
             if (len(w) < self.LEG_DRY_WINDOW
                     or self._attempt_rounds < self.LEG_DRY_GRACE
                     or sum(w) > self.LEG_DRY_MAX_GAINS):
