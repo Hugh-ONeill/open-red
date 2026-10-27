@@ -23614,6 +23614,21 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 "PP left to fight with — " + ", ".join(bits)
                 + " — a Pokemon Center is what lets the grind go on")
 
+    def _boxed_map(self, sig):
+        """A ROUND THAT ENDS ON A BOX IS STILL ON A MAP. With a box open the
+        snapshot reads no map, and every rule that charges a round keys on
+        the map, so such a round was never spent: the Safari gate's
+        "Leaving early?" and the PA's time-up each ended rounds that way, and
+        navigate_to_secret_house went 27 rounds with 7 spent, gate -> park ->
+        time up -> gate (run 67, 2026-10-27). The map the party last stood
+        on stands in for it."""
+        if sig and sig[0] is None:
+            _m = (((getattr(self, "_last_mapped_obs", None) or {})
+                   .get("map") or {}).get("id"))
+            if _m:
+                return (_m,) + tuple(sig[1:])
+        return sig
+
     def _gated(self, sig, op, step, trace):
         """The 3-strikes refusal, shared by the generic path and the early
         cross/walk_to handlers — those dispatch before the generic gate,
@@ -27148,7 +27163,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                              round=rnd, proposed=0, walked=len(r0),
                              distilled=len(progress), verified=False)
                     return True, progress
-            sig0 = self._snapshot(start)
+            sig0 = self._boxed_map(self._snapshot(start))
             if rnd == 1 and sig0[0]:
                 visits[sig0[0]] = 1
                 _visit_marks[sig0[0]] = str(getattr(self, "_mark_now", None))
@@ -28758,7 +28773,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                    f"back out of — the harness will not "
                                    f"take a one-way door for you. You stand "
                                    f"at {self._where(cur)}, healed.")
-            sig1 = self._snapshot(cur)
+            sig1 = self._boxed_map(self._snapshot(cur))
             here_now = self._where(cur)
             self._stuck_in[here_now] = self._stuck_in.get(here_now, 0) + 1
             # did THIS round's own ops walk the party out of the target
