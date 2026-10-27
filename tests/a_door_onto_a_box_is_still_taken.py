@@ -37,13 +37,21 @@ ck("one try onto the box is booked", ex._exit_tries["SAFARI_ZONE_CENTER|22,10"][
    ex._exit_tries)
 ex.note_transition(CEN, step, BOX)
 ck("...twice in one world, it is spent", "14,25" in ex._spent_exits("SAFARI_ZONE_CENTER|22,10"))
+ex._mark_now = ("a pickup later",)
+ck("...and stays spent when a pickup moves the world mark",
+   "14,25" in ex._spent_exits("SAFARI_ZONE_CENTER|22,10"))
 ex2 = E.Executor.__new__(E.Executor)
-ex2.__dict__.update({k: v for k, v in ex.__dict__.items() if k != "_exit_tries"})
+ex2.__dict__.update({k: v for k, v in ex.__dict__.items()
+                     if k not in ("_exit_tries", "_boxed_doors")})
 ex2._exit_tries = {}
 ex2.note_transition(CEN, {"op": "cross", "dir": "north"}, BOX)
 ck("a seam onto a box books nothing", ex2._exit_tries == {}, ex2._exit_tries)
 ex2.note_transition(BOX, step, CEN)
 ck("a box on the way in books nothing", ex2._exit_tries == {}, ex2._exit_tries)
+
+src = (ROOT / "planner/executor.py").read_text() + (ROOT / "planner/ledger.py").read_text()
+ck("a boxed door is not said to stop you before the doorway",
+   src.count("time a box opened on screen before any map") == 2)
 
 bad = [n for n, ok, _ in checks if not ok]
 for n, ok, dd in checks:

@@ -1294,8 +1294,14 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
         elif key in spent:
             c.status = "spent"
             c.n = spent[key]
-            c.note = c.note or ("reached for and never once got through — "
-                                "something stops you before the doorway")
+            _boxed = ((getattr(ex, "_boxed_doors", None) or {})
+                      .get(here) or {}).get(key)
+            c.note = c.note or (
+                ("taken and each time a box opened on screen before any map "
+                 "was read — what lies past it is not on record")
+                if _boxed else
+                ("reached for and never once got through — "
+                 "something stops you before the doorway"))
         # A DOOR YOU STOOD ON THAT DID NOTHING IS NOT AN UNTRIED DOOR. The
         # crossing never completes, so nothing marks it and it stays
         # "never taken from here" for ever — and it is the only untried

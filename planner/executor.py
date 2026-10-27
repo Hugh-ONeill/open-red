@@ -5797,12 +5797,17 @@ class Executor:
         records no edge is that a wanderer in the doorway is not a fact
         about the door, and one failure could always be that."""
         now = getattr(self, "_mark_now", None)
+        # a door taken twice onto a box (see note_transition), whatever the
+        # mark says
+        _box = {k: n for k, n in ((getattr(self, "_boxed_doors", None) or {})
+                                  .get(region) or {}).items() if n >= 2}
         if now is None:
-            return {}
-        return {k: rec["n"]
-                for k, rec in (self._exit_tries.get(region) or {}).items()
-                if isinstance(rec, dict) and rec.get("at") == now
-                and (rec.get("n") or 0) >= 2}
+            return _box
+        return {**_box,
+                **{k: rec["n"]
+                   for k, rec in (self._exit_tries.get(region) or {}).items()
+                   if isinstance(rec, dict) and rec.get("at") == now
+                   and (rec.get("n") or 0) >= 2}}
 
     def _dry_from_within(self, region) -> bool:
         """The region carries a count of unseen spots, and the last time the
@@ -10010,6 +10015,12 @@ class Executor:
             if ("None" not in src and "None" in dst and _sx is not None
                     and (step or {}).get("op", "use_warp") == "use_warp"):
                 self._note_unreached(src, f"{_sx},{_sy}", before_obs)
+                # ...kept apart from the world mark too: every pickup and
+                # toss moves the mark, and in the Safari Zone that is every
+                # round, so the count above never reached two
+                _bx = self.__dict__.setdefault("_boxed_doors", {})
+                _bx.setdefault(src, {})
+                _bx[src][f"{_sx},{_sy}"] = _bx[src].get(f"{_sx},{_sy}", 0) + 1
             return
         # WHERE THE OP SAYS IT ARRIVED BEATS WHERE WE ENDED UP STANDING.
         # `dst` is read after settling, so anything that moved the party
@@ -19617,6 +19628,13 @@ class Executor:
                 continue
             k = w["key"]
             if k not in taken and k in spent:
+                if ((getattr(self, "_boxed_doors", None) or {})
+                        .get(here) or {}).get(k):
+                    tried.append(
+                        f"({k}) you have taken this {spent[k]}x and each "
+                        f"time a box opened on screen before any map was "
+                        f"read — what lies past it is not on record")
+                    continue
                 tried.append(
                     f"({k}) you have reached for this {spent[k]}x and never "
                     f"once got through — something stops you before the "
