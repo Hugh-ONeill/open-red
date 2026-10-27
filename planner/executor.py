@@ -9310,6 +9310,19 @@ class Executor:
                 format(_z.crc32(_fl.encode()), "08x"),
                 format(_z.crc32(_bg.encode()), "08x")]
 
+    def _progress_mark(self, obs) -> list:
+        """The world mark less the flags this run has seen switch OFF again
+        (_toggled_flags: levers). A lever flipped back and forth moves the
+        world mark every round, so the idle streak and the dry-leg count read
+        each flip as the world changing: Mansion B1F's switch was pressed
+        and unpressed round after round and neither rule could end the step
+        (run 67, 2026-10-27). Used only for those two counts; strikes and
+        doors keep the full mark, since a flip does change what is open."""
+        _tg = set(getattr(self, "_toggled_flags", None) or ())
+        o = dict(obs or {})
+        o["flags"] = [f for f in (o.get("flags") or []) if f not in _tg]
+        return self._world_mark(o)
+
     @staticmethod
     def _door_groups(warps) -> dict:
         """key -> sorted tuple of the doorway's tiles. ONE relation, used
@@ -27057,7 +27070,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # ending on a map this step had already stood on: the step is
             # over, and the rewrite and the ladder take it from there.
             if rnd > 1 and isinstance(getattr(self, "_round0_news", None), tuple):
-                _same_world = (str(self._world_mark(start))
+                _same_world = (str(self._progress_mark(start))
                                == str(getattr(self, "_round0_mark", None)))
                 _here_m = str(((start or {}).get("map") or {}).get("id") or "")
                 _seen_map = _here_m in getattr(self, "_step_maps", set())
@@ -27091,7 +27104,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 self._step_maps = set()
             self._step_maps = set(getattr(self, "_step_maps", set())) | {
                 str(((start or {}).get("map") or {}).get("id") or "")}
-            self._round0_mark = self._world_mark(start)
+            self._round0_mark = self._progress_mark(start)
             self._round0_exp = self._party_exp(start)
             _news0 = self._news_snapshot(start)
             self._round0_news = _news0
