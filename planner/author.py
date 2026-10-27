@@ -3088,13 +3088,15 @@ def untried_leads(run: Path = Path("run"), skip_maps=(), cap: int = 6) -> list:
             f"the way {w} never taken" if not re.match(r"^\d+,\d+$", str(w))
             else f"the door at ({w}) never taken" for w in fresh[:3])
     touched = d.get("touched") or {}
+    _left = _gone_or_beaten(d)   # see untouched_named
     for reg, names in (d.get("sightings") or {}).items():
         mp = str(reg).split("|")[0]
         if mp in skip or not int(visits.get(reg, 0) or 0):
             continue
         done = set(touched.get(reg) or [])
         for n in names or []:
-            if n in done or str(n).startswith(("TEXT_", "SIGN_", "ITEM_", "HIDDEN_")) \
+            if n in done or str(n) in _left \
+                    or str(n).startswith(("TEXT_", "SIGN_", "ITEM_", "HIDDEN_")) \
                     or "BOULDER" in str(n) or str(n) == "CUT_TREE":
                 continue
             toks = {re.sub(r"\d+$", "", t) for t in str(n).upper().split("_")}
@@ -9608,6 +9610,13 @@ _NOT_A_BODY = {"BOOK", "BOOKS", "BOOKSHELF", "PAPER", "POSTER", "CLIPBOARD",
                "TV", "PC", "TRASH", "STATUE", "MAP", "FOSSIL", "BALL"}
 
 
+def _gone_or_beaten(data) -> set:
+    """Names the ledger saw leave the map (gone, in any region) or saw
+    beaten on screen (beaten_seen)."""
+    return ({str(x) for v in (data.get("gone") or {}).values() for x in (v or [])}
+            | {str(x) for x in (data.get("beaten_seen") or [])})
+
+
 def untouched_named(text: str, observed=None) -> list:
     """(region, name) for things the run has SEEN and never pressed whose
     name holds a word the text names — "Talk to Bill" and BILLSHOUSE_BILL1.
@@ -9626,6 +9635,14 @@ def untouched_named(text: str, observed=None) -> list:
         return []
     out = []
     touched = data.get("touched") or {}
+    # ...NOR SOMEONE THE SCREEN SHOWED GONE OR BEATEN. ROUTE16_SNORLAX was
+    # sighted from ROUTE_16|24,2, woken by the flute from (27,10) and
+    # EVENT_BEAT_ROUTE16_SNORLAX fired; the ledger wrote it gone in
+    # ROUTE_16|27,10, and "Wake the Snorlax blocking the path to Saffron"
+    # was refused by every rung as "seen in ROUTE_16|24,2 and never spoken
+    # to or pressed", passed over and gone back to (run 67, 2026-10-27).
+    # Nobody left to press is not somebody not yet pressed.
+    _left = _gone_or_beaten(data)
     # ...THE PERSON'S OWN WORDS, NOT THE MAP'S (run 19, 2026-09-29). An
     # object's name starts with its map: "Obtain FRESH WATER from the roof of
     # the Celadon City Department Store" was refused over
@@ -9639,7 +9656,8 @@ def untouched_named(text: str, observed=None) -> list:
         done = set(touched.get(reg) or [])
         _mapw = set(str(reg).split("|")[0].upper().split("_"))
         for n in names or []:
-            if n in done or str(n).startswith(("TEXT_", "SIGN_", "ITEM_", "HIDDEN_")) \
+            if n in done or str(n) in _left \
+                    or str(n).startswith(("TEXT_", "SIGN_", "ITEM_", "HIDDEN_")) \
                     or str(n) in ("CUT_TREE",) or "BOULDER" in str(n):
                 continue          # obstacles are not people
             _mid = str(reg).split("|")[0]
