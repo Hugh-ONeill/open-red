@@ -37,7 +37,7 @@ ck("the sweep notes the cell it stepped onto when the map changes under it",
 ck("...and says it in its result",
    "you stepped onto (%d,%d) on %s " in sw and ".. fell_words" in sw)
 src = (ROOT / "planner/executor.py").read_text()
-nt = src[src.index("    def note_transition"):][:9000]
+nt = src[src.index("    def note_transition"):][:11000]
 ck("the recorder files an op with no cell under the cell it fell through",
    'r"you stepped onto \\((\\d+),(\\d+)\\) on ([A-Z0-9_]+)"' in nt
    and '"transition_by_fall"' in nt)

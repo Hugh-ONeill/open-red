@@ -10000,6 +10000,16 @@ class Executor:
             self.log("transition_dropped_no_region", frm=src, to=dst,
                      via=(f"{_sx},{_sy}" if _sx is not None
                           else str((step or {}).get("dir") or "?")))
+            # ...BUT A DOOR TAKEN ONTO A BOX WAS STILL TAKEN. The Safari
+            # Center's (14,25) opens on the gate's "Leaving early?", read with
+            # no map, so no edge was ever written and the page went on calling
+            # it "the only untried exit"; the model took it round after round
+            # (run 67, 2026-10-27). No edge can be written (where it lands is
+            # not read), so it is counted as a try that left no evidence, the
+            # same book a door never reached goes in.
+            if ("None" not in src and "None" in dst and _sx is not None
+                    and (step or {}).get("op", "use_warp") == "use_warp"):
+                self._note_unreached(src, f"{_sx},{_sy}", before_obs)
             return
         # WHERE THE OP SAYS IT ARRIVED BEATS WHERE WE ENDED UP STANDING.
         # `dst` is read after settling, so anything that moved the party
