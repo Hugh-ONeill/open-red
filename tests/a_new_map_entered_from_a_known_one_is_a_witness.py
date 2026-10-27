@@ -13,12 +13,18 @@ Pinned: the validator takes it and refuses a made-up map; the step freezes
 the maps stood on at entry; it holds only on a new map entered from MAP;
 unfrozen it is not done; it is a waypoint."""
 from __future__ import annotations
+import os
 import sys
+import tempfile
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "planner"))
 import author as A     # noqa: E402
 import executor as E   # noqa: E402
+
+# the shut check reads run/explored.json from the working directory; the
+# live run's ledger is not this test's world
+os.chdir(tempfile.mkdtemp(prefix="newmapfrom_"))
 
 checks = []
 def ck(n, ok, d=""): checks.append((n, bool(ok), d))
