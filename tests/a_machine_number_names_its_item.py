@@ -36,6 +36,16 @@ p = probs("HM_STRENGHT")
 ck("a plain typo still gets the near spellings", p and "did you mean" in p[0]
    and "HM_STRENGTH" in p[0], p)
 
+v = A.validate({"goal": "Retrieve the HM04", "subgoals": [
+    {"id": "get_hm04", "goal_text": "Pick up the HM04 (Strength)",
+     "done_when": {"has_item": {"HM_FLY": 1}}}]})
+ck("words naming HM04 over a condition holding HM_FLY are refused",
+   any("your words name HM04 (HM_STRENGTH)" in x and "HM_FLY (HM02)" in x for x in v), v)
+v = A.validate({"goal": "g", "subgoals": [
+    {"id": "get_hm04", "goal_text": "Pick up the HM04",
+     "done_when": {"has_item": {"HM_STRENGTH": 1}}}]})
+ck("...and the matching machine stands", not any("your words name" in x for x in v), v)
+
 bad = [n for n, ok, _ in checks if not ok]
 for n, ok, dd in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not dd else f"  {str(dd)[:300]}"))

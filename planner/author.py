@@ -2302,6 +2302,25 @@ def validate(plan: dict) -> list:
         if not isinstance(dw, dict) or not dw:
             probs.append(f"{tag} ({sid}) missing/empty done_when")
             continue
+        # YOUR WORDS NAME ONE MACHINE, YOUR CONDITION ANOTHER. "get_hm04",
+        # "Pick up the HM04", done_when {"has_item": {"HM_FLY": 1}} -- the
+        # author took the validator's nearest spelling and the leg waited on
+        # HM02 (run 67, 2026-10-27). Both halves are the author's own.
+        _said = {MACHINE_NUMBER_ITEM[f"{k}{int(n):02d}"]
+                 for k, n in re.findall(r"(?<![A-Z])(HM|TM)[\s_]?(\d{1,2})(?!\d)",
+                                        f"{sid} {s.get('goal_text') or ''}".upper())
+                 if f"{k}{int(n):02d}" in MACHINE_NUMBER_ITEM}
+        _held = {str(it).upper() for it in (dw.get("has_item") or {})
+                 if isinstance(dw.get("has_item"), dict)
+                 and str(it).upper() in set(MACHINE_NUMBER_ITEM.values())}
+        if _said and _held and not (_held & _said):
+            _num = {v: k for k, v in MACHINE_NUMBER_ITEM.items()}
+            probs.append(
+                f"{tag} ({sid}) your words name "
+                + ", ".join(f"{_num[x]} ({x})" for x in sorted(_said))
+                + " and the condition holds "
+                + ", ".join(f"{x} ({_num[x]})" for x in sorted(_held))
+                + " — a different machine; write the one you mean")
         # A NAMED FIGHT DOES NOT END ON ANY FIGHT. {"mode": "battle"} is true
         # of every wild encounter, so a step about one opponent that ends on
         # it can be finished by the grass: run of record 9 (2026-09-26),
