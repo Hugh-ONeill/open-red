@@ -13354,6 +13354,29 @@ function OPS.interact(G, c)
           .. "spelled out in the name), and you are on %s — go there "
           .. "first (use_warp/go take map=)."):format(c.name, mid)
       end
+      -- ...AND A NAME OFF BY ITS UNDERSCORES IS SAID AS SPELLED HERE.
+      -- Run 67, 2026-10-28: TEXT_GAMECORNERPRIZE_ROOM_PRIZE_VENDOR_1 was
+      -- pressed round after round and answered "not visible" while
+      -- TEXT_GAMECORNERPRIZEROOM_PRIZE_VENDOR_1 stood on the page; the
+      -- answer never said which spelling this map uses.
+      local squash = function(n) return (tostring(n):gsub("_", "")) end
+      local want, same = squash(c.name), nil
+      for _, npc in ipairs(ow.npcs or {}) do
+        local nm = (npc.def or {}).name
+        if nm and squash(nm) == want then same = nm end
+      end
+      for _, f in ipairs(map_fixtures(G, mid)) do
+        if f.name and squash(f.name) == want then same = f.name end
+      end
+      local md = ow.map and G.data and G.data.maps and G.data.maps[ow.map.id]
+      for _, sg in ipairs((md and md.signs) or {}) do
+        local nm = sg.name or sg.text
+        if nm and squash(nm) == want then same = nm end
+      end
+      if same then
+        return false, ("nothing on %s is spelled '%s'; '%s' is"):format(
+          mid, c.name, same)
+      end
       return false, "object '" .. c.name .. "' not visible"
     end
   elseif tx then
