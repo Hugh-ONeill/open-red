@@ -20653,6 +20653,17 @@ class Executor:
             # lists every room since Pallet, and Mom's house must not
             # out-rank the fossil room when the run is standing at Mt Moon
             path = self._route(here, region)
+            # ...AND A ROOM WHOSE WALKED WAY IS TURNED BACK RIGHT NOW IS STILL
+            # A ROOM. Mansion B1F's untaken (5,13), the Secret Key, dropped
+            # off this line because 2F's (6,1) stair had failed in this world
+            # mark -- the Mansion's switches move its walls -- while the run
+            # searched every other floor for the key (run 67, 2026-10-28).
+            # Listed with that said, after the rooms of its kind a walk
+            # reaches now.
+            _turned = False
+            if not path:
+                path = self._route(here, region, ignore_blocked=True)
+                _turned = bool(path)
             if not path:
                 continue
             # ...SOMEBODY BEFORE SCENERY. The four slots went to CUT_TREE in
@@ -20669,9 +20680,13 @@ class Executor:
             # Key -- four legs away, never reached the line while the run
             # searched for the key (run 67, 2026-10-28).
             _ball = any(str(n).startswith("ITEM_") for n in left)
-            held.append(((2 if _scenery else 0 if _ball else 1, len(path)),
+            held.append(((2 if _scenery else 0 if _ball else 1,
+                          len(path) + (100 if _turned else 0)),
                          f"{region} ({', '.join(sorted(left)[:4])} — "
-                         f"{len(path)} leg(s) away)"))
+                         f"{len(path)} leg(s) away"
+                         + (" by a walked way one hop of which turned you "
+                            "back in the world as it stands" if _turned else "")
+                         + ")"))
         if held:
             held.sort(key=lambda p: p[0])
             remote_line += ("\nRooms you have SEEN things in that you have "

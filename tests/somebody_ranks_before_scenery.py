@@ -25,10 +25,14 @@ ck("scenery is judged per room",
    and 'or str(n).startswith("SIGN_") for n in left)' in src)
 ck("the sort key puts scenery-only rooms last, and a ball before a person",
    '_ball = any(str(n).startswith("ITEM_") for n in left)' in src
-   and "held.append(((2 if _scenery else 0 if _ball else 1, len(path))," in src)
+   and "held.append(((2 if _scenery else 0 if _ball else 1,\n                          len(path) + (100 if _turned else 0))," in src)
 ck("the cap (five since run 67's Mansion B1F ball) and wording stay",
    '"; ".join(t for _, t in held[:5])' in src
    and '"\\nRooms you have SEEN things in that you have "' in src)
+
+ck("a room whose walked way was turned back in this world is listed, said so",
+   "path = self._route(here, region, ignore_blocked=True)" in src
+   and "turned you \"\n                            \"back in the world as it stands" in src)
 
 bad = [c for c in checks if not c[1]]
 for n, ok, d in checks:
