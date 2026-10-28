@@ -2957,6 +2957,19 @@ def _note_floor(ex, here: str, cands: list) -> None:
         pass
 
 
+def _box_prize_line(ex) -> str:
+    """THE COUNTERS READ STAY ON THE PAGE WHILE ONE IS OPEN. A box-up page
+    returned before the run's records, so with a prize list open the page
+    said nothing of the counters already read, and run 67 (2026-10-28)
+    went from the third list back to the slots for "more coins" for a
+    SECRET_KEY none of the three lists."""
+    try:
+        _l = ex._prize_lists_line()
+    except Exception:
+        return ""
+    return ("\n" + _l.rstrip("\n")) if _l else ""
+
+
 def _floor_under_text(ex) -> str:
     """THE FLOOR UNDER THE MENU, AS LAST READ. A box or menu page cannot
     read the floor, and the decision to leave got made on exactly that
@@ -3030,7 +3043,7 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                       "{\"op\":\"tap\",\"btn\":\"b\"} closes it without "
                       "picking. Where you stand and what is untried cannot "
                       "be read until it closes; which row, if any, is yours."
-                    + _under)
+                    + _under + _box_prize_line(ex))
         # ...AND WHAT THE OUTLINE STILL ASKS, WHEN THE BOX NAMES A POKEMON
         # (see Executor._road_ahead_text): the starter was answered here.
         _ahead = ""
@@ -3044,7 +3057,7 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                 + ". Where you stand and what is untried cannot be read "
                   "until it closes: answer it if it is asking, or "
                   "{\"op\":\"tap\",\"btn\":\"b\"} to close it."
-                + _under + _ahead)
+                + _under + _ahead + _box_prize_line(ex))
     _note_floor(ex, here, cands)
     sides = sorted((m.get("connections") or {}).keys())
     been = (getattr(ex, "visits", {}) or {}).get(here, 0)

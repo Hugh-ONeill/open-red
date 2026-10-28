@@ -13751,6 +13751,10 @@ class Executor:
         """
         said = str(plan_said or "")
         mid = str(((obs or {}).get("map") or {}).get("id") or "")
+        if not mid or mid == "None":
+            # a box hides the map; the floor under it is the last one read
+            mid = str((((getattr(self, "_last_mapped_obs", None) or {})
+                        .get("map") or {}).get("id")) or "")
         rows = (getattr(self, "_shelves", None) or {}).get(mid)
         words = _re.sub(r"[^A-Z0-9_ ]+", " ", said.upper()).split()
         named = set()

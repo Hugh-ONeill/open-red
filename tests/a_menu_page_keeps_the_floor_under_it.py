@@ -49,8 +49,8 @@ ck("no floor read yet, no line", L._floor_under_text(Ex()) == "")
 src = (ROOT / "planner/ledger.py").read_text()
 i = src.index("def render(")
 blk = src[i:src.index('head = f"WHERE YOU STAND: {here}"', i)]
-ck("both box pages carry it", blk.count("_under") >= 3 and "+ _under)" in blk
-   and "+ _under + _ahead)" in blk)
+ck("both box pages carry it", blk.count("_under") >= 3 and "+ _under + _box_prize_line(ex))" in blk
+   and "+ _under + _ahead + _box_prize_line(ex))" in blk)
 ck("the overworld page records it", "_note_floor(ex, here, cands)" in blk)
 
 failed = [n for n, ok, _ in checks if not ok]
