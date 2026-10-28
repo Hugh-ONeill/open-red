@@ -47,6 +47,14 @@ try:
     ck("a plan ending on SECRET_KEY there is refused",
        h and "ROCKET_HIDEOUT_B4F" in h[0] and "SECRET_KEY" in h[0], h)
     ck("...coins are not asked", hits(plan({"COIN": 50})) == [])
+    nested = {"goal": "Obtain the Secret Key", "subgoals": [
+        {"id": "b1f", "done_when": {"map": "ROCKET_HIDEOUT_B1F"}},
+        {"id": "s3", "done_when": {"any_of": [{"has_item": {"SECRET_KEY": 1}},
+                                              {"map": "ROCKET_HIDEOUT_B4F"}]}},
+        {"id": "s4", "done_when": {"has_item": {"SECRET_KEY": 1}}}]}
+    h = hits(nested)
+    ck("a floor reached inside any_of counts as where the plan goes",
+       h and "ROCKET_HIDEOUT_B4F" in h[0], h)
     REC["sightings"]["ROCKET_HIDEOUT_B4F|17,1"].append("ROCKETHIDEOUTB4F_GIOVANNI")
     (d / "run/explored.json").write_text(json.dumps(REC))
     ck("a floor with something untouched stands", hits(plan({"SECRET_KEY": 1})) == [])

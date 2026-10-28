@@ -2496,6 +2496,13 @@ def validate(plan: dict) -> list:
             continue
         if _dw4.get("map"):
             _last_map = str(_dw4["map"])
+        # ...AND A FLOOR NAMED INSIDE any_of IS STILL WHERE THE STEP GOES:
+        # leg 54 walked B1F -> B4F as {"any_of": [{"has_item": SECRET_KEY},
+        # {"map": "ROCKET_HIDEOUT_B2F"}]} and so on down, and this rule saw
+        # only B1F (run 67, 2026-10-28).
+        for _alt in (_dw4.get("any_of") or []):
+            if isinstance(_alt, dict) and _alt.get("map"):
+                _last_map = str(_alt["map"])
         _hi4 = _dw4.get("has_item")
         if not (_last_map and isinstance(_hi4, dict)):
             continue
