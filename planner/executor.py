@@ -13787,6 +13787,37 @@ class Executor:
                 + ". Which of these, if any, is the deed this step means is "
                   "yours to judge.")
 
+    def _beaten_named_note(self, plan_said, obs) -> str:
+        """A ONE-OFF FIGHT THE GAME HAS RECORDED IS OVER, SAID TO THE WALKER.
+        Both Snorlax were beaten (EVENT_BEAT_ROUTE12_SNORLAX,
+        EVENT_BEAT_ROUTE16_SNORLAX) and the run wrote "the path south from
+        Route 16 is blocked by Snorlax ... I will use the Poke Flute" round
+        after round on its way to Cinnabar (run 67, 2026-10-28); the hints
+        said he was gone, far from the plan. Said for a fired
+        EVENT_BEAT_<name> flag whose name's last word the plan uses
+        (sightings drop the beaten, so the flag is the record); nothing
+        about what else is in the way."""
+        said = str(plan_said or "")
+        if not said:
+            return ""
+        flags = set((obs or {}).get("flags") or [])
+        words = set(_re.sub(r"[^A-Z0-9 ]+", " ", said.upper()).split())
+        out = []
+        for f in sorted(flags):
+            m = _re.match(r"EVENT_BEAT_([A-Z0-9_]+)$", str(f))
+            if not m:
+                continue
+            n = m.group(1)
+            tail = n.rsplit("_", 1)[-1]
+            if len(tail) < 5 or tail.isdigit() or tail not in words:
+                continue
+            out.append(f"{n} ({f} has fired)")
+        if not out:
+            return ""
+        return ("(You named it, and the game has recorded these fights as "
+                "over: " + "; ".join(out[:3]) + ". They are not on their maps "
+                "any more. Nothing here says what else is in the way.)")
+
     def _emptied_floor_note(self, plan_said, obs) -> str:
         """A FLOOR WALKED TO ITS END, SAID TO THE WALKER. The rewrite and
         the sentence rungs are told when a thing is put on a floor the run
@@ -28507,6 +28538,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _floor = ""
             if _floor:
                 trace = list(trace) + [_floor]
+            try:
+                _gonen = self._beaten_named_note(self._plan_said, self.settle() or obs)
+            except Exception:
+                _gonen = ""
+            if _gonen:
+                trace = list(trace) + [_gonen]
             try:
                 _obs_now = self.settle() or obs
                 _held = self._held_claim_note(self._plan_said, _obs_now)
