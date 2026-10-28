@@ -2240,6 +2240,7 @@ end
 local function observe(G, seq, result)
   wd.sr_dist = nil      -- wd.seen_has's walk over seen ground, per observation
   wd.walk_surf = nil    -- a walk's surf= is read only inside that walk
+  wd.swim_walled = nil  -- and a cross's swim verdict only inside that cross
   -- One side of a fight as the battle screen shows it (see the battle branch
   -- of observe for what is and is not reported, and why).
   local function battle_side(G, s, mine)
@@ -4850,6 +4851,9 @@ local function bushes_blocking(G, tx, ty, reach)
         -- ...AND NOT THE SAME ADVICE TO A WALK THAT ALREADY TOOK IT. "take
         -- surf=true" went back to walk_to(20,17,surf=true) on Seafoam B3F,
         -- party already riding, as the answer to itself (run 41, 2026-10-09)
+        or _ks and wd.swim_walled
+        and (", and swum, the water you can ride from here, over what has "
+             .. "been on screen, does not reach it either")
         or _ks and (wd.walk_surf or ((G.overworld or {}).player or {}).surfing)
         and (", and this walk already rode the water (surf was on): the "
              .. "water you can ride from here, over what has been on "
@@ -6181,6 +6185,7 @@ local function doorway_labels(ws)
 end
 
 bfs_to_edge = function(G, dir, skip, surf, blind, collect, only)
+  wd.swim_walled = nil
   local Collision = require("src.world.Collision")
   local ow = G.overworld
   local p = ow.player
@@ -6455,6 +6460,10 @@ bfs_to_edge = function(G, dir, skip, surf, blind, collect, only)
       .. "seam could be reached just now, so the crossing used (%d,%d)")
       :format(skipn + 1, nfound, fb_x, fb_y)
   end
+  -- (see "WHETHER THAT WATER GETS THERE" below)
+  local _walled = knows_surf and not _swim and (nwater > 0 or _tw_n > 0)
+                  and bfs_to_edge(G, dir, 0, true) == nil
+  wd.swim_walled = _walled or nil   -- read by the edge words that follow
   return nil, nil, ("BFS from %d,%d walked %d cells (%d ledge hop%s, %d arrow-tile "
     .. "slide%s); closest to "
     .. "the %s edge was %s,%s, still %d cell%s short%s")
@@ -6546,7 +6555,19 @@ bfs_to_edge = function(G, dir, skip, surf, blind, collect, only)
         or (nwater > 0)
         and ((". %d WATER cell(s) lie between the ground you can reach and "
               .. "that edge%s"):format(nwater,
-             knows_surf
+             -- ...AND WHETHER THAT WATER GETS THERE IS ASKED, NOT LEFT
+             -- FOR A ROUND. From the shore by Seafoam's (48,5) this said
+             -- SURF would carry the party, every swim from it then read
+             -- "walled off before it", and run 67 (2026-10-28) went shore
+             -- -> swim -> refused -> shore for hours. The same search with
+             -- water as ground answers it here.
+             _walled
+               and (" — a party Pokemon knows SURF, but the same search "
+                    .. "with the water counted as ground does not reach "
+                    .. "the edge either: the water you can swim from here "
+                    .. "is walled off before it, so the way " .. dir
+                    .. " is not this water")
+             or knows_surf
                and (" — and a party Pokemon knows SURF: {\"op\":\"field_move"
                     .. "\",\"move\":\"SURF\",\"x\":N,\"y\":N} at a water "
                     .. "tile you are standing beside puts you on it, and "
@@ -6557,7 +6578,10 @@ bfs_to_edge = function(G, dir, skip, surf, blind, collect, only)
         and ((". WATER lies against the ground you can reach: %d cell(s) of "
               .. "it, the nearest at (%d,%d). A walk will not cross water%s")
              :format(_tw_n, _tw_x, _tw_y,
-               knows_surf
+               _walled
+                 and (" — a party Pokemon knows SURF, but that water, "
+                      .. "swum, does not reach the edge either")
+               or knows_surf
                  and (" — but a party Pokemon knows SURF: {\"op\":"
                       .. "\"field_move\",\"move\":\"SURF\",\"x\":N,"
                       .. "\"y\":N} beside a water tile steps onto it, and "
