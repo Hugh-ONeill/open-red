@@ -2482,6 +2482,38 @@ def validate(plan: dict) -> list:
                       f"IS — only that it is not there.")
                 break
 
+    # ...AND A FLOOR WALKED TO ITS END IS ONE TOO. names_an_emptied_floor
+    # was asked of the sentence rungs only, and run 67 (2026-10-28) wrote
+    # "Obtain the Secret Key from the Celadon Game Corner" as a plan that
+    # goes to ROCKET_HIDEOUT_B4F and ends on holding SECRET_KEY, with every
+    # part of B4F on screen and everything on it pressed or taken.
+    _last_map = None
+    for _i4, _s4 in enumerate(subs or []):
+        if not isinstance(_s4, dict):
+            continue
+        _dw4 = _s4.get("done_when") or {}
+        if not isinstance(_dw4, dict):
+            continue
+        if _dw4.get("map"):
+            _last_map = str(_dw4["map"])
+        _hi4 = _dw4.get("has_item")
+        if not (_last_map and isinstance(_hi4, dict)):
+            continue
+        for _want4 in _hi4:
+            if str(_want4).upper() == "COIN":
+                continue
+            _why4 = names_an_emptied_floor(
+                f"Obtain the {str(_want4).replace('_', ' ')} from "
+                f"{_last_map.replace('_', ' ')}")
+            if _why4:
+                probs.append(
+                    f"subgoal[{_i4}] ({_s4.get('id')}) ends on holding "
+                    f"{_want4}, and the step(s) before it take the party to "
+                    f"{_last_map}: {_why4}. So this plan cannot finish where "
+                    f"it is going. Nothing here says where {_want4} IS — "
+                    f"only that it is not there.")
+                break
+
     # NOT-STANDING-SOMEWHERE IS TRUE OF ALMOST EVERYWHERE. `not_area`
     # exists for one job, and its own comment in the executor says so:
     # "A PART OF A MAP OTHER THAN THE ONE YOU KNOW... Pair it with 'map'".
