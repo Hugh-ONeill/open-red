@@ -20663,14 +20663,20 @@ class Executor:
             # signs; distance orders each group.
             _scenery = all(str(n) == "CUT_TREE" or "BOULDER" in str(n)
                            or str(n).startswith("SIGN_") for n in left)
-            held.append(((1 if _scenery else 0, len(path)),
+            # ...AND A BALL ON THE FLOOR BEFORE A NURSE AT A COUNTER. The
+            # slots went to Cinnabar's nurse, mart clerks and a PC, two and
+            # three legs away, and Mansion B1F's untaken (5,13) -- the Secret
+            # Key -- four legs away, never reached the line while the run
+            # searched for the key (run 67, 2026-10-28).
+            _ball = any(str(n).startswith("ITEM_") for n in left)
+            held.append(((2 if _scenery else 0 if _ball else 1, len(path)),
                          f"{region} ({', '.join(sorted(left)[:4])} — "
                          f"{len(path)} leg(s) away)"))
         if held:
             held.sort(key=lambda p: p[0])
             remote_line += ("\nRooms you have SEEN things in that you have "
                           "never touched: "
-                          + "; ".join(t for _, t in held[:4])
+                          + "; ".join(t for _, t in held[:5])
                           + ". A thing in a passage can BE the blockage — "
                           "going back and pressing A on it can open ground "
                           "no exit reaches.")
