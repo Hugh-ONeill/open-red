@@ -13093,6 +13093,29 @@ class Executor:
                         f"condition rules out: going in there, or out and back in, "
                         f"never meets it. What the words call the place is the "
                         f"plan-writer's guess.")
+            # ...AND WHEN EVERY WAY OUT IS RULED OUT, SAY SO. Mt Moon 1F's
+            # doors were all walked -- its ladders to B1F, its two mouths to
+            # ROUTE_4 -- and {"new_map_from": "MT_MOON_1F", "not_maps":
+            # ["MT_MOON_B1F", "ROUTE_4"]} could not come true from any of
+            # them; the run hunted the floor for a third exit (run 68,
+            # 2026-10-28). Walked doors only: where an untaken one goes is
+            # not known here.
+            _ws = [w for w in ((((obs or {}).get("map") or {}).get("warps")) or [])
+                   if isinstance(w, dict) and w.get("x") is not None]
+            if (str(((obs or {}).get("map") or {}).get("id") or "") == _from and _ws
+                    and not (MAP_EDGES.get(_from) or {})):
+                _dest = {}
+                for r, ways in (self.explored or {}).items():
+                    if str(r).split("|")[0] != _from:
+                        continue
+                    for k, e in (ways or {}).items():
+                        if isinstance(e, dict) and e.get("to"):
+                            _dest[str(k).split("#")[0]] = str(e["to"]).split("|")[0]
+                _all = [_dest.get(f"{w['x']},{w['y']}") for w in _ws]
+                if all(_all) and set(_all) <= set(_nm):
+                    out += (f" Every door on {_from} has been taken, and each leads "
+                            f"to {', '.join(sorted(set(_all)))}: no way out of "
+                            f"{_from} meets this condition.")
             return place + out
         if not isinstance(target, str) or not target.strip():
             # A CONDITION THAT NAMES NO PLACE holds wherever it comes true.
