@@ -49,6 +49,11 @@ note = X._shelf_note(ex, "I will gamble more coins to buy the SECRET_KEY", box)
 ck("the not-a-prize note answers under a box",
    "SECRET_KEY" in note and "not a prize here" in note, note)
 
+note = X._shelf_note(ex, "I have the COIN_CASE; I will buy the SECRET_KEY",
+                     {"map": {"id": None}, "bag": {"COIN_CASE": 1}})
+ck("...naming only what is not already in the bag",
+   "SECRET_KEY" in note and "COIN_CASE" not in note, note)
+
 bad = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not d else f"  {str(d)[:300]}"))

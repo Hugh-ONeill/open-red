@@ -13778,9 +13778,11 @@ class Executor:
                 if "PRIZE_VENDOR" in str(n) and str(n) not in _pz}
             _offered = " ".join(" ".join(r) for r in _pz.values()).upper()
             _offsq = _re.sub(r"[^A-Z0-9]+", "", _offered)
+            _held = set(((obs or {}).get("bag") or {}).keys())
             _miss = sorted(x for x in named
                            if _re.sub(r"[^A-Z0-9]+", "", x) not in _offsq
-                           and not x.startswith(("TM_", "HM_")))
+                           and not x.startswith(("TM_", "HM_"))
+                           and x not in _held)
             if _miss and not _unread:
                 return (f"(You said {', '.join(_miss)}, and none of the "
                         f"{len(_pz)} prize counter(s) here lists it — every "
