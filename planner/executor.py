@@ -3040,6 +3040,21 @@ class Executor:
         self.log("prize_list", map=mid, counter=str(name), rows=rows)
         self._save_memory()
 
+    def _press_at_cell(self, step, pre_obs):
+        """(region, name) for an x,y press: the thing the map lists at that
+        cell, on the map the party last stood on when a box hides it."""
+        src = pre_obs
+        if "None" in self._where(src):
+            src = getattr(self, "_last_mapped_obs", None) or {}
+        _hr = self._where(src)
+        if "None" in _hr:
+            return None, None
+        for o in (((src.get("map") or {}).get("objects")) or []):
+            if (o.get("x"), o.get("y")) == (step.get("x"), step.get("y")) \
+                    and o.get("name"):
+                return _hr, str(o["name"])
+        return _hr, None
+
     def _prize_lists_line(self) -> str:
         """PRIZE COUNTERS YOU HAVE READ, for the page: the run's own reads,
         and which counters in those rooms were never read."""
@@ -25119,6 +25134,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         self._record_prize_list(_hr, step["name"], obs)
                     except Exception as _e:
                         self.log("prize_list_error", err=str(_e)[:120])
+            elif op == "interact" and r.get("ok") and step.get("x") is not None:
+                # A COUNTER PRESSED BY ITS CELL IS STILL THAT COUNTER. Run
+                # 67, 2026-10-28: VENDOR_2 and VENDOR_3 were opened with
+                # x,y presses, a box from the first still up, so the press
+                # had no name and the snapshot no map, and both lists went
+                # unkept: the page went on saying they were "never read".
+                try:
+                    _hr, _nm = self._press_at_cell(step, pre_obs)
+                    if _hr and _nm:
+                        self._record_prize_list(_hr, _nm, obs)
+                except Exception as _e:
+                    self.log("prize_list_error", err=str(_e)[:120])
             after = self._snapshot(obs)
             # A MAP OF None IS A MID-TRANSITION READ, NOT A PLACE. An op
             # that ends while a menu or a warp fade is still up snapshots
