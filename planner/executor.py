@@ -27728,7 +27728,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     # going west works (2026-08-23). Same map-qualification bug
                     # the item names and the repeat gate each had; count a deed
                     # where it was done.
-                    _mapk = (_area.split("|")[0], _key)
+                    # ...AND A SEAM CROSSED FROM ONE PART OF A MAP IS NOT
+                    # CROSSED FROM ANOTHER. Run 67 (2026-10-28) read "west on
+                    # ROUTE_20 x14 — ok (crossed — now on CINNABAR_ISLAND)"
+                    # from the pond east of Seafoam, where every west cross
+                    # had failed: the success was from the part past the
+                    # island, and the pond's failures summed into it.
+                    _dir = str(_key).split("#")[0] in (
+                        "north", "south", "east", "west")
+                    _mapk = (_area if _dir else _area.split("|")[0], _key)
                     _e = _agg.setdefault(_mapk, {"n": 0, "last": "", "where": _area})
                     _e["n"] += int(_rec.get("n") or 0)
                     _e["last"] = _rec.get("last") or _e["last"]
