@@ -10488,8 +10488,18 @@ class Executor:
         # untried for ever is for ever the freshest thing on the frontier,
         # and the walk-back keeps electing it. Same rule the mid-walk case
         # already follows — honest ignorance beats a wrong edge.
+        # ...BUT A HOLE IS NOT A DOOR, AND IT IS ON THIS FLOOR. A walk onto
+        # Seafoam 1F's (17,6) dropped the party to B1F, the fall was found
+        # and keyed, and this check threw it away for not being a warp: no
+        # drop taken by a walk was ever filed, and `go` from 1F's west half
+        # answered "no walked way ... to CINNABAR_ISLAND is known" round
+        # after round on the road the run had crossed by (run 67,
+        # 2026-10-28; user: "shouldnt it just be able to 'go'?").
         _mw = ((before_obs or {}).get("map") or {}).get("warps") or []
-        if (step.get("x") is not None and _mw
+        _mh = ((before_obs or {}).get("map") or {}).get("holes") or []
+        _on_hole = any(isinstance(h, dict) and f"{h.get('x')},{h.get('y')}"
+                       == str(key).split("#")[0] for h in _mh)
+        if (step.get("x") is not None and _mw and not _on_hole
                 and not any(w.get("x") == step.get("x")
                             and w.get("y") == step.get("y") for w in _mw)):
             self.log("edge_key_foreign", frm=src, via=str(key), to=dst)
