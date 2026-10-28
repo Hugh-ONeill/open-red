@@ -13752,6 +13752,55 @@ class Executor:
                 + ". Which of these, if any, is the deed this step means is "
                   "yours to judge.")
 
+    def _emptied_floor_note(self, plan_said, obs) -> str:
+        """A FLOOR WALKED TO ITS END, SAID TO THE WALKER. The rewrite and
+        the sentence rungs are told when a thing is put on a floor the run
+        has walked to its end (author.names_an_emptied_floor); the round's
+        own page was not. On Rocket Hideout B4F, every part on screen and
+        everything on it pressed or taken, the run wrote "The Secret Key is
+        located on the bottom floor (B4F)" round after round and went back
+        down to look again (run 67, 2026-10-28). Said for an item the plan
+        names and the bag lacks, on the floor where the party stands and
+        any floor the plan names; nothing about where the thing IS."""
+        said = str(plan_said or "")
+        if not said:
+            return ""
+        import author as _au
+        words = _re.sub(r"[^A-Z0-9_ ]+", " ", said.upper()).split()
+        bag = set(((obs or {}).get("bag") or {}).keys())
+        named = set()
+        for n in (1, 2, 3):
+            for i in range(len(words) - n + 1):
+                cand = "_".join(words[i:i + n])
+                if (cand in _ITEM_IDS and cand not in bag
+                        and not cand.startswith("FLOOR_")):
+                    named.add(cand)
+        if not named:
+            return ""
+        here = str(((obs or {}).get("map") or {}).get("id") or "")
+        if not here or here == "None":
+            here = str((((getattr(self, "_last_mapped_obs", None) or {})
+                         .get("map") or {}).get("id")) or "")
+        floors = [here] if here and here != "None" else []
+        _wset = set(words)
+        for mid in sorted({str(r).split("|")[0]
+                           for r in (getattr(self, "visits", None) or {})}):
+            parts = mid.split("_")
+            if mid not in floors and len(parts) >= 2 and all(w in _wset for w in parts):
+                floors.append(mid)
+        out = []
+        for it in sorted(named):
+            for mid in floors:
+                why = _au.names_an_emptied_floor(
+                    f"Obtain the {it.replace('_', ' ')} from {mid.replace('_', ' ')}")
+                if why:
+                    _m = why[len("names "):].split(",", 1)[0]
+                    out.append(f"(You said {it}. {why[len('names '):]}. "
+                               f"Nothing here says where {it} IS; only that "
+                               f"it is not on {_m}.)")
+                    break
+        return " ".join(out)
+
     def _shelf_note(self, plan_said, obs) -> str:
         """An item the plan's WORDS named, at a counter the run has read that
         has never listed it — said on the round that arrived there.
@@ -28356,6 +28405,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 _shelf = ""
             if _shelf:
                 trace = list(trace) + [_shelf]
+            try:
+                _floor = self._emptied_floor_note(self._plan_said, self.settle() or obs)
+            except Exception:
+                _floor = ""
+            if _floor:
+                trace = list(trace) + [_floor]
             try:
                 _obs_now = self.settle() or obs
                 _held = self._held_claim_note(self._plan_said, _obs_now)
