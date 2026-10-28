@@ -7,6 +7,9 @@ name and the snapshot no map, so neither list was kept, and every page
 after said both were "never read" while the leg was rewritten to buy the
 Secret Key there again.
 
+The same day, presses by name with VENDOR_1's box still up were lost the
+same way: the snapshot read no map.
+
 Pinned: the cell gives the name the map lists there, a box-hidden map
 falls back to the last mapped one, and the recorder is reached for such a
 press.
@@ -37,6 +40,8 @@ ck("...and with a box up, the last mapped map stands in",
    X._press_at_cell(st, {"x": 4, "y": 2}, {"map": {}}) == ("GAME_CORNER_PRIZE_ROOM|0,3", V2))
 ck("a cell with nothing listed names nothing",
    X._press_at_cell(st, {"x": 5, "y": 5}, ROOM)[1] is None)
+ck("a named press with a box up keeps its name on the last mapped map",
+   X._press_at_cell(st, {"name": V2}, {"map": {}}) == ("GAME_CORNER_PRIZE_ROOM|0,3", V2))
 st2 = types.SimpleNamespace(_where=X._where, _last_mapped_obs=None)
 ck("no map anywhere names nothing",
    X._press_at_cell(st2, {"x": 4, "y": 2}, {"map": {}}) == (None, None))
