@@ -7242,6 +7242,16 @@ class Executor:
             # order is the whole fact is the one the run spends attempts in
             # (Vermilion's gym, 2026-09-14). Same ledger, same lifetime.
             self._press_log = data.get("press_log") or {}
+            # ...AND A STAMP WHOSE OWN REASON IS THE WORLD MOVING IS LIFTED
+            # (see _walk_cut_by_the_world): written before that rule knew
+            # the bare "interrupted (battle or script)", it shut Route 9's
+            # road to Celadon for the rest of the world mark (run 67).
+            for _ex in (self.explored or {}).values():
+                for _e in (_ex or {}).values():
+                    if (isinstance(_e, dict) and _e.get("blocked_at") is not None
+                            and self._walk_cut_by_the_world(_e.get("blocked_why"))):
+                        _e.pop("blocked_at", None)
+                        _e.pop("blocked_why", None)
             # ...AND A BALL WHOSE LAST ANSWER WAS "NO MORE ROOM" WAS NEVER
             # TOUCHED, whatever path wrote the touch. Run 67's Secret Key,
             # Mansion B1F (5,13), sat in touched for B1F|8,1 though every
@@ -14473,6 +14483,15 @@ class Executor:
                 # (a SCRIPT that speaks — a guard stepping out — is a
                 # refusal, not the world moving: "it said:" rules it out)
                 or ("something interrupted" in _wd and "it said:" not in _wd)
+                # ...and the walk's own bare "interrupted (battle or
+                # script)": nobody beside the party to name and nothing
+                # said is a wild box, not a guard. Route 9's walk to
+                # (50,6), landed 8 times, was stamped "would not land" on
+                # one such stop, and `go` refused the whole road from Route 5
+                # to Celadon (run 67, 2026-10-28).
+                or ("interrupted (battle or script)" in _wd
+                    and " by " not in _wd and "it said" not in _wd
+                    and '"' not in _wd)
                 or "safari game ended" in _wd)
 
     def _drain_fights(self, sg, o):
