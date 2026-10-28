@@ -5187,6 +5187,12 @@ def observed_text(path: Path) -> str:
                                     .get("flags") or []))
     except (OSError, ValueError, AttributeError):
         _flags_now = set()
+    # a flag the run has seen flip back is a lever, not news (Executor._since_words)
+    try:
+        _toggled = set(json.loads(Path("run/explored.json").read_text() or "{}")
+                       .get("toggled_flags") or [])
+    except (OSError, ValueError, AttributeError):
+        _toggled = set()
     if blk:
         rows = []
         for b in sorted(blk, key=lambda b: (-int(b.get("n") or 0),
@@ -5199,7 +5205,8 @@ def observed_text(path: Path) -> str:
             if b.get("your_words"):
                 row += f" — you called it: {b['your_words']}"
             # ...AND WHAT HAS HAPPENED SINCE (Executor._since_words)
-            _new = sorted(_flags_now - set(b.get("flags_then") or [])) \
+            _new = sorted(_flags_now - set(b.get("flags_then") or [])
+                          - _toggled) \
                 if b.get("flags_then") is not None and _flags_now else []
             if _new:
                 row += (f" — SINCE IT TURNED YOU BACK {len(_new)} event(s) "

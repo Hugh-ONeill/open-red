@@ -3663,7 +3663,14 @@ class Executor:
         if self._blocker_current(b):
             return ""
         then = set(b.get("flags_then") or [])
-        new = [f for f in (getattr(self, "_flags_now", None) or []) if f not in then]
+        # ...AND A LEVER FLIPPED IS NOT THE WORLD CHANGING (see
+        # _progress_mark). The Cinnabar gym door's row read "1 event(s)
+        # have fired (including: EVENT_MANSION_SWITCH_ON), so it may answer
+        # differently now" after each statue press, and the run went back to
+        # the locked door again and again (run 67, 2026-10-28).
+        _tg = set(getattr(self, "_toggled_flags", None) or ())
+        new = [f for f in (getattr(self, "_flags_now", None) or [])
+               if f not in then and f not in _tg]
         now = getattr(self, "_mark_now", None) or [0, 0, 0]
         mark = b.get("mark") or [0, 0, 0]
         bits = []
