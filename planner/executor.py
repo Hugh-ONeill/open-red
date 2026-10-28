@@ -20523,7 +20523,15 @@ class Executor:
             path = self._route(here, region)
             if not path:
                 continue
-            held.append((len(path),
+            # ...SOMEBODY BEFORE SCENERY. The four slots went to CUT_TREE in
+            # three parts of Celadon and Route 16, and the Diner's five people
+            # -- the Coin Case among them -- never reached the line (run 67,
+            # 2026-10-28). A room with a person or an item in it ranks ahead
+            # of one whose only untouched things are bushes, boulders and
+            # signs; distance orders each group.
+            _scenery = all(str(n) == "CUT_TREE" or "BOULDER" in str(n)
+                           or str(n).startswith("SIGN_") for n in left)
+            held.append(((1 if _scenery else 0, len(path)),
                          f"{region} ({', '.join(sorted(left)[:4])} — "
                          f"{len(path)} leg(s) away)"))
         if held:
