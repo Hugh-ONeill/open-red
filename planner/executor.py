@@ -18687,6 +18687,9 @@ class Executor:
                 best = (str(r).split("|")[0], len(path))
         pc = (f" — the nearest you have walked into is {best[0]}, "
               f"{best[1]} leg(s) away" if best else "")
+        consum = [k for k in singles
+                  if k in ("HP_UP", "PROTEIN", "IRON", "CARBOS", "CALCIUM",
+                           "RARE_CANDY", "PP_UP")]
         return (
             f"\nYOUR BAG holds {nkinds} of 20 KINDS: {state}. A slot is a "
             f"KIND, not a count: tossing, selling, using or storing ONE of a "
@@ -18699,11 +18702,24 @@ class Executor:
             + (f" Of the singles, KEY ITEMS AND HMs ({', '.join(keyk)}) the "
                f"game will neither toss nor sell — STORING is the one way "
                f"those {len(keyk)} go, and the PC takes them." if keyk else "")
-            + " WAYS TO FREE A SLOT, the reversible one first: STORING at a "
+            # ...AND WHERE EACH ONE CAN BE DONE. "the reversible one first"
+            # put a Pokemon Center trip at the head of the list, and from deep
+            # in the Mansion basement the run kept leaving to store things
+            # while the Secret Key lay refused for want of a slot and a CARBOS
+            # sat in the bag (run 67, 2026-10-28; user: "i wish itd just use
+            # the carbos though"). Every way and its cost stays; the page says
+            # which work where you stand, and names the singles a use spends
+            # with nothing lost. Which to pick is the model's.
+            + " WAYS TO FREE A SLOT — USING and TOSSING work where you stand; "
+              "STORING needs a Pokemon Center's PC" + pc + ", SELLING a mart "
+              "clerk."
+            + (f" Of your singles, using one spends it with nothing lost from "
+               f"the party: {', '.join(consum)}." if consum else "")
+            + " STORING at a "
               "Pokemon Center's PC keeps the thing and frees the slot "
               "({\"op\":\"store_item\",\"item\":...}; "
               "{\"op\":\"retrieve_item\",...} brings it back; obs.pc_items is "
-              "what the PC holds" + pc + "). USING spends one and keeps its "
+              "what the PC holds). USING spends one and keeps its "
               "value — a TM teaches its move to a party member that can learn "
               "it ({\"op\":\"use_item\",\"item\":\"TM_...\",\"slot\":N,"
               "\"forget\":\"MOVE\"} when four moves are known — and that "
