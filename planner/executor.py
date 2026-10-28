@@ -7235,6 +7235,24 @@ class Executor:
             # order is the whole fact is the one the run spends attempts in
             # (Vermilion's gym, 2026-09-14). Same ledger, same lifetime.
             self._press_log = data.get("press_log") or {}
+            # ...AND A BALL WHOSE LAST ANSWER WAS "NO MORE ROOM" WAS NEVER
+            # TOUCHED, whatever path wrote the touch. Run 67's Secret Key,
+            # Mansion B1F (5,13), sat in touched for B1F|8,1 though every
+            # press of it was refused, so the floor never listed it as
+            # untouched and the run searched upstairs (2026-10-28). The
+            # press log is the record of what the ball last said.
+            _gone_load = set()
+            for _gv in (data.get("gone") or {}).values():
+                _gone_load |= set(_gv or ())
+            for _reg, _prs in self._press_log.items():
+                _last = {}
+                for _pr in _prs or []:
+                    if isinstance(_pr, (list, tuple)) and len(_pr) >= 2:
+                        _last[str(_pr[0])] = str(_pr[1])
+                for _who, _said in _last.items():
+                    if (_who.startswith("ITEM_") and _who not in _gone_load
+                            and "no more room" in _said.lower()):
+                        self._tried_objs.get(_reg, set()).discard(_who)
             # the world's battle record (see DAMAGE_FRAC, WILD_LEFT)
             DAMAGE_FRAC.clear()
             DAMAGE_FRAC.update(data.get("damage_frac") or {})
