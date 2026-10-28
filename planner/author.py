@@ -1070,6 +1070,28 @@ def walked_shelves() -> dict:
     return out
 
 
+def read_prize_rooms(observed="run/explored.json") -> dict:
+    """{map: (prizes, False)} for each prize room whose every counter this
+    run has opened, in walked_shelves' shape: what was listed, read back,
+    names without their coin prices. A room with a counter never opened
+    is left out; nothing is claimed about it."""
+    try:
+        d = json.loads(Path(observed).read_text() or "{}")
+    except Exception:
+        return {}
+    out = {}
+    for mid, reads in (d.get("prize_lists") or {}).items():
+        unread = {
+            str(n) for reg, names in (d.get("sightings") or {}).items()
+            if str(reg).split("|")[0] == mid
+            for n in (names or [])
+            if "PRIZE_VENDOR" in str(n) and str(n) not in (reads or {})}
+        if reads and not unread:
+            out[str(mid)] = ([re.sub(r"\s*\(.*$", "", str(x)).strip()
+                              for rows in reads.values() for x in rows], False)
+    return out
+
+
 def prize_lists_text(observed="run/explored.json") -> str:
     """The prize counters this run has opened and what each listed, with
     the counters in those rooms it never opened — executor
@@ -2423,7 +2445,11 @@ def validate(plan: dict) -> list:
     # A SHELF THAT HAS MOVED IS EXEMPT. Viridian's changes once, after the
     # parcel; a counter this run has seen come back different is not one we
     # may call settled.
-    _sh = walked_shelves()
+    # ...AND A PRIZE ROOM WHOSE EVERY COUNTER WAS READ IS ONE TOO. Run 67
+    # (2026-10-28) wrote leg 52 five times as "go to the prize room, buy
+    # SECRET_KEY" with all three lists kept (ABRA ... TM50) and on the page.
+    _pz_rooms = read_prize_rooms()
+    _sh = {**walked_shelves(), **_pz_rooms}
     if _sh:
         _mapped = None
         for _s2 in (subs or []):
@@ -2442,11 +2468,14 @@ def validate(plan: dict) -> list:
             for _want in _hi:
                 if str(_want).upper() in {str(x).upper() for x in _items}:
                     continue
+                if _mapped in _pz_rooms and str(_want).upper() == "COIN":
+                    continue
                 probs.append(
                     f"subgoal[{(subs or []).index(_s2)}] ({_s2.get('id')}) "
                     f"ends on holding {_want}, and the step(s) before it "
                     f"take the party to {_mapped}, whose counter THIS RUN "
-                    f"HAS READ: it sells "
+                    f"HAS READ: it "
+                    + ("lists as prizes " if _mapped in _pz_rooms else "sells ")
                     + ", ".join(str(x) for x in _items[:12])
                     + f". {_want} is not on it, so this plan cannot finish "
                       f"where it is going. Nothing here says where {_want} "
