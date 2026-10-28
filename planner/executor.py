@@ -9682,6 +9682,14 @@ class Executor:
         # with any pad the run knows sets it down on this floor.
         _objs = (cur.get("map") or {}).get("objects") or []
         _reach_now = {o.get("name") for o in _objs if o.get("reachable")}
+        # ...AND A TRAINER THE SCREEN SHOWS BEATEN IS NOT A THING LEFT.
+        # Every swimmer on Route 20 read beaten, and this line told the
+        # run it was no dead end yet and to "interact
+        # with all of them", about two of them, while it looked for the way
+        # to Cinnabar (run 67, 2026-10-28). Same rule as untouched_named.
+        _beat = ({o.get("name") for o in _objs if o.get("beaten")}
+                 | set(getattr(self, "_beaten_seen", None) or ()))
+        _open = [n for n in _open if n not in _beat]
         _far = [n for n in _open if n not in _reach_now]
         _open = [n for n in _open if n in _reach_now]
         if _far:
