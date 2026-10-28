@@ -18,7 +18,7 @@ checks = []
 def ck(n, ok): checks.append((n, bool(ok)))
 
 i = src.index('remote_line += ("\\nRooms you have SEEN things in that you have "')
-blk = src[i - 2600:i]
+blk = src[i - 4500:i]
 ck("the line subtracts with ledger.untouched_in", "_ut = set(ledger.untouched_in(self, region))" in blk)
 ck("...and no longer by this part's presses alone", "got = self._tried_objs.get(region, set())" not in blk)
 led = (ROOT / "planner/ledger.py").read_text()
