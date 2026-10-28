@@ -7055,6 +7055,7 @@ class Executor:
                 except Exception:
                     continue
             self._exit_tries = data.get("exit_tries") or {}
+            self._refused_balls = data.get("refused_balls") or {}
             # doors taken onto a box (note_transition) outlive a restart
             self._boxed_doors = data.get("boxed_doors") or {}
             self.flag_sites = data.get("flag_sites") or {}
@@ -7704,6 +7705,7 @@ class Executor:
                               for k, v in self._dead_ops.items()],
                  "dead_ops_rev": self._harness_rev,
                  "exit_tries": self._exit_tries,
+                 "refused_balls": getattr(self, "_refused_balls", None) or {},
                  "boxed_doors": getattr(self, "_boxed_doors", None) or {},
                  "flag_sites": self.flag_sites,
                  "shut_doors": self.shut_doors,
@@ -18973,6 +18975,17 @@ class Executor:
                 continue
             rows.append((mp, f"{who} in {mp} said \"{str(rec.get('said') or '').strip()}\" "
                              f"after the fight"))
+        _named = set()
+        _gone_all = set()
+        for _v in ((getattr(self, "_gone", {}) or {}).values()):
+            _gone_all |= set(_v or ())
+        for who, mp in (getattr(self, "_refused_balls", None) or {}).items():
+            if who in _gone_all:
+                continue                        # picked up since
+            xy = "(" + ",".join(who.rsplit("_", 2)[-2:]) + ")"
+            rows.append((mp, f"a ball at {xy} in {mp}, which answered "
+                             f"\"No more room for items!\""))
+            _named.add(who)
         pat = _re.compile(self._NO_ROOM, _re.I)
         for region, lines in (self.hints or {}).items():
             gone = (getattr(self, "_gone", {}) or {}).get(region) or set()
@@ -18982,7 +18995,7 @@ class Executor:
                     continue
                 if "learn" in said.lower():
                     continue                    # the move-slot question, not a gift
-                if who in gone:
+                if who in gone or who in _named:
                     continue
                 if who.startswith("ITEM_"):
                     xy = "(" + ",".join(who.rsplit("_", 2)[-2:]) + ")"
@@ -25611,6 +25624,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             if ("No more room for items" in str(r.get("detail") or "")
                     and op == "interact" and step.get("name")):
                 self._retract_touch(self._where(pre_obs), step["name"])
+                # ...AND KEPT UNDER ITS OWN NAME. Two presses in one round
+                # file the first one's words as "someone" (_earlier_speech),
+                # so the Mansion B1F ball at (5,13) -- the Secret Key -- read
+                # "someone in POKEMON_MANSION_B1F said ..." with no tile
+                # (run 67, 2026-10-28). The op knows what it pressed.
+                if str(step["name"]).startswith("ITEM_"):
+                    self.__dict__.setdefault("_refused_balls", {})[
+                        str(step["name"])] = str(
+                        ((pre_obs or {}).get("map") or {}).get("id") or "")
             # AN OP THAT RAN AND CHANGED NOTHING IS SPENT, NOT SUCCEEDED.
             # A vitamin refused by a capped Pokemon answers ok ("used
             # PROTEIN and NOTHING HAPPENED"), so it CLEARED the strike
