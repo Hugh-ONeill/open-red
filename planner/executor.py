@@ -19077,6 +19077,26 @@ class Executor:
             rows.append((mp, f"a ball at {xy} in {mp}, which answered "
                              f"\"No more room for items!\""))
             _named.add(who)
+        # ...AND THE PRESS LOG NAMES THE BALL WHEN THE HINT DID NOT. Run 67's
+        # Secret Key, ITEM_POKEMON_MANSION_B1F_5_13, was refused before
+        # _refused_balls existed and its hint was kept as "someone: No more
+        # room for items!", so this line said "someone in
+        # POKEMON_MANSION_B1F" and the run searched the upper floors for
+        # the key (2026-10-28). The press log kept the ball by name.
+        _pz = {}
+        for region, presses in (getattr(self, "_press_log", None) or {}).items():
+            for pr in presses or []:
+                if not (isinstance(pr, (list, tuple)) and len(pr) >= 2):
+                    continue
+                who, said = str(pr[0]), str(pr[1])
+                if (who.startswith("ITEM_") and "no more room" in said.lower()
+                        and who not in _gone_all and who not in _named):
+                    mp = region.split("|")[0]
+                    xy = "(" + ",".join(who.rsplit("_", 2)[-2:]) + ")"
+                    rows.append((mp, f"a ball at {xy} in {mp}, which answered "
+                                     f"\"No more room for items!\""))
+                    _named.add(who)
+                    _pz[mp] = _pz.get(mp, 0) + 1
         pat = _re.compile(self._NO_ROOM, _re.I)
         for region, lines in (self.hints or {}).items():
             gone = (getattr(self, "_gone", {}) or {}).get(region) or set()
@@ -19093,6 +19113,9 @@ class Executor:
                     rows.append((region.split("|")[0],
                                  f"a ball at {xy} in {region.split('|')[0]}, "
                                  f"which answered \"{said.strip()[:60]}\""))
+                elif (who == "someone" and _pz.get(region.split("|")[0])
+                      and "items" in said.lower()):
+                    continue                    # that ball is named above
                 elif not any(who.upper() in g for g in got_from.get(region.split("|")[0], ())):
                     rows.append((region.split("|")[0],
                                  f"{who} in {region.split('|')[0]} said \"{said.strip()[:80]}\""))
