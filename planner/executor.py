@@ -10916,13 +10916,17 @@ class Executor:
         for m2 in sorted(self.map_doors or {}):
             if map_family(m2) not in fams:
                 continue
+            # ...AND A PAD THAT SET YOU DOWN ON THE PART YOU LEFT WAS STILL
+            # RIDDEN. This read the room-worked rule's "a ride back to the
+            # same part is no way out", so Silph 3F's (23,11) and (27,15),
+            # which lead to each other and were ridden both ways, stood in
+            # "never been ridden" round after round (run 68, 2026-10-29).
             walked = set()
             for r2, ex2 in (self.explored or {}).items():
                 if r2.split("|")[0] != m2:
                     continue
                 walked |= {k for k, e in ex2.items()
-                           if not (e or {}).get("shut")
-                           and (e or {}).get("to") != r2}
+                           if not (e or {}).get("shut")}
             left = sorted(k for k in self.map_doors.get(m2, ())
                           if k not in walked
                           and (looks.get(m2) or {}).get(str(k)) == "pad")

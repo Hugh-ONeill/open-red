@@ -52,6 +52,10 @@ ck("...and where a pad goes is not said", "sets you down is not known until it i
 ck("a building with no unridden pads adds nothing", ex._pads_unridden_in_building(["PEWTER_GYM|1,1"]) == "")
 ex.explored["CELADON_MART_2F|1,1"] = {"12,1": {"to": "CELADON_MART_ROOF|0,0"}}
 ck("...nor one whose only pad has been ridden", ex._pads_unridden_in_building(["CELADON_MART_5F|1,1"]) == "")
+ex.explored["SILPH_CO_3F|20,0"]["27,15"] = {"n": 1, "to": "SILPH_CO_3F|20,0"}
+got2 = ex._pads_unridden_in_building(["SILPH_CO_3F|20,0"])
+ck("a pad ridden back onto the same part is ridden (run 68, 3F (23,11)<->(27,15))",
+   "(27,15)" not in got2 and "SILPH_CO_3F (27,3)" in got2, got2)
 src = (ROOT / "planner/executor.py").read_text()
 ck("it ends the far-rooms line", "+ self._pads_unridden_in_building(" in src
    and src.index("+ self._pads_unridden_in_building(") > src.index("not a thing that is done.\""))
