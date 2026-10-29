@@ -45,7 +45,7 @@ ck("both party lines are still there", len(_lines) == 2, len(_lines))
 ck("the goal page names the types",
    "f\"{i}. {m.get('species')}{_mon_types(m)} L{m.get('level')} \"" in SRC)
 ck("...and so does the every-round line",
-   "f\"{m.get('species')}{_mon_types(m)} L{m.get('level')} \"" in SRC)
+   "_pl = [f\"{i}. {m.get('species')}{_mon_types(m)} L{m.get('level')} \"" in SRC)
 ck("level and HP are untouched",
    SRC.count("f\"{m.get('hp')}/{m.get('max_hp')}hp\"") == 2)
 

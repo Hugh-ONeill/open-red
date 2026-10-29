@@ -11416,8 +11416,21 @@ function OPS.pc_deposit(G, c)
     return false, "that is your last Pokemon — the PC will not take it"
   end
   local before = #party
+  -- WHO IT IS, NOT ONLY WHAT IT IS CALLED. The box list prints a nickname,
+  -- and the trace said "deposited HUCKLE": the run boxed its L45 HYPNO,
+  -- slot 6 of a party it read without slot numbers, to make room for a
+  -- L15 LAPRAS, and never said so again (run 68, 2026-10-29; user: "why
+  -- would it replace the high level psychic and not the unevolved
+  -- eevee"). The party screen shows species and level beside the name.
+  local _m = party[n] or {}
+  local _sp = _m.species or _m.name
+  local _lvn = tonumber(_m.level)
   local ok, label = pc_mon(G, c, "DEPOSIT", n)
   if not ok then return false, label end
+  if _sp and tostring(label) ~= tostring(_sp) then
+    label = ("%s (%s%s)"):format(label, tostring(_sp),
+      _lvn and (" L" .. _lvn) or "")
+  end
   -- the per-mon submenu: DEPOSIT / STATS / CANCEL, action first
   ui_cursor_to(G, "index", 1)
   U.tap(G, "a"); U.wait(10)
@@ -11442,21 +11455,29 @@ function OPS.pc_deposit(G, c)
   -- was worth it is the model's; a boxed Pokemon counting for nothing
   -- until withdrawn is already said on every page.
   local _lv, _lo, _hi = nil, nil, nil
+  _lv = _lvn or tonumber(tostring(label):match(":L(%d+)"))
+  local _below = 0
   for _, m in ipairs(((G.save or {}).party or {})) do
     local l = tonumber(m.level)
     if l then
       if not _lo or l < _lo then _lo = l end
       if not _hi or l > _hi then _hi = l end
+      if _lv and l < _lv then _below = _below + 1 end
     end
   end
-  _lv = tonumber(tostring(label):match(":L(%d+)"))
-  return true, ("deposited %s — party is now %d%s"):format(
+  -- ...AND HOW IT STOOD AGAINST WHO STAYED: HYPNO L45 left a party of five
+  -- with four of them lower than it, and "what is left is L41-L55" did not
+  -- say so (run 68). A count, not a ranking of who should have gone.
+  return true, ("deposited %s — party is now %d%s%s"):format(
     label, after,
     (_lo and _hi)
       and ((_lv and _hi and _lv > _hi
             and (", and that was the highest level in it — what is left is L"
                  .. _lo .. "-L" .. _hi))
            or (", and what is left is L" .. _lo .. "-L" .. _hi))
+      or "",
+    (_lv and _below > 0 and not (_hi and _lv > _hi))
+      and ("; " .. _below .. " of the " .. after .. " still in it are lower level than it was")
       or "")
 end
 

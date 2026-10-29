@@ -29178,10 +29178,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # all, and the party walked in at 18/39 straight from the gym
             # trainer's fight (2026-09-07). Whether to heal first is the
             # model's call, and it needs the number to make it.
-            _pl = [f"{m.get('species')}{_mon_types(m)} L{m.get('level')} "
+            # ...NUMBERED AS THE SLOT OPS COUNT. pc_deposit, use_item and
+            # party_swap take a slot, and this line listed the party with no
+            # numbers: run 68 sent pc_deposit slot 6 from it and boxed its
+            # L45 HYPNO for a L15 LAPRAS (2026-10-29). The main party line
+            # numbers them; this one now does too.
+            _pl = [f"{i}. {m.get('species')}{_mon_types(m)} L{m.get('level')} "
                    f"{m.get('hp')}/{m.get('max_hp')}hp"
                    + (f" [{m.get('status')}]" if m.get("status") else "")
-                   for m in ((cur or {}).get("party") or [])
+                   for i, m in enumerate((cur or {}).get("party") or [], 1)
                    if m.get("max_hp")]
             if _pl:
                 stuck_note += "\nYOUR PARTY RIGHT NOW: " + "; ".join(_pl) + "."
