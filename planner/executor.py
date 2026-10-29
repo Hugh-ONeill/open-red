@@ -1423,6 +1423,19 @@ def pred_holds(pred: dict | None, obs: dict) -> bool:
                     if _c < n:
                         return False
                     continue
+                # ...NOR ARE SAFARI BALLS. The gate hands over thirty and the
+                # game counts them apart from the bag (the shim's
+                # obs["safari"]["balls"]), so run 68's get_safari_pass,
+                # {"has_item":{"SAFARI_BALL":1}}, read false with thirty in
+                # hand and was carried past (2026-10-29).
+                if str(item).upper() == "SAFARI_BALL":
+                    try:
+                        _sb = int(((obs.get("safari") or {}).get("balls")) or 0)
+                    except (TypeError, ValueError, AttributeError):
+                        _sb = 0
+                    if _sb + int(bag.get(item, 0) or 0) < n:
+                        return False
+                    continue
                 if not bag or bag.get(item, 0) < n:
                     return False
         elif key in ("lacks_item", "bag_kinds_below"):
