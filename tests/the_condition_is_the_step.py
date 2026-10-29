@@ -45,7 +45,7 @@ ck("...and nothing without a floor word", e._words_vs_condition("Buy Fresh Water
 ck("junk is tolerated", e._words_vs_condition(None, None) == "" and e._words_vs_condition("x", {"map": 7}) == "")
 src = (ROOT / "planner" / "executor.py").read_text()
 ck("it rides the step statement at the top of the prompt",
-   'user = (f"SUBGOAL: {goal}\\nDONE_WHEN: {pred_text.dumps(done)}"\n                    f"{self._area_ids_note(done, obs)}"\n                    f"{self._words_vs_condition(goal, done, start)}"' in src)   # start: the flag translation counts what has fired (model_view strips flags)
+   'user = (f"SUBGOAL: {goal}\\nDONE_WHEN: {pred_text.dumps(done)}"\n                    f"{self._area_ids_note(done, obs)}"\n                    f"{self._player_at_off_map_note(done, obs)}"\n                    f"{self._words_vs_condition(goal, done, start)}"' in src)   # start: the flag translation counts what has fired (model_view strips flags)
 bad = [x for x in checks if not x[1]]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok else f"\n      {str(d)[:300]}"))

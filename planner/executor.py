@@ -13034,6 +13034,35 @@ class Executor:
             # ground": Silph 2F, grind earned 0 exp, run 66, 2026-10-25)
         return "\nPREMISE UNMET: " + " ".join(lines)
 
+    def _player_at_off_map_note(self, done, obs) -> str:
+        """A player_at no cell of this map can meet, said under DONE_WHEN.
+
+        Vermilion Gym is 10 cells wide; the step "interact with the
+        motorized door" was banked as {"player_at":{"x":12,"y":4,"radius":2}},
+        so meeting it needs x 10 or more. The round read "(12,4) has never
+        been on screen", explored, was refused as redundant, and walked out
+        of the gym "to reset", which resets the two locks it had just
+        opened (run 68, 2026-10-29). The map's size is on the observation;
+        what the step should have said is not said."""
+        dw = done if isinstance(done, dict) else {}
+        pa = dw.get("player_at")
+        m = (obs or {}).get("map") or {}
+        w, h = m.get("width"), m.get("height")
+        if not isinstance(pa, dict) or not isinstance(w, int) \
+                or not isinstance(h, int) or w <= 0 or h <= 0:
+            return ""
+        x, y, r = pa.get("x"), pa.get("y"), pa.get("radius", 4)
+        if not all(isinstance(v, (int, float)) for v in (x, y)):
+            return ""
+        if not isinstance(r, (int, float)):
+            r = 4
+        if x + r >= 0 and x - r <= w - 1 and y + r >= 0 and y - r <= h - 1:
+            return ""
+        return (f"\n(No cell of {m.get('id')} is within {int(r)} of "
+                f"({int(x)},{int(y)}): this map runs x 0-{w - 1} and "
+                f"y 0-{h - 1}. Standing anywhere on it does not meet this "
+                f"condition.)")
+
     def _area_ids_note(self, done, obs) -> str:
         """AN AREA NAME IS NOT A CELL. "ROUTE_24|17,4" names a whole walkable
         part of Route 24 — the part the cell (17,4) belongs to — and on the
@@ -27926,6 +27955,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # "0 already set" with its TRAINER_1 beaten).
             user = (f"SUBGOAL: {goal}\nDONE_WHEN: {pred_text.dumps(done)}"
                     f"{self._area_ids_note(done, obs)}"
+                    f"{self._player_at_off_map_note(done, obs)}"
                     f"{self._words_vs_condition(goal, done, start)}"
                     f"{self._carried_premise_note(sg, obs)}"
                     f"{redo_note}\n{memory}\n"
