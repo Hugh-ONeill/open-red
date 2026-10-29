@@ -15,6 +15,11 @@ checks = [
      "if _pressed and not _left:" in src),
     ("otherwise the count and what is left are said, people named first",
      "still never pressed" in src and '_lp = [n for n in _left if kinds.get(n) in ("npc", "trainer")]' in src),
+    ("a ball on the ground goes ahead of the people (run 68, Silph 5F Card Key)",
+     'loose = ([n for n in loose if kinds.get(n) == "item"]' in src
+     and src.index('loose = ([n for n in loose if kinds.get(n) in ("npc", "trainer")]')
+     < src.index('loose = ([n for n in loose if kinds.get(n) == "item"]')
+     < src.index("o2 = self._send_safe(\"interact\", name=name)")),
     ("the gym leader is still left out (that filter runs before)",
      src.index("A GYM LEADER IS NOT SOMETHING YOU TRY") < src.index("PEOPLE FIRST. The sweep presses eight")),
 ]

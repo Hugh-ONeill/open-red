@@ -29905,6 +29905,18 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # person says their own thing; a row of fixtures says one.
                 loose = ([n for n in loose if kinds.get(n) in ("npc", "trainer")]
                          + [n for n in loose if kinds.get(n) not in ("npc", "trainer")])
+                # ...BUT A BALL ON THE GROUND BEFORE ANYONE. Each press walks,
+                # and a walk off the spot the party was set down on may not
+                # come back to it: the 9F pad lands on Silph 5F's (9,15), the
+                # one cell that steps both into the Card Key's corridor and
+                # into the main hall, and the flag hunt's re-talk walked to
+                # four beaten trainers in the hall first; from there the
+                # corridor is past a pad, the ball read "no reachable tile",
+                # and the run went back up and down ten floors (run 68
+                # 2026-10-29; run 62 the same). A ball is taken for free,
+                # asks nothing and starts no fight, so it goes first.
+                loose = ([n for n in loose if kinds.get(n) == "item"]
+                         + [n for n in loose if kinds.get(n) != "item"])
                 # A ROOM WHOSE ONLY UNTOUCHED THING IS A BUSH still has
                 # something to say. Dropping bushes out of `loose` put them
                 # behind a guard that tests `loose`, so the very case this
