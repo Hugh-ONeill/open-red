@@ -475,6 +475,13 @@ except OSError:
     _ITEM_IDS = set()
 
 
+# A town has more to read than sixteen lines: Fuchsia's thirteen signs and
+# four people overflowed it, and the one sign that says where the Warden
+# lives was the line dropped (run 68, 2026-10-29). The page picks what it
+# shows; the ledger keeps what was said.
+HINTS_PER_REGION = 32
+
+
 def speech_excerpt(said: str, cap: int) -> str:
     """A long speech cut to `cap` keeps its HEAD AND ITS TAIL, never the
     head alone.
@@ -4020,7 +4027,7 @@ class Executor:
                     "seq": int(getattr(self, "_fire_seq", 0) or 0),
                 }
         if added:
-            del lst[:-16]
+            del lst[:-HINTS_PER_REGION]
             self._save_memory()
         return added
 
@@ -22366,10 +22373,18 @@ class Executor:
                 continue
             lst = self.hints.setdefault(reg, [])
             for _n, _w in [(who, t2)] + list(extra or []):
-                line = f"{_n}: {speech_excerpt(_w, 480)}"
-                if line not in lst:
+                _ex = speech_excerpt(_w, 480)
+                line = f"{_n}: {_ex}"
+                # SAME WORDS, ONE LINE, as the op recorder files them:
+                # Fuchsia's ledger held each youngster's line twice, once
+                # as "someone:", and the doubles pushed the sign at (27,29),
+                # "SAFARI ZONE WARDEN's HOME", out of a sixteen-line ledger;
+                # the run carried the Gold Teeth round the Safari Zone for
+                # hours looking for the Warden (run 68, 2026-10-29).
+                if line not in lst and not any(
+                        l.partition(": ")[2] == _ex for l in lst):
                     lst.append(line)
-                    del lst[:-16]
+                    del lst[:-HINTS_PER_REGION]
             self.log("speech_kept", subgoal=(sg or {}).get("id"), who=who,
                      said=t2[:160])
         return out
@@ -25656,7 +25671,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             lst.append(_xl)
                     if line not in lst and not _same:
                         lst.append(line)
-                        del lst[:-16]
+                        del lst[:-HINTS_PER_REGION]
                         if not hasattr(self, "hints_at"):
                             self.hints_at = {}
                         # ...AND WHAT WAS IN THE BAG WHEN IT SAID SO. A
