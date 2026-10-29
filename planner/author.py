@@ -1193,6 +1193,8 @@ def names_an_emptied_floor(text: str, observed=None) -> str | None:
     edge = d.get("frontier_here") or {}
     sight = d.get("sightings") or {}
     touched = d.get("touched") or {}
+    far = d.get("seen_far") or {}
+    kept = d.get("region_seen") or {}
     for mid in sorted({str(r).split("|")[0] for r in visits}):
         parts = mid.split("_")
         if len(parts) < 2 or not all(w in words for w in parts):
@@ -1200,11 +1202,20 @@ def names_an_emptied_floor(text: str, observed=None) -> str | None:
         regs = sorted(r for r in visits if str(r).split("|")[0] == mid)
         if any(r not in edge or int(edge.get(r) or 0) > 0 for r in regs):
             continue
+        # ...AND GROUND NO STOOD SPOT REACHES IS STILL GROUND. Silph Co 5F
+        # read frontier 0 from its one part while the same page counted 15
+        # spots of it never on screen and two item balls seen across a wall
+        # (seen_far), the Card Key one of them; this sentence told the run
+        # "all its ground on screen ... everything seen on it has been
+        # pressed or taken" and it rode the lift away (run 68, 2026-10-29).
+        if any(int(kept.get(r) or 0) > 0 for r in regs):
+            continue
         # ...TAKEN ANYWHERE ON THE FLOOR. One statue is sighted from each
         # part it can be seen from and touched in the one it was pressed
         # from, so 2F's (2,11) kept that floor "open" from the other part
         _done = {n for r in regs for n in (touched.get(r) or [])}
-        left = [n for r in regs for n in (sight.get(r) or [])
+        left = [n for r in regs
+                for n in list(sight.get(r) or []) + list(far.get(r) or [])
                 if n not in _done
                 and not str(n).startswith(("SIGN_", "TEXT_"))]
         if left:

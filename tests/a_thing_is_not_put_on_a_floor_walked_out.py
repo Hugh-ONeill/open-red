@@ -69,6 +69,23 @@ with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f2:
     json.dump(L2, f2)
 ck("a thing pressed from one part is pressed for the whole floor",
    A.names_an_emptied_floor("Retrieve the Secret Key from the Pokemon Mansion 2F", f2.name) is not None)
+S = "SILPH_CO_5F|20,0"
+L3 = {"visits": {S: 8}, "frontier_here": {S: 0}, "region_seen": {S: 15},
+      "sightings": {S: ["SILPHCO5F_ROCKER"]}, "touched": {S: ["SILPHCO5F_ROCKER"]}}
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f3:
+    json.dump(L3, f3)
+ck("a floor whose kept count still has unseen ground is not (run 68, Silph 5F)",
+   A.names_an_emptied_floor("Obtain the Card Key from Silph Co 5F", f3.name) is None)
+L4 = dict(L3, region_seen={S: 0}, seen_far={S: ["ITEM_SILPH_CO_5F_21_16"]})
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f4:
+    json.dump(L4, f4)
+ck("...nor one with a ball seen across a wall and never taken",
+   A.names_an_emptied_floor("Obtain the Card Key from Silph Co 5F", f4.name) is None)
+L5 = dict(L4, seen_far={})
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f5:
+    json.dump(L5, f5)
+ck("...and with both gone it is refused",
+   A.names_an_emptied_floor("Obtain the Card Key from Silph Co 5F", f5.name) is not None)
 ck("a sentence naming no floor is not",
    A.names_an_emptied_floor("Retrieve the Secret Key from the Pokemon Mansion", L) is None)
 ck("a sentence naming no item is not",
