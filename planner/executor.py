@@ -3681,6 +3681,26 @@ class Executor:
             bits.append(f"{now[0] - mark[0]} badge(s) earned")
         if now[2] != mark[2]:
             bits.append("what is in your bag has changed")
+        # ...AND THE SAME WORDS ELSEWHERE, SINCE PASSED. Route 7's gate
+        # guard said "Gee, I'm thirsty" and stayed on the list as standing;
+        # the guard at Route 8's gate had said the very same and let the
+        # party through after it fired EVENT_GAVE_GUARDS_DRINK, and the run
+        # wrote "the direct route via Route 7 is blocked by a guard who wants
+        # FRESH_WATER" and went shopping (run 68, 2026-10-29). Both halves are
+        # the run's own record; whether the one answer fits the other is not
+        # said.
+        _w = str(b.get("what") or "").strip()
+        if _w:
+            for _ob in (getattr(self, "blockers", None) or {}).values():
+                if (_ob is not b and _ob.get("cleared")
+                        and str(_ob.get("what") or "").strip() == _w
+                        and _ob.get("where") != b.get("where")
+                        and float(_ob.get("cleared_t") or 0)
+                        > float(b.get("t") or 0)):
+                    bits.append(f"the same words turned you back at "
+                                f"{_ob.get('where')}, and that way has let "
+                                f"you through since")
+                    break
         if not bits:
             return ""
         return (" — SINCE IT TURNED YOU BACK: " + "; ".join(bits)
@@ -3691,6 +3711,7 @@ class Executor:
         if b and not b.get("cleared"):
             b["cleared"] = True
             b["cleared_how"] = (how or "")[:160]
+            b["cleared_t"] = round(time.time(), 1)
             self.log("blocker_cleared", where=area, key=str(key), how=how)
             for _ck, _cb in list((self.blockers or {}).items()):
                 if (_cb.get("where") == area and _cb.get("of") == str(key)
