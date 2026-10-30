@@ -26734,9 +26734,15 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     (_hb1.get(k) or 0) > (_hb0.get(k) or 0) for k in _hb1)
                 # head AND tail (speech_excerpt); the round a thing arrived
                 # gets the room to say what came with it
+                # ...AND A SPEECH CUT TO ITS LAST LINE CAN READ AS AN ORDER.
+                # The Safari worker's rules reached the round as "Hi! Is it
+                # your first time here? / ... over for you! Before you go,
+                # open an unused POKeMON BOX", and the run went to the PC to
+                # open a box before it would enter (run 68, 2026-10-29). The
+                # dropped middle was what made the last line an aside.
                 note += ((f' — {_by_fight} fought you on the way, and it said: "'
                           if _by_fight else ' — it said: "')
-                         + speech_excerpt(heard, 320 if _grew else 160) + '"')
+                         + speech_excerpt(heard, 480 if _grew else 360) + '"')
             trace.append(note)
             self._record_outcome(pre_obs, op, step, note)
             # A BUSH YOU CUT COMES BACK ON RELOAD in this recomp. Remember

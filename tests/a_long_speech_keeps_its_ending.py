@@ -87,7 +87,7 @@ ck("the hints ledger keeps head and tail, with a longer cap the round the bag gr
    "_kept = speech_excerpt(said, 480 if _gained else 220)" in src
    and 'line = f"{who}: {_kept}"' in src)
 ck("the round's trace does too",
-   "speech_excerpt(heard, 320 if _grew else 160)" in src)
+   "speech_excerpt(heard, 480 if _grew else 360)" in src)
 ck("and the outcomes ledger", "speech_excerpt(self._shelf_words(last.strip()), 200)" in src)
 ck("a gift is recorded against the item only for a named thing pressed",
    'if (_gained and op == "interact" and step.get("name")' in src)
