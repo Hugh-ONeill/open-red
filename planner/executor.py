@@ -4569,6 +4569,26 @@ class Executor:
                            f"chain of exits between them (or a hop on it "
                            f"has failed in this world state)" + _note_b + _note_g + _note_m], []
         region, path = best
+        # A ROUND-THE-WORLD CHAIN IS SAID BEFORE IT IS WALKED. From Route
+        # 12's gate to Route 11 the only walked chain was 47 legs, through
+        # Route 19, Seafoam, Cinnabar, Pallet, Viridian, Mt Moon and
+        # Cerulean, with the printed map drawing Route 11 next door; `go`
+        # set off on it and the run kept surfacing in Seafoam (run 68,
+        # 2026-10-30). Both lengths are the record's and the map's own; the
+        # model may still send it with "long": true.
+        if not step.get("long"):
+            _pl = self._printed_legs(here, region)
+            if _pl and len(path) >= 10 and len(path) > 3 * _pl + 3:
+                _first = [str(k) for k, _ in path[:4]]
+                return False, [
+                    f"go: NOT WALKED — the only chain of exits you have "
+                    f"walked from {here} to {region} is {len(path)} leg(s) "
+                    f"long (it starts {', '.join(_first)}), and the printed "
+                    f"map you carry draws {region.split('|')[0]} {_pl} "
+                    f"leg(s) from here. To walk the long way anyway send "
+                    + '{"op":"go","to":"' + str(region) + '","long":true}'
+                    + "; the short way is ground you have not walked, or "
+                      "not walked as one chain."], []
         # THE PATH AND THE START, so a lost leg can be read back. A go from
         # Route 17's foot to Fuchsia lost its first leg with the party on
         # ROUTE_16, and the row said only "legs 4" (2026-09-08).
@@ -11921,6 +11941,46 @@ class Executor:
                 pa, pb = min(pairs,
                              key=lambda t: abs(_xy(t[0])[0] - _xy(t[1])[0]) + abs(_xy(t[0])[1] - _xy(t[1])[1]))
                 return m, pa, pb
+        return None
+
+    def _printed_legs(self, here: str, want: str):
+        """How many map-to-map legs the printed map draws between the roads
+        two areas open off, or None when it does not say (no map held, an
+        interior with no known road, no road drawn between them)."""
+        if not PRINTED_MAP_HELD:
+            return None
+        def _road(mid):
+            if mid in MAP_EDGES:
+                return mid
+            r = INTERIOR_ROAD.get(mid) or INTERIOR_ROAD.get(map_family(mid))
+            if r in MAP_EDGES:
+                return r
+            # a gate is on no road's door list; the run's own walk out of it is
+            for reg, es in (self.explored or {}).items():
+                if str(reg).split("|")[0] != mid:
+                    continue
+                for _k, e in (es or {}).items():
+                    to = str((e or {}).get("to") or "").split("|")[0]
+                    if to in MAP_EDGES:
+                        return to
+            return None
+        a = _road(str(here).split("|")[0])
+        b = _road(str(want).split("|")[0])
+        if not a or not b:
+            return None
+        if a == b:
+            return 0
+        from collections import deque
+        seen = {a: 0}
+        q = deque([a])
+        while q:
+            m = q.popleft()
+            for _d, m2 in (MAP_EDGES.get(m) or {}).items():
+                if m2 not in seen:
+                    seen[m2] = seen[m] + 1
+                    if m2 == b:
+                        return seen[m2]
+                    q.append(m2)
         return None
 
     def _printed_road_note(self, here: str, want: str, gap=None) -> str:
