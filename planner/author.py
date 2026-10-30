@@ -959,7 +959,13 @@ def _came_out_onto(from_map: str, to_map: str, explored=None, side=None) -> list
     # rule above left nothing (2026-09-07). "to its south side" and the
     # parts' own coordinates settle it: this engine's y grows southward,
     # x eastward — the page's coordinates are the model's own vocabulary.
-    if side in ("north", "south", "east", "west") and cands:
+    # ...BUT ONLY BETWEEN TWO PARTS. With one part ever come out onto, the
+    # side has nothing to choose between, and the eastmost of one is the one:
+    # Mt Moon's west mouth, ROUTE_4|4,4, the near side, was named the far
+    # side three times and the author was sent at {"area": "ROUTE_4|4,4"}
+    # for "exit Mt. Moon to the east" (run 69, 2026-10-30).
+    if (side in ("north", "south", "east", "west")
+            and len({c[0] for c in cands}) >= 2):
         def _xy(part):
             try:
                 x, y = part.split("|")[1].split(",")
