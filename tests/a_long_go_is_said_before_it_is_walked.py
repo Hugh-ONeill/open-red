@@ -31,7 +31,7 @@ i = src.find("A ROUND-THE-WORLD CHAIN IS SAID BEFORE IT IS WALKED")
 blk = src[i:i + 2200]
 ck("the guard sits before the walk", i > 0 and src.index("A ROUND-THE-WORLD CHAIN") < src.index('self.log("go_step", subgoal=sg.get("id"), to=region, legs=len(path),'))
 ck("...needs a long chain and a short map", "len(path) >= 10 and len(path) > 3 * _pl + 3" in blk)
-ck("...and long:true walks it anyway", 'if not step.get("long"):' in blk and '"long":true' in blk)
+ck("...and long:true walks it anyway", 'if not step.get("long") and _held:' in blk and '"long":true' in blk)
 bad = [n for n, ok, _ in checks if not ok]
 for n, ok, d in checks:
     print(("ok   " if ok else "FAIL ") + n + ("" if ok or not d else f"  {d}"))

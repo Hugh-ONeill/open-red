@@ -38,7 +38,7 @@ ck("the roof machines' list still is", ex._menu_rows(ROOF) == ["FRESH_WATER", "S
    ex._menu_rows(ROOF))
 
 src = (ROOT / "planner/executor.py").read_text()
-load = src[src.index('self._shelf_machine = set(data.get("shelf_machine")'):][:600]
+load = src[src.index('self._shelf_machine = set(data.get("shelf_machine")'):][:900]
 ck("a badge shelf already in memory is dropped on load",
    'endswith("BADGE")' in load and "self._shelf_machine.discard(_bm)" in load)
 

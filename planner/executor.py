@@ -4576,7 +4576,8 @@ class Executor:
         # set off on it and the run kept surfacing in Seafoam (run 68,
         # 2026-10-30). Both lengths are the record's and the map's own; the
         # model may still send it with "long": true.
-        if not step.get("long"):
+        _held = self._holding_town_map(obs)
+        if not step.get("long") and _held:
             _pl = self._printed_legs(here, region)
             if _pl and len(path) >= 10 and len(path) > 3 * _pl + 3:
                 _first = [str(k) for k, _ in path[:4]]

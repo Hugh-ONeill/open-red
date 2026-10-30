@@ -2491,6 +2491,10 @@ def validate(plan: dict) -> list:
                 continue
             _dw2 = _s2.get("done_when") or {}
             _m2 = _dw2.get("map") if isinstance(_dw2, dict) else None
+            # ...AND AN AREA IS ON ITS MAP: "GAME_CORNER_PRIZE_ROOM|0,3"
+            # slipped past this rule (run 68 leg 35)
+            if not _m2 and isinstance(_dw2, dict) and isinstance(_dw2.get("area"), str):
+                _m2 = _dw2["area"].split("|")[0]
             if _m2 and str(_m2) in _sh:
                 _mapped = str(_m2)
             _hi = _dw2.get("has_item") if isinstance(_dw2, dict) else None
@@ -2530,6 +2534,8 @@ def validate(plan: dict) -> list:
             continue
         if _dw4.get("map"):
             _last_map = str(_dw4["map"])
+        elif isinstance(_dw4.get("area"), str):
+            _last_map = _dw4["area"].split("|")[0]
         # ...AND A FLOOR NAMED INSIDE any_of IS STILL WHERE THE STEP GOES:
         # leg 54 walked B1F -> B4F as {"any_of": [{"has_item": SECRET_KEY},
         # {"map": "ROCKET_HIDEOUT_B2F"}]} and so on down, and this rule saw
@@ -2537,6 +2543,8 @@ def validate(plan: dict) -> list:
         for _alt in (_dw4.get("any_of") or []):
             if isinstance(_alt, dict) and _alt.get("map"):
                 _last_map = str(_alt["map"])
+            elif isinstance(_alt, dict) and isinstance(_alt.get("area"), str):
+                _last_map = _alt["area"].split("|")[0]
         _hi4 = _dw4.get("has_item")
         if not (_last_map and isinstance(_hi4, dict)):
             continue
