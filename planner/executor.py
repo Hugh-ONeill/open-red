@@ -11054,7 +11054,10 @@ class Executor:
         remember that they are behind locked doors"). Both halves are the
         run's own record: what a door there said, and what the bag holds.
         Nothing here says which thing lies behind which door, or where the
-        key is."""
+        key is, and the words say so: riding inside a row of unreached
+        balls, the shutter read as their cause, and Silph 5F's Card Key
+        ball is shut off by a pad landing, not by a door (run 68 leg 37,
+        2026-10-30; engine reach check)."""
         bag = (obs or {}).get("bag")
         if not isinstance(bag, dict):
             return ""
@@ -11073,8 +11076,10 @@ class Executor:
                 if int(bag.get(item) or 0) > 0:
                     continue          # held now: _shut_asked_for_held's case
                 quote = str(line).split(": ", 1)[-1].strip()
-                return (f" — a shut way on that floor said: \"{quote[:80]}\", "
-                        f"and your bag holds no {item}")
+                return (f" — separately, a shut way somewhere on that floor "
+                        f"said: \"{quote[:80]}\", and your bag holds no "
+                        f"{item}; which ground that way shuts off is not "
+                        f"on record")
         return ""
 
     def _unopened_doors(self, obs) -> list:

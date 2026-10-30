@@ -44,7 +44,7 @@ KEY = {"bag": {"POKE_BALL": 5, "CARD_KEY": 1}}
 
 got = ex._lock_asked_unheld("SILPH_CO_4F|10,2", NOKEY)
 ck("a floor's shut way that asked for a thing the bag lacks is said, from any part of it",
-   got == ' — a shut way on that floor said: "Darn! It needs a CARD KEY!", and your bag holds no CARD_KEY', got)
+   got == ' — separately, a shut way somewhere on that floor said: "Darn! It needs a CARD KEY!", and your bag holds no CARD_KEY; which ground that way shuts off is not on record', got)
 ck("...by map name too", ex._lock_asked_unheld("SILPH_CO_4F", NOKEY) == got)
 ck("a key in the bag is the other helper's case", ex._lock_asked_unheld("SILPH_CO_4F|20,0", KEY) == "")
 ck("a floor with no such words says nothing", ex._lock_asked_unheld("SILPH_CO_8F|14,0", NOKEY) == "")
