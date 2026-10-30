@@ -3429,12 +3429,25 @@ class Executor:
         # written for (run 29, ROUTE_3) has no door into anywhere unfinished.
         _fam = lambda r: _re.sub(r"_(B?\d+F|ROOF|ELEVATOR)$", "", str(r).split("|")[0])
         _exd = getattr(self, "explored", None) or {}
-        _into = {_fam((e or {}).get("to")) for r, ex in _exd.items()
-                 if str(r).split("|")[0] == mp
-                 for k, e in (ex or {}).items()
-                 if isinstance(e, dict) and "," in str(k)
-                 and not str(k).startswith(("walk:", "lift:"))
-                 and _fam((e or {}).get("to")) not in ("", _fam(mp))}
+        def _doors_of(fams):
+            return {_fam((e or {}).get("to")) for r, ex in _exd.items()
+                    if _fam(r) in fams
+                    for k, e in (ex or {}).items()
+                    if isinstance(e, dict) and "," in str(k)
+                    and not str(k).startswith(("walk:", "lift:"))
+                    and _fam((e or {}).get("to")) not in ("", _fam(mp))}
+        _into = _doors_of({_fam(mp)})
+        # ...AND PAST A ROOM BETWEEN. ROUTE_2's door is the forest's south
+        # gate, whose only other door had been taken; the forest past it,
+        # its north gate never found, was not looked at, and "exit Viridian
+        # Forest" was answered from the road's south part while the party
+        # walked back to heal (run 69, 2026-10-30). Doors are followed three
+        # rooms deep.
+        for _ in range(3):
+            _more = _doors_of(_into) - _into
+            if not _more:
+                break
+            _into |= _more
         if _into and any(_fam(r) in _into and self._frontier_left(r)
                          for r in list(_exd) + list(getattr(self, "visits", None) or {})):
             return None
