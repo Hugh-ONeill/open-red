@@ -69,6 +69,25 @@ ex4._frontier_left = lambda r: []
 ck("...but answered once that place has none left",
    bool(ex4._new_part_ruled_out(SG4, o4)))
 
+# run 69, 2026-10-30: "exit Viridian Forest" (a part of ROUTE_2 not 3,43),
+# answered from the road's south part: its door is the forest's south gate,
+# finished, and the forest past it still had its north gate unfound
+ex2 = object.__new__(E.Executor)
+ex2._where = lambda o: f"{o['map']['id']}|{o['map']['region']}"
+ex2.explored = {"ROUTE_2|3,43": {"3,43": {"to": "VIRIDIAN_FOREST_SOUTH_GATE|4,7", "n": 2}},
+                "VIRIDIAN_FOREST_SOUTH_GATE|4,7": {"4,7": {"to": "ROUTE_2|3,43", "n": 1},
+                                                    "5,0": {"to": "VIRIDIAN_FOREST|17,47", "n": 1}},
+                "VIRIDIAN_FOREST|17,47": {"17,47": {"to": "VIRIDIAN_FOREST_SOUTH_GATE|4,7", "n": 1}}}
+ex2.visits = {}
+ex2._frontier_left = lambda r: ["north"] if r.startswith("VIRIDIAN_FOREST|") else []
+SG2 = {"id": "exit_viridian_forest", "done_when": {"map": "ROUTE_2", "not_area": ["ROUTE_2|3,43"]}}
+o2 = obs(id="ROUTE_2", region="3,43", seen_unreached={"n": 0, "beside_n": 0})
+ck("not while a room past the map's door leads into a place with ways never taken",
+   ex2._new_part_ruled_out(SG2, o2) is None, ex2._new_part_ruled_out(SG2, o2))
+ex2._frontier_left = lambda r: []
+ck("...but answered once nothing past it has any left",
+   bool(ex2._new_part_ruled_out(SG2, o2)))
+
 src = (ROOT / "planner/executor.py").read_text()
 ck("checked at step entry, before a replay, and each escalation round",
    src.count("self._new_part_ruled_out(sg,") == 3)
