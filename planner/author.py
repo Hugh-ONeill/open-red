@@ -2354,6 +2354,29 @@ def validate(plan: dict) -> list:
                 + " and the condition holds "
                 + ", ".join(f"{x} ({_num[x]})" for x in sorted(_held))
                 + " — a different machine; write the one you mean")
+        # YOUR WORDS NAME ONE PLACE, YOUR CONDITION ANOTHER. Leg 37's v5,
+        # "enter_saffron_gym", "Enter the Saffron City Gym", done_when
+        # {"map": "CELADON_GYM"}: v1-v4 had SAFFRON_GYM, the run walked ten
+        # legs to Celadon's gym and the step read done (run 68, 2026-10-29).
+        # A map whose every word is in the step's own words, and whose own
+        # words the condition's map does not share, is the author's.
+        _cm = dw.get("map") if isinstance(dw.get("map"), str) else None
+        if _cm and _cm in ENGINE_MAPS:
+            _w = set(re.sub(r"[^A-Z0-9]+", " ",
+                            f"{sid} {s.get('goal_text') or ''}".upper()).split())
+            _cw = set(_cm.split("_"))
+            if not _cw <= _w:
+                _named = sorted(
+                    m for m in ENGINE_MAPS
+                    if m != _cm and len(m.split("_")) >= 2
+                    and set(m.split("_")) <= _w
+                    and not set(m.split("_")) <= _cw
+                    and m.split("_")[-1] == _cm.split("_")[-1])
+                if _named:
+                    probs.append(
+                        f"{tag} ({sid}) your words name {_named[0]} and the "
+                        f"condition is {{\"map\": \"{_cm}\"}} — a different "
+                        f"place; write the one you mean")
         # A NAMED FIGHT DOES NOT END ON ANY FIGHT. {"mode": "battle"} is true
         # of every wild encounter, so a step about one opponent that ends on
         # it can be finished by the grass: run of record 9 (2026-09-26),
