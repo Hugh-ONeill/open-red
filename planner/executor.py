@@ -13871,8 +13871,15 @@ class Executor:
             _ment = [m.start() for m in _re.finditer(r"\b" + mv + r"\b", said)]
             if not _ment:
                 continue
+            # ...NOR IS ONE NAMED AS A THING THE PARTY LACKS. Cerulean, every
+            # round: "blocked by a CUT_TREE and I lack CUT", and every round
+            # was told "Your words named CUT and no CUT happened" (run 69,
+            # 2026-10-30). "need" stays out: "I need to CUT it" is a deed.
             if all(_re.search(r"teach|taught|learn|know|compatib|forget|"
-                              r"\bHM_|\bTM_|\bmove\b|able to",
+                              r"\bHM_|\bTM_|\bmove\b|able to|"
+                              r"\black|without|do(?:es)? not have|"
+                              r"(?:don|doesn)'t have|cannot|can't|unable|"
+                              r"nobody|no one",
                               said[max(0, i - 28): i + len(mv) + 20], _re.I)
                    for i in _ment):
                 continue
