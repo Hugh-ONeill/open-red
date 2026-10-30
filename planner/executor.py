@@ -25883,10 +25883,24 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # at least one re-solve whenever the outer test matched —
                 # a route that banked ten of eighteen cells continues from
                 # there, battle pending or not
+                # ...BUT NOT A REFUSAL THAT WILL ONLY SAY ITSELF AGAIN, and a
+                # boulder down a hole HAS landed: _rock_on is never true of a
+                # hole, so a retry that dropped BOULDER2 into (3,16) still
+                # read "still not on (3,16)", and three Seafoam B3F pushes to
+                # (6,16) were each re-sent to the same "no sequence of
+                # shoves" with no battle (run 68, 2026-10-30).
+                _tx, _ty = step.get("to_x"), step.get("to_y")
+                def _landed(_o):
+                    return (_rock_on(_o, _tx, _ty)
+                            or push_went_down_hole(pre_obs, _o, _tx, _ty))
+                _final = any(w in _pdet for w in (
+                    "no sequence of shoves", "nothing is standing",
+                    "is not switched on", "cannot be shoved ANY way"))
                 _tries = 0
-                while _tries < 4:
+                while _tries < 4 and not (_final and not _fought and not _tries):
                     self.log("push_retry_after_battle", subgoal=sg.get("id"),
-                             step=dict(step), attempt=_tries + 1)
+                             step=dict(step), attempt=_tries + 1,
+                             fought=_fought, why=_pdet[:160])
                     # send() answers with the OBSERVATION; the op's own
                     # verdict sits under its "result". Taking the envelope
                     # for the verdict printed "FAILED — None" over the
@@ -25902,7 +25916,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     obs = self.settle()
                     _tries += 1
                     # the floor, again — not the op's own verdict
-                    if _rock_on(obs, step.get("to_x"), step.get("to_y")):
+                    if _landed(obs):
                         break
                     _fought = False
                     while obs and obs.get("mode") == "battle":
@@ -25912,8 +25926,12 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     if not _fought:
                         break
                 if _tries:
-                    _arrived = _rock_on(obs, step.get("to_x"),
-                                        step.get("to_y"))
+                    _arrived = _landed(obs)
+                    if push_went_down_hole(pre_obs, obs, _tx, _ty):
+                        self._push_hole_note = (
+                            f" — the boulder went down the hole at "
+                            f"({_tx},{_ty}) and is no longer on this floor; "
+                            f"where it landed is not recorded here")
                     note = (f"push({','.join(f'{k}={v}' for k, v in step.items())})"
                             + (f" — resumed {_tries}x"
                                if _arrived else
@@ -28857,7 +28875,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # verify replay would need the whole grind again under fresh
                 # RNG, and done_when IS the verification. Commit directly.
                 self.log("escalate_success", subgoal=sg["id"], round=rnd,
-                         proposed=len(macro), distilled=len(progress),
+                         trace=trace, proposed=len(macro), distilled=len(progress),
                          verified=False)
                 return True, progress
             if ok:
@@ -28867,6 +28885,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # use_warp is reliable). Replay the ACCUMULATED clean ops (all
                 # rounds' partial progress concatenated) from the start
                 # checkpoint; commit only if they reach done_when again.
+                # The round that got there is logged with its trace first: a
+                # success was the one round whose said-lines no log kept.
+                self.log("escalate_round_ok", subgoal=sg["id"], round=rnd,
+                         trace=trace)
                 restored = False
                 if can_reset and VERIFY_MACROS:
                     rr = self._send_safe("checkpoint_restore", token="esc") or {}
@@ -28901,7 +28923,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # the accumulated clean ops best-effort rather than a bogus
                 # 0-op "verified" from an un-reset replay.
                 self.log("escalate_success", subgoal=sg["id"], round=rnd,
-                         proposed=len(macro), distilled=len(progress),
+                         trace=trace, proposed=len(macro), distilled=len(progress),
                          verified=False)
                 return True, progress
             cur = self.settle() or {}
