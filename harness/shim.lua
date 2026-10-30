@@ -14332,7 +14332,19 @@ end
 -- stored; the component walk in observe spreads each one over its ground.
 function OPS.seed_regions(G, c)
   local n = 0
+  -- THE BOOT LOOK NAMES GROUND BEFORE THE NAMES ARRIVE. The main loop
+  -- observes once at boot, before any command, so the map the game boots on
+  -- is painted with a name minted from its top-left cell; the remembered
+  -- anchor was then skipped as already named. Mt Moon B2F booted with the
+  -- fossil corridor open, became MT_MOON_B2F|3,2 beside the remembered
+  -- |20,5, and every `go` through the cave found no chain for 35 rounds
+  -- (run 68, 2026-10-30). On the first seed in a process, what the boot
+  -- look painted on a remembered map is dropped; the next look's vote
+  -- brings the remembered name back.
+  local first = not wd.regions_seeded
+  wd.regions_seeded = true
   for mid, cells in pairs(c.regions or {}) do
+    if first then region_of[mid] = nil end
     local known = region_of[mid]
     if not known then known = {}; region_of[mid] = known end
     for cell, name in pairs(cells) do
