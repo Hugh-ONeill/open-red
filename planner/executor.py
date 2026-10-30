@@ -1099,6 +1099,20 @@ try:
 except OSError:
     pass
 
+def _prize_row_named(row: str) -> str:
+    """A prize row that lists a machine by its number, named by the id the
+    bag would carry: "TM23 (3300 coins)" -> "TM_DRAGON_RAGE (TM23, 3300
+    coins)". The counter prints only the number, the bag prints the id the
+    harness already uses, and run 68 bought towards "TM23 (which is
+    TM_PAY_DAY in some versions)" with 3870 coins (2026-10-30). Rows that
+    are not a machine come back unchanged."""
+    m = _re.match(r"\s*((?:TM|HM)\d{2})\b\s*(?:\((.*)\))?\s*$", str(row or ""))
+    if not m or m.group(1).upper() not in NUMBER_IDS:
+        return row
+    rest = (", " + m.group(2)) if m.group(2) else ""
+    return f"{NUMBER_IDS[m.group(1).upper()]} ({m.group(1).upper()}{rest})"
+
+
 # WHAT EVOLVES INTO WHAT, from the engine's own species table
 # (planner/engine_evolutions.txt, tools/gen_engine_evolutions.py): species ->
 # [(method, into, detail)]. It exists so "every party member is fully
@@ -3062,6 +3076,7 @@ class Executor:
             return
         rows = [_re.sub(r"^\d+=", "", x) for x in rows]
         rows = [x for x in rows if x and x != "CANCEL"]
+        rows = [_prize_row_named(x) for x in rows]
         mid = str(region or "").split("|")[0]
         if not rows or not mid or mid == "None" or not name:
             return
@@ -7269,7 +7284,10 @@ class Executor:
             self._machines_owned = set(data.get("machines_owned") or [])
             self._shelf_reads = data.get("shelf_reads") or {}
             self._shelf_machine = set(data.get("shelf_machine") or [])
-            self._prize_lists = data.get("prize_lists") or {}
+            self._prize_lists = {
+                _m: {_n: [_prize_row_named(_x) for _x in (_rows or [])]
+                     for _n, _rows in (_reads or {}).items()}
+                for _m, _reads in (data.get("prize_lists") or {}).items()}
             # a shelf of badges was a "which badge?" question (_menu_rows)
             for _bm in [m for m, rows in self._shelves.items()
                         if any(str(r).endswith("BADGE") for r in rows or [])]:
@@ -14024,7 +14042,6 @@ class Executor:
             _held = set(((obs or {}).get("bag") or {}).keys())
             _miss = sorted(x for x in named
                            if _re.sub(r"[^A-Z0-9]+", "", x) not in _offsq
-                           and not x.startswith(("TM_", "HM_"))
                            and x not in _held)
             if _miss and not _unread:
                 return (f"(You said {', '.join(_miss)}, and none of the "

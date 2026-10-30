@@ -60,7 +60,7 @@ X._record_prize_list(st, "GAME_CORNER_PRIZE_ROOM|0,3", V3,
                       "ui": {"rows": ["1=TM23 (3300 coins)", "2=TM15 (5500 coins)",
                                       "3=CANCEL"]}})
 ck("a list met only as the screen's rows is kept too",
-   st._prize_lists["GAME_CORNER_PRIZE_ROOM"].get(V3) == ["TM23 (3300 coins)", "TM15 (5500 coins)"],
+   st._prize_lists["GAME_CORNER_PRIZE_ROOM"].get(V3) == ["TM_DRAGON_RAGE (TM23, 3300 coins)", "TM_HYPER_BEAM (TM15, 5500 coins)"],
    st._prize_lists)
 X._record_prize_list(st, "CELADON_MART_1F|0,0", "CLERK",
                      {"result": {"ok": True, "detail": "opened a menu: 1=FLOOR 1F"},
@@ -90,7 +90,7 @@ ck("the drafts' evidence, the counters text and the pull check all read it",
    and "(prize_lists_text(observed) if observed else \"\")" in src_a)
 ck("the record is kept across attempts",
    '"prize_lists": getattr(self, "_prize_lists", None) or {},' in src_e
-   and 'self._prize_lists = data.get("prize_lists") or {}' in src_e)
+   and 'for _m, _reads in (data.get("prize_lists") or {}).items()}' in src_e)
 ck("the sweep's touch recorder and the model's own interact both call it",
    "self._record_prize_list(region, name, res_obs)" in src_e
    and 'self._record_prize_list(_hr, step["name"], obs)' in src_e)
