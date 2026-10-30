@@ -25524,6 +25524,26 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         self._record_prize_list(_hr, step["name"], obs)
                     except Exception as _e:
                         self.log("prize_list_error", err=str(_e)[:120])
+            # A CLERK YOU BOUGHT FROM HAS BEEN SPOKEN TO. Celadon Mart 5F's
+            # two clerks were listed "never spoken to" after the model
+            # bought from them, and explore walked back to press them (run
+            # 68, 2026-10-28). The buy stands the party at the counter; the
+            # clerk nearest it is the one that sold.
+            if op == "buy" and r.get("ok"):
+                try:
+                    _hr = self._where(obs)
+                    _pl = (obs or {}).get("player") or {}
+                    _cl = [o for o in (((obs or {}).get("map") or {}).get("objects") or [])
+                           if "CLERK" in str(o.get("name") or "").upper()
+                           and o.get("x") is not None and _pl.get("x") is not None]
+                    if _hr and "None" not in str(_hr) and _cl:
+                        _c = min(_cl, key=lambda o: abs(o["x"] - _pl["x"]) + abs(o["y"] - _pl["y"]))
+                        if abs(_c["x"] - _pl["x"]) + abs(_c["y"] - _pl["y"]) <= 2:
+                            self._tried_objs.setdefault(_hr, set()).add(_c["name"])
+                            self._stamp_touch(_hr)
+                            self._mark_touch(_hr, _c["name"], obs)
+                except Exception as _e:
+                    self.log("buy_touch_error", err=str(_e)[:120])
             if op == "interact" and r.get("ok") and (
                     not step.get("name") or "None" in self._where(pre_obs)):
                 # A COUNTER PRESSED BY ITS CELL IS STILL THAT COUNTER. Run
