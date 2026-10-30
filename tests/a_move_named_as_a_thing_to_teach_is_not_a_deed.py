@@ -36,4 +36,9 @@ r = ex._deeds_named_not_done([], "I will use CUT on the bush at (34,9) and walk 
 ck("CUT on a bush with no field_move is still named", r == [("CUT", False)], r)
 r = ex._deeds_named_not_done([], "Teach CUT to Gloom, then use CUT on the bush.", [])
 ck("one mention as a thing and one as a deed: the deed counts", r == [("CUT", False)], r)
+# run 69, 2026-10-30: Cerulean, a move the party lacks
+ck("lacking CUT is not cutting", ex._deeds_named_not_done([], "The eastern exit is blocked by a bush (CUT_TREE) and I lack CUT.", []) == [])
+ck("not having CUT is not cutting", ex._deeds_named_not_done([], "Since I do not have CUT, I cannot pass through it.", []) == [])
+r = ex._deeds_named_not_done([], "I need to CUT the bush at (19,28) and cross east.", [])
+ck("needing to CUT is still the deed", r == [("CUT", False)], r)
 sys.exit(1 if fails else 0)
