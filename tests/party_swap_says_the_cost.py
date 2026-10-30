@@ -60,7 +60,7 @@ ck("the deposit counts how many left behind are lower level",
    "still in it are lower level than it was" in lua)
 ex = Path("planner/executor.py").read_text()
 ck("the stuck note's party line numbers the slots",
-   "_pl = [f\"{i}. {m.get('species')}" in ex)
+   "_pl = [f\"{i}. {m.get('species')}{_mon_nick(m)}" in ex)
 
 # the withdraw side is unchanged
 ck("withdraw still reports plainly",

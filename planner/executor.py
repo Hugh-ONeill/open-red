@@ -755,6 +755,19 @@ def _mon_types(m) -> str:
     return f" ({'/'.join(t)})" if t else ""
 
 
+def _mon_nick(m) -> str:
+    """The name the game prints for a party member, beside its species.
+
+    The game speaks of a party member by its nickname: "No SURFing on
+    GLITCHES here!" was the game refusing SURF on Route 20, and the run
+    wrote "SURF failed due to a 'GLITCHES' error", with nothing on the page
+    saying GLITCHES was its LAPRAS; "deposited HUCKLE" was its HYPNO (run 68,
+    2026-10-29). The party screen shows both."""
+    n = str((m or {}).get("nickname") or "").strip()
+    sp = str((m or {}).get("species") or "").strip()
+    return f' "{n}"' if n and sp and n.upper() != sp.upper() else ""
+
+
 _building = ledger._building
 
 
@@ -16785,7 +16798,7 @@ class Executor:
             # have water with gyara"). Which type is worth having is the
             # model's call; what it is choosing between was ours to say.
             lines.append("YOUR PARTY RIGHT NOW: " + "; ".join(
-                f"{i}. {m.get('species')}{_mon_types(m)} L{m.get('level')} "
+                f"{i}. {m.get('species')}{_mon_nick(m)}{_mon_types(m)} L{m.get('level')} "
                 f"{m.get('hp')}/{m.get('max_hp')}hp"
                 + (f" [{m.get('status')}]" if m.get("status") else "")
                 for i, m in enumerate(party, 1)))
@@ -29183,7 +29196,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # numbers: run 68 sent pc_deposit slot 6 from it and boxed its
             # L45 HYPNO for a L15 LAPRAS (2026-10-29). The main party line
             # numbers them; this one now does too.
-            _pl = [f"{i}. {m.get('species')}{_mon_types(m)} L{m.get('level')} "
+            _pl = [f"{i}. {m.get('species')}{_mon_nick(m)}{_mon_types(m)} L{m.get('level')} "
                    f"{m.get('hp')}/{m.get('max_hp')}hp"
                    + (f" [{m.get('status')}]" if m.get("status") else "")
                    for i, m in enumerate((cur or {}).get("party") or [], 1)

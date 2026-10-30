@@ -43,9 +43,9 @@ ck("there is one implementation, not two", SRC.count("def _mon_types") == 1)
 _lines = [ln for ln in SRC.splitlines() if "YOUR PARTY RIGHT NOW" in ln]
 ck("both party lines are still there", len(_lines) == 2, len(_lines))
 ck("the goal page names the types",
-   "f\"{i}. {m.get('species')}{_mon_types(m)} L{m.get('level')} \"" in SRC)
+   "f\"{i}. {m.get('species')}{_mon_nick(m)}{_mon_types(m)} L{m.get('level')} \"" in SRC)
 ck("...and so does the every-round line",
-   "_pl = [f\"{i}. {m.get('species')}{_mon_types(m)} L{m.get('level')} \"" in SRC)
+   "_pl = [f\"{i}. {m.get('species')}{_mon_nick(m)}{_mon_types(m)} L{m.get('level')} \"" in SRC)
 ck("level and HP are untouched",
    SRC.count("f\"{m.get('hp')}/{m.get('max_hp')}hp\"") == 2)
 
