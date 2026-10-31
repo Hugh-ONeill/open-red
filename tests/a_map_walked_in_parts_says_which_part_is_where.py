@@ -41,9 +41,23 @@ ck("more are counted from the ends, each its own word",
 ck("a map walked in one part is left alone", "VIRIDIAN_CITY|17,0" not in lab)
 t = P.name_parts("door (5,0) -> ROUTE_2|8,0; from ROUTE_2|3,43; again ROUTE_2|8,0; "
                  "VIRIDIAN_CITY|17,0", R)
-ck("the first mention says where the part lies",
-   "ROUTE_2|8,0 (the north part of ROUTE_2)" in t
-   and "ROUTE_2|3,43 (the south part of ROUTE_2)" in t, t)
+ck("the first mention says where the part lies among the walked parts",
+   "ROUTE_2|8,0 (of the 2 parts of ROUTE_2 you have walked, this one lies further north)" in t
+   and "ROUTE_2|3,43 (of the 2 parts of ROUTE_2 you have walked, this one lies further south)" in t, t)
+# run 69, 2026-10-31: both walked parts of ROUTE_20 lie east of Seafoam, and
+# "the west part of ROUTE_20" read as the map's west side
+t3 = P.name_parts("ROUTE_9|0,8 ROUTE_9|6,2 ROUTE_9|50,6 MT_MOON_B2F|3,2 MT_MOON_B2F|20,5", R)
+ck("three parts: furthest and between",
+   "this one lies furthest west)" in t3 and "this one lies between the other two)" in t3
+   and "this one lies furthest east)" in t3, t3)
+ck("four or more: furthest at the ends, counted between",
+   "of the 4 parts of MT_MOON_B2F you have walked" in t3 and "this one lies number 2 from" in t3, t3)
+ck("no wording says a part IS a side of the map", " part of ROUTE_" not in t + t3, t + t3)
+import author as A  # noqa: E402
+_pl = {"subgoals": [{"id": "x", "done_when": {"area": "ROUTE_2|8,0 (of the 2 parts of ROUTE_2 you have walked, this one lies further north)"}}]}
+A.strip_part_labels(_pl)
+ck("a plan that copies the new label is still cleaned to the key",
+   _pl["subgoals"][0]["done_when"]["area"] == "ROUTE_2|8,0", _pl)
 ck("...later mentions and the keys themselves are unchanged",
    t.endswith("again ROUTE_2|8,0; VIRIDIAN_CITY|17,0"), t)
 ex = (ROOT / "planner/executor.py").read_text()
