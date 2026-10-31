@@ -1355,6 +1355,22 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
             if walked and not bad:
                 c.beyond = beyond(ex, walked, target, here)
         else:
+            # ...BUT A PAD YOU LANDED ON HAS A FAR SIDE ON RECORD. Pads on one
+            # map are paired, and the record of the trip that set you down
+            # here names the cell you landed on: Saffron Gym's exit room
+            # (7,13) is entered only by the pad at (19,17) in room 14,13, the
+            # run had landed on it coming out of that room, and the page read
+            # "warp pad (19,17) -> UNKNOWN" while the model tried pads round
+            # the whole gym for the way out (run 69, 2026-10-31).
+            _src = next((str(r) for r, es in (getattr(ex, "explored", None) or {}).items()
+                         if str(r).split("|")[0] == str(mid) and r != here
+                         for e in (es or {}).values()
+                         if isinstance(e, dict) and e.get("to") == here
+                         and str(e.get("land") or "") == str(key)), None)
+            # Said as where you came FROM, never as where it leads: a pad's
+            # ride back can set you down somewhere else (Silph 9F's (17,15),
+            # a_pad_arrived_on_is_not_a_pad_ridden), so the row stays
+            # untried and its destination unknown.
             # NEVER WALKED: no destination — the frontage words at most
             c.status = "untried"
             face = ex._frontage(dest_map)
@@ -1364,6 +1380,10 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                 # read as a second, vaguer claim beside it ("in a small
                 # flat-roofed building ... a POKEMON CENTER", Fuchsia 2026-09-08)
                 c.bld_look = ""
+            if _src:
+                c.note = _join(c.note, f"you landed on this pad coming from "
+                                       f"{_src}; where riding it sets you "
+                                       f"down is not on record")
         # a door's twin tile that is the arrival door is the same door
         if c.status == "untried" and _came_in_by(ex, obs, here, key, dest_map):
             c.status = "came_in_by"
