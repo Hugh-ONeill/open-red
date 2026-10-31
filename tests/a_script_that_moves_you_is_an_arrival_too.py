@@ -34,7 +34,17 @@ src = (ROOT / "planner" / "executor.py").read_text()
 i = src.index('chg.append(f"map->{after[0]}")')
 blk = src[i:i + 2600]
 ck("a map change after a non-door op sets where you came from and where you arrived",
-   "self._came_from = self._where(pre_obs)" in blk and "self._arrived = (self._where(obs), (_ap[\"x\"], _ap[\"y\"]))" in blk)
+   "self._came_from = self._where(_src_obs)" in blk and "self._arrived = (self._where(obs), (_ap[\"x\"], _ap[\"y\"]))" in blk)
+# an op begun on a box (the attendant's "join the hunt?") has no map in its
+# BEFORE, so where you came from is the last map read (run 69, 2026-10-31)
+ck("...from the last map read when the op began on a box",
+   'if not ((pre_obs or {}).get("map") or {}).get("id"):' in blk
+   and '_src_obs = getattr(self, "_last_mapped_obs",' in blk)
+_pre = {"map": {"id": None, "region": None}}
+_last = {"map": {"id": "SAFARI_ZONE_GATE", "region": "3,0"}}
+ck("...and that last map names the gate, not None|None",
+   E.Executor._where(_last) == "SAFARI_ZONE_GATE|3,0"
+   and "None" in E.Executor._where(_pre))
 ck("...but not for the ops note_transition already covers",
    'if op not in ("use_warp", "cross", "go", "explore", "sweep",' in blk)
 ck("...and the journal says a script moved you", '"script_transition"' in blk)

@@ -26608,7 +26608,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                   "field_move", "elevator", "fly"):
                         _ap = (obs or {}).get("player") or {}
                         if _ap.get("x") is not None and after[0]:
-                            self._came_from = self._where(pre_obs)
+                            # ...FROM THE LAST MAP READ, when the op began on
+                            # a box. The attendant's "join the hunt?" is
+                            # answered with no map on screen, so the arrival
+                            # was filed from None|None and the Center's south
+                            # door read untried again (run 69, 2026-10-31).
+                            _src_obs = pre_obs
+                            if not ((pre_obs or {}).get("map") or {}).get("id"):
+                                _src_obs = getattr(self, "_last_mapped_obs",
+                                                   None) or pre_obs
+                            self._came_from = self._where(_src_obs)
                             self._arrived = (self._where(obs), (_ap["x"], _ap["y"]))
                             self._reversals = 0
                             try:
