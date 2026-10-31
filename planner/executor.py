@@ -13875,8 +13875,10 @@ class Executor:
             # round: "blocked by a CUT_TREE and I lack CUT", and every round
             # was told "Your words named CUT and no CUT happened" (run 69,
             # 2026-10-30). "need" stays out: "I need to CUT it" is a deed.
+            # ...and the machine by its number: "obtain HM05 (FLASH)" is the
+            # item, read as a deed every round of the Flash leg (run 69).
             if all(_re.search(r"teach|taught|learn|know|compatib|forget|"
-                              r"\bHM_|\bTM_|\bmove\b|able to|"
+                              r"\bHM_|\bTM_|\bHM ?0?\d|\bmove\b|able to|"
                               r"\black|without|do(?:es)? not have|"
                               r"(?:don|doesn)'t have|cannot|can't|unable|"
                               r"nobody|no one",
