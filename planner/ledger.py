@@ -1384,6 +1384,14 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
                 c.note = _join(c.note, f"you landed on this pad coming from "
                                        f"{_src}; where riding it sets you "
                                        f"down is not on record")
+        # ...AND A DOOR A SCRIPT TOOK YOU THROUGH SAYS HOW. The Safari
+        # gate's attendant stops the walk at (3,0), and answering him puts
+        # you in the Center; walked, the door only turns you back.
+        _bs = int((rec or {}).get("by_script") or 0) if isinstance(rec, dict) else 0
+        if _bs:
+            c.note = _join(c.note, f"you have gone through it {_bs}x by "
+                                   f"answering the one who stops you at it; "
+                                   f"walked onto alone, it turns you back")
         # a door's twin tile that is the arrival door is the same door
         if c.status == "untried" and _came_in_by(ex, obs, here, key, dest_map):
             c.status = "came_in_by"
