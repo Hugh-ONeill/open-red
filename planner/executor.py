@@ -31836,7 +31836,21 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     self.log("backtrack_relocated", subgoal=prev["id"])
                     print(f"   -> relocated; retrying {sg['id']}")
                     ok = self._attempt(sg)
-                    if not ok and backtracks < 2:
+                    # ...ONLY AFTER A RELOCATE. "Try once more from the new
+                    # position" is about a step done in the wrong place; a
+                    # step RE-OPENED because it did not hold, and done since,
+                    # has nothing left to relocate. withdraw_surf (has_item
+                    # HM_SURF) was re-opened, got HM03 in the Secret House,
+                    # teach_surf then failed on a party that cannot learn it,
+                    # and the second pass told the run to "stand in a
+                    # DIFFERENT part that satisfies DONE_WHEN" for an item in
+                    # its bag (run 69, 2026-10-31).
+                    if not ok and backtracks < 2 and not _redo:
+                        self.log("backtrack_again_skipped", failed=sg["id"],
+                                 candidate=prev["id"],
+                                 reason="it was re-opened, not relocated, "
+                                        "and it holds now")
+                    if not ok and backtracks < 2 and _redo:
                         # relocating somewhere else that still cannot reach
                         # the goal is a wrong guess, not a dead end — try
                         # once more from the new position
