@@ -22,7 +22,7 @@ def ck(name, ok): checks.append((name, bool(ok)))
 tmp = Path(tempfile.mkdtemp(prefix="ground_")); (tmp / "run").mkdir(); os.chdir(tmp)
 # leg_delta groups by map
 def state(areas):
-    (tmp / "run/obs.json").write_text(json.dumps({"flags": [], "bag": {}, "badges": [], "party": [], "map": {"id": "X"}}))
+    (tmp / "run/obs.json").write_text(json.dumps({"flags": [], "bag": {}, "badges": [], "party": [{"species": "PIDGEY", "level": 5}], "map": {"id": "X"}}))
     (tmp / "run/explored.json").write_text(json.dumps({"visits": {a: 1 for a in areas}}))
 def delta(mode):
     return subprocess.run([sys.executable, str(ROOT / "planner/leg_delta.py"), mode, "run/snap.json"],

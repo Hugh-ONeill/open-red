@@ -58,6 +58,16 @@ def _state() -> dict:
             vis = json.load(open("run/explored.json")).get("visits") or {}
         except Exception:
             vis = {}
+        # A LOOK WITH NOBODY IN IT IS NOT THIS WORLD. Leg 23's baseline was
+        # snapped from an observation holding no party and no flags while
+        # the run had walked 22 legs (check-done had just said "no snapshot
+        # of this run's world (no party)"), so every flag the run had ever
+        # set read as fired that leg, and check-done passed "Infiltrate the
+        # Rocket base" on it (run 69, 2026-10-30). Such a look is no
+        # snapshot: {} is what the executor retakes and the diff says so.
+        # A new game, nowhere walked yet, keeps its empty-handed start.
+        if not (o.get("party") or o.get("flags")) and vis:
+            return {}
         return {
             "flags": sorted(o.get("flags") or []),
             "bag": dict(o.get("bag") or {}),

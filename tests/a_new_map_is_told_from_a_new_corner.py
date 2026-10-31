@@ -26,7 +26,7 @@ def ck(n, ok, d=""):
 import json
 import subprocess
 cwd = Path(tempfile.mkdtemp()); (cwd / "run").mkdir()
-obs = {"flags": [], "bag": {}, "badges": [], "party": [], "map": {"id": "CELADON_CITY"}}
+obs = {"flags": [], "bag": {}, "badges": [], "party": [{"species": "PIDGEY", "level": 5}], "map": {"id": "CELADON_CITY"}}
 (cwd / "run/obs.json").write_text(json.dumps(obs))
 (cwd / "run/explored.json").write_text(json.dumps({"visits": {"CELADON_CITY|2,1": 9, "GAME_CORNER|8,5": 3}}))
 LD = str(ROOT / "planner/leg_delta.py")
