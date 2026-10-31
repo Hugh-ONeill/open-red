@@ -54,6 +54,17 @@ with pinned(obs=OBS):
     ck("...while a real baseline still yields the gains",
        "events that fired: EVENT_BEAT_BROCK" in out.stdout and "badges earned: BOULDERBADGE" in out.stdout, out.stdout)
 
+# run 69, 2026-10-30: a look with no party and no flags, after the run has
+# walked somewhere, is no snapshot; a new game's empty start still is one
+import leg_delta as LD                                    # noqa: E402
+EMPTY = {"mode": "overworld", "map": {"id": "CELADON_CITY", "region": "1,1"},
+         "flags": [], "bag": {}, "badges": [], "party": []}
+with pinned(obs=EMPTY):
+    Path("run/explored.json").write_text(json.dumps({"visits": {"PALLET_TOWN|10,0": 3}}))
+    ck("a party-less, flag-less look after the run has walked is no snapshot", LD._state() == {}, LD._state())
+    Path("run/explored.json").write_text(json.dumps({"visits": {}}))
+    ck("...but a new game's empty start is still one", LD._state().get("party") == [], LD._state())
+
 src = (ROOT / "planner" / "executor.py").read_text()
 i_seed = src.index("    ex.seed_regions()          # the bridge is up")
 i_fill = src.index("    _backfill_leg_baseline()")
