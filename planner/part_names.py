@@ -56,18 +56,41 @@ def labels(regions) -> dict:
     return out
 
 
+def _among(lab: str, n: int) -> str:
+    """Where a part lies AMONG THE WALKED PARTS, said as that."""
+    if lab in ("north", "south", "west", "east"):
+        return f"further {lab}" if n == 2 else f"furthest {lab}"
+    if lab == "middle":
+        return "between the other two"
+    if lab.endswith("most"):
+        return f"furthest {lab[:-4]}"
+    return lab
+
+
 def name_parts(text: str, regions) -> str:
-    """The text with each labelled part's FIRST mention said with its place."""
+    """The text with each labelled part's FIRST mention said with its place.
+
+    ...AMONG THE PARTS WALKED, NOT ON THE MAP. "the west part of ROUTE_20"
+    named the more westerly of two walked parts, both east of Seafoam; the
+    model read it as the map's west side, said "I will travel to the west
+    part of Route 20 (44,2) and surf west from there", and went back to the
+    stretch it had just failed from (run 69, 2026-10-31)."""
     lab = labels(regions)
     if not lab or not text:
         return text
+    n_of: dict = {}
+    for k in lab:
+        mp = k.split("|", 1)[0]
+        n_of[mp] = n_of.get(mp, 0) + 1
     done: set = set()
 
     def sub(m):
         key = m.group(0)
         if key in lab and key not in done:
             done.add(key)
-            return f"{key} (the {lab[key]} part of {m.group(1)})"
+            n = n_of.get(m.group(1), 2)
+            return (f"{key} (of the {n} parts of {m.group(1)} you have walked, "
+                    f"this one lies {_among(lab[key], n)})")
         return key
     return REGION.sub(sub, text)
 
