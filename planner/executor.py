@@ -25022,6 +25022,25 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         if _kept_cut and self._route_leaves_map(_path, _mid):
                             _kept_off += 1
                             continue
+                        # ...AND NOT ON A LONG WALK OFF THIS MAP NOBODY ASKED
+                        # FOR. walk_to(10,63), the cell past Route 12's
+                        # SNORLAX, was walked to the map's far part the only
+                        # way the record had it: Lavender, Rock Tunnel and
+                        # Route 9, some twenty legs, cut off at a bush, twice
+                        # (run 69, 2026-10-31). The long-go rule says such a
+                        # walk before it is made; so does this.
+                        if len(_path) >= 6 and self._route_leaves_map(_path, _mid):
+                            trace.append(
+                                f"walk_to({step.get('x')},{step.get('y')}): "
+                                f"{_reg}, the other part of this map, is "
+                                f"reached by walked ground only by a "
+                                f"{len(_path)}-leg walk off this map — NOT "
+                                f"WALKED; " + '{"op":"go","to":"' + _reg +
+                                '","long":true} walks it')
+                            self.log("walk_to_via_region_long", subgoal=sg.get("id"),
+                                     to=_reg, legs=len(_path))
+                            _tried_regions += 1
+                            continue
                         _tried_regions += 1
                         self.log("walk_to_via_region", subgoal=sg.get("id"),
                                  to=_reg, legs=len(_path))
