@@ -24,7 +24,7 @@ SRC = (ROOT / "planner" / "executor.py").read_text()
 checks = []
 def ck(n, ok, d=""): checks.append((n, bool(ok), d))
 
-blk = SRC.split("WAYS TO FREE A SLOT", 1)[1][:1800]
+blk = SRC.split("WAYS TO FREE A SLOT", 1)[1][:2400]
 # the paragraph is built from adjacent string literals, so a sentence can
 # straddle a boundary in the SOURCE while reading as one line to the model.
 # Normalise the quoting and whitespace away before looking for a sentence.
