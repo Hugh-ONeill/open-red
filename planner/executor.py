@@ -4959,6 +4959,7 @@ class Executor:
                 self._ride_refused = (getattr(self, "_ride_refused", set())
                                       | {_ride_key})
                 self.log("ride_refused_kept", where=_ride_key[0])
+                self._save_memory()
             return ok, [f"explore (riding to where seen ground ends across "
                         f"the water, then sweeping): {t}" for t in tr], cl
         # ...THEN THE WALLS THAT MAY HAVE MOVED. A cell frozen shut at
@@ -7186,6 +7187,12 @@ class Executor:
             self._refused_balls = data.get("refused_balls") or {}
             # doors taken onto a box (note_transition) outlive a restart
             self._boxed_doors = data.get("boxed_doors") or {}
+            # ...and so do rides the game refused (explore's water frontier):
+            # each attempt is a new process, and Seafoam B4F's "The current is
+            # much too fast!" was met again by every attempt's first explore
+            # (run 69, 2026-10-31)
+            self._ride_refused = {tuple(x) for x in (data.get("ride_refused") or [])
+                                  if isinstance(x, (list, tuple)) and len(x) == 2}
             self.flag_sites = data.get("flag_sites") or {}
             # Entries written before the destination was removed still read
             # "4,11->CERULEAN_CAVE_1F (POLICEMAN is standing there)", and the
@@ -7866,6 +7873,8 @@ class Executor:
                  "exit_tries": self._exit_tries,
                  "refused_balls": getattr(self, "_refused_balls", None) or {},
                  "boxed_doors": getattr(self, "_boxed_doors", None) or {},
+                 "ride_refused": sorted([list(x) for x in
+                                         (getattr(self, "_ride_refused", None) or set())]),
                  "flag_sites": self.flag_sites,
                  "shut_doors": self.shut_doors,
                  "hints": self.hints,
