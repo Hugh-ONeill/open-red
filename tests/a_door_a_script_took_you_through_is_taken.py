@@ -38,31 +38,44 @@ ex = bare()
 ex.door_dests = {"SAFARI_ZONE_GATE": {"3,5": "LAST_MAP", "4,5": "LAST_MAP",
                                       "3,0": "SAFARI_ZONE_CENTER", "4,0": "SAFARI_ZONE_CENTER"}}
 ex.explored = {"SAFARI_ZONE_GATE|3,0": {"3,0": {"n": 0, "to": None, "shut": True, "shut_at": [1]}}}
-ex._note_script_door("SAFARI_ZONE_GATE|3,0", "SAFARI_ZONE_CENTER|22,10")
+ex._note_script_door("SAFARI_ZONE_GATE|3,0", "SAFARI_ZONE_CENTER|22,10", at={"x": 3, "y": 1})
 g = ex.explored["SAFARI_ZONE_GATE|3,0"]
 ck("both tiles of the doorway lead to the Center",
    g["3,0"]["to"] == g["4,0"]["to"] == "SAFARI_ZONE_CENTER|22,10", g)
 ck("the shut mark is lifted", "shut" not in g["3,0"], g)
 ck("the shut tile counts a script crossing", g["3,0"].get("by_script") == 1, g)
 ck("the doors back to the city are untouched", "3,5" not in g, g)
-ex._note_script_door("SAFARI_ZONE_GATE|3,0", "SAFARI_ZONE_CENTER|22,10")
+ex._note_script_door("SAFARI_ZONE_GATE|3,0", "SAFARI_ZONE_CENTER|22,10", at={"x": 4, "y": 2})
 ck("a second crossing counts again", g["3,0"].get("by_script") == 2 and g["3,0"]["n"] == 2, g)
 
 ex = bare()
 ex.door_dests = {"VIRIDIAN_CITY": {"23,25": "VIRIDIAN_POKECENTER"}}
-ex._note_script_door("VIRIDIAN_CITY|17,0", "VIRIDIAN_POKECENTER|0,3")
+ex._note_script_door("VIRIDIAN_CITY|17,0", "VIRIDIAN_POKECENTER|0,3", at={"x": 23, "y": 26})
 e = ex.explored["VIRIDIAN_CITY|17,0"]["23,25"]
 ck("a heal through an open door writes the edge", e["to"] == "VIRIDIAN_POKECENTER|0,3", e)
 ck("...without saying a walk is turned back", "by_script" not in e, e)
 
 ex = bare()
 ex.door_dests = {"X": {"1,1": "Y", "9,9": "Y"}}
-ex._note_script_door("X|0,0", "Y|0,0")
+ex._note_script_door("X|0,0", "Y|0,0", at={"x": 1, "y": 2})
 ck("two doorways apart to the same map: nothing written", ex.explored == {}, ex.explored)
-ex._note_script_door("X|0,0", "Z|0,0")
+ex._note_script_door("X|0,0", "Z|0,0", at={"x": 1, "y": 2})
 ck("no doorway to that map: nothing written", ex.explored == {}, ex.explored)
-ex._note_script_door("None|None", "Y|0,0")
+ex._note_script_door("None|None", "Y|0,0", at={"x": 1, "y": 2})
 ck("no source map: nothing written", ex.explored == {}, ex.explored)
+
+# the clock running out moves you to the gate from anywhere in the park
+ex = bare()
+ex.door_dests = {"SAFARI_ZONE_CENTER": {"14,25": "SAFARI_ZONE_GATE", "15,25": "SAFARI_ZONE_GATE"}}
+ex._note_script_door("SAFARI_ZONE_CENTER|14,0", "SAFARI_ZONE_GATE|3,0", at={"x": 14, "y": 2})
+ck("a script arrival from far off the doorway writes nothing", ex.explored == {}, ex.explored)
+ex._note_script_door("SAFARI_ZONE_CENTER|14,0", "SAFARI_ZONE_GATE|3,0", at={})
+ck("...nor with no place on record", ex.explored == {}, ex.explored)
+ex._note_script_door("SAFARI_ZONE_CENTER|22,10", "SAFARI_ZONE_GATE|3,0", at={"x": 14, "y": 24})
+ck("...but from beside it, it does",
+   ex.explored.get("SAFARI_ZONE_CENTER|22,10", {}).get("14,25", {}).get("to") == "SAFARI_ZONE_GATE|3,0", ex.explored)
+ck("the arrival passes where the party stood",
+   'at=((_src_obs or {}).get("player") or {}))' in src)
 
 lsrc = (ROOT / "planner" / "ledger.py").read_text()
 ck("the ledger row says how it was taken",
