@@ -19098,6 +19098,14 @@ class Executor:
               "clerk."
             + (f" Of your singles, using one spends it with nothing lost from "
                f"the party: {', '.join(consum)}." if consum else "")
+            + "".join(
+                f" {k} has been used on "
+                + ", ".join(f"{sp} (slot {sl})" for sl, sp in sorted(
+                    ((getattr(self, '_noeff_uses', None) or {}).get(k) or {}).items()))
+                + " and the game said \"It won't have any effect.\" — nothing "
+                  "was spent and the slot stayed full."
+                for k in consum
+                if (getattr(self, "_noeff_uses", None) or {}).get(k))
             + " STORING at a "
               "Pokemon Center's PC keeps the thing and frees the slot "
               "({\"op\":\"store_item\",\"item\":...}; "
@@ -26173,6 +26181,21 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 self._dead_at.pop(sig, None)
             if _noeff:
                 self._strike(sig, r.get("detail"), at=self._spot(pre_obs))
+                # ...AND WHICH POKEMON IT CAME TO NOTHING ON, for the bag
+                # line: it went on listing CARBOS among the singles "a use
+                # spends with nothing lost", the round's own result reached
+                # the page only as "use_item: It won't have any effect.", and
+                # CARBOS on RAICHU was sent again three rounds later (run 69,
+                # 2026-10-31).
+                try:
+                    _sl = int(step.get("slot") or 0)
+                    _pt = (pre_obs or {}).get("party") or []
+                    _sp = (_pt[_sl - 1] or {}).get("species") if 0 < _sl <= len(_pt) else None
+                    if step.get("item") and _sp:
+                        self.__dict__.setdefault("_noeff_uses", {}).setdefault(
+                            str(step["item"]), {})[_sl] = str(_sp)
+                except (TypeError, ValueError):
+                    pass
             if not r.get("ok"):
                 # THREE FAILURES ARE THREE FAILURES IN ONE WORLD. The
                 # refusal below is absolute and never expired, so an op
