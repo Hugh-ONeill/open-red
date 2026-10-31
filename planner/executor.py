@@ -9892,10 +9892,16 @@ class Executor:
                 n += 1
         return n
 
-    def _note_script_door(self, src, dst):
+    def _note_script_door(self, src, dst, at=None):
         """A script that moved you from `src` to `dst` went through the one
         doorway of `src`'s map whose table destination is `dst`'s map: write
-        that edge as taken, counted `by_script`, and lift its shut mark."""
+        that edge as taken, counted `by_script`, and lift its shut mark.
+
+        ONLY FROM BESIDE IT. The Safari clock running out is a script
+        arrival at the gate from wherever the party stood; the Center's north
+        part cannot walk to (14,25), and an edge from there would be a road
+        no walk can take. The party stood at most two tiles from the doorway
+        (`at`, the last map read) or nothing is written."""
         if not src or not dst or "None" in src or "None" in dst:
             return
         smap, dmap = src.split("|")[0], dst.split("|")[0]
@@ -9908,6 +9914,12 @@ class Executor:
         try:
             pts = [tuple(int(v) for v in k.split(",")) for k in keys]
         except (TypeError, ValueError):
+            return
+        try:
+            _ax, _ay = int((at or {}).get("x")), int((at or {}).get("y"))
+        except (TypeError, ValueError):
+            return
+        if min(abs(px - _ax) + abs(py - _ay) for px, py in pts) > 2:
             return
         # one doorway: its tiles side by side in a row or a column
         xs, ys = {p[0] for p in pts}, {p[1] for p in pts}
@@ -26706,7 +26718,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                             # (2026-10-31). The edge is written as taken; a
                             # walk into it is still turned back, and says so.
                             self._note_script_door(self._came_from,
-                                                   self._arrived[0])
+                                                   self._arrived[0],
+                                                   at=((_src_obs or {}).get("player") or {}))
                 if before[4] != after[4]:
                     chg.append("party changed")
                 if (before[1], before[2]) != (after[1], after[2]):
