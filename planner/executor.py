@@ -13169,6 +13169,16 @@ class Executor:
             if x.get("id") not in carried:
                 continue
             dw = x.get("done_when") if isinstance(x.get("done_when"), dict) else {}
+            # ...BUT NOT ONE THAT HOLDS NOW. A carry is a fact about when the
+            # step ended; withdraw_surf was carried without HM_SURF, a later
+            # step got it in the Secret House, and the page went on saying
+            # "has_item HM_SURF was NOT achieved" beside "HM_SURF x1" in the
+            # bag (run 69, 2026-10-31).
+            try:
+                if dw and pred_holds(dw, obs or {}):
+                    continue
+            except Exception:
+                pass
             place = (dw.get("map") or dw.get("new_part")
                      or (str(dw.get("area") or "").split("|")[0] or None))
             if place:
