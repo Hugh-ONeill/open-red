@@ -8309,6 +8309,25 @@ function OPS.cross(G, c)
                                         ex and (", via the gap at (" .. tostring(ex)
                                                 .. "," .. tostring(ey) .. ")") or "")
   end
+  -- A CROSSING THAT ROLLS YOU BACK IS NOT A CROSSING. Route 18's north seam
+  -- is Cycling Road's foot: the party crosses onto ROUTE_17, the slope rolls
+  -- the bike straight back down across the seam, and it rests on ROUTE_18
+  -- where it began. That read "ok (crossed — now on ROUTE_18 at (10,0))",
+  -- the seam was never filed, and explore took it every round (run 69,
+  -- 2026-10-31). Ending on the map you started on is said as what happened,
+  -- and is not a success.
+  local function cross_done()
+    local far = ow.map and ow.map.id
+    local msg = crossed_at()
+    if (ow.map and ow.map.id) == startMap then
+      local p3 = ow.player or p
+      return false, ("crossed %s onto %s, and the ground there carried you "
+        .. "back onto %s, at (%s,%s): you are on the map you started on")
+        :format(tostring(c.dir), tostring(far), tostring(startMap),
+                tostring(p3 and p3.cellX), tostring(p3 and p3.cellY))
+    end
+    return true, msg
+  end
   -- step off the seam repeatedly until the map changes
   -- A SEAM WHOSE FAR SIDE IS WATER IS CROSSED FROM THE WATER. Cinnabar's
   -- east edge is dry land looking at ROUTE_20's open sea: every landing
@@ -8348,19 +8367,19 @@ function OPS.cross(G, c)
     end
   end
   for _ = 1, 8 do
-    if (ow.map and ow.map.id) ~= startMap then return true, crossed_at() end
+    if (ow.map and ow.map.id) ~= startMap then return cross_done() end
     table.insert(G.input.pressQueue, dir)
     G.input.state[dir] = true
     for _ = 1, 20 do
       coroutine.yield()
       if (ow.map and ow.map.id) ~= startMap then
-        G.input.state[dir] = false; return true, crossed_at()
+        G.input.state[dir] = false; return cross_done()
       end
     end
     G.input.state[dir] = false
     U.wait(3)
   end
-  if (ow.map and ow.map.id) ~= startMap then return true, crossed_at() end
+  if (ow.map and ow.map.id) ~= startMap then return cross_done() end
   return false, ("stepped %s at gap (%d,%d) but no map change")
     :format(dir, p.cellX, p.cellY)
 end

@@ -24,8 +24,8 @@ ck("cross names where it landed", "local function crossed_at()" in lua)
 c = lua[lua.find("local function crossed_at()"):][:420]
 ck("...the map and the cell", 'ow.map and ow.map.id' in c and "cellX" in c)
 ck("no bare 'crossed' return is left", '"crossed"' not in lua.split("crossed_at")[-1])
-ck("every success path uses it", lua.count("return true, crossed_at()") == 3
-   and lua.count("G.input.state[dir] = false; return true, crossed_at()") == 1)
+ck("every success path uses it", lua.count("return cross_done()") == 3 and "local msg = crossed_at()" in lua
+   and lua.count("G.input.state[dir] = false; return cross_done()") == 1)
 
 # --- other_part_note ---
 led = Path("planner/ledger.py").read_text()
