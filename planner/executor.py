@@ -9892,6 +9892,42 @@ class Executor:
                 n += 1
         return n
 
+    def _note_script_door(self, src, dst):
+        """A script that moved you from `src` to `dst` went through the one
+        doorway of `src`'s map whose table destination is `dst`'s map: write
+        that edge as taken, counted `by_script`, and lift its shut mark."""
+        if not src or not dst or "None" in src or "None" in dst:
+            return
+        smap, dmap = src.split("|")[0], dst.split("|")[0]
+        if smap == dmap:
+            return
+        dd = (getattr(self, "door_dests", {}) or {}).get(smap) or {}
+        keys = sorted(k for k, v in dd.items() if v == dmap)
+        if not keys:
+            return
+        try:
+            pts = [tuple(int(v) for v in k.split(",")) for k in keys]
+        except (TypeError, ValueError):
+            return
+        # one doorway: its tiles side by side in a row or a column
+        xs, ys = {p[0] for p in pts}, {p[1] for p in pts}
+        if len(keys) > 1 and not (
+                (len(ys) == 1 and max(xs) - min(xs) == len(keys) - 1)
+                or (len(xs) == 1 and max(ys) - min(ys) == len(keys) - 1)):
+            return
+        node = self.explored.setdefault(src, {})
+        for k in keys:
+            e = node.setdefault(k, {"n": 0, "to": dst})
+            e["n"] = int(e.get("n") or 0) + 1
+            e["to"] = dst
+            # "it turns you back" is said only of a door that did: a heal
+            # walks into a Pokemon Center through an open door
+            if e.get("shut") or e.get("by_script"):
+                e["by_script"] = int(e.get("by_script") or 0) + 1
+            e.pop("shut", None)
+        self.log("script_door", frm=src, via=",".join(keys), to=dst)
+        self._save_memory()
+
     def _note_arrival(self, src, dst, before_obs, after_obs, left_by=None):
         """The facts an ARRIVAL sets: the visit, the door you came in by,
         where you came from, and the far side of that door as a way back.
@@ -26651,6 +26687,16 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                                      to=self._arrived[0], op=op,
                                      name=str(step.get("name") or step.get("item")
                                               or step.get("index") or ""))
+                            # ...AND THROUGH THE DOORWAY THAT LEADS THERE, when
+                            # the map's own table names exactly one. Paying the
+                            # Safari attendant took run 69 into the Center
+                            # four times, the gate's (3,0) stayed "never taken"
+                            # and shut, and every Safari area read "no walked
+                            # route from here" with HM03 in the Secret House
+                            # (2026-10-31). The edge is written as taken; a
+                            # walk into it is still turned back, and says so.
+                            self._note_script_door(self._came_from,
+                                                   self._arrived[0])
                 if before[4] != after[4]:
                     chg.append("party changed")
                 if (before[1], before[2]) != (after[1], after[2]):
