@@ -41,4 +41,5 @@ ck("lacking CUT is not cutting", ex._deeds_named_not_done([], "The eastern exit 
 ck("not having CUT is not cutting", ex._deeds_named_not_done([], "Since I do not have CUT, I cannot pass through it.", []) == [])
 r = ex._deeds_named_not_done([], "I need to CUT the bush at (19,28) and cross east.", [])
 ck("needing to CUT is still the deed", r == [("CUT", False)], r)
+ck("the machine by its number is not a deed", ex._deeds_named_not_done([], "I need the SILPH SCOPE to reach the top of Pokemon Tower and obtain HM05 (FLASH).", []) == [])
 sys.exit(1 if fails else 0)
