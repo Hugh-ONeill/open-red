@@ -764,6 +764,27 @@ def _mon_types(m) -> str:
     return f" ({'/'.join(t)})" if t else ""
 
 
+def _mon_pp(m) -> str:
+    """A party member's moves at 0 PP, as its own move screen shows them.
+
+    Both party lines gave HP alone. Run 70's KADABRA read "21/56hp" and was
+    led into Route 25's grass round after round with CONFUSION, its only
+    damaging move, at 0/25: the battle policy could only TELEPORT out, and
+    the grinds earned it nothing (2026-11-01). Whether to heal for PP is the
+    model's call; that the PP is gone is the screen's.
+    """
+    mv = [x for x in ((m or {}).get("moves") or []) if isinstance(x, dict)]
+    dry = [str(x.get("id")) for x in mv
+           if x.get("pp") is not None and int(x.get("pp") or 0) <= 0]
+    if not dry:
+        return ""
+    hit = [x for x in mv if int(x.get("power") or 0) > 0]
+    none_left = bool(hit) and all(
+        x.get("pp") is not None and int(x.get("pp") or 0) <= 0 for x in hit)
+    return (f" [0 PP: {', '.join(dry)}"
+            + ("; no damaging move has PP left" if none_left else "") + "]")
+
+
 def _mon_nick(m) -> str:
     """The name the game prints for a party member, beside its species.
 
@@ -17111,6 +17132,7 @@ class Executor:
                 f"{i}. {m.get('species')}{_mon_nick(m)}{_mon_types(m)} L{m.get('level')} "
                 f"{m.get('hp')}/{m.get('max_hp')}hp"
                 + (f" [{m.get('status')}]" if m.get("status") else "")
+                + _mon_pp(m)
                 for i, m in enumerate(party, 1)))
             # WHAT THE CONDITION COUNTS, AND HOW FAR OFF THE WORST IS. The
             # predicate is the harness's own, so saying what it measures is
@@ -29648,6 +29670,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             _pl = [f"{i}. {m.get('species')}{_mon_nick(m)}{_mon_types(m)} L{m.get('level')} "
                    f"{m.get('hp')}/{m.get('max_hp')}hp"
                    + (f" [{m.get('status')}]" if m.get("status") else "")
+                   + _mon_pp(m)
                    for i, m in enumerate((cur or {}).get("party") or [], 1)
                    if m.get("max_hp")]
             if _pl:
