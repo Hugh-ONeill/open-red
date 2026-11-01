@@ -75,9 +75,19 @@ def place(c: dict, w: int, h: int, x: int, y: int) -> None:
         return
     target = f"address:{c['address']}"
     if not c.get("floating"):
-        subprocess.run(["hyprctl", "-q", "dispatch", "setfloating", target], timeout=5)
-    subprocess.run(["hyprctl", "-q", "dispatch", "resizewindowpixel", f"exact {w} {h},{target}"], timeout=5)
-    subprocess.run(["hyprctl", "-q", "dispatch", "movewindowpixel", f"exact {x} {y},{target}"], timeout=5)
+        dsp(f'hl.dsp.window.float({{ action = "enable", window = "{target}" }})')
+    # resize first: a floating resize grows around the centre, and the move
+    # after it pins the top-left corner
+    dsp(f'hl.dsp.window.resize({{ x = {w}, y = {h}, window = "{target}" }})')
+    dsp(f'hl.dsp.window.move({{ x = {x}, y = {y}, window = "{target}" }})')
+
+
+def dsp(expr: str) -> None:
+    """One Hyprland dispatcher, as 0.57 takes them: a Lua expression. The old
+    string dispatchers (setfloating, resizewindowpixel, movewindowpixel,
+    alterzorder) are gone, each call failed in silence, and neither window
+    was ever placed (user, 2026-11-01: "its not sharing the screen")."""
+    subprocess.run(["hyprctl", "-q", "dispatch", expr], timeout=5)
 
 
 def main() -> None:
@@ -125,8 +135,8 @@ def main() -> None:
                     # authoring (user, 2026-10-08: "the game shouldnt be
                     # showing")
                     if copies:
-                        subprocess.run(["hyprctl", "-q", "dispatch", "alterzorder",
-                                        f"top,address:{c['address']}"], timeout=5)
+                        dsp(f'hl.dsp.window.alter_zorder({{ mode = "top", '
+                            f'window = "address:{c["address"]}" }})')
                 else:
                     place(c, w, h, rx, ry)
             was_wide = wide

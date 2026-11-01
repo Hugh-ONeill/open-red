@@ -107,20 +107,21 @@ if [ "$MODE" != attach ]; then
 fi
 
 # the copy is the only love window on screen (the run's is headless)
-hyprctl -q keyword windowrule "match:class ^(love)$, float on"
-hyprctl -q keyword windowrule "match:class ^(love)$, size $W $H"
-hyprctl -q keyword windowrule "match:class ^(love)$, move $LX $LY"
-hyprctl -q keyword windowrule "match:title ^(red-recomp HUD)$, float on"
-hyprctl -q keyword windowrule "match:title ^(red-recomp HUD)$, size $W $H"
-hyprctl -q keyword windowrule "match:title ^(red-recomp HUD)$, move $RX $RY"
+# (Hyprland 0.57 is Lua: `hyprctl keyword` is gone and every line here failed
+# in silence, so neither window was placed; user, 2026-11-01: "its not sharing
+# the screen". A rule re-declared under the same name extends it, so a rerun
+# does not stack copies.)
+hyprctl -q eval "hl.window_rule({ name = 'stream:copy', match = { class = '^(love)\$' }, float = true, size = '$W $H', move = '$LX $LY' })"
+hyprctl -q eval "hl.window_rule({ name = 'stream:hud', match = { title = '^(red-recomp HUD)\$' }, float = true, size = '$W $H', move = '$RX $RY' })"
 
 if ! pgrep -f "tools/hud.py" >/dev/null; then
   setsid kitty --title "red-recomp HUD" python3 tools/hud.py >/dev/null 2>&1 < /dev/null &
 else
   # a HUD already open was placed before the rules existed: put it there too
-  hyprctl -q dispatch setfloating "title:^(red-recomp HUD)$" || true
-  hyprctl -q dispatch resizewindowpixel exact "$W" "$H",title:"^(red-recomp HUD)$" || true
-  hyprctl -q dispatch movewindowpixel exact "$RX" "$RY",title:"^(red-recomp HUD)$" || true
+  hud='title:^(red-recomp HUD)$'
+  hyprctl -q dispatch "hl.dsp.window.float({ action = \"enable\", window = \"$hud\" })" || true
+  hyprctl -q dispatch "hl.dsp.window.resize({ x = $W, y = $H, window = \"$hud\" })" || true
+  hyprctl -q dispatch "hl.dsp.window.move({ x = $RX, y = $RY, window = \"$hud\" })" || true
 fi
 # the old copy with its game: play.py runs under setsid, so its group is both
 # (never this script's own group, in case a pattern ever matches it)
