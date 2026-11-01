@@ -43,13 +43,14 @@ src = (ROOT / "planner/executor.py").read_text()
 ck("six idle rounds end the step", "IDLE_STREAK_END = 6" in src
    and "if self._idle_streak >= self.IDLE_STREAK_END:" in src and "spent = rounds" in src)
 ck("idle means same world, nothing new, a map already stood on this step",
-   "if (_same_world and _seen_map" in src
+   "_same_world = (str(self._progress_mark(start))" in src
    and "_news_now = self._round_news(self._round0_news, start)" in src
-   and "if (_same_world and _seen_map and not _news_now" in src)
+   and "self._count_idle_round(start, _same_world and _seen_map\n"
+       "                                       and not _news_now and not _trained)" in src)
 # a grind round changes no badge, flag or bag kind, and still is not idle
 # (run 36's grind_haunter was ended after thousands of exp, 2026-10-04)
 ck("a round that gained experience or levels is not idle",
-   "and not _trained):" in src
+   "and not _news_now and not _trained)" in src
    and "self._round0_exp = self._party_exp(start)" in src)
 _o1 = {"party": [{"species": "HAUNTER", "level": 30, "exp": 20000}]}
 _o2 = {"party": [{"species": "HAUNTER", "level": 30, "exp": 21845}]}

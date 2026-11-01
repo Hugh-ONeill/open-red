@@ -9508,6 +9508,37 @@ class Executor:
                 format(_z.crc32(_fl.encode()), "08x"),
                 format(_z.crc32(_bg.encode()), "08x")]
 
+    def _levers_on(self, obs) -> set:
+        """The toggled flags (levers) the observation shows SET."""
+        _tg = set(getattr(self, "_toggled_flags", None) or ())
+        return {f for f in ((obs or {}).get("flags") or []) if f in _tg}
+
+    def _count_idle_round(self, start, idle: bool) -> int:
+        """Advance the idle streak for the round that just ended, whose
+        world `start` is; returns the streak.
+
+        A LEVER LEFT ON IS NEITHER IDLE NOR PROGRESS. _progress_mark
+        leaves toggled flags out, so a round that opened Vermilion Gym's
+        first electric lock (EVENT_1ST_LOCK_OPENED, seen reset once, so a
+        lever) read as "changed nothing": run 69 (2026-10-30) opened it on
+        round 10, pressed a wrong can on 11, and step_idle_end fell on 12;
+        the same twice more, the plan failed three times, leg 18 was passed
+        over, and the Thunder Badge came 26 hours later on a leg inserted
+        before the Viridian Gym. Counting such a round as progress would
+        bring back next291's bug (the Mansion's statue flipped every round,
+        the streak never closed). So a round that leaves ON a lever it
+        found OFF is not counted either way: a puzzle gets a candidate per
+        reset instead of one per two rounds, and a lever flipped back and
+        forth still ends the step, at twice the count."""
+        _on = self._levers_on(start)
+        _before = set(getattr(self, "_round_levers_on", None) or ())
+        self._round_levers_on = _on
+        if not idle:
+            self._idle_streak = 0
+        elif not (_on - _before):
+            self._idle_streak = int(getattr(self, "_idle_streak", 0)) + 1
+        return self._idle_streak
+
     def _progress_mark(self, obs) -> list:
         """The world mark less the flags this run has seen switch OFF again
         (_toggled_flags: levers). A lever flipped back and forth moves the
@@ -27789,11 +27820,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # is the party's own record, on the screen in every fight.
                 _trained = (self._party_exp(start)
                             != getattr(self, "_round0_exp", None))
-                if (_same_world and _seen_map and not _news_now
-                        and not _trained):
-                    self._idle_streak = int(getattr(self, "_idle_streak", 0)) + 1
-                else:
-                    self._idle_streak = 0
+                self._count_idle_round(start, _same_world and _seen_map
+                                       and not _news_now and not _trained)
                 if self._leg_dry_round(sg, rnd, bool(_news_now) or not _same_world):
                     spent = rounds
                     break
@@ -27808,6 +27836,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             else:
                 self._idle_streak = 0
                 self._step_maps = set()
+                self._round_levers_on = self._levers_on(start)
             self._step_maps = set(getattr(self, "_step_maps", set())) | {
                 str(((start or {}).get("map") or {}).get("id") or "")}
             self._round0_mark = self._progress_mark(start)
