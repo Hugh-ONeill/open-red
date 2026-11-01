@@ -285,9 +285,18 @@ def _wild_level_note(ex, mid, obs) -> str:
                 if isinstance(p, dict) and p.get("level")]
         if lvls:
             lead = f", and your party is L{min(lvls)}-L{max(lvls)}"
+        # ...AND WHO THEY WERE, as the elsewhere rows say. Route 24 read
+        # "L7-L14 across 192 battle(s)" with no species while every other
+        # floor on the same line named its own, and GEODUDE was led into
+        # that grass and fainted grind after grind (run 70, 2026-11-01).
+        # The run's own tally; what a species is stays the read.
+        _sp = sorted(((getattr(ex, "_offered", None) or {}).get(mid)
+                      or {}).items(), key=lambda kv: -int(kv[1] or 0))
+        _who = ", ".join(str(k) for k, _ in _sp[:4])
         return (". THE WILDS YOU HAVE FOUGHT HERE WERE "
                 + (f"L{lo}" if lo == hi else f"L{lo}-L{hi}")
-                + f" across {n} battle(s){lead}")
+                + f" across {n} battle(s)"
+                + (f" ({_who})" if _who else "") + lead)
     except Exception:
         return ""
 

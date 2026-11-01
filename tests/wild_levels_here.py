@@ -47,6 +47,20 @@ ck("no party is not an error",
    "across 2 battle(s)" in _wild_level_note(
        Ex({"M": {"lo": 3, "hi": 4, "n": 2}}), "M", {}))
 
+# Run 70, Route 24 (2026-11-01): the elsewhere rows named their species
+# and the ground underfoot did not.
+ex = Ex({"ROUTE_24": {"lo": 7, "hi": 14, "n": 192}})
+ex._offered = {"ROUTE_24": {"PIDGEY": 20, "ODDISH": 60, "BELLSPROUT": 55,
+                            "ABRA": 9, "WEEDLE": 4}}
+sp = _wild_level_note(ex, "ROUTE_24", party)
+ck("names who was fought here, most met first",
+   "(ODDISH, BELLSPROUT, PIDGEY, ABRA)" in sp)
+ck("...and caps the names at four", "WEEDLE" not in sp)
+ck("...with levels and party still said", "L7-L14 across 192 battle(s)" in sp
+   and "L26-L63" in sp)
+ck("no tally, no parentheses",
+   "battle(s) (" not in _wild_level_note(Ex({"M": {"lo": 3, "hi": 4, "n": 2}}), "M", party))
+
 bad = [n for n, ok in checks if not ok]
 print(("FAIL %d/%d" % (len(bad), len(checks))) if bad
       else "ok %d checks" % len(checks))
