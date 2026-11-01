@@ -5326,14 +5326,18 @@ def observed_text(path: Path) -> str:
     return _fit(out, near=near)
 
 
-# Ollama evaluates a prompt at HALF of num_ctx and drops its FRONT — where
+# A prompt LONGER than num_ctx is cut to half with its FRONT dropped — where
 # the goal, the predicates and the map vocabulary live — so oversize does
-# not degrade the reasoning, it deletes the instructions. Per-block caps
-# were not enough: the walked graph and the event-site list grow with every
-# region entered, so the total crept back over the cliff within the hour.
-# Budget the whole thing instead, trimming the blocks that grow, and say
-# what was dropped. 22000 chars leaves room for the journal, the drafts and
-# the vocabulary inside a 12288-token evaluation.
+# not degrade the reasoning, it deletes the instructions. (A prompt that
+# fits is read whole; the half-of-num_ctx reading this budget was first
+# sized to was wrong, measured 2026-10-27, see brock_probe.) Per-block
+# caps were not enough: the walked graph and the event-site list grow with
+# every region entered, so the total crept back over the cliff within the
+# hour. Budget the whole thing instead, trimming the blocks that grow, and
+# say what was dropped. 22000 chars (~5.5k tokens) is a choice, not a
+# cliff: it keeps the evidence a readable share of a ~20k-token authoring
+# prompt at RED_NUM_CTX 32768, and raising it changes what the author
+# reads, which is an A/B, not a fix.
 EVIDENCE_BUDGET = 22000
 
 
@@ -5497,12 +5501,18 @@ def prompt_guard(where: str, **parts) -> None:
     number alone never said that. This does.
     """
     total = sum(len(v or "") for v in parts.values())
-    cap = brock_probe.NUM_CTX // 2
+    # The cliff is the window less the reply's room: a prompt that fits
+    # num_ctx is read whole (measured 2026-10-27; this said NUM_CTX // 2
+    # for two months and printed 1,872 false warnings into run 69's log),
+    # and one longer than it is cut to half from the front.
+    cap = brock_probe.NUM_CTX - brock_probe.NUM_PREDICT
     est = total // 4                    # ~4 chars per token, good enough
     if est < cap * 0.9:
         return
     big = sorted(parts.items(), key=lambda kv: -len(kv[1] or ""))[:3]
-    print(f"[prompt] {where} is ~{est} tokens against a {cap} cap"
+    print(f"[prompt] {where} is ~{est} tokens against a {cap} cap "
+          f"(num_ctx {brock_probe.NUM_CTX} less {brock_probe.NUM_PREDICT} "
+          f"for the reply)"
           + (" — IT WILL BE TRUNCATED FROM THE FRONT" if est >= cap else
              " — close to the cliff")
           + ". Biggest parts: "
@@ -5514,11 +5524,11 @@ def evidence_text(observed, journal, drafts) -> str:
 
     EVIDENCE_BUDGET was applied inside observed_text and nowhere else, so
     it capped the walked graph and then let the journal, the draft list and
-    the plan JSON pile on top of it unmeasured. Ollama evaluates at half of
-    num_ctx and drops the FRONT — where the predicates, the map ids and the
-    guidance live — so going over does not blur the reasoning, it deletes
-    the instructions, and a review then reaches for a predicate that does
-    not exist. The three growing blocks are budgeted together; the
+    the plan JSON pile on top of it unmeasured. A prompt longer than
+    num_ctx is cut to half from the FRONT — where the predicates, the map
+    ids and the guidance live — so going over does not blur the reasoning,
+    it deletes the instructions, and a review then reaches for a predicate
+    that does not exist. The three growing blocks are budgeted together; the
     vocabulary is appended AFTER this and is never trimmed.
     """
     # ...AS A WHOLE, BUT NOT WINNER-TAKE-ALL. _fit trims the LARGEST block

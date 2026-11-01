@@ -84,29 +84,20 @@ Read obs.result; if an op failed or nothing changed, do something DIFFERENT
 rather than repeating it. Output only the JSON object."""
 
 
-# Ollama gives the PROMPT only HALF of num_ctx (measured: 8192 -> 4099 tokens
-# evaluated, 16384 -> 8195, 32768 -> 16387) and silently drops the FRONT of an
-# oversized prompt — a marker planted at the top of a long prompt is invisible
-# to the model while one at the bottom survives. Authoring prompts run 6-7k
-# tokens, so at the old 8192 every one of them lost its opening ~2500 tokens:
-# the predicate vocabulary, the map-id list and the training guidance, while
-# the journal and audit checks at the tail always survived. 16384 leaves 8192
-# usable and still loads 100% on the 3090 (20GB); 32768 spills to CPU.
+# THE WINDOW IS THE WHOLE WINDOW. This comment said for two months that
+# Ollama evaluates a prompt at HALF of num_ctx; it does not. Measured on the
+# loaded gemma4:31b at num_ctx 32768 with a word planted at the top and one
+# at the bottom (2026-10-27): prompts of 10,650 / 17,699 / 24,751 / 31,240
+# tokens were evaluated whole and both words came back. Only a prompt
+# LONGER than num_ctx is cut, to num_ctx/2 + 3 with its FRONT dropped
+# (4099 / 8195 / 16387 are that signature, see _chat_once), and a reply
+# that reaches the wall stops there (done_reason=length). So what a call
+# may spend is NUM_CTX less the room its reply needs: at 32768 and 3072
+# that is ~29.7k tokens of prompt. The old reading cost real things: the
+# 2026-09-02 "cliff" was a prompt that had outgrown num_ctx, and
+# author.prompt_guard printed 1,872 false warnings into run 69's log.
 #
-# MEASURED AGAIN 2026-09-02: 24576 IS NO LONGER ENOUGH. prompt_guard's own
-# lines report the review prompt at 12364 / 12607 / 12626 tokens against the
-# 12288 usable cap — four TRUNCATED and four 'close to the cliff' in the last
-# eight, the exact-signature detector below fired in 8 run logs, and raw
-# prompt_eval_count reaches 14260. PROMPT-1 budgeted the three growing blocks
-# and bought real headroom, but evidence_and_vocabulary alone is now 9624-9878
-# and the atlas keeps growing with every map, so the cliff came back. The next
-# step is 32768 (16384 usable) — which is exactly the value the line above
-# measured as SPILLING TO CPU on the 3090's 24GB. That is a VRAM ceiling, not
-# a tuning choice, and no amount of budgeting moves it.
-#
-# So it reads the environment now. On a card with the memory for it, raise
-# RED_NUM_CTX instead of editing this line — a run then records which window
-# it actually had, rather than leaving it to whatever the file said that week.
+# Reads the environment: a run then records which window it actually had.
 NUM_CTX = int(os.environ.get("RED_NUM_CTX") or 24576)
 # the most tokens one reply may run to (see _chat_once); RED_NUM_PREDICT
 # overrides, the same way RED_NUM_CTX does
@@ -535,11 +526,12 @@ def _chat_once(msgs, model, think=False, temp=None, predict=None):
     else:
         with urllib.request.urlopen(req, timeout=_timeout) as r:
             d = json.loads(r.read())
-    # Never let this go silent again. The signature is exact: an oversized
-    # prompt is cut to num_ctx/2 + 3 (measured 4099 / 8195 / 16387), so
-    # truncation is a narrow WINDOW at that value, not "large". A prompt
-    # bigger than the window simply fit and was evaluated in full — reading
-    # that as truncation cries wolf on every healthy long prompt.
+    # Never let this go silent again. The signature is exact: a prompt
+    # LONGER than num_ctx is cut to num_ctx/2 + 3 (measured 4099 / 8195 /
+    # 16387, and again 2026-10-27: 34k in -> 16387 evaluated), so truncation
+    # is a narrow WINDOW at that value, not "large". A prompt that fits the
+    # window is evaluated in full, however long — reading a big count as
+    # truncation cries wolf on every healthy long prompt.
     # WHAT THE CALL COST, kept for the caller's journal. Run 16's rounds
     # took 30 s where run 14's took 16 (2026-09-07, user: "this is taking
     # longer than the last runthrough in this area") and nothing recorded
@@ -548,10 +540,10 @@ def _chat_once(msgs, model, think=False, temp=None, predict=None):
     LAST = stats_of(d)
     n = d.get("prompt_eval_count") or 0
     if (NUM_CTX // 2) <= n <= (NUM_CTX // 2) + 8:
-        print(f"[prompt] TRUNCATED: {n} tokens evaluated at the "
-              f"{NUM_CTX // 2} cap — the FRONT of the prompt was dropped "
-              f"(vocabulary and guidance live there). Shorten the prompt or "
-              f"raise NUM_CTX.")
+        print(f"[prompt] TRUNCATED: {n} tokens evaluated, the signature of "
+              f"a prompt LONGER than num_ctx ({NUM_CTX}) cut to half with "
+              f"its FRONT dropped (vocabulary and guidance live there). "
+              f"Shorten the prompt or raise NUM_CTX.")
     # THE OTHER END OF THE SAME FAILURE. A reply that runs INTO its ceiling
     # is cut wherever it happened to be — mid-JSON, which fails the parse
     # and costs the round with nothing on the page to say why. The prompt
