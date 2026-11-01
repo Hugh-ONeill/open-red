@@ -32699,6 +32699,17 @@ def _obs_nosketch(obs):
         o2["said_last_box_closed"] = (
             f"{o2.pop('last_text')} (that box has closed; anything it asked "
             "was already answered)")
+    # ...AND A BATTLE'S LINES, SAID AS OVER WHEN IT IS. battle_text outlives
+    # the fight too: "All right! WEEDLE was caught!" stood in the observation
+    # on the road beside a party of two holding that very WEEDLE, and run 70
+    # spent a step's rounds answering a nickname box for a third catch that
+    # never happened (2026-11-01). Outside a battle the lines stay, under a
+    # name that says the battle is over and what it caught is in the party.
+    if obs.get("mode") != "battle" and obs.get("battle_text"):
+        o2 = dict(o2) if o2 is obs else o2
+        o2["last_battle_over"] = (
+            f"{o2.pop('battle_text')} (that battle is over; anything it "
+            "caught is already in the party or the box)")
     return o2
 
 

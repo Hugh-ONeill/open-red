@@ -32,6 +32,16 @@ ck("a box still up keeps last_text", up.get("last_text") == Q and "said_last_box
 none = E._obs_nosketch({"mode": "overworld", "text_on_screen": False, "map": {}})
 ck("no last_text adds nothing", "said_last_box_closed" not in none, none)
 src = (ROOT / "planner" / "executor.py").read_text()
+# run 70, 2026-11-01: "WEEDLE was caught!" read as a catch still waiting on a
+# nickname, beside a party of two already holding that WEEDLE
+BT = "Wild WEEDLE appeared! / All right! WEEDLE was caught!"
+road = E._obs_nosketch({"mode": "overworld", "text_on_screen": False, "battle_text": BT, "map": {}})
+ck("outside a battle its lines are said as over",
+   "battle_text" not in road and road.get("last_battle_over", "").startswith(BT)
+   and "that battle is over" in road["last_battle_over"], road)
+fight = E._obs_nosketch({"mode": "battle", "battle_text": BT, "map": {}})
+ck("...inside one they stand as they are",
+   fight.get("battle_text") == BT and "last_battle_over" not in fight, fight)
 ck("the caveat line is not printed for a closed box",
    'and (obs or {}).get("text_on_screen") is not False else "")' in src)
 
