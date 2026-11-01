@@ -5930,17 +5930,28 @@ class Executor:
         records no edge is that a wanderer in the doorway is not a fact
         about the door, and one failure could always be that."""
         now = getattr(self, "_mark_now", None)
+        # ...NOT A DOOR THAT HAS GOT THROUGH. Neither tally is cleared when
+        # the same door later warps, so Victory Road 3F's (23,7) read
+        # "reached for 5x and never once got through" beside its own last
+        # result "ok (map->VICTORY_ROAD_2F, warped)", and the plan took 2F's
+        # end of that ladder for a door never taken (run 69, 2026-11-01). A
+        # recorded edge that landed somewhere, not shut, is a door that works.
+        _went = {k for k, e in ((self._taken_here(region)
+                                 if getattr(self, "explored", None) else {}) or {}).items()
+                 if isinstance(e, dict) and e.get("to") and int(e.get("n") or 0) > 0
+                 and not e.get("shut") and e.get("to") != region}
         # a door taken twice onto a box (see note_transition), whatever the
         # mark says
         _box = {k: n for k, n in ((getattr(self, "_boxed_doors", None) or {})
-                                  .get(region) or {}).items() if n >= 2}
+                                  .get(region) or {}).items()
+                if n >= 2 and k not in _went}
         if now is None:
             return _box
         return {**_box,
                 **{k: rec["n"]
                    for k, rec in (self._exit_tries.get(region) or {}).items()
                    if isinstance(rec, dict) and rec.get("at") == now
-                   and (rec.get("n") or 0) >= 2}}
+                   and (rec.get("n") or 0) >= 2 and k not in _went}}
 
     def _dry_from_within(self, region) -> bool:
         """The region carries a count of unseen spots, and the last time the
