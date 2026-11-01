@@ -689,6 +689,23 @@ local function _screen_name(G)
   if t.title then bits[#bits + 1] = "\"" .. tostring(t.title) .. "\"" end
   if t.kind and t.kind ~= t.title then
     bits[#bits + 1] = "kind=" .. tostring(t.kind)
+    -- ...AND WHETHER THAT KIND IS A FIGHT. "kind=wild" alone has failed
+    -- 121 round results across the archived runs (walk_to, explore, push
+    -- right after a fled wild), and the line never said whether the thing
+    -- on top had battlers (a battle still closing, or a new one opening)
+    -- or was a nameless screen wearing a battle's kind. Say which.
+    if U.is_battle(t) then
+      bits[#bits + 1] = ("a battle is up: enemy=%s player=%s phase=%s")
+        :format(tostring(t.enemy ~= nil), tostring(t.player ~= nil),
+                tostring(t.phase))
+    else
+      local ks = {}
+      for k in pairs(t) do
+        if type(k) == "string" and #ks < 10 then ks[#ks + 1] = k end
+      end
+      table.sort(ks)
+      bits[#bits + 1] = "not a battle; fields: " .. table.concat(ks, ",")
+    end
   end
   if t.pages and t.pageIndex then
     local pg = t.pages[t.pageIndex]
