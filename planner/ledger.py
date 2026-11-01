@@ -596,19 +596,26 @@ def _left_parts(ex, region: str) -> list:
         # rounds pressing every person and sign in the town and the lab for
         # the starter (run 57, 2026-10-14). The ground is spent; the exits
         # and things on the same row are not.
+        # ...AND "NONE OF THEM" WAS READ AS THE WHOLE ROW. Route 24's row
+        # read "still has 1 exit(s) never taken and 2 spot(s) of ground in
+        # there never on screen, none of them reachable from where you last
+        # stood": the clause was about the ground, and the run read the
+        # exit east to Route 25 as unreachable too and searched Cerulean
+        # for thirty rounds (run 70, 2026-11-01). It names what it is
+        # about now.
         if _verdict == "done" and parts:
             parts.append(f"{unseen} spot(s) of ground in there never on "
-                         f"screen, none of them reachable from where you "
-                         f"last stood")
+                         f"screen, none of that ground reachable from "
+                         f"where you last stood")
         elif _verdict == "done":
             parts.append(f"{unseen} spot(s) of ground in there never on "
-                         f"screen, none of them reachable from where you "
-                         f"last stood — everything you could reach there "
+                         f"screen, none of that ground reachable from where "
+                         f"you last stood — everything you could reach there "
                          f"was done")
         elif _verdict == "changed":
             parts.append(f"{unseen} spot(s) of ground in there never on "
-                         f"screen — none was reachable from where you last "
-                         f"stood, but things have happened since")
+                         f"screen — none of that ground was reachable from "
+                         f"where you last stood, but things have happened since")
         else:
             parts.append(f"{unseen} spot(s) of ground in there never on screen")
     if _unr:
