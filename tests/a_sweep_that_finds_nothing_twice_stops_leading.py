@@ -20,7 +20,8 @@ Pinned: the count is CONSECUTIVE and resets the moment a sweep here shows
 something, so a floor with more to see is never starved; it is kept per
 region, not per map; a model that asks for a sweep itself still gets one;
 the tally survives a relaunch; and a failure to count never costs the
-round. Synthetic."""
+round. A sweep the model asks for is {"op":"sweep"}; explore's "until" is
+only where to stop (run 69, 2026-10-31). Synthetic."""
 from __future__ import annotations
 
 import re
@@ -44,9 +45,13 @@ ck("two is the number, and it is named once",
    and "SWEEPS_DRY_BEFORE_OTHER = 2" in SRC)
 ck("the gate reads the count for the region underfoot",
    '_dry_here = int((getattr(self, "_sweep_dry", None) or {}).get(' in SRC
-   and "and (_dry_here < self.SWEEPS_DRY_BEFORE_OTHER" in SRC)
-ck("...and a sweep the MODEL asked for is never refused",
-   'or _params.get("until") is not None)' in SRC)
+   and "and _dry_here < self.SWEEPS_DRY_BEFORE_OTHER" in SRC)
+# explore's "until" says when to stop, not that a sweep was asked for: it
+# lifted this gate and run 69 swept Route 21 dry four rounds running with
+# the water ride never reached (2026-10-31); {"op":"sweep"} is the ask
+ck("...and explore's own stop condition does not lift it",
+   'or _params.get("until") is not None)' not in SRC
+   and "and _dry_here < self.SWEEPS_DRY_BEFORE_OTHER):" in SRC)
 ck("the count is kept where the sweep's own result is in hand",
    'self.log("sweep_dry", region=_k' in SRC
    and SRC.index("self._count_dry_walk(self._where(obs), tr)")

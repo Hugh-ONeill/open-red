@@ -4731,10 +4731,15 @@ class Executor:
         _reg_here = self._where(obs)
         _dry_here = int((getattr(self, "_sweep_dry", None) or {}).get(
             str(_reg_here), 0) or 0)
+        # ...AND EXPLORE'S "until" IS WHEN TO STOP, NOT A SWEEP ASKED FOR.
+        # It used to lift this gate, so {"op":"explore","until":"map_change"}
+        # swept Route 21's landing strip dry four rounds running, 56 frontier
+        # cells all across the water, and never got to the ride below that
+        # would have carried the run to Cinnabar (run 69, 2026-10-31). A
+        # sweep the model wants is {"op":"sweep"}, which this gate never sees.
         if (_m.get("frontier") and not _params.get("no_sweep")
                 and _params.get("until") != "doors_only"
-                and (_dry_here < self.SWEEPS_DRY_BEFORE_OTHER
-                     or _params.get("until") is not None)):
+                and _dry_here < self.SWEEPS_DRY_BEFORE_OTHER):
             self.log("explore_step", subgoal=sg.get("id"), step="sweep",
                      frontier=int((_m.get("seen") or {}).get("frontier_n")
                                   or len(_m.get("frontier") or [])))
