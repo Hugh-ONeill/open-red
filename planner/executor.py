@@ -3254,13 +3254,23 @@ class Executor:
     # ROUTE_4 -- the plan's next step -- and was sent back to Route 3 for
     # ten rounds looking for it (2026-10-02, user: "its looking for a third
     # area (that i dont think exists) as its done condition").
+    # ...AND A SPOT IS A PLACE TOO. {"player_at": {x, y, radius}} asks only
+    # to be standing somewhere, as "map" and "area" do (the author already
+    # files it as travel, next150), so a plan that goes past it has passed
+    # it. Run 69 (2026-11-01): leg 57's reach_indigo_plateau_entrance was
+    # {"player_at": (3,33) r5}, a spot on Route 23's far part (the Victory
+    # Road gate sign, the model's own guess at "the entrance"); the party
+    # came out of 2F's (29,7) door on the Plateau side, crossed north onto
+    # INDIGO_PLATEAU, which the NEXT step asked for, and then spent 15
+    # rounds and a backtrack into Victory Road trying to get back to (3,33),
+    # and the run stopped standing in the lobby with Lorelei never fought.
     WAYPOINT_KEYS = frozenset({"map", "area", "not_area",
-                               "new_map_from", "not_maps"})
+                               "new_map_from", "not_maps", "player_at"})
 
     def _waypoint_passed(self, sg, obs):
         """The id of a LATER step that already holds, when the step in play
-        asks only to be on a map (or area) and every step between them does
-        too; else None.
+        asks only to be somewhere (a map, an area, a spot) and every step
+        between them does too; else None.
 
         A step whose whole condition is "be on VICTORY_ROAD_1F" is a
         waypoint: it proves nothing once the party stands past it. Plan 14
@@ -29463,7 +29473,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 if _past:
                     self.log("subgoal_auto_skipped", subgoal=sg["id"], round=rnd,
                              later=_past, at=self._where(cur))
-                    print(f"   ({sg['id']} only asks to be on a map, and the "
+                    print(f"   ({sg['id']} only asks to be somewhere, and the "
                           f"plan's later step {_past} already holds where "
                           f"the party stands — moving on)")
                     self._skipped = sg["id"]
@@ -30955,7 +30965,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 if _past:
                     self.log("subgoal_auto_skipped", subgoal=sg["id"],
                              later=_past, at=self._where(obs), via="pre-check")
-                    print(f"   ({sg['id']} only asks to be on a map, and the "
+                    print(f"   ({sg['id']} only asks to be somewhere, and the "
                           f"plan's later step {_past} already holds — moving on)")
                     return True
                 _ruled = self._new_part_ruled_out(sg, obs)
@@ -31211,7 +31221,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         except Exception:
             _past0 = None
         if _past0:
-            print(f"== subgoal: {sg['id']} (only asks to be on a map, and the "
+            print(f"== subgoal: {sg['id']} (only asks to be somewhere, and the "
                   f"plan's later step {_past0} already holds — moving on)")
             self.log("subgoal_auto_skipped", subgoal=sg["id"], later=_past0,
                      via="entry")
