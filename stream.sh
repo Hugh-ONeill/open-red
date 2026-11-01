@@ -115,7 +115,18 @@ hyprctl -q eval "hl.window_rule({ name = 'stream:copy', match = { class = '^(lov
 hyprctl -q eval "hl.window_rule({ name = 'stream:hud', match = { title = '^(red-recomp HUD)\$' }, float = true, size = '$W $H', move = '$RX $RY' })"
 
 if ! pgrep -f "tools/hud.py" >/dev/null; then
-  setsid kitty --title "red-recomp HUD" python3 tools/hud.py >/dev/null 2>&1 < /dev/null &
+  # ITS OWN USER UNIT, NOT A CHILD OF WHOEVER RAN THIS. Started with setsid
+  # from a session's shell, the HUD vanished twice in run 70 with nothing in
+  # its error log while the copy stayed up (user, 2026-11-01: "still not
+  # seeing a HUD panel"). A user unit outlives that shell, and anything it
+  # prints is in `journalctl --user -u red-hud`.
+  systemctl --user reset-failed red-hud >/dev/null 2>&1 || true
+  systemd-run --user --unit=red-hud --collect --working-directory="$PWD" \
+    --setenv=WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" --setenv=DISPLAY="${DISPLAY:-}" \
+    --setenv=XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-}" \
+    --setenv=HYPRLAND_INSTANCE_SIGNATURE="${HYPRLAND_INSTANCE_SIGNATURE:-}" \
+    kitty --title "red-recomp HUD" python3 tools/hud.py >/dev/null 2>&1 \
+    || setsid kitty --title "red-recomp HUD" python3 tools/hud.py >/dev/null 2>&1 < /dev/null &
 else
   # a HUD already open was placed before the rules existed: put it there too
   hud='title:^(red-recomp HUD)$'
