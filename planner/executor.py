@@ -19736,6 +19736,24 @@ class Executor:
                 + '{"op":"use_item","item":"' + held[0][0] + '","slot":'
                 + str(down[0][0]) + "} brings that one back with some HP.\n")
 
+    @staticmethod
+    def _held_doors(shut_doors, here) -> dict:
+        """Region -> ["x,y(WHO)"] for the shut-door notes that name a person.
+
+        A note that names nobody ("blocked; nobody is standing there", "no
+        walk over ground you have SEEN reaches it yet ...", "nearest person
+        X, 8 cells off") is not a door someone holds, and is left out.
+        """
+        out = {}
+        for r, v in (shut_doors or {}).items():
+            if r == here:
+                continue
+            out[r] = [f"{mm.group(1)}({mm.group(2)})" for mm in
+                      (_re.match(r"^(\S+) \(([A-Za-z][A-Za-z0-9_]*) is standing there\)$",
+                                 str(x)) for x in (v or []))
+                      if mm and mm.group(2) != "None"]
+        return out
+
     def exploration_text(self, obs, target: str = "", sg: dict | None = None) -> str:
         """Untried vs already-taken exits from where we stand."""
         # A LEVEL IS NOT A PLACE. Everything below answers "where do I go
@@ -20782,13 +20800,14 @@ class Executor:
         # times. A door with nobody named is not a door held shut HERE, it
         # is a door somewhere else. The model still hears about it in the
         # doorways line, which is where it belongs.
-        held = {r: [f"{k}({who})" for k, who in
-                    [(x.split(" (")[0],
-                      x.split("(")[-1].rstrip(") ").replace(
-                          " is standing there", ""))
-                     for x in v]
-                    if who and who != "None"]
-                for r, v in (self.shut_doors or {}).items() if r != here}
+        # ONLY A NOTE NAMING A PERSON IS A HELD DOOR. The note has other
+        # forms ("the way onto it is blocked; nobody is standing there",
+        # "no walk over ground you have SEEN reaches it yet; this floor has
+        # N spot(s) never on screen..."), and the old split on the last "("
+        # cut those into "5,7(the way onto it is blocked; nobody)" and
+        # "5,7(s) never on screen, ...", read as held doors on Mt Moon B2F's
+        # pages for the exit ladder (run 70, 2026-11-01).
+        held = self._held_doors(self.shut_doors, here)
         # a doorstep across water is not held by anybody, and while nobody
         # knows SURF it is not a way to go back and take either
         held = {r: [d for d in v
