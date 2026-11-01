@@ -6226,6 +6226,8 @@ class Executor:
     # stops opening with one. Two: the first can be bad luck, the second
     # says the way to that ground is not walkable from here.
     SWEEPS_DRY_BEFORE_OTHER = 2
+    # the longest re-open that let the failed step through (runs 68-69)
+    REOPEN_ROUNDS = 5
 
     def _count_dry_walk(self, region: str, trace=None) -> list:
         """Count an explore walk that put nothing new on screen, and say so
@@ -27535,7 +27537,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
 
     def escalate(self, sg: dict, redo: bool = False, blocked_by: str = "",
                  avoid_region: str = "",
-                 blocked_target: str = "") -> tuple[bool, list]:
+                 blocked_target: str = "",
+                 reopen: bool = False) -> tuple[bool, list]:
         """SPD escalation: the model AUTHORS a candidate macro (its strength),
         the executor RUNS it with a per-step trace, and on success distills.
         On failure the DIAGNOSTIC trace (which ops did nothing / where it
@@ -27696,6 +27699,17 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # nothing written. Here the bridge is idle and the last round's
             # work is already in the world.
             self._stop_if_asked()
+            # A RE-OPENED STEP GETS A FEW ROUNDS, NOT A FULL BUDGET. A step
+            # re-opened by a backtrack (its condition stopped holding) is a
+            # bet that redoing it lets the failed step through. Across runs
+            # 68-69 the bet paid 5 times in 65, every win inside 5 rounds,
+            # and the 40 re-opens that never got back to their own condition
+            # spent 259 rounds (free rounds and flag budgets included) on a
+            # step that was then dropped anyway (2026-11-01).
+            if reopen and rnd >= self.REOPEN_ROUNDS:
+                self.log("reopen_budget_spent", subgoal=sg.get("id"),
+                         rounds=rnd, blocked_by=blocked_by[:80])
+                break
             rnd += 1
             _wipes_at_start = getattr(self, "_wipes_logged", 0)
             self._esc_rounds = rnd
@@ -31875,7 +31889,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                     moved, ops = self.escalate(
                         prev, redo=_redo, avoid_region=stuck_region,
                         blocked_target=self._target_key(sg),
-                        blocked_by=sg.get("goal_text", sg["id"])[:120])
+                        blocked_by=sg.get("goal_text", sg["id"])[:120],
+                        reopen=not _redo)
                 except TimeoutError as e:
                     self.log("escalate_timeout", subgoal=prev["id"],
                              err=str(e))
