@@ -3458,7 +3458,20 @@ class Executor:
             if not _more:
                 break
             _into |= _more
-        if _into and any(_fam(r) in _into and self._frontier_left(r)
+        # ...AND UNSEEN GROUND IN THOSE ROOMS COUNTS, NOT ONLY UNTRIED DOORS.
+        # A door never on screen is in no frontier list, so the forest whose
+        # north gate had not been seen yet had no "untried" exit and the step
+        # was answered again, from the same road, the same way (run 70,
+        # 2026-11-01). Ground a walk there could still look at keeps it open.
+        def _room_open(r):
+            if self._frontier_left(r):
+                return True
+            try:
+                _n, _verdict = self._unseen_there(r)
+            except Exception:
+                return False
+            return int(_n or 0) > 0 and _verdict != "done"
+        if _into and any(_fam(r) in _into and _room_open(r)
                          for r in list(_exd) + list(getattr(self, "visits", None) or {})):
             return None
         su = m.get("seen_unreached") or {}

@@ -87,6 +87,15 @@ ck("not while a room past the map's door leads into a place with ways never take
 ex2._frontier_left = lambda r: []
 ck("...but answered once nothing past it has any left",
    bool(ex2._new_part_ruled_out(SG2, o2)))
+# run 70, 2026-11-01: the forest's north gate had never been on screen, so it
+# was in no frontier list, and the step was answered again; the forest still
+# had ground never seen
+ex2._unseen_there = lambda r: (2, "") if r.startswith("VIRIDIAN_FOREST|") else (0, "")
+ck("not while a room past the door still has ground never on screen",
+   ex2._new_part_ruled_out(SG2, o2) is None, ex2._new_part_ruled_out(SG2, o2))
+ex2._unseen_there = lambda r: (2, "done") if r.startswith("VIRIDIAN_FOREST|") else (0, "")
+ck("...but a room stood in with nothing reachable left does not hold it open",
+   bool(ex2._new_part_ruled_out(SG2, o2)))
 
 src = (ROOT / "planner/executor.py").read_text()
 ck("checked at step entry, before a replay, and each escalation round",
