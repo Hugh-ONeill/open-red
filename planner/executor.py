@@ -15404,6 +15404,37 @@ class Executor:
                     while o and o.get("mode") == "battle":
                         o = self.handle_battle(sg, o)
                         o = self.settle()
+                    # A WALK A WILD CUT IS WALKED ON FROM WHERE IT STOPPED.
+                    # The door hop has resumed after a fight since Mt Moon
+                    # ("an interrupted walk is only more walk"); this hop
+                    # fled and then gave up where the fight had left the
+                    # party. Run 69 (2026-10-30): `go` Cerulean -> Vermilion
+                    # landed on Route 5, a MANKEY cut the walk to |1,0 at
+                    # (10,5), the leg was filed route_walk_lost_world_cut,
+                    # and every later go re-planned the same walk from the
+                    # part the fight had left it in and found no path; the
+                    # run explored its way to the gate instead. Same rule as
+                    # the door hop: resume while the walk is still getting
+                    # somewhere, stop after a try that moved nothing.
+                    _resumes = 0
+                    while (o and o.get("mode") == "overworld"
+                           and not self._same_area(self._where(o), nxt)
+                           and self._walk_cut_by_the_world(str(_wdet or ""))
+                           and _resumes < 4):
+                        _p0 = self._pos(o)
+                        _wres = self._send_safe("walk_to", x=_ax, y=_ay)
+                        _wdet = ((_wres or {}).get("result") or {}).get("detail") or ""
+                        o = self.settle() or o
+                        while o and o.get("mode") == "battle":
+                            o = self.handle_battle(sg, o)
+                            o = self.settle()
+                        _resumes += 1
+                        self.log("route_walk_resumed", subgoal=sg.get("id"),
+                                 key=str(key), frm=list(_p0 or ()),
+                                 to=list(self._pos(o) or ()),
+                                 landed=bool(self._same_area(self._where(o), nxt)))
+                        if self._pos(o) == _p0:
+                            break
                 _rode_walk = _ride_first
                 if (not self._same_area(self._where(o), nxt)
                         and not _ride_first
@@ -15487,6 +15518,32 @@ class Executor:
                     if _cut4:
                         self.log("route_walk_lost_world_cut",
                                  frm=self._where(_now), via=str(key))
+                        # ...AND THE NEXT DOOR MAY BE RIGHT HERE. A walk the
+                        # world cut short can leave the party where this
+                        # map's next hop is already in reach: run 69's Route
+                        # 5 walk stopped at (10,5), below the ledge, with
+                        # the underground path's door (17,27) on reachable
+                        # ground and the recorded route's next hop exactly
+                        # that door. Abandoning the route there sent the run
+                        # exploring for the gate. When the hop after this
+                        # walk is a door on the map the party stands on and
+                        # the observation says it is reachable, the route
+                        # goes on to it from here; the door hop's own
+                        # verdict decides the rest. A door not in reach is
+                        # not tried, so no false stamp is written.
+                        _nk = (str(path[_hop_i + 1][0])
+                               if _hop_i + 1 < len(path) else "")
+                        _om = ((o or {}).get("map") or {})
+                        if (_is_door_key(_nk) and str(_om.get("id") or "") == _mid
+                                and (o or {}).get("mode") == "overworld"):
+                            _dx, _dy = (int(v) for v in _nk.split(","))
+                            if any(w.get("x") == _dx and w.get("y") == _dy
+                                   and w.get("reachable")
+                                   for w in (_om.get("warps") or [])):
+                                self.log("route_walk_short_door_in_reach",
+                                         subgoal=sg.get("id"), key=str(key),
+                                         door=_nk, standing=self._where(o))
+                                continue
                         return o
                     if _wrec is not None and _wrec.get("inferred") and str(key) \
                             not in (self.explored.get(self._where(_now)) or {}):

@@ -28,7 +28,7 @@ def ck(name, cond):
 
 
 i = ex.index("    def _walk_route(self, sg, path, _replans=0):")
-w = ex[i:i + 40000]
+w = ex[i:i + 46000]
 ck("the re-plan no longer requires the landing to share the target's map", "if self._where(o) != nxt and _final and _replans < 2:" in w and "_rest = self._route(self._where(o), _final)" in w)
 ck("...and the same-map clause is gone", 'and str(nxt).split("|")[0]\n                    == str(self._where(o)).split("|")[0]' not in w)
 ck("the identical-leg guard stays", 'not (self._where(o) == self._where(pre)\n                                 and _rest[0][0] == key)' in w)

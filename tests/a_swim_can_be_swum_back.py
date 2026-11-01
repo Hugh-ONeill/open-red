@@ -43,7 +43,7 @@ ck("a replayed hop reads the inferred edge's surf flag too",
 # throwaway dict _edges_of builds (run 36, 2026-10-05: Seafoam B3F's swim
 # back west has no shore to climb out on; `go` re-planned it every round)
 i = src.index("AN INFERRED SWIM THAT DID NOT LAND IS REFUTED")
-blk = src[i:i + 1600]
+blk = src[i:i + 3600]   # the world-cut door-continue sits inside this window
 ck("a failed inferred hop goes into _bad_seam",
    'self._bad_seam.add((self._where(_now), str(key),' in blk
    and '_wrec.get("inferred")' in blk)

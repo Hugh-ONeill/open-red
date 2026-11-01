@@ -71,7 +71,7 @@ ck("the clock guard comes before the edge is judged",
 # the same-floor hop refutes an inferred swim (2026-10-05) and is gated on
 # the same predicates before it does
 _wi = body.index("AN INFERRED SWIM THAT DID NOT LAND IS REFUTED")
-_wb = body[_wi:_wi + 1800]
+_wb = body[_wi:_wi + 3800]
 ck("...and the same-floor hop's refutation is gated on the world cut and the clock",
    "self._walk_cut_by_the_world(" in _wb and "self._safari_clock_cut(_now, o)" in _wb
    and _wb.index("_cut4 = ") < _wb.index("self._bad_seam.add("))
