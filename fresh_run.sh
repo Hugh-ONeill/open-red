@@ -21,6 +21,13 @@ rig_register run
 # (stream.sh shows the 1x copy instead).
 _headed=()
 [ -n "${RED_HEADED:-}" ] && [ "${RED_HEADED}" != 0 ] && _headed=(--headed)
+# THE OBSERVATION THIS WAITS FOR IS THIS GAME'S. run.sh removes the old
+# obs.json inside the detached setsid, after this script has started polling,
+# so a leftover file from the last run could satisfy the wait and the badge
+# read below; and the poll read run/ whatever RED_BRIDGE_DIR said (code-health
+# pass, 2026-11-02). Clear it here, before the launch, and read the bridge dir.
+_BD="${RED_BRIDGE_DIR:-$PWD/run}"
+rm -f "$_BD/obs.json" "$_BD/cmd.lua"
 setsid ./run.sh "${_headed[@]}" "${RED_SPEED:-200}" &
 GAME_PID=$!
 rig_register game "-$GAME_PID"     # setsid made it a group; kill the group
@@ -28,10 +35,10 @@ rig_register game "-$GAME_PID"     # setsid made it a group; kill the group
 # love, which otherwise survives as an orphan on the dead Xvfb display
 trap 'kill -- -"$GAME_PID" 2>/dev/null || true;
       [ -n "${EXEC_PID:-}" ] && kill "$EXEC_PID" 2>/dev/null || true' EXIT
-for _ in $(seq 1 60); do [ -f run/obs.json ] && break; sleep 1; done
+for _ in $(seq 1 60); do [ -f "$_BD/obs.json" ] && break; sleep 1; done
 # exit 66 = the game never booted: the executor never ran, so no leg was
 # judged and no evidence exists. campaign.sh retries instead of rewriting.
-[ -f run/obs.json ] || { echo "game did not come up" >&2; exit 66; }
+[ -f "$_BD/obs.json" ] || { echo "game did not come up" >&2; exit 66; }
 # THE MODEL-AUTHORED SPEC IS THE ONE THAT PLAYS. battle_policy's own
 # header says the hand-seeded DEFAULT_SPEC "exists for spine/oracle
 # validation only; the record run requires a model-authored spec" — and
@@ -53,7 +60,9 @@ for _ in $(seq 1 60); do [ -f run/obs.json ] && break; sleep 1; done
 _badges=$(python - <<'PB' 2>/dev/null || echo 0
 import json
 try:
-    print(len((json.load(open("run/obs.json")).get("badges") or [])))
+    import os
+    print(len((json.load(open(os.path.join(os.environ.get("RED_BRIDGE_DIR")
+                                           or "run", "obs.json"))).get("badges") or [])))
 except Exception:
     print(0)
 PB
