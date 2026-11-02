@@ -8711,13 +8711,26 @@ class Executor:
                            for mv in (mon.get("moves") or [])]
                 for mon in obs["party"])
         _mid_ow = m.get("id")
+        # ...AND NOT A DOOR A BUSH YOU CAN WALK TO OPENS ONTO. Vermilion's
+        # gym door has the harbor's water within a ride of its doorstep, so
+        # the shim flags it; its yard is also past the CUT tree at (15,18),
+        # which the same observation lists as reachable with 12,19 behind
+        # it. The page said "DOORWAYS ACROSS WATER: 12,19 ... nobody in the
+        # party knows SURF" beside the bush's own line (run 70,
+        # 2026-11-01). The bush is the way a player sees; a door behind one
+        # is not across water, and a stored entry for it is dropped.
+        _bush_doors = {str(d) for o in (m.get("objects") or [])
+                       if isinstance(o, dict) and o.get("kind") == "cut_tree"
+                       and o.get("reachable")
+                       for d in ((o.get("past") or {}).get("doors") or [])}
         _ow_now = {f"{w.get('x')},{w.get('y')}" for w in (m.get("warps") or [])
-                   if w.get("over_water") and w.get("x") is not None}
+                   if w.get("over_water") and w.get("x") is not None} - _bush_doors
         if not isinstance(getattr(self, "_door_over_water", None), dict):
             self._door_over_water = {}
-        if _mid_ow and _ow_now - set(self._door_over_water.get(_mid_ow) or ()):
+        _ow_had = set(self._door_over_water.get(_mid_ow) or ())
+        if _mid_ow and (_ow_now - _ow_had or _ow_had & _bush_doors):
             self._door_over_water[_mid_ow] = sorted(
-                set(self._door_over_water.get(_mid_ow) or ()) | _ow_now)
+                (_ow_had - _bush_doors) | _ow_now)
             self._save_memory()
         _ow = self._over_water_doors(_mid_ow)
         _unr = sorted({f"{w.get('x')},{w.get('y')}"
