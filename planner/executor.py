@@ -2821,6 +2821,9 @@ class Executor:
         # someone ABLE in the party is a genuinely different question and
         # does reopen it. See _ask_teach.
         self._tm_asked: dict = {}
+        # WHO A MACHINE'S OWN SCREEN HAS MARKED ABLE / NOT ABLE, by species,
+        # across every party the run has carried it in (_note_machine_seen)
+        self._machine_seen: dict = {}
         # ...and the same for stones, keyed by the stones held plus who
         # still has an evolution ahead of them. See _ask_stone.
         self._stone_asked: dict = {}
@@ -7437,6 +7440,7 @@ class Executor:
                 self._shelf_reads.pop(_bm, None)
             self._stow = [str(x) for x in (data.get("stow") or [])]
             self._tm_asked = data.get("tm_asked") or {}
+            self._machine_seen = data.get("machine_seen") or {}
             self._stone_asked = data.get("stone_asked") or {}
             self._lists_reopened = bool(data.get("lists_reopened"))
             # MEMORY THAT OUTLIVES THE ATTEMPT. The outcome ledger and the
@@ -8015,6 +8019,7 @@ class Executor:
                  "prize_lists": getattr(self, "_prize_lists", None) or {},
                  "stow": list(getattr(self, "_stow", []) or []),
                  "tm_asked": getattr(self, "_tm_asked", {}),
+                 "machine_seen": getattr(self, "_machine_seen", {}),
                  "stone_asked": getattr(self, "_stone_asked", {}),
                  "lists_reopened": bool(getattr(
                      self, "_lists_reopened", False)),
@@ -19763,6 +19768,56 @@ class Executor:
                 "brings one back at any Pokemon Center, and once it is in the "
                 "bag you are asked who learns it): " + "; ".join(rows) + ".\n")
 
+    def _note_machine_seen(self, obs) -> None:
+        """Keep, per machine, every species its screen has marked ABLE or
+        NOT ABLE while the run carried it.
+
+        THE ANSWER OUTLIVES THE PARTY THAT GOT IT. Run 70 (2026-11-02, leg
+        45) carried HM_SURF through parties holding DIGLETT, GASTLY, CUBONE,
+        EEVEE and the core six, each read NOT ABLE off the machine's own
+        screen; the page said only "NOBODY IN THIS PARTY CAN TAKE: HM_SURF"
+        for the party of the moment, and the model went back to the PC to
+        "check if any stored Pokemon can learn SURF" round after round. The
+        run's own reads, kept; a species never in the party stays unsaid."""
+        machines = (obs or {}).get("machines") or {}
+        party = [str(m.get("species") or "").upper()
+                 for m in ((obs or {}).get("party") or [])
+                 if isinstance(m, dict) and m.get("species")]
+        if not machines or not party:
+            return
+        seen = getattr(self, "_machine_seen", None)
+        if seen is None:
+            seen = self._machine_seen = {}
+        for item, m in machines.items():
+            if not isinstance(m, dict) or m.get("stored") or not m.get("move"):
+                continue
+            able = {str(x).upper() for x in (m.get("able") or [])}
+            rec = seen.setdefault(str(item), {"able": [], "not_able": []})
+            for sp in party:
+                key = "able" if sp in able else "not_able"
+                other = "not_able" if key == "able" else "able"
+                if sp not in rec[key]:
+                    rec[key].append(sp)
+                if sp in rec[other]:
+                    rec[other].remove(sp)
+
+    def _machine_seen_note(self, item: str, obs) -> str:
+        """Species NOT in the party now that this machine's screen has
+        marked, in an earlier party (see _note_machine_seen)."""
+        rec = (getattr(self, "_machine_seen", None) or {}).get(str(item)) or {}
+        party = {str(m.get("species") or "").upper()
+                 for m in ((obs or {}).get("party") or []) if isinstance(m, dict)}
+        gone_able = [sp for sp in rec.get("able") or [] if sp not in party]
+        gone_not = [sp for sp in rec.get("not_able") or [] if sp not in party]
+        if not (gone_able or gone_not):
+            return ""
+        return (f" (its screen, in earlier parties of this run, marked "
+                + "; ".join(x for x in (
+                    ("ABLE: " + ", ".join(gone_able)) if gone_able else "",
+                    ("NOT ABLE: " + ", ".join(gone_not)) if gone_not else "")
+                    if x)
+                + ")")
+
     def _able_note(self, item: str, obs) -> str:
         """Who in the party a machine's own screen marks ABLE. The ITEM
         screen shows it for every member at once the moment a TM or HM is
@@ -19776,7 +19831,7 @@ class Executor:
         able = [str(x) for x in (m.get("able") or [])]
         if able:
             return f" [ABLE: {', '.join(able)}]"
-        return " [NOT ABLE: anyone in this party]"
+        return " [NOT ABLE: anyone in this party" + self._machine_seen_note(item, obs) + "]"
 
     def _gift_note(self, item: str) -> str:
         """Who handed this item over, and what they said as they did — the
@@ -28335,6 +28390,10 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # once, and the TOSS guard was already printing that list at
             # the moment of destruction. The facts were being withheld
             # where they would have helped and shown where they could not.
+            try:
+                self._note_machine_seen(start)
+            except Exception as _e:
+                self.log("machine_seen_error", err=str(_e)[:120])
             _mach = self._teachable_now(start)
             _none = []
             for _it in sorted((start or {}).get("bag") or {}):
@@ -28346,7 +28405,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                        for _p in ((start or {}).get("party") or [])
                        for x in (_p.get("moves") or [])}
                 if _mv and _mv not in _kn and not (_m.get("able") or []):
-                    _none.append(f"{self._disp_item(_it)} ({_mv})")
+                    _none.append(f"{self._disp_item(_it)} ({_mv})"
+                                 + self._machine_seen_note(_it, start))
             if _mach or _none:
                 _asked = getattr(self, "_tm_asked", None) or {}
                 _rows = []
