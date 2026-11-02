@@ -114,14 +114,20 @@ fi
 hyprctl -q eval "hl.window_rule({ name = 'stream:copy', match = { class = '^(love)\$' }, float = true, size = '$W $H', move = '$LX $LY' })"
 hyprctl -q eval "hl.window_rule({ name = 'stream:hud', match = { title = '^(red-recomp HUD)\$' }, float = true, size = '$W $H', move = '$RX $RY' })"
 
+# a HUD window kitty reopens lands on the copy's workspace, not the focused one
+hyprctl -q eval "hl.window_rule({ name = 'stream:hud_ws', match = { title = '^(red-recomp HUD)\$' }, workspace = '1' })" || true
+
 if ! pgrep -f "tools/hud.py" >/dev/null; then
-  # ITS OWN USER UNIT, NOT A CHILD OF WHOEVER RAN THIS. Started with setsid
-  # from a session's shell, the HUD vanished twice in run 70 with nothing in
-  # its error log while the copy stayed up (user, 2026-11-01: "still not
-  # seeing a HUD panel"). A user unit outlives that shell, and anything it
-  # prints is in `journalctl --user -u red-hud`.
+  # ITS OWN USER UNIT, RESTARTED WHEN KITTY DIES. Run 70's HUD went down
+  # three times (user, 2026-11-01/02: "still not seeing a HUD panel", "hud
+  # went down again"). The journal caught the third: kitty itself exited on
+  # "wl_surface.attach: invalid arguments ... Wayland: fatal display error"
+  # the second the chain began authoring, which is when stream_layout widens
+  # the HUD over the copy and the HUD draws its world map. A kitty bug, not
+  # ours to fix; Restart=always brings the window back and stream_layout
+  # places it again. Its output is in `journalctl --user -u red-hud`.
   systemctl --user reset-failed red-hud >/dev/null 2>&1 || true
-  systemd-run --user --unit=red-hud --collect --working-directory="$PWD" \
+  systemd-run --user --unit=red-hud --collect -p Restart=always -p RestartSec=3 --working-directory="$PWD" \
     --setenv=WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" --setenv=DISPLAY="${DISPLAY:-}" \
     --setenv=XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-}" \
     --setenv=HYPRLAND_INSTANCE_SIGNATURE="${HYPRLAND_INSTANCE_SIGNATURE:-}" \
