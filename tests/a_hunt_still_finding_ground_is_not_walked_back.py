@@ -88,10 +88,11 @@ ck("it writes its own row", 'self.log("hunt_ends_in_new_ground"' in _branch)
 ck("...and falls through to the plan's failure, as the missed-hop rule does",
    "continue" not in _branch
    and _code.rindex('self.log("plan_failed_at"') > i_carry)
-# four sites: two finds, new ground, and a round that changed the world
-# (a flag fired or the party changed; run 36, 2026-10-04)
+# five sites: two finds, new ground, a round that changed the world
+# (a flag fired or the party changed; run 36, 2026-10-04), and a trainer
+# beaten or a map first stood on past the allowance (run 70, 2026-11-02)
 ck("every site that finds news marks the round",
-   _code.count("self._esc_news_at = rnd") == 4
+   _code.count("self._esc_news_at = rnd") == 5
    and _code.count('self.log("round_for_news"') == 3
    and _code.count('self.log("round_for_new_ground"') == 1)
 ck("...and every round is counted",

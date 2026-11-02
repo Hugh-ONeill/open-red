@@ -27893,10 +27893,14 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
         pardon = False        # one free revisit after a blackout (recovery)
         _fresh_bonus = 0      # rounds the cap moves out for new ground (see below)
         _news_bonus = 0       # ...and for rounds that SAW, PRESSED or TOOK something new (_round_news)
+        _deed_bonus = 0       # ...and, past that allowance, a trainer beaten or a map first stood on
+        _maps_stood = {str(r).split("|")[0]
+                       for r in (getattr(self, "visits", None) or {})}
         visits: dict = {}     # round-end maps: re-entering one = circling
         _visit_marks: dict = {}   # ...and the world mark on the FIRST visit,
                                   # so a shuttle can be told it bought nothing
-        while spent < rounds and rnd < rounds * 3 + _fresh_bonus + _news_bonus:
+        while spent < rounds and rnd < (rounds * 3 + _fresh_bonus + _news_bonus
+                                        + _deed_bonus):
             if getattr(self, "finished", False):
                 self.log("escalate_finished", subgoal=sg.get("id"))
                 return True, []
@@ -27930,6 +27934,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             self._esc_rounds = rnd
             start = self.settle()
             self._note_map(start)
+            _bonus_at_start = _fresh_bonus + _news_bonus   # see _deed_bonus
             # NEVER ASK THE MODEL FROM INSIDE A FIGHT. settle() resolves
             # dialogue but not battles, so a wild that jumped the party at
             # the end of the last round left mode=="battle" standing here —
@@ -30348,6 +30353,31 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 trace.append("(this round changed the world — a flag fired "
                              "or the party changed — and gets the step one "
                              "more round)")
+            # A TRAINER BEATEN OR A MAP FIRST STOOD ON MOVES THE CAP PAST THE
+            # ALLOWANCE. Run 70's speak_to_mr_fuji had spent its twelve free
+            # rounds by round 24; on 7F rounds 45 to 49 beat the Rockets in
+            # Fuji's way and the hard cap ended the step at 49 with Fuji a
+            # few cells on (2026-11-02; user at the stop: count beating a
+            # trainer and reaching a new map). Each happens once per trainer
+            # and once per map, so this cannot run on; rounds * 3 bounds it.
+            _beat_new = [f for f in ((cur or {}).get("flags") or [])
+                         if str(f).startswith("EVENT_BEAT_") and f not in _tgl
+                         and f not in set((start or {}).get("flags") or [])]
+            _map_end = sig1[0]
+            _first_map = bool(_map_end) and _map_end not in _maps_stood
+            if _map_end:
+                _maps_stood.add(_map_end)
+            if ((_beat_new or _first_map)
+                    and _fresh_bonus + _news_bonus == _bonus_at_start
+                    and _deed_bonus < rounds * 3):
+                _deed_bonus += 1
+                self._esc_news_at = rnd
+                _what = (f"beat {', '.join(_beat_new[:2])}" if _beat_new
+                         else f"first stood on {_map_end}")
+                self.log("round_for_deed", subgoal=sg["id"], round=rnd,
+                         deed=_what, bonus=_deed_bonus)
+                trace.append(f"(this round {_what} "
+                             f"and gets the step one more round)")
             # accumulate targets that failed or did nothing, so the model is
             # told NOT to repeat them (it looped on the pokedex before).
             for t in trace:

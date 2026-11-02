@@ -47,7 +47,7 @@ ck("cells on another map are not compared (the map change is its own rule)",
 
 src = (ROOT / "planner" / "executor.py").read_text()
 ck("the round loop snapshots the start of every round", "_news0 = self._news_snapshot(start)" in src)
-ck("the cap moves out for news", "rnd < rounds * 3 + _fresh_bonus + _news_bonus" in src)
+ck("the cap moves out for news", "rnd < (rounds * 3 + _fresh_bonus + _news_bonus" in src)
 ck("a same-map round with news is not charged",
    "                _news = self._round_news(_news0, cur)\n"
    "                if _news:\n" in src)
@@ -68,6 +68,6 @@ ck("a round with news never reaches the spend counter",
 ck("the bonus is still bounded by the step's own budget",
    src.count("_news_bonus < rounds") >= 2)
 ck("and the ceiling still ends a step that keeps finding trifles",
-   "rnd < rounds * 3 + _fresh_bonus + _news_bonus" in src)
+   "rnd < (rounds * 3 + _fresh_bonus + _news_bonus" in src)
 ck("the journal records it", '"round_for_news"' in src)
 sys.exit(1 if fails else 0)

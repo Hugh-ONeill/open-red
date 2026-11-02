@@ -38,7 +38,7 @@ ck("it is logged and said on the page",
 ck("it sits after the round's own accounting, before the target notes",
    i < src.index("# accumulate targets that failed or did nothing", i))
 ck("the loop's ceiling still counts the bonus",
-   "while spent < rounds and rnd < rounds * 3 + _fresh_bonus + _news_bonus:" in src)
+   "while spent < rounds and rnd < (rounds * 3 + _fresh_bonus + _news_bonus" in src)
 o1 = {"map": {"id": "POKEMON_TOWER_7F"}, "player": {"x": 9, "y": 12},
       "mode": "overworld", "party": [{"level": 38}], "flags": ["A"]}
 o2 = dict(o1, flags=["A", "EVENT_BEAT_POKEMONTOWER_7_TRAINER_0"])
