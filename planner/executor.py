@@ -5487,6 +5487,18 @@ class Executor:
             _unr = [k for k in ((getattr(self, "unreached_at", None) or {})
                                 .get(region) or [])
                     if k not in set(self._taken_here(region) or {})]
+            # ...BUT NOT A DOOR THE LAST STAND THERE ALREADY FOUND UNREACHED,
+            # with nothing changed since. Run 63's explore walked to
+            # CERULEAN_CITY|8,7 for "3 way(s) out never taken that no walk
+            # reached when you last stood there" (a guard and a fence),
+            # found the same, and crossed west (2026-10-24; open at run 70's
+            # stop, 2026-11-02). The world mark is _unseen_there's rule for
+            # unseen ground; a changed one keeps them.
+            _then_m = (getattr(self, "_region_mark_nt", None) or {}).get(region)
+            _now_m = getattr(self, "_mark_now_nt", None)
+            if (_unr and region != here and _then_m is not None
+                    and _now_m is not None and list(_then_m) == list(_now_m)):
+                _unr = []
             # a floor whose seen ground ends somewhere is not finished
             # either (the north gate's exit had never been on screen)
             # the count as a reason to walk there, not the raw pocket count
