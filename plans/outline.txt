@@ -1,44 +1,37 @@
 Pick a starter Pokémon
-Battle the rival for the first time
 Reach Viridian City
-Reach Pewter City
+Deliver Oak's Parcel and reach Pewter City
 every party member is at least level 12
-the party has at least 2 Pokemon
 the party holds a FIGHTING or GRASS type
 Defeat Brock for the Boulder Badge
 Reach Mt. Moon
-Navigate Mt. Moon and fight Team Rocket
 Exit Mt. Moon
 Reach Cerulean City
 every party member is at least level 20
-the party holds a GRASS or ELECTRIC type
 Defeat Misty for the Cascade Badge
-Retrieve the S.S. Ticket
 Reach Vermilion City
-every party member is at least level 30
+Retrieve the S.S. Ticket
 Retrieve the HM01 from the S.S. Anne
-a party Pokemon knows CUT
-the party holds a FLYING type
-the party holds a GROUND type
 Defeat Lt. Surge for the Thunder Badge
+every party member is at least level 30
 Reach Rock Tunnel
 a party Pokemon knows FLASH
 Exit Rock Tunnel
 Reach Lavender Town
-Retrieve the Silph Scope
-Clear the Pokemon Tower
-Retrieve the Pokemon Flute from Mr. Fuji
 Reach Celadon City
-every party member is at least level 35
-the party holds a FIRE or PSYCHIC type
-Defeat Erika for the Rainbow Badge
+Clear the Pokemon Tower
 Infiltrate the Team Rocket secret base in Celadon City
-Retrieve the Secret Key from the Game Corner
+Retrieve the Silph Scope
+every party member is at least level 35
+Defeat Erika for the Rainbow Badge
+Retrieve the Pokemon Flute from Mr. Fuji
 Reach Saffron City
-every party member is at least level 40
-a party Pokemon knows BOLTBEAM or a similar coverage move
 Infiltrate Silph Co. and defeat the rival
+every party member is at least level 40
+Obtain the Secret Key from the Rocket Hideout
+Retrieve the Secret Key from the Rocket Hideout
 Defeat Sabrina for the Marsh Badge
+a party Pokemon knows BOLTBEAM or a similar coverage move
 Reach Fuchsia City
 Explore the Safari Zone
 Retrieve the HM04 from the Safari Zone
