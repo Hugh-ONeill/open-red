@@ -23105,8 +23105,13 @@ class Executor:
                     + (f". {foe.get('species')} L{foe.get('level')} came out "
                        f"first at {first[0]} hp and was at {first[-1]} hp "
                        f"when it stopped taking hits"
+                       # ...NOT ON A FIGHT THAT WAS WON. The last turn read
+                       # is often the one before the knockout hit: the lab
+                       # rival "was at 2 hp ... it was not knocked out" with
+                       # the prize paid and a level gained (run 58,
+                       # 2026-10-17). A win knocked out the last foe.
                        + (" — it was not knocked out" if len(first) == len(foe_hp)
-                          and first[-1] > 0 else "")
+                          and first[-1] > 0 and lost else "")
                        if first else "")
                     + (f". Fainted: {', '.join(fainted)}" if fainted else ""),
             # every Pokemon the trainer sent out, and the party's levels as
