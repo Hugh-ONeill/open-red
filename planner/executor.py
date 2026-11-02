@@ -2910,7 +2910,16 @@ class Executor:
                            "visible from the street"),
                  ("_POKECENTER", "a POKEMON CENTER — the red roof is visible "
                                  "from the street"),
-                 ("_GYM", "a GYM — it is signed outside"))
+                 ("_GYM", "a GYM — it is signed outside"),
+                 # ...AND A TOWER LOOKS LIKE A TOWER. Lavender's door (14,5)
+                 # read bare "door (14,5) -> UNKNOWN" under the town's Mart
+                 # and Center rows, and the run explored the town for seven
+                 # rounds looking for a tower it was standing beside (run 70,
+                 # 2026-11-01). Its height is on the screen; what is inside
+                 # is not said.
+                 ("POKEMON_TOWER_1F", "a TOWER — the tallest building in "
+                                      "town, several stories high, seen from "
+                                      "the street"))
 
     @staticmethod
     def _frontage(dest_map) -> str | None:
