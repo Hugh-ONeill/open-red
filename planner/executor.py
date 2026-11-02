@@ -32391,6 +32391,31 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 self.log("plan_failed_at", subgoal=sg["id"])
                 self.failed_subgoal = sg["id"]
                 return False
+            # ...AND SO IS A GYM'S, OR ANY STEP'S. Outside the league the
+            # replay below restarted the step at round 1 with its wipe count
+            # back at one, so "a gym's first wipe is bad luck ... its later
+            # wipes spend the step's rounds" never held: run 71 lost to Pewter
+            # Gym's JR.TRAINER six times in a row, sixteen seconds apart, and
+            # never reached the rewrite where training is on the table
+            # (2026-11-02; user: stop, fix, relaunch). The first wipe on a
+            # step replays as before; the second ends this attempt.
+            if _rg is not None and not _in_league and _rg < idx:
+                _wr = getattr(self, "_wipe_regress", None)
+                if not isinstance(_wr, dict):
+                    _wr = self._wipe_regress = {}
+                _wr[sg["id"]] = _wr.get(sg["id"], 0) + 1
+                if _wr[sg["id"]] >= 2:
+                    self._plan_regress = None
+                    print(f"   !! {sg['id']} blacked the party out again "
+                          f"({_wr[sg['id']]}x) — this plan ends here and is "
+                          f"rewritten")
+                    self.log("wipe_regress_decision", subgoal=sg["id"],
+                             wipes=_wr[sg["id"]],
+                             party=[f"{m.get('species')} L{m.get('level')}"
+                                    for m in ((self.settle() or {}).get("party") or [])])
+                    self.log("plan_failed_at", subgoal=sg["id"])
+                    self.failed_subgoal = sg["id"]
+                    return False
             if _rg is not None:
                 self._plan_regress = None
                 if _rg < idx:

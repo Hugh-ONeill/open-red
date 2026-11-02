@@ -5784,6 +5784,15 @@ def journal_text(path: Path, limit: int = 60) -> str:
                 f"  ENDED   the plan ended in the lobby after lap "
                 f"{r.get('laps')} of the league was lost; this rewrite starts "
                 f"there")
+        # ...and the same decision for any other step (executor
+        # wipe_regress_decision, run 71, 2026-11-02)
+        elif k == "wipe_regress_decision":
+            events.append(
+                f"  ENDED   the plan ended after {r.get('subgoal')} blacked the "
+                f"party out {r.get('wipes')}x"
+                + (f" (party then: {', '.join(str(p) for p in r.get('party') or [])})"
+                   if r.get("party") else "")
+                + "; this rewrite starts where it woke")
         if k == "battle_turn":
             fh, mh = r.get("foe_hp"), r.get("me_hp")
             if fh is not None:
