@@ -26835,7 +26835,8 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 if (op == "interact" and not step.get("name")
                         and step.get("x") is not None
                         and step.get("y") is not None
-                        and "no reachable tile adjacent" in det):
+                        and ("no reachable tile adjacent" in det
+                             or "nothing that can be pressed is AT" in det)):
                     _e9 = self._empty_cell_note(obs, step["x"], step["y"])
                     if _e9:
                         trace.append(_e9)

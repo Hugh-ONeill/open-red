@@ -14061,6 +14061,39 @@ function OPS.interact(G, c)
           :format(a[1], a[2])
       end
     end
+    -- AN EMPTY CELL BESIDE A PERSON IS NOT THE PERSON. On Rocket Hideout
+    -- B4F the model sent interact x=22,y=12 four rounds running to fight
+    -- the grunt standing at (23,12), and was told only who stood on the
+    -- tiles it would press from (2026-09-04). When nothing pressable is AT
+    -- the cell asked for, say so, and name whoever stands beside it.
+    if not c.name then
+      local _here_thing = false
+      for _, npc in ipairs(ow.npcs or {}) do
+        if npc.cellX == tx and npc.cellY == ty then _here_thing = true end
+      end
+      for _, f in ipairs(map_fixtures(G, ((ow.map or {}).id)) or {}) do
+        if f.x == tx and f.y == ty then _here_thing = true end
+      end
+      local _people = {}
+      for _, a in ipairs({ {tx, ty + 1}, {tx, ty - 1},
+                           {tx - 1, ty}, {tx + 1, ty} }) do
+        for _, npc in ipairs(ow.npcs or {}) do
+          if npc.cellX == a[1] and npc.cellY == a[2] then
+            local nm = package.loaded.red_public_names.of(
+              (G.overworld.map or {}).id, npc, nil)
+            if nm then
+              _people[#_people + 1] = ("%s at (%d,%d) — {\"op\":\"interact\","
+                .. "\"name\":\"%s\"}"):format(nm, a[1], a[2], nm)
+            end
+          end
+        end
+      end
+      if not _here_thing and #_people > 0 then
+        return false, ("nothing that can be pressed is AT (%d,%d); beside "
+          .. "it stands %s. A person is pressed by name."):format(
+          tx, ty, table.concat(_people, "; "))
+      end
+    end
     if #pressed_empty > 0 then
       return false, "pressed it from " .. table.concat(pressed_empty, ", ")
         .. " and nothing came up"
