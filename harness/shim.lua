@@ -10984,10 +10984,15 @@ function OPS.toss(G, c)
     -- naming who in the party could take it is what six costless tries
     -- would show — a fact at the decision, not a pointer. The PC that
     -- keeps it is on the page too. The verdict stays the model's.
+    -- FACTS, NOT A RANKING. The old line said using it kept its worth and
+    -- tossing threw that worth away, which weighed the two for the model, and
+    -- runs 69 and 70 read it as "teach it rather than toss it" and taught
+    -- PSYWAVE over REFLECT to free a slot (2026-11-02; pamphlet question
+    -- from the toss look-at). What each op does is said; the choice is not.
     local why = c.item .. " is something this game will let you USE on "
       .. "a party member ({\"op\":\"use_item\",\"item\":\"" .. c.item
-      .. "\",\"slot\":N}) — using it spends it and keeps whatever it is "
-      .. "worth, tossing it destroys that."
+      .. "\",\"slot\":N}): using it spends it on that Pokemon; tossing it "
+      .. "throws it away."
     local _idef = G.data and G.data.items and G.data.items[c.item]
     local _mv = _idef and _idef.machine and _idef.machine.move
     if _mv then
