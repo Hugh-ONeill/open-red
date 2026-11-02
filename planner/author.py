@@ -1297,6 +1297,74 @@ def names_an_emptied_floor(text: str, observed=None) -> str | None:
                 f"every part of it ({', '.join(regs)}) has all its ground on "
                 f"screen, and everything seen on it has been pressed or "
                 f"taken. {item} was not among them")
+    # ...AND A BUILDING NAMED BY ITS NAME, NOT ITS FLOOR. "Retrieve the Secret
+    # Key from the Rocket Hideout" names no map id, so the rule above never
+    # fired, and run 70's rewrites moved the key between the Game Corner, the
+    # prize counter and the hideout, each a place the run had worked to the
+    # end (2026-11-02, outline false facts idea 3; user at the stop: build
+    # it). A family counts only when every floor of it the run has stood on
+    # is worked as above AND every door or stair seen on those floors has
+    # been gone through: no way on to a floor the run has not stood on.
+    taken = {}
+    for part, ways in (d.get("explored") or {}).items():
+        t = taken.setdefault(str(part).split("|")[0], set())
+        for k, e in (ways or {}).items():
+            t.add(str(k).split("#")[0])
+            to = str((e or {}).get("to") or "") if isinstance(e, dict) else ""
+            if to and e.get("land"):
+                taken.setdefault(to.split("|")[0], set()).add(str(e["land"]))
+    doors = d.get("map_doors") or {}
+    stood = sorted({str(r).split("|")[0] for r in visits})
+    named = []
+    for fam in _place_families():
+        fparts = fam.split("_")
+        if len(fparts) < 2 or not all(w in words for w in fparts):
+            continue
+        # "Safari Zone West" names SAFARI_ZONE_WEST; the whole zone is not
+        # what it claims, so the shorter family is not judged
+        if any(n.startswith(fam + "_") for n in named):
+            continue
+        named.append(fam)
+        maps = [m for m in stood if m == fam or m.startswith(fam + "_")]
+        if not maps:
+            continue
+        ok = True
+        for mid in maps:
+            regs = sorted(r for r in visits if str(r).split("|")[0] == mid)
+            if any(r not in edge or int(edge.get(r) or 0) > 0 for r in regs) \
+                    or any(int(kept.get(r) or 0) > 0 for r in regs):
+                ok = False
+                break
+            _done = {n for r in regs for n in (touched.get(r) or [])}
+            if any(n not in _done and not str(n).startswith(("SIGN_", "TEXT_"))
+                   for r in regs
+                   for n in list(sight.get(r) or []) + list(far.get(r) or [])):
+                ok = False
+                break
+            _t = taken.get(mid) or set()
+
+            def _gone(k, _t=_t):
+                if k in _t:
+                    return True
+                try:                    # the other tile of a two-wide doorway
+                    x, y = (int(v) for v in k.split(","))
+                except ValueError:
+                    return False
+                return any(f"{x + a},{y + b}" in _t
+                           for a, b in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            # a lift car's doors are rides the ledger files under the floor
+            # chosen, never as a walked doorway (executor's floor families
+            # read _ELEVATOR as a floor of its building the same way)
+            if not mid.endswith("_ELEVATOR") and any(
+                    not _gone(str(k)) for k in (doors.get(mid) or [])):
+                ok = False
+                break
+        if ok:
+            return (f"names {fam.replace('_', ' ').title()}, and every floor "
+                    f"of it this run has stood on ({', '.join(maps)}) has been "
+                    f"walked to the end: all its ground on screen, everything "
+                    f"seen on it pressed or taken, every door and stair on it "
+                    f"gone through. {item} was not among them")
     return None
 
 
@@ -6587,6 +6655,35 @@ def review(goal: str, plan: dict, model: str, start: str | None = None,
     return plan
 
 
+# NAME WHAT, NOT WHERE (outline false facts, ideas 1 and 2; user at run 70's
+# stop, 2026-11-02: "we need authoring fixes/changes ... were not going to gen
+# a better one without something being different"). Every outline run 70 drew
+# or rewrote put the Secret Key somewhere: the Game Corner, the prize
+# counter, the Rocket Hideout, the Silph president. Each was a guess written
+# before the run had been there, every plan for the line inherited it as a
+# fact, and the legs looped for hours on a building that never held it. And
+# the line sat before Sabrina, though the key opens nothing until Cinnabar.
+# Wording only: no place, item or lock is named here.
+WHAT_NOT_WHERE = """
+
+NAME WHAT, NOT WHERE. When an objective is getting a thing, helping
+someone or beating someone, name the thing or the person and stop there:
+"Obtain the <item>", not "Obtain the <item> from <some building>". A place
+you add is a guess written before you have been there, and every plan made
+later from this line takes it as a fact; a wrong place sends the run
+searching the wrong building over and over, which costs far more than a
+line that does not say. Name a place only when the place IS the objective:
+a town to reach, a cave or road to get through, a building to clear, a gym
+leader to beat.
+
+A THING THAT ONLY OPENS SOMETHING COMES WHEN THE LOCK DOES. Something
+wanted only to get past a locked door, a guard or a blocked way is not an
+objective ahead of time. Write the objective the lock stands in front of;
+when the run reaches the lock and is refused, it adds the fetch then, from
+what it found there. A fetch written earlier is a guess about both where
+the thing is and what it opens."""
+
+
 OUTLINE_SYS = """You are laying out a PLAYTHROUGH of Pokemon Red as an
 ordered list of OBJECTIVES. Each objective becomes its own plan, written
 later and played separately, so each one must be a thing that is either done
@@ -6637,7 +6734,7 @@ POINT. Eight of the thirty are badges, so the other twenty-odd are the
 journey between them — the caves crossed, the people helped, the things
 fetched, the towns arrived in. A list much shorter than thirty has folded
 that journey away, and the journey is the half that a run gets stuck in.
-Unfold it.
+Unfold it.""" + WHAT_NOT_WHERE + """
 
 Reply with ONLY a JSON array of strings."""
 
@@ -6761,7 +6858,7 @@ reachable belongs here; anything they merely COULD do does not.
 Write each as a short phrase in the player's own terms, a thing that is
 either done or not done. Do not restate the objectives on either side of
 the gap, and do not write the steps inside an objective — those are
-authored later, from the objective alone.
+authored later, from the objective alone.""" + WHAT_NOT_WHERE + """
 
 An empty gap is a real answer. Reply with ONLY a JSON array of strings, in
 the order they should be done."""
@@ -6961,7 +7058,7 @@ Rules:
   done.
 - Add nothing you cannot tell whether you have done. An objective is a
   thing that becomes true.
-- "Nothing is missing" is a real answer; reply with an empty array.
+- "Nothing is missing" is a real answer; reply with an empty array.""" + WHAT_NOT_WHERE + """
 
 Reply with ONLY a JSON array; each element is
 {"item": "<the objective>", "after": N}, where N is the number of the
@@ -7072,7 +7169,7 @@ DONE — a milestone you could tell someone you had reached. Short phrases in
 the player's own terms, written as the thing TO DO, not as a thing done
 ("Defeat Brock for the Boulder Badge", not "Defeated Brock and earned the
 Boulder Badge"). No numbering, no headings, no commentary, no steps folded
-inside one line, no "if" and no "or equivalent".
+inside one line, no "if" and no "or equivalent".""" + WHAT_NOT_WHERE + """
 
 Reply with ONLY a JSON array of strings."""
 
@@ -10152,10 +10249,22 @@ heals; "Obtain the SILPH SCOPE" is a gate, because the tower's ghosts
 cannot be fought without it.
 
 A GATE IS A DEED, NOT A PLACE. Name what has to be DONE — a person
-helped or beaten, an item handed over or found, a thing pressed — with
-the place it happens in. An objective that says only to visit, reach or
-enter a place is met the moment you stand there, whatever happens inside,
-so it can never be the gate.
+helped or beaten, an item handed over or found, a thing pressed. An
+objective that says only to visit, reach or enter a place is
+met the moment you stand there, whatever happens inside, so it can never
+be the gate.
+
+SAY WHERE ONLY WHAT THE RUN HAS SEEN. Add a place to the line only if the
+run SAW the thing there or somebody in the game SAID it is there (their
+words are below). Having walked a building is not evidence that it holds
+the thing; a guessed place is inherited by every plan as a fact, and a
+wrong one is searched for hours. If you know only what is wanted, name
+only that.
+
+A FETCH ANSWERS A LOCK THE RUN HAS MET. Name a thing that opens something
+only when what the run hit, below, is that lock: a door that would not
+open, a guard who turned it back, a person who asked for it. A key for a
+lock the run has not reached yet is not missing yet.
 
 Reply with ONLY a JSON object, the reason FIRST:
 {"why": "one sentence", "insert": "the objective"}   or
@@ -10838,7 +10947,9 @@ something the run proved; "a previous rewrite already established it" is
 never a reason. Only what the run WALKED, SAW, or was TOLD counts.
 
 SAY WHAT IS WANTED, NOT HOW IT IS GOT. A rewording may name the thing,
-the place, or the person the run has actually MET; it may not add a
+or the person the run has actually MET; it may name a PLACE only where the
+run SAW the thing or somebody in the game SAID it is there. Having walked
+a building is not evidence it holds the thing. It may not add a
 MECHANISM — who hands the thing over, which floor holds them, what must
 be beaten first — unless the evidence below shows it. That is the part a
 sentence gets wrong most easily, and a wrong mechanism is worse than a
