@@ -1,0 +1,46 @@
+{
+ "party": [
+  {
+   "species": "IVYSAUR",
+   "level": 20,
+   "moves": [
+    "TACKLE",
+    "GROWL",
+    "LEECH_SEED",
+    "VINE_WHIP"
+   ],
+   "nickname": "IVYSAUR"
+  },
+  {
+   "species": "PIDGEOTTO",
+   "level": 20,
+   "moves": [
+    "GUST",
+    "SAND_ATTACK",
+    "QUICK_ATTACK"
+   ],
+   "nickname": "PIDGEOTTO"
+  }
+ ],
+ "bag": {
+  "POTION": 10
+ },
+ "money": 3000,
+ "start": {
+  "map": "CERULEAN_GYM",
+  "x": 4,
+  "y": 13,
+  "facing": "up"
+ },
+ "clear_flags": [
+  "EVENT_BEAT_MISTY",
+  "EVENT_BEAT_CERULEAN_GYM_TRAINER_0",
+  "EVENT_BEAT_CERULEAN_GYM_TRAINER_1"
+ ],
+ "clear_trainers": [
+  "CERULEAN_GYM_obj_1",
+  "CERULEAN_GYM_obj_2",
+  "CERULEAN_GYM_obj_3",
+  "CERULEAN_GYM_obj_4"
+ ]
+}

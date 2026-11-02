@@ -1,0 +1,80 @@
+{
+ "party": [
+  {
+   "species": "KADABRA",
+   "level": 36,
+   "moves": [
+    "DISABLE",
+    "PSYBEAM",
+    "RECOVER",
+    "PSYCHIC_M"
+   ],
+   "nickname": "KADABRA"
+  },
+  {
+   "species": "VENUSAUR",
+   "level": 36,
+   "moves": [
+    "BODY_SLAM",
+    "VINE_WHIP",
+    "POISONPOWDER",
+    "RAZOR_LEAF"
+   ],
+   "nickname": "VENUSAUR"
+  },
+  {
+   "species": "DUGTRIO",
+   "level": 36,
+   "moves": [
+    "GROWL",
+    "DIG",
+    "SAND_ATTACK",
+    "SLASH"
+   ],
+   "nickname": "DUGTRIO"
+  },
+  {
+   "species": "FEAROW",
+   "level": 35,
+   "moves": [
+    "FLY",
+    "FURY_ATTACK",
+    "MIRROR_MOVE",
+    "DRILL_PECK"
+   ],
+   "nickname": "FEAROW"
+  }
+ ],
+ "bag": {
+  "SUPER_POTION": 10,
+  "ANTIDOTE": 4,
+  "FULL_HEAL": 2,
+  "REVIVE": 3
+ },
+ "money": 20000,
+ "start": {
+  "map": "FUCHSIA_GYM",
+  "x": 4,
+  "y": 17,
+  "facing": "up"
+ },
+ "clear_flags": [
+  "EVENT_BEAT_KOGA",
+  "EVENT_BEAT_FUCHSIA_GYM_TRAINER_0",
+  "EVENT_BEAT_FUCHSIA_GYM_TRAINER_1",
+  "EVENT_BEAT_FUCHSIA_GYM_TRAINER_2",
+  "EVENT_BEAT_FUCHSIA_GYM_TRAINER_3",
+  "EVENT_BEAT_FUCHSIA_GYM_TRAINER_4",
+  "EVENT_BEAT_FUCHSIA_GYM_TRAINER_5"
+ ],
+ "clear_trainers": [
+  "FUCHSIA_GYM_obj_1",
+  "FUCHSIA_GYM_obj_2",
+  "FUCHSIA_GYM_obj_3",
+  "FUCHSIA_GYM_obj_4",
+  "FUCHSIA_GYM_obj_5",
+  "FUCHSIA_GYM_obj_6",
+  "FUCHSIA_GYM_obj_7",
+  "FUCHSIA_GYM_obj_8"
+ ]
+}

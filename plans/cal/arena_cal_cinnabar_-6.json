@@ -1,0 +1,74 @@
+{
+ "party": [
+  {
+   "species": "STARMIE",
+   "level": 36,
+   "moves": [
+    "THUNDERBOLT",
+    "ICE_BEAM",
+    "BUBBLEBEAM",
+    "SURF"
+   ],
+   "nickname": "STARMIE"
+  },
+  {
+   "species": "VENUSAUR",
+   "level": 36,
+   "moves": [
+    "BODY_SLAM",
+    "VINE_WHIP",
+    "POISONPOWDER",
+    "RAZOR_LEAF"
+   ],
+   "nickname": "VENUSAUR"
+  },
+  {
+   "species": "DUGTRIO",
+   "level": 36,
+   "moves": [
+    "GROWL",
+    "DIG",
+    "SAND_ATTACK",
+    "SLASH"
+   ],
+   "nickname": "DUGTRIO"
+  },
+  {
+   "species": "SNORLAX",
+   "level": 36,
+   "moves": [
+    "EARTHQUAKE",
+    "REST",
+    "BODY_SLAM",
+    "HARDEN"
+   ],
+   "nickname": "SNORLAX"
+  }
+ ],
+ "bag": {
+  "HYPER_POTION": 8,
+  "BURN_HEAL": 3,
+  "REVIVE": 3
+ },
+ "money": 40000,
+ "start": {
+  "map": "CINNABAR_GYM",
+  "x": 16,
+  "y": 17,
+  "facing": "up"
+ },
+ "clear_flags": [
+  "EVENT_BEAT_BLAINE"
+ ],
+ "clear_trainers": [
+  "CINNABAR_GYM_obj_1",
+  "CINNABAR_GYM_obj_2",
+  "CINNABAR_GYM_obj_3",
+  "CINNABAR_GYM_obj_4",
+  "CINNABAR_GYM_obj_5",
+  "CINNABAR_GYM_obj_6",
+  "CINNABAR_GYM_obj_7",
+  "CINNABAR_GYM_obj_8",
+  "CINNABAR_GYM_obj_9"
+ ]
+}

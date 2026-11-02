@@ -1,0 +1,64 @@
+{
+ "party": [
+  {
+   "species": "DIGLETT",
+   "level": 19,
+   "moves": [
+    "SCRATCH",
+    "GROWL",
+    "DIG"
+   ],
+   "nickname": "DIGLETT"
+  },
+  {
+   "species": "IVYSAUR",
+   "level": 20,
+   "moves": [
+    "TACKLE",
+    "BODY_SLAM",
+    "LEECH_SEED",
+    "VINE_WHIP"
+   ],
+   "nickname": "IVYSAUR"
+  },
+  {
+   "species": "PIDGEOTTO",
+   "level": 19,
+   "moves": [
+    "GUST",
+    "SAND_ATTACK",
+    "QUICK_ATTACK"
+   ],
+   "nickname": "PIDGEOTTO"
+  }
+ ],
+ "bag": {
+  "POTION": 5,
+  "SUPER_POTION": 6,
+  "PARLYZ_HEAL": 3
+ },
+ "money": 5000,
+ "start": {
+  "map": "VERMILION_GYM",
+  "x": 4,
+  "y": 17,
+  "facing": "up"
+ },
+ "clear_flags": [
+  "EVENT_BEAT_LT_SURGE",
+  "EVENT_BEAT_VERMILION_GYM_TRAINER_0",
+  "EVENT_BEAT_VERMILION_GYM_TRAINER_1",
+  "EVENT_BEAT_VERMILION_GYM_TRAINER_2"
+ ],
+ "clear_trainers": [
+  "VERMILION_GYM_obj_1",
+  "VERMILION_GYM_obj_2",
+  "VERMILION_GYM_obj_3",
+  "VERMILION_GYM_obj_4",
+  "VERMILION_GYM_obj_5"
+ ],
+ "set_flags": [
+  "EVENT_1ST_LOCK_OPENED",
+  "EVENT_2ND_LOCK_OPENED"
+ ]
+}
