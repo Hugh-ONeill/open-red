@@ -4701,6 +4701,9 @@ class Executor:
         if isinstance(arrived, dict):
             arrived = self._where(arrived)
         cur = self.settle() or {}
+        # "None|None" is a screen with no map read as a place (run 70)
+        if isinstance(arrived, str) and arrived.startswith("None|"):
+            arrived = None
         at = arrived or self._where(cur) or "an unexpected stop"
         # ...AND WHICH CELL. An area's name is the cell it was first named
         # from, so "now at ROUTE_16|27,10" read as standing ON (27,10), beside
@@ -15929,6 +15932,15 @@ class Executor:
                     self.log("route_hop_surfed", subgoal=sg.get("id"),
                              key=str(key), frm=self._where(o))
                     continue
+                # A LANDING WITH NO MAP IS A SCREEN BETWEEN TWO THINGS, not a
+                # place. Route 14's west cross landed on ROUTE_15 and a
+                # trainer's fight was opening: the observation had no map and
+                # was not a battle yet, so the hop read as lost "now at
+                # None|None" with "crossed — now on ROUTE_15" quoted as what
+                # stopped it (run 70, 2026-11-02). Let it settle first.
+                if o is not None and not (o.get("map") or {}).get("id") \
+                        and o.get("mode") != "battle":
+                    o = self.settle() or o
                 if o and pre and ((pre.get("map") or {}).get("id")
                                   != (o.get("map") or {}).get("id")):
                     self.note_transition(pre, step, o, op_detail=_det)
