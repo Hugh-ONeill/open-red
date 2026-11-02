@@ -4662,15 +4662,22 @@ class Executor:
             _pl = self._printed_legs(here, region)
             if _pl and len(path) >= 10 and len(path) > 3 * _pl + 3:
                 _first = [str(k) for k, _ in path[:4]]
+                # "NOT WALKED" headed this, and the model read it as "you
+                # are not on the walked chain": it crossed one border a round
+                # for six rounds "to initiate the chain of walked exits" and
+                # sent the bare go again each time (run 70, 2026-11-02,
+                # Route 15 to Pallet). The chain starts where it stands.
                 return False, [
-                    f"go: NOT WALKED — the only chain of exits you have "
-                    f"walked from {here} to {region} is {len(path)} leg(s) "
-                    f"long (it starts {', '.join(_first)}), and the printed "
-                    f"map you carry draws {region.split('|')[0]} {_pl} "
-                    f"leg(s) from here. To walk the long way anyway send "
+                    f"go: NOT SET OFF, nothing walked — the only chain of "
+                    f"exits you have walked from {here} to {region} is "
+                    f"{len(path)} leg(s) long (it starts here, with "
+                    f"{', '.join(_first)}), and the printed map you carry "
+                    f"draws {region.split('|')[0]} {_pl} leg(s) from here. "
+                    f"To walk that long way anyway, from right here, send "
                     + '{"op":"go","to":"' + str(region) + '","long":true}'
-                    + "; the short way is ground you have not walked, or "
-                      "not walked as one chain."], []
+                    + "; without \"long\":true go will not set off on it. "
+                      "The short way is ground you have not walked, or not "
+                      "walked as one chain."], []
         # THE PATH AND THE START, so a lost leg can be read back. A go from
         # Route 17's foot to Fuchsia lost its first leg with the party on
         # ROUTE_16, and the row said only "legs 4" (2026-09-08).
