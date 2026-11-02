@@ -14491,21 +14491,40 @@ class Executor:
             if not re.search(r"\b" + re.escape(pretty) + r"(?![a-z0-9])",
                              said):
                 continue
-            hops = None
+            hops, dest_of = None, None
             for dest in maps[mid]:
                 try:
                     r = self._route(here, dest)
                 except Exception:
                     r = None
                 if r and (hops is None or len(r) < hops):
-                    hops = len(r)
+                    hops, dest_of = len(r), dest
             # None = the walked graph does not reach it; 1 = the hop it
             # just took. Neither is worth a sentence.
             if hops and hops > 1 and (best is None or hops > best[1]):
-                best = (mid, hops)
+                best = (mid, hops, dest_of)
         if not best:
             return ""
-        mid, hops = best
+        mid, hops, dest_of = best
+        # ...AND THE OP IT NAMES MUST BE ONE GO WALKS. Route 11 to Route 12
+        # was 27 walked legs with the printed map drawing it next door; this
+        # said {"op":"go","to":"ROUTE_12"} walks it, and go refused that
+        # very op as NOT WALKED, asking for "long": true (run 70,
+        # 2026-11-02). Same test go makes; name the form go takes.
+        try:
+            _pl = (self._printed_legs(here, dest_of)
+                   if self._holding_town_map(self.settle()) else None)
+        except Exception:
+            _pl = None
+        if _pl and hops >= 10 and hops > 3 * _pl + 3:
+            return (f"(You said {mid.replace('_', ' ').title()}, and the ground "
+                    f"you have walked reaches it from here in {hops} legs, "
+                    f"though the printed map you carry draws it {_pl} leg(s) "
+                    f"away. This round spent itself on ONE of them. "
+                    f"{{\"op\":\"go\",\"to\":\"{dest_of}\",\"long\":true}} "
+                    f"walks the whole {hops} legs in ONE round, over walked "
+                    f"ground only; the shorter way is ground you have not "
+                    f"walked.)")
         return (f"(You said {mid.replace('_', ' ').title()}, and the ground "
                 f"you have walked reaches it from here in {hops} legs. This "
                 f"round spent itself on ONE of them. "
