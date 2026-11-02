@@ -13604,6 +13604,13 @@ function OPS.interact(G, c)
     end
   end
   local p = ow.player
+  -- WHERE A PRESS WAS MADE AND NOTHING CAME UP. Run 70's Game Corner
+  -- (2026-11-02): SLOT_MACHINE_12 was pressed from the free cell below it,
+  -- brought up nothing (these machines answer from the side), and the op
+  -- then said "no reachable tile adjacent to target", naming only the
+  -- machines on its other sides. The party had stood beside it and
+  -- pressed; that is what to say.
+  local pressed_empty = {}
   local function press_from_adjacent()
     for _, a in ipairs(adj) do
       if p.cellX == a[1] and p.cellY == a[2] then
@@ -13611,7 +13618,14 @@ function OPS.interact(G, c)
         U.tap(G, "a"); U.wait(8)
         -- verify something opened: a distance-2 press with no counter
         -- between hits empty air and must not count as an interaction
-        return G.stack:top() ~= ow
+        if G.stack:top() ~= ow then return true end
+        if math.abs(a[1] - tx) + math.abs(a[2] - ty) == 1 then
+          local k = ("(%d,%d) facing %s"):format(a[1], a[2], a[3])
+          local dup = false
+          for _, v in ipairs(pressed_empty) do if v == k then dup = true end end
+          if not dup then pressed_empty[#pressed_empty + 1] = k end
+        end
+        return false
       end
     end
     return false
@@ -14022,6 +14036,12 @@ function OPS.interact(G, c)
         around[#around + 1] = ("CUT_TREE (a bush CUT clears) at (%d,%d)")
           :format(a[1], a[2])
       end
+    end
+    if #pressed_empty > 0 then
+      return false, "pressed it from " .. table.concat(pressed_empty, ", ")
+        .. " and nothing came up"
+        .. (#around > 0 and ("; its other sides are taken: "
+              .. table.concat(around, ", ")) or "")
     end
     if #around > 0 then
       return false, "no reachable tile adjacent to target — standing on "
