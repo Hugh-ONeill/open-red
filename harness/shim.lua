@@ -11016,6 +11016,17 @@ function OPS.toss(G, c)
             or "")
         .. ". A TM is used up by ONE teaching in this game, so teaching it "
         .. "frees this bag slot exactly as tossing it would."
+      -- ...AND NOBODY CAN TAKE IT, SAY ONLY THAT. Run 70 (2026-11-02, Safari
+      -- Zone) was told TM_BUBBLEBEAM "is something this game will let you
+      -- USE on a party member" and that teaching it frees the slot, in the
+      -- same breath as NOT COMPATIBLE for all six: two claims the teach
+      -- screen would refute, and a round spent before the confirmed toss.
+      if #can == 0 then
+        why = c.item .. " is a TM: it teaches " .. tostring(_mv) .. ", and "
+          .. "pointed at your party the teach screen would say NOT "
+          .. "COMPATIBLE for every one of them, so nobody in this party "
+          .. "can use it now."
+      end
     end
     -- the same count the ITEM screen shows: badges sit in this table too
     -- and are not bag kinds ("23 of 20 kinds" went out once, 2026-08-25)
