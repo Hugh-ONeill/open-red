@@ -3014,6 +3014,13 @@ class Executor:
             return False
         r = ((res_obs or {}).get("result") or {})
         if not r.get("ok"):
+            # a press made beside it that brought up nothing did happen
+            # (run 70's Game Corner machines, 2026-11-02; see _run_ops)
+            if "and nothing came up" in str(r.get("detail") or ""):
+                self._tried_objs.setdefault(region, set()).add(name)
+                self._stamp_touch(region)
+                self._mark_touch(region, name, res_obs)
+                return True
             return False                       # it never happened
         # WHAT THE LIST SAID IS KEPT EVEN WHEN THE PRESS IS NOT SPENT.
         # The rows are what was on the screen; not picking one does not
@@ -25879,6 +25886,23 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         self._record_prize_list(_hr, step["name"], obs)
                     except Exception as _e:
                         self.log("prize_list_error", err=str(_e)[:120])
+            # ...AND SO DOES A PRESS THAT STOOD BESIDE IT AND GOT NOTHING.
+            # Run 70's Game Corner machines 12, 13, 24 and 36 answer only from
+            # sides other machines stand on; pressed from the free side they
+            # bring up nothing, the op failed, nothing was marked, and the
+            # page offered them as untouched for ~6 rounds (2026-11-02, user
+            # at the stop: pressed-nothing counts as touched). The words are
+            # the shim's own (OPS.interact / OPS.slots): the press was made.
+            if (op in ("interact", "slots") and step.get("name")
+                    and not r.get("ok")
+                    and ("and nothing came up" in str(r.get("detail") or "")
+                         or "brought up nothing" in str(r.get("detail") or ""))):
+                _hr = self._where(pre_obs)
+                if _hr and "None" not in str(_hr):
+                    self._tried_objs.setdefault(_hr, set()).add(step["name"])
+                    self._stamp_touch(_hr)
+                    self._mark_touch(_hr, step["name"], obs)
+                    self.log("touch_pressed_nothing", name=step["name"], at=_hr)
             # A CLERK YOU BOUGHT FROM HAS BEEN SPOKEN TO. Celadon Mart 5F's
             # two clerks were listed "never spoken to" after the model
             # bought from them, and explore walked back to press them (run
@@ -26534,7 +26558,11 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                 # items could not be reached this time counts as fully
                 # worked — a false searched proof that stops the run ever
                 # coming back for them.
-                if op == "interact" and step.get("name"):
+                # (A press made beside it that brought up nothing DID
+                # happen, and stays a touch; see "pressed beside it and got
+                # nothing" above, run 70.)
+                if (op == "interact" and step.get("name")
+                        and "and nothing came up" not in str(r.get("detail") or "")):
                     self._retract_touch(self._where(obs), step["name"])
                 # Some failures are DEFINITIVE about this place, not about
                 # the attempt: a shop that does not stock the item will
