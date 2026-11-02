@@ -33,6 +33,73 @@ import re as _re
 import unicodedata
 import sys
 from pathlib import Path
+
+
+# THE LIVE RUN IS NOT A TEST'S TO TOUCH. Every run/ path here was a
+# CWD-relative literal, so a test that imported author from the repo root
+# read and wrote the live run's outline_void, outline_push_with, witness file
+# and journal whatever RED_BRIDGE_DIR said (code-health pass, 2026-11-02;
+# the rule in feedback_tests_never_touch_live_run). Resolved at call time:
+# when ./run is the live run and RED_BRIDGE_DIR names another directory, the
+# bridge dir is used; otherwise ./run, as before, which keeps the tests that
+# chdir into a scratch tree with its own run/.
+_LIVE_RUN = Path.home() / "Developer/red-recomp/run"
+
+
+def _run_dir() -> Path:
+    rel = Path("run")
+    bd = os.environ.get("RED_BRIDGE_DIR")
+    if bd:
+        try:
+            if (rel.resolve() == _LIVE_RUN.resolve()
+                    and Path(bd).resolve() != _LIVE_RUN.resolve()):
+                return Path(bd)
+        except OSError:
+            pass
+    return rel
+
+
+class _RunPath(os.PathLike):
+    """run/<name>, or run/ itself, resolved by _run_dir() each time it is
+    used: a default argument or a module constant is evaluated at import,
+    before a test sets its bridge dir."""
+
+    def __init__(self, name: str = ""):
+        self._name = name
+
+    def _p(self) -> Path:
+        return _run_dir() / self._name if self._name else _run_dir()
+
+    def __fspath__(self) -> str:
+        return str(self._p())
+
+    def __str__(self) -> str:
+        return str(self._p())
+
+    def __repr__(self) -> str:
+        return f"_RunPath({self._name!r})"
+
+    def __truediv__(self, other):
+        return self._p() / other
+
+    def __eq__(self, other):
+        try:
+            return Path(self) == Path(other)
+        except TypeError:
+            return NotImplemented
+
+    def __hash__(self):
+        return hash(str(self._p()))
+
+    def __getattr__(self, attr):
+        # copy/pickle build the object without __init__ and then ask for
+        # private names; delegating those recursed forever
+        if attr.startswith("_"):
+            raise AttributeError(attr)
+        return getattr(self._p(), attr)
+
+
+RUN = _RunPath()
 from objective_key import same_objective
 
 import brock_probe   # reuse chat()
@@ -491,7 +558,7 @@ def holding_town_map() -> bool:
     # the old item gate for replays that compare the two.
     if os.environ.get("RED_PRINTED_MAP", "always") != "bag":
         return True
-    for src in ("run/last_state.json", "run/obs.json"):
+    for src in (_RunPath("last_state.json"), _RunPath("obs.json")):
         try:
             o = json.loads(Path(src).read_text())
         except (OSError, ValueError):
@@ -506,7 +573,7 @@ def holding_town_map() -> bool:
 
 def _live_flags():
     """The event flags SET in the state snapshot, or None without one."""
-    for src in ("run/last_state.json", "run/obs.json"):
+    for src in (_RunPath("last_state.json"), _RunPath("obs.json")):
         try:
             o = json.loads(Path(src).read_text())
         except (OSError, ValueError):
@@ -518,7 +585,7 @@ def _live_flags():
 
 def _flag_site(f: str) -> str:
     try:
-        d = json.loads(Path("run/explored.json").read_text())
+        d = json.loads(_RunPath("explored.json").read_text())
     except (OSError, ValueError):
         return ""
     return str((d.get("flag_sites") or {}).get(f) or "")
@@ -731,7 +798,7 @@ def visited_maps() -> set:
     """Every map this run has stood on, by name. Run history, like
     fired_flags — not contents."""
     try:
-        d = json.loads(Path("run/explored.json").read_text() or "{}")
+        d = json.loads(_RunPath("explored.json").read_text() or "{}")
     except (OSError, ValueError, json.JSONDecodeError):
         return set()
     return {str(r).split("|")[0] for r in (d.get("visits") or {})}
@@ -759,7 +826,7 @@ def _walked_landings(from_map, to_map, stood, hops: int = 2) -> list:
     if not from_map or not to_map:
         return []
     try:
-        d = json.loads(Path("run/explored.json").read_text() or "{}")
+        d = json.loads(_RunPath("explored.json").read_text() or "{}")
     except (OSError, ValueError, json.JSONDecodeError):
         return []
     ex = d.get("explored") or {}
@@ -809,7 +876,7 @@ def _came_from(from_map, to_map, explored=None, hops: int = 3) -> bool:
         return False
     if explored is None:
         try:
-            explored = (json.loads(Path("run/explored.json").read_text() or "{}")
+            explored = (json.loads(_RunPath("explored.json").read_text() or "{}")
                         .get("explored") or {})
         except (OSError, ValueError, json.JSONDecodeError):
             return False
@@ -859,7 +926,7 @@ def _printed_entrances(interior: str) -> "tuple[str, set] | None":
 
 def _load_explored() -> dict:
     try:
-        return json.loads(Path("run/explored.json").read_text() or "{}").get("explored") or {}
+        return json.loads(_RunPath("explored.json").read_text() or "{}").get("explored") or {}
     except (OSError, ValueError, json.JSONDecodeError):
         return {}
 
@@ -1001,7 +1068,7 @@ def _map_has_more(map_id: str) -> bool:
     if map_id in (MAP_EDGES or {}):
         return True
     try:
-        d = json.loads(Path("run/explored.json").read_text() or "{}")
+        d = json.loads(_RunPath("explored.json").read_text() or "{}")
     except (OSError, ValueError, json.JSONDecodeError):
         return False
     parts = {str(r) for r in (d.get("visits") or {})
@@ -1029,7 +1096,7 @@ def visited_regions() -> set:
     since the beginning; the predicate readers had not heard.
     """
     try:
-        d = json.loads(Path("run/explored.json").read_text() or "{}")
+        d = json.loads(_RunPath("explored.json").read_text() or "{}")
     except (OSError, ValueError, json.JSONDecodeError):
         return set()
     return {str(r) for r in (d.get("visits") or {})}
@@ -1064,7 +1131,7 @@ def walked_shelves() -> dict:
     was read. The run's own play, read back — never a table of marts it has
     not entered."""
     try:
-        d = json.loads(Path("run/explored.json").read_text() or "{}")
+        d = json.loads(_RunPath("explored.json").read_text() or "{}")
     except Exception:
         return {}
     out = {}
@@ -1076,7 +1143,7 @@ def walked_shelves() -> dict:
     return out
 
 
-def read_prize_rooms(observed="run/explored.json") -> dict:
+def read_prize_rooms(observed=_RunPath("explored.json")) -> dict:
     """{map: (prizes, False)} for each prize room whose every counter this
     run has opened, in walked_shelves' shape: what was listed, read back,
     names without their coin prices. A room with a counter never opened
@@ -1098,7 +1165,7 @@ def read_prize_rooms(observed="run/explored.json") -> dict:
     return out
 
 
-def prize_lists_text(observed="run/explored.json") -> str:
+def prize_lists_text(observed=_RunPath("explored.json")) -> str:
     """The prize counters this run has opened and what each listed, with
     the counters in those rooms it never opened — executor
     _record_prize_list's record, read back. A list seen once was gone the
@@ -1191,7 +1258,7 @@ def names_an_emptied_floor(text: str, observed=None) -> str | None:
     if not item:
         return None
     try:
-        d = json.loads(Path(observed or "run/explored.json").read_text() or "{}")
+        d = json.loads(Path(observed or _RunPath("explored.json")).read_text() or "{}")
     except (OSError, ValueError):
         return None
     words = set(re.sub(r"[^A-Z0-9]+", " ", str(text or "").upper()).split())
@@ -1238,7 +1305,7 @@ def fired_flags() -> list:
     flag names the harness may volunteer (they are history, not contents)."""
     fired = []
     try:
-        for line in Path("run/executor_log.jsonl").read_text().splitlines():
+        for line in _RunPath("executor_log.jsonl").read_text().splitlines():
             if '"flag_fired"' not in line:
                 continue
             try:
@@ -1287,7 +1354,7 @@ def recent_events(cap: int = 14) -> str:
     # beaten trainers has no one place, and a region suffix is noise here.
     sites = {}
     try:
-        _d = json.loads(Path("run/explored.json").read_text() or "{}")
+        _d = json.loads(_RunPath("explored.json").read_text() or "{}")
         for _f, _r in ((k, v) for k, v in (_d.get("flag_sites") or {}).items()
                        if k not in _SILENT_FLAGS):
             _m = str(_r).split("|")[0]
@@ -1327,7 +1394,7 @@ def outline_so_far(cap: int = 12) -> str:
     try:
         legs = [l.strip() for l in
                 Path("plans/outline.txt").read_text().splitlines() if l.strip()]
-        n = int(Path("run/outline_leg").read_text().strip() or 0)
+        n = int(_RunPath("outline_leg").read_text().strip() or 0)
     except (OSError, ValueError):
         return ""
     if not legs:
@@ -1388,7 +1455,7 @@ def outline_so_far(cap: int = 12) -> str:
 def _rung_said_path() -> Path:
     """run/rung_said, or RED_RUNG_SAID — the suite's throwaway (see
     tests/run_suite.sh), so no test writes the live run's record."""
-    return Path(os.environ.get("RED_RUNG_SAID") or "run/rung_said")
+    return Path(os.environ.get("RED_RUNG_SAID") or _RunPath("rung_said"))
 
 
 _RUNG_ASKED = {
@@ -1482,7 +1549,7 @@ def _sides_unseen_of(region: str, data: dict) -> list:
             and min(parts, key=lambda r: (pick[d](parts[r]), r)) == region]
 
 
-def last_leg_left_you(run: Path = Path("run"), plans: Path = Path("plans")) -> str:
+def last_leg_left_you(run: Path = RUN, plans: Path = Path("plans")) -> str:
     """Where the party came in, from the run's own journal.
 
     A FINISHED LEG IS A DIRECTION, NOT ONLY A CHECKBOX. "Reach Lavender
@@ -1548,7 +1615,7 @@ def last_leg_left_you(run: Path = Path("run"), plans: Path = Path("plans")) -> s
     return out
 
 
-def _walked_way_to(target_map: str, run: Path = Path("run")) -> bool:
+def _walked_way_to(target_map: str, run: Path = RUN) -> bool:
     """Is there a chain of ways this run has WALKED from where it stands to
     any part of target_map? The walked graph in explored.json, nothing
     inferred. A walk that failed before a way was learned is not the same
@@ -1577,7 +1644,7 @@ def _walked_way_to(target_map: str, run: Path = Path("run")) -> bool:
     return False
 
 
-def _void_walk_plans(run: Path = Path("run")) -> set:
+def _void_walk_plans(run: Path = RUN) -> set:
     """plan_start times whose failed walks were voided by hand
     (run/walk_failures_void, "<t><TAB><why>"): a walk that failed only
     because of a harness bug since fixed. Run 36's HM04 plans failed
@@ -1597,7 +1664,7 @@ def _void_walk_plans(run: Path = Path("run")) -> set:
     return out
 
 
-def _failed_walk_places(goal: str, run: Path = Path("run")) -> list:
+def _failed_walk_places(goal: str, run: Path = RUN) -> list:
     """(step, map) pairs: where this objective's most recent plan failed to
     walk (see failed_walk_text), while nothing has fired since.
 
@@ -1653,7 +1720,7 @@ def _failed_walk_places(goal: str, run: Path = Path("run")) -> list:
     return [(sid, m) for sid, m in places if not _walked_way_to(m, run)]
 
 
-def _failed_walk_history(goal: str, run: Path = Path("run")) -> tuple:
+def _failed_walk_history(goal: str, run: Path = RUN) -> tuple:
     """(plans, places): how many of this objective's plans failed a walk,
     and every map they failed to walk to, since the last event that was not
     a numbered trainer beaten on the way (the world those plans failed in
@@ -1700,7 +1767,7 @@ def _failed_walk_history(goal: str, run: Path = Path("run")) -> tuple:
 
 
 def new_ground_problems(plan: dict, goal: str | None = None,
-                        run: Path = Path("run")) -> list:
+                        run: Path = RUN) -> list:
     """After two plans for an objective have failed a walk, a rewrite has to
     take in ground this run has never stood on.
 
@@ -1765,7 +1832,7 @@ def new_ground_problems(plan: dict, goal: str | None = None,
                + "; ".join(leads) + "." if leads else "")]
 
 
-def failed_walk_text(goal: str, run: Path = Path("run")) -> str:
+def failed_walk_text(goal: str, run: Path = RUN) -> str:
     """The places this objective's last plan failed to walk to, from the
     journal, for the author writing the next one.
 
@@ -1784,7 +1851,7 @@ def failed_walk_text(goal: str, run: Path = Path("run")) -> str:
               "unless something has changed since.")
 
 
-def openable_ways_text(run: Path = Path("run")) -> str:
+def openable_ways_text(run: Path = RUN) -> str:
     """Bushes the run has stood beside with ground past them no walk
     reaches, while a party Pokemon knows CUT: the escalation page's "every
     way the party can now open", for the author.
@@ -1821,7 +1888,7 @@ def openable_ways_text(run: Path = Path("run")) -> str:
             + ". Which of them, if any, is the way on is yours to judge.")
 
 
-def detour_text(goal: str, run: Path = Path("run")) -> str:
+def detour_text(goal: str, run: Path = RUN) -> str:
     """The executor's open detour (see Executor._detour_line), for a leg
     rewritten after a heal or shop trip took the party away from the
     ground it was working: where it left from, where the trip ended. Only
@@ -1993,7 +2060,7 @@ def freeze_new_parts(plan: dict) -> None:
                         reached.add(alt["area"].split("|")[0])
 
 
-OUTLINE_INSERTS = Path("run/outline_inserts")
+OUTLINE_INSERTS = _RunPath("outline_inserts")
 OUTLINE_PATH = Path("plans/outline.txt")
 _AUTHORING_GOAL: str | None = None   # main's --goal, for validate()
 
@@ -2232,7 +2299,7 @@ def strip_part_labels(plan: dict) -> None:
             _walk(sg.get("done_when"))
 
 
-def _new_map_from_shut(src: str, path: str = "run/explored.json") -> str:
+def _new_map_from_shut(src: str, path: str = _RunPath("explored.json")) -> str:
     """Why {"new_map_from": src} cannot come true, or "".
 
     It wants a map NEVER STOOD ON, entered straight from src. When every
@@ -3193,7 +3260,7 @@ def validate(plan: dict) -> list:
 _TRAVEL_KEYS = {"map", "area", "new_part", "not_area", "party_healthy", "player_at"}
 
 
-def untried_leads(run: Path = Path("run"), skip_maps=(), cap: int = 6) -> list:
+def untried_leads(run: Path = RUN, skip_maps=(), cap: int = 6) -> list:
     """Places this run has walked that still hold something never tried: a
     way never taken (the ledger's frontier) or a person seen and never
     spoken to. The run's own record, nearest first by the printed map.
@@ -3273,7 +3340,7 @@ def pc_step_problems(plan: dict, goal: str | None = None) -> list:
 
 
 def same_failed_walk_problems(plan: dict, goal: str | None = None,
-                              run: Path = Path("run")) -> list:
+                              run: Path = RUN) -> list:
     """A rewrite that walks, with nothing done first, to the place this
     objective's last plan failed to walk to.
 
@@ -3350,7 +3417,7 @@ def same_failed_walk_problems(plan: dict, goal: str | None = None,
     return []
 
 
-def _fired_in(run: Path = Path("run")) -> set:
+def _fired_in(run: Path = RUN) -> set:
     """Event flags set in the run's last observation under `run` (names)."""
     for src in ("last_state.json", "obs.json"):
         try:
@@ -3362,7 +3429,7 @@ def _fired_in(run: Path = Path("run")) -> set:
     return set()
 
 
-def _stood_maps(run: Path = Path("run")):
+def _stood_maps(run: Path = RUN):
     """Maps this run has stood on, from run/explored.json; None when there is
     no walked record to read (then nothing is called new ground)."""
     try:
@@ -3914,7 +3981,7 @@ def _check_pred_shapes(dw: dict, tag: str, sid, probs: list):
                        if own else ""))
 
 
-def _obs_now(path="run/obs.json") -> dict:
+def _obs_now(path=_RunPath("obs.json")) -> dict:
     try:
         o = json.loads(Path(path).read_text() or "{}")
     except (OSError, ValueError, TypeError):
@@ -3940,7 +4007,7 @@ def _map_now(obs=None, last=None) -> "str | None":
         return str(mid)
     if last is None:
         try:
-            last = json.loads(Path("run/last_state.json").read_text() or "{}")
+            last = json.loads(_RunPath("last_state.json").read_text() or "{}")
         except (OSError, ValueError, TypeError):
             last = {}
     m = (last or {}).get("map")
@@ -3971,7 +4038,7 @@ def _region_now(obs=None, last=None) -> "str | None":
         return f"{m['id']}|{m['region']}"
     if last is None:
         try:
-            last = json.loads(Path("run/last_state.json").read_text() or "{}")
+            last = json.loads(_RunPath("last_state.json").read_text() or "{}")
         except (OSError, ValueError, TypeError):
             last = {}
     _m, _r = (last or {}).get("map"), (last or {}).get("region")
@@ -3984,7 +4051,7 @@ def _ledger_names(field: str, observed=None) -> set:
     """Every name under one region-keyed field of the ledger ("touched",
     "sightings"), whichever region it was filed in."""
     try:
-        data = json.loads(Path(observed or "run/explored.json").read_text())
+        data = json.loads(Path(observed or _RunPath("explored.json")).read_text())
     except (OSError, ValueError, TypeError):
         return set()
     return {str(n) for v in (data.get(field) or {}).values() for n in (v or [])}
@@ -4156,7 +4223,7 @@ def witness_already_true_problems(plan: dict, obs: dict | None = None) -> list:
     # back up from B2F, away from the exit, to hear them (2026-10-26). The
     # screen's own "beaten" is kept in the ledger (beaten_seen, next262).
     try:
-        _beat = set(json.loads(Path("run/explored.json").read_text())
+        _beat = set(json.loads(_RunPath("explored.json").read_text())
                     .get("beaten_seen") or [])
     except (OSError, ValueError, TypeError, AttributeError):
         _beat = set()
@@ -4274,7 +4341,7 @@ ALREADY_ROUNDS = [0]
 # instead, and the run spent three waters at the gate to meet it (run 19,
 # 2026-09-29). The witness is written for the judges (see witness_text).
 OWN_WITNESS: set = set()
-WITNESS_FILE = Path("run/leg_witness.json")
+WITNESS_FILE = _RunPath("leg_witness.json")
 
 
 _PLACE_STEMS = None
@@ -4676,7 +4743,7 @@ def observed_text(path: Path) -> str:
         # "44,2"); the walked graph is keyed "MAP|region", so seeding the
         # walk with the bare region matched nothing and every distance came
         # back unknown.
-        _ls = json.loads(Path("run/last_state.json").read_text())
+        _ls = json.loads(_RunPath("last_state.json").read_text())
         _here0 = (f"{_ls.get('map')}|{_ls.get('region')}"
                   if _ls.get("map") and _ls.get("region") else "")
     except Exception:
@@ -4688,7 +4755,7 @@ def observed_text(path: Path) -> str:
         # anywhere", which is every city's front doors. The live
         # observation says where the party is standing right now.
         try:
-            _ob = json.loads(Path("run/obs.json").read_text())
+            _ob = json.loads(_RunPath("obs.json").read_text())
             _m0 = _ob.get("map") or {}
             _here0 = (f"{_m0.get('id')}|{_m0.get('region')}"
                       if _m0.get("id") and _m0.get("region") else "")
@@ -5231,13 +5298,13 @@ def observed_text(path: Path) -> str:
     blk = [b for b in (d.get("blockers") or {}).values()
            if isinstance(b, dict) and not b.get("cleared")]
     try:
-        _flags_now = set(_announced(json.loads(Path("run/obs.json").read_text())
+        _flags_now = set(_announced(json.loads(_RunPath("obs.json").read_text())
                                     .get("flags") or []))
     except (OSError, ValueError, AttributeError):
         _flags_now = set()
     # a flag the run has seen flip back is a lever, not news (Executor._since_words)
     try:
-        _toggled = set(json.loads(Path("run/explored.json").read_text() or "{}")
+        _toggled = set(json.loads(_RunPath("explored.json").read_text() or "{}")
                        .get("toggled_flags") or [])
     except (OSError, ValueError, AttributeError):
         _toggled = set()
@@ -8370,7 +8437,7 @@ def _held_things(state=None) -> dict:
     """The moves the party knows and the items the bag holds, from the
     save — mechanical save-reading, the same source as state_text.py."""
     if state is None:
-        for src in ("run/last_state.json", "run/obs.json"):
+        for src in (_RunPath("last_state.json"), _RunPath("obs.json")):
             try:
                 state = json.load(open(src))
                 break
@@ -8825,7 +8892,7 @@ def _league_win_not_set(goal: str) -> str | None:
     if live is None:
         return None
     try:
-        _st = json.loads(Path("run/last_state.json").read_text())
+        _st = json.loads(_RunPath("last_state.json").read_text())
         if int((_st or {}).get("hall_of_fame") or 0) > 0:
             return None
     except (OSError, ValueError, TypeError):
@@ -8974,7 +9041,7 @@ def _never_held(goal: str, start: str) -> str | None:
     if not re.search(GIVE_VERBS, goal, re.I):
         return None
     try:
-        fired = json.loads(Path("run/obs.json").read_text()).get("flags")
+        fired = json.loads(_RunPath("obs.json").read_text()).get("flags")
     except (OSError, ValueError, AttributeError):
         fired = None
     if not isinstance(fired, list):
@@ -9076,7 +9143,7 @@ def _item_not_held(goal: str, start: str) -> str | None:
 _HANDOVER = re.compile(r"(GAVE|GIVEN|DELIVER|TRADED|TRADE|USED|SOLD|EXCHANG|RETURN)")
 
 
-def _handed_over(item: str, obs_path: str = "run/obs.json") -> bool:
+def _handed_over(item: str, obs_path: str = _RunPath("obs.json")) -> bool:
     """A fired event names this item AND a handing-over word
     (EVENT_GAVE_GOLD_TEETH): the record says the item left the bag by a
     deed. False when there is no record."""
@@ -9302,7 +9369,7 @@ def _events_bearing(goal: str) -> str:
     the model's call.
     """
     try:
-        cur = json.loads(Path("run/obs.json").read_text())
+        cur = json.loads(_RunPath("obs.json").read_text())
     except (OSError, ValueError):
         return ""
     # A ROAD'S NAME IS NOT A DEED'S. "Give FRESH WATER to the guard on
@@ -9569,7 +9636,7 @@ _INFERRED = re.compile(
     re.I)
 
 
-def _record_fact_named(why, obs_path="run/obs.json") -> str:
+def _record_fact_named(why, obs_path=_RunPath("obs.json")) -> str:
     """A fact of the run's own record that this reason names: an event
     that fired, an item in the bag, a badge worn — or "".
 
@@ -9795,7 +9862,7 @@ def untouched_named(text: str, observed=None) -> list:
     Bill" was turned down as ALREADY DONE on the run having met the other
     Bill, the one in the machine. The ledger's own sightings and touches."""
     try:
-        data = json.loads(Path(observed or "run/explored.json").read_text())
+        data = json.loads(Path(observed or _RunPath("explored.json")).read_text())
     except (OSError, ValueError, TypeError):
         return []
     words = {w for w in re.findall(r"[A-Z]{3,}", str(text or "").upper())
@@ -10132,7 +10199,7 @@ def inserts_that_did_not_unblock(goal: str, behind: list) -> list:
     was met by standing in the house, and the S.S. Ticket never came)."""
     bare = re.sub(r"\s*\((?:a doubt you recorded when outlining:|you added this when outlining,).*$", "", goal).strip()
     try:
-        rows = Path("run/outline_inserts").read_text().splitlines()
+        rows = _RunPath("outline_inserts").read_text().splitlines()
     except OSError:
         return []
     done = {t for _, t in behind}
@@ -10477,7 +10544,7 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
     A rejected proposal is quoted back, so the re-ask is not a re-roll.
     """
     try:
-        cur = json.loads(Path("run/obs.json").read_text())
+        cur = json.loads(_RunPath("obs.json").read_text())
     except (OSError, ValueError):
         cur = {}
     done = sorted(_announced(cur.get("flags") or []))
@@ -10580,7 +10647,7 @@ def check_missing(goal: str, ahead: list, start: str, model: str,
         # generated them"). Its own reason goes back to it.
         _voided = None
         try:
-            for _vl in Path("run/outline_void").read_text().splitlines():
+            for _vl in _RunPath("outline_void").read_text().splitlines():
                 _vt, _, _vwhy = _vl.partition("\t")
                 if _vt.strip() and _norm_obj(_vt) == _norm_obj(ins):
                     _voided = (_vt.strip(), _vwhy.strip())
@@ -10846,7 +10913,7 @@ def new_part_exhausted(dw, mp: str) -> str:
     # back onto another part of the same map (a house through a fence), so
     # one of those keeps the question open too; an edge cannot.
     try:
-        _ex = json.loads(Path("run/explored.json").read_text() or "{}")
+        _ex = json.loads(_RunPath("explored.json").read_text() or "{}")
     except (OSError, ValueError, json.JSONDecodeError):
         return ""                      # cannot tell: say nothing
     rs = _ex.get("region_seen") or {}
@@ -10890,7 +10957,7 @@ def _reverted_wordings() -> set:
     """
     try:
         return {_norm_obj(l) for l in
-                Path("run/outline_wordings_reverted").read_text().splitlines()
+                _RunPath("outline_wordings_reverted").read_text().splitlines()
                 if l.strip()}
     except OSError:
         return set()
@@ -10900,7 +10967,7 @@ def _reword_chain(goal: str) -> list:
     """Every earlier wording that led to this one, oldest first."""
     try:
         rows = [l.split("\t") for l in
-                Path("run/outline_rewordings").read_text().splitlines()
+                _RunPath("outline_rewordings").read_text().splitlines()
                 if l.strip()]
     except OSError:
         return []
@@ -10995,7 +11062,7 @@ def _leg_marks(t: str) -> str:
     the other is "you said it was never a thing to do"."""
     try:
         void = {}
-        for _l in Path("run/outline_void").read_text().splitlines():
+        for _l in _RunPath("outline_void").read_text().splitlines():
             _t, _, _why = _l.partition("\t")
             if _t.strip():
                 void[_t.strip()] = _why.strip()
@@ -11003,13 +11070,13 @@ def _leg_marks(t: str) -> str:
         void = {}
     try:
         unc = {l.strip() for l in
-               Path("run/leg_unconfirmed").read_text().splitlines()
+               _RunPath("leg_unconfirmed").read_text().splitlines()
                if l.strip()}
     except OSError:
         unc = set()
     try:
         passed = {l.strip() for l in
-                  Path("run/outline_passed").read_text().splitlines()
+                  _RunPath("outline_passed").read_text().splitlines()
                   if l.strip()}
     except OSError:
         passed = set()
@@ -11074,7 +11141,7 @@ def attempt_yield_rows(goal: str) -> list:
         names.add(_norm_obj(b))
     rows = []
     try:
-        for line in Path("run/attempt_yield").read_text().splitlines():
+        for line in _RunPath("attempt_yield").read_text().splitlines():
             parts = line.split("\t")
             if len(parts) >= 4 and _norm_obj(parts[0]) in names:
                 rows.append((parts[1], parts[2], "\t".join(parts[3:])))
@@ -11214,7 +11281,7 @@ def _map_dims() -> dict:
 _SEEN_CELLS_CACHE: dict = {}
 
 
-def seen_cells(m: str, path="run/seen.json") -> set:
+def seen_cells(m: str, path=_RunPath("seen.json")) -> set:
     """The cells of map `m` the footprint has painted SEEN, as (x, y).
 
     The shim persists its mask as a Lua chunk — `["MAP"] = { "x,y", ... }`
@@ -11243,7 +11310,7 @@ def seen_cells(m: str, path="run/seen.json") -> set:
 
 
 def road_side_words(m: str, nb: str, explored: dict, visits: dict,
-                    path="run/seen.json") -> str:
+                    path=_RunPath("seen.json")) -> str:
     """What the run's own record says about the SIDE of `m` that the
     printed map draws a road from, toward `nb`: whether that side has
     ever been on screen, how far short of it the looked-at ground ends,
@@ -11412,7 +11479,7 @@ def plan_path_for(goal: str, plans_dir="plans") -> "Path | None":
     return best
 
 
-def refund_insert_for(voided: str, inserts_path="run/outline_inserts") -> list:
+def refund_insert_for(voided: str, inserts_path=_RunPath("outline_inserts")) -> list:
     """Drop the insert rows whose inserted leg is `voided`; return the legs
     that get their missing-rung ask back.
 
@@ -11517,7 +11584,7 @@ def void_refused_why(goal: str, observed, plans_dir="plans", why: str = "") -> s
     # fired or it did not.
     if why:
         try:
-            _o = json.loads(Path("run/obs.json").read_text() or "{}")
+            _o = json.loads(_RunPath("obs.json").read_text() or "{}")
             _fired = set(_o.get("flags") or [])
         except (OSError, ValueError, TypeError):
             _fired = set()
@@ -11640,7 +11707,7 @@ def pull_into_held(text: str, observed) -> str | None:
     return held_doors_into(named, o)
 
 
-def _flags_now(path="run/obs.json") -> "int | None":
+def _flags_now(path=_RunPath("obs.json")) -> "int | None":
     """How many event flags the game has set right now, off the latest
     observation; None when it cannot be read."""
     try:
@@ -11766,7 +11833,7 @@ def _party_knows(move: str, party=None) -> bool:
     status screen shows; nothing here says what a move does."""
     if party is None:
         party = []
-        for src in ("run/last_state.json", "run/obs.json"):
+        for src in (_RunPath("last_state.json"), _RunPath("obs.json")):
             try:
                 party = json.loads(Path(src).read_text() or "{}").get("party") or []
             except (OSError, ValueError, TypeError):
@@ -11791,7 +11858,7 @@ def _terrain_on_door(h: str) -> "tuple | None":
     return None
 
 
-def through_a_place_problems(plan: dict, observed="run/explored.json") -> list:
+def through_a_place_problems(plan: dict, observed=_RunPath("explored.json")) -> list:
     """A plan for going THROUGH a place, with no step that ends inside it.
 
     "Travel through Rock Tunnel" was authored as one subgoal, exit_rock_
@@ -11929,7 +11996,7 @@ def machine_slot_problems(plan: dict, obs: dict | None = None) -> list:
     return out
 
 
-def held_step_problems(plan: dict, observed="run/explored.json", party=None) -> list:
+def held_step_problems(plan: dict, observed=_RunPath("explored.json"), party=None) -> list:
     """A STEP INTO A HELD BUILDING, WITH NO DEED BEFORE IT, IS REFUSED.
 
     The Scope leg's rewrite — "Obtain the Silph Scope from Celadon City",
@@ -12254,7 +12321,7 @@ _DISCOVERY = re.compile(
 
 def _flags_now_names() -> set:
     """The event flags set in the run's last observation (names)."""
-    for src in ("run/last_state.json", "run/obs.json"):
+    for src in (_RunPath("last_state.json"), _RunPath("obs.json")):
         try:
             fl = (json.loads(Path(src).read_text() or "{}") or {}).get("flags")
         except (OSError, ValueError):
@@ -12436,7 +12503,7 @@ def check_wording(goal: str, ahead: list, behind: list, start: str,
         else:
             WORDING_SAYS_VOID[0] = True
         try:
-            with open("run/outline_void", "a") as fh:
+            with open(_RunPath("outline_void"), "a") as fh:
                 fh.write(f"{goal}\t{'DONE: ' if _as_done else ''}{why}\n")
         except OSError:
             pass
@@ -12698,7 +12765,7 @@ _ARRIVES = re.compile(r"(reach|arrive|travel|go|sail|enter|walk|fly|ride|"
 
 
 def _inside_unfinished_through(goal: str, start: str,
-                               observed="run/explored.json") -> str:
+                               observed=_RunPath("explored.json")) -> str:
     """Why a THROUGH / EXIT leg cannot be put off: the run stands inside
     the very place it says to go through, and the record shows it left by
     fewer than two mouths. Every leg after it starts on the far side of
@@ -12919,7 +12986,7 @@ def _event_names_a_place(event: str) -> bool:
     return any(sg in towns or re.fullmatch(r"ROUTE\d*", sg) for sg in segs)
 
 
-def crossings_text(goal: str, observed="run/explored.json") -> str:
+def crossings_text(goal: str, observed=_RunPath("explored.json")) -> str:
     """For an objective about going THROUGH a place: every way the run has
     come into that place and every way it has left it, from its own record.
 
@@ -13135,7 +13202,7 @@ def check_done(goal: str, start: str, model: str,
     if not _gained_speaks:
         _gu = re.sub(r"[^A-Z0-9]+", " ", str(goal).upper())
         try:
-            _bag = set((json.loads(Path("run/obs.json").read_text())
+            _bag = set((json.loads(_RunPath("obs.json").read_text())
                         .get("bag") or {}).keys())
         except (OSError, ValueError, AttributeError):
             _bag = set()
@@ -13440,7 +13507,7 @@ def main():
     if args.inside_through:
         why = _inside_unfinished_through(
             args.goal or "", args.start or "",
-            args.observed or "run/explored.json")
+            args.observed or _RunPath("explored.json"))
         if why:
             print(why)
             sys.exit(0)
@@ -13459,7 +13526,7 @@ def main():
             # the position on stdout, as before; the legs that move with
             # it beside it, by TEXT, for the caller to push in turn
             # (positions shift the moment the first push lands)
-            Path("run/outline_push_with").write_text(
+            _RunPath("outline_push_with").write_text(
                 "\n".join(LATER_WITH) + ("\n" if LATER_WITH else ""))
             print(at)
             sys.exit(0)
@@ -13506,7 +13573,7 @@ def main():
         # legs already pulled forward once that did not unstick anything
         try:
             refused = {_norm_obj(l.split("\t", 1)[-1]) for l in
-                       Path("run/outline_pulls_failed").read_text().splitlines()
+                       _RunPath("outline_pulls_failed").read_text().splitlines()
                        if l.strip()}
         except OSError:
             refused = set()

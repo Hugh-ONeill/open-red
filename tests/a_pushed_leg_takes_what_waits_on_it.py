@@ -127,7 +127,7 @@ ck("...and an arrival does not drag another arrival along",
 
 src = (ROOT / "planner/author.py").read_text()
 ck("the names are written where the chain can read them",
-   'Path("run/outline_push_with").write_text(' in src)
+   '_RunPath("outline_push_with").write_text(' in src)
 sh = (ROOT / "fresh_discovery.sh").read_text()
 ck("the chain pushes each of them to the same leg",
    "run/outline_push_with" in sh
