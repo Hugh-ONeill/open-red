@@ -3342,6 +3342,12 @@ class Executor:
             if (isinstance(dw2, dict) and set(dw2) == {"flag"}
                     and dw2.get("flag") in _pre):
                 return None
+            # ...NOR DOES A LATER ABSENCE. Leg 40 of run 70 put
+            # give_teeth_to_warden {lacks_item GOLD_TEETH} after the Fuchsia
+            # and Safari waypoints; the teeth were never held, and both read
+            # as passed at entry while the party stood in Celadon (2026-11-02).
+            if isinstance(dw2, dict) and dw2 and set(dw2) <= ABSENCE_KEYS:
+                return None
             try:
                 if dw2 and pred_holds(dw2, obs):
                     return s2.get("id")
