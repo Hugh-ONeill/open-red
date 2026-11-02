@@ -4710,8 +4710,11 @@ class Executor:
         _cell = (f", standing at ({_pl.get('x')},{_pl.get('y')})"
                  if _pl.get("x") is not None and _pl.get("y") is not None
                  and isinstance(at, str) and "|" in at else "")
-        tr = [f"go: walked {len(path)} leg(s) over walked ground toward "
-              f"{region} — now at {at}{_cell}"]
+        _done = getattr(self, "_route_legs_done", None)
+        _done = len(path) if _done is None else min(int(_done), len(path))
+        tr = [(f"go: walked {_done} of {len(path)} leg(s)" if _done < len(path)
+               else f"go: walked {len(path)} leg(s)")
+              + f" over walked ground toward {region} — now at {at}{_cell}"]
         if _choice_note:
             tr.append(_choice_note)
         if not ignore_done and pred_holds(sg.get("done_when"), cur):
@@ -15305,7 +15308,15 @@ class Executor:
         # Distilled macros already carry `when: {map}` for exactly this,
         # "so a diverged trajectory SKIPS misplaced ops instead of
         # misfiring them"; route walking had no such guard.
+        # HOW MANY LEGS ACTUALLY LANDED, for go's summary: it printed the
+        # route's length, "walked 18 leg(s) ... now at SAFARI_ZONE_GATE",
+        # when the first leg stopped inside the gate (run 70, 2026-11-02).
+        # A re-planned remainder (_replans) adds to the same count.
+        if not _replans:
+            self._route_legs_done = 0
+        _legs_base = int(getattr(self, "_route_legs_done", 0) or 0)
         for _hop_i, (key, nxt) in enumerate(path):
+            self._route_legs_done = _legs_base + _hop_i
             _now = self.b.obs() or {}
             _m = (_now.get("map") or {})
             # A LEG WALKED WITH THE STATUES ONE WAY IS REPLAYED THAT WAY. The
@@ -16144,6 +16155,7 @@ class Executor:
                          got=self._where(o), why=_last_det[:200],
                          standing=self._where(pre), step=str(key))
                 return self._where(o)
+        self._route_legs_done = _legs_base + len(path)
         self.log("route_walked", subgoal=sg["id"], to=self._where(o),
                  hops=len(path))
         return self._where(o)
