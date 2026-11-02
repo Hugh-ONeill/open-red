@@ -10203,7 +10203,10 @@ class Executor:
                         if _twin is not None:
                             self.pad_lands = dict(getattr(self, "pad_lands", None) or {})
                             self.pad_lands[f"{dmap}|{_wk}"] = {
-                                "map": _smap, "at": f"{_bp.get('x')},{_bp.get('y')}"}
+                                "map": _smap, "at": f"{_bp.get('x')},{_bp.get('y')}",
+                                # the parts the ride joins, for the router
+                                # (_edges_of), never for the ridden set
+                                "frm": dst, "to": src}
                             self._save_memory()
                         self.log("pad_arrival_not_reversed", frm=dst, via=_wk, to=src,
                                  opens_past=bool(_twin))
@@ -12029,6 +12032,22 @@ class Executor:
         for alias in AREA_ALIASES.get(region, ()):
             for k, v in (self.explored.get(alias) or {}).items():
                 out.setdefault(k, v)
+        # ...AND A PAD'S WAY BACK, FOR GETTING SOMEWHERE. A pad whose twin
+        # opens past seen ground is kept out of the walked graph so it still
+        # reads as unridden (run 19, Silph 5F; see note_transition), and so
+        # the router could not use it either: after Sabrina, Saffron Gym's
+        # first ride in (7,13 -(11,15)-> 14,13) had no way back on record and
+        # `go` said "the chain breaks inside SAFFRON_GYM" while the model
+        # pad-hopped out for ~10 rounds (run 70, 2026-11-02). Riding it back
+        # sets the party on the twin, which it walked onto from that part, so
+        # the part is reached; whatever else the twin opens onto stays
+        # unridden for exploration, which never reads this method.
+        for _pk, _pv in (getattr(self, "pad_lands", None) or {}).items():
+            if (isinstance(_pv, dict) and _pv.get("frm") == region
+                    and _pv.get("to") and "|" in str(_pk)):
+                out.setdefault(str(_pk).split("|", 1)[1],
+                               {"n": 0, "to": _pv["to"], "inferred": True,
+                                "pad_land": True})
         # ...AND THE OTHER NAMES OF THIS SAME PLACE (see _same_place)
         _map = str(region).split("|")[0]
         for _r3 in list((self.explored or {}).keys()):

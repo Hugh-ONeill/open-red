@@ -56,7 +56,10 @@ x._note_arrival("SILPH_CO_5F|20,0", "SILPH_CO_9F|14,0",
 ck("the twin opens onto seen, unreached ground: no way back in the walked graph",
    "17,15" not in x.explored.get("SILPH_CO_9F|14,0", {}), x.explored)
 ck("...where it sets you down is kept", x.pad_lands.get("SILPH_CO_9F|17,15")
-   == {"map": "SILPH_CO_5F", "at": "9,15"}, getattr(x, "pad_lands", None))
+   == {"map": "SILPH_CO_5F", "at": "9,15",
+       # ...with the parts the ride joins, for the router only (run 70)
+       "frm": "SILPH_CO_9F|14,0", "to": "SILPH_CO_5F|20,0"},
+   getattr(x, "pad_lands", None))
 ck("...and logged", any(k == "pad_arrival_not_reversed" for k, _ in x.logged))
 x.map_doors = {"SILPH_CO_9F": ["17,15", "14,0"]}
 x.warp_looks = {"SILPH_CO_9F": {"17,15": "pad", "14,0": "stairs_up"}}
