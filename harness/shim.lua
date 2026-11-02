@@ -7599,6 +7599,25 @@ function OPS.use_warp(G, c)
   -- walk got there; the door said no. Say which.
   local _wsaid = tostring(last_text or "")
   if tostring(walk_why or ""):find("script", 1, true) and _wsaid ~= "" then
+    -- ...UNLESS IT IS STILL TALKING OR ASKING. The Safari Zone's worker
+    -- stops the walk at the gate's mat and asks whether to pay to join;
+    -- this quoted the first box, "Welcome to the SAFARI ZONE!", and said
+    -- coming back would not change the answer, and the model wondered if
+    -- HM03 had opened the way (run 70, 2026-11-02). A question still open
+    -- is the answer not yet given.
+    -- (ui_is_choice / ui_top are locals defined below this op; same test)
+    local _t = G.stack and G.stack:top()
+    if _t ~= nil and _t.index ~= nil and _t.items == nil and not _t.prizes then
+      return false, "you reached the door and were stopped — the game "
+        .. "said: \"" .. _wsaid .. "\" and is ASKING you something now: a "
+        .. "yes/no box is open. The answer you give is what decides it "
+        .. "({\"op\":\"menu\",\"index\":1} is the top choice)."
+    end
+    if _t and _t.pages then
+      return false, "you reached the door and were stopped — the game "
+        .. "said: \"" .. _wsaid .. "\" and is still talking: a box is up. "
+        .. "What it says next is part of the answer."
+    end
     return false, "you reached the door and it refused to open — the game "
       .. "said: \"" .. _wsaid .. "\". You stood on the mat; walking "
       .. "somewhere else and coming back will not change the answer."
