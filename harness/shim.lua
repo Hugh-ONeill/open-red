@@ -10829,27 +10829,45 @@ function OPS.slots(G, c)
   end
   local spins = math.max(1, math.min(20, math.floor(tonumber(c.spins) or 1)))
   local coins0 = (G.save and G.save.coins) or 0
-  local faced
+  -- EVERY SIDE, until one answers. Pressed from below, SLOT_MACHINE_24
+  -- brings up nothing; from its east side it speaks (run 70 probe,
+  -- 2026-11-02), and the op used to try the first side it reached and
+  -- report that the machine "did not offer a game".
+  local faced, tried, _seq0 = nil, {}, text_seq
   for _, s in ipairs({ { mach.x, mach.y + 1, "up" }, { mach.x - 1, mach.y, "right" },
                        { mach.x + 1, mach.y, "left" }, { mach.x, mach.y - 1, "down" } }) do
     if p.cellX ~= s[1] or p.cellY ~= s[2] then
       OPS.walk_to(G, { x = s[1], y = s[2], max_steps = 200,
                        thaw = c.thaw, blind = c.blind })
     end
-    if p.cellX == s[1] and p.cellY == s[2] then faced = s[3] break end
+    if p.cellX == s[1] and p.cellY == s[2] then
+      faced = s[3]
+      U.tap(G, faced); U.wait(6)
+      _seq0 = text_seq
+      U.tap(G, "a"); U.wait(10)
+      for _ = 1, 12 do
+        if ui_is_choice(G) then break end
+        local t = ui_top(G)
+        if not (t and t.pages) then break end
+        U.tap(G, "a"); U.wait(8)
+      end
+      if ui_is_choice(G) or text_seq ~= _seq0 then break end
+      tried[#tried + 1] = ("(%d,%d) facing %s"):format(s[1], s[2], faced)
+    end
   end
   if not faced then
     return false, "couldn't reach a cell beside " .. mach.name
   end
-  U.tap(G, faced); U.wait(6)
-  U.tap(G, "a"); U.wait(10)
-  for _ = 1, 12 do
-    if ui_is_choice(G) then break end
-    local t = ui_top(G)
-    if not (t and t.pages) then break end
-    U.tap(G, "a"); U.wait(8)
-  end
   if not ui_is_choice(G) then
+    -- last_text outlives the box that printed it, so a press that brought
+    -- up nothing reported the line before it as the machine's: run 70
+    -- (2026-11-02) read four Game Corner machines as saying the Safari
+    -- gate worker's "Hi! Is it your first time here?".
+    if text_seq == _seq0 then
+      ui_back_out(G)
+      return false, ("%s did not offer a game — pressing it brought up "
+        .. "nothing from %s"):format(mach.name, table.concat(tried, ", "))
+    end
     local said = tostring(last_text or "")
     ui_back_out(G)
     return false, ("%s did not offer a game — it said: \"%s\"")
