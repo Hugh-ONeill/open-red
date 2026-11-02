@@ -30,7 +30,8 @@ ck("a room with no seen ground ending anywhere is not said to have a rest never 
    "Nothing you have seen of {want} lies outside that" in src
    and "so explore finds no way on" not in src)
 ck("...while a map with unseen ground beyond the walked part still says so",
-   'never STOOD ON, and {_fr_here} spot(s) where that' in src)
+   'never STOOD ON, {_reach}' in src
+   and 'and {_fr_here} spot(s) where that seen ground' in src)
 i = src.index("if _fr_here == 0:\n                _choice_note = (")
 ck("the two wordings are chosen by whether any seen ground ends", i > 0
    and src.index("Nothing you have seen of {want} lies outside", i) < src.index("The rest of {want} is ground you have SEEN but", i))

@@ -4570,18 +4570,33 @@ class Executor:
                 # "the part you are standing in" from SILPH_CO_5F after a go
                 # to the Pokemon Center fell short, run 66, 2026-10-25)
             else:
+                # ...AND THE PART'S OWN VERDICT, NOT THE MAP'S COUNT. map_seen
+                # is the pocket rule, kept positive while the map has unseen
+                # ground anywhere; Celadon Mansion's roof page said
+                # EVERYTHING YOU CAN REACH HERE IS DONE while this said "1
+                # spot(s) ... can be reached" of the same part (run 70,
+                # 2026-11-02). _unseen_there is the one relation for both.
+                try:
+                    _uv = self._unseen_there(best[0])[1]
+                except Exception:
+                    _uv = ""
+                _reach = (f"and when you stood in {best[0]} none of the "
+                          f"places where that seen ground ends could be "
+                          f"reached from it, and nothing has changed since"
+                          if _uv == "done" else
+                          f"and {_fr_here} spot(s) where that seen ground "
+                          f"ends can be reached from the part you have "
+                          f"walked")
                 _choice_note = (
                     f"go: {best[0]} is the ONLY part of {want} you have "
                     f"walked, and every way out of it that you have recorded "
                     f"leads back "
                     + (f"to {', '.join(_outs)}" if _outs else "nowhere")
                     + f". The rest of {want} is ground you have SEEN but "
-                      f"never STOOD ON, and {_fr_here} spot(s) where that "
-                      f"seen ground ends can be reached from the part you "
-                      f"have walked. How the rest of {want} is entered is "
-                      f"not recorded — it may be another cell of the edge "
-                      f"you crossed to get here, and it may be another map "
-                      f"entirely.")
+                      f"never STOOD ON, {_reach}. How the rest of {want} is "
+                      f"entered is not recorded — it may be another cell of "
+                      f"the edge you crossed to get here, and it "
+                      f"may be another map entirely.")
         if not best:
             _rc = self._ride_chance(here, targets)
             if _rc:

@@ -100,7 +100,7 @@ if ways("ROUTE_12|0,61") >= 3:
 # --- and the single-part dead end, which no ranking can help ---
 j = src.find("AND WHEN THERE IS ONLY ONE PART, AND IT IS A DEAD END")
 ck("a lone dead-end part is called out", j > 0)
-dblk = src[j:j + 4800]   # two wordings since 2026-09-07
+dblk = src[j:j + 6400]   # two wordings since 2026-09-07; three verdicts since 2026-11-02
 # the comment quotes the phrasing it forbids; test the code only
 _dsaid = "\n".join(l for l in dblk.splitlines()
                    if not l.lstrip().startswith("#"))
