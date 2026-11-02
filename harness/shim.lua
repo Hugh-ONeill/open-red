@@ -13643,7 +13643,12 @@ function OPS.interact(G, c)
         -- verify something opened: a distance-2 press with no counter
         -- between hits empty air and must not count as an interaction
         if G.stack:top() ~= ow then return true end
-        if math.abs(a[1] - tx) + math.abs(a[2] - ty) == 1 then
+        -- ...A THING THAT STAYS PUT, NOT A PERSON WHO WALKS. Pallet's
+        -- PALLETTOWN_GIRL wanders: two presses met empty floor where she had
+        -- just been, the op said "pressed it ... and nothing came up", and
+        -- that counted her as touched though nobody spoke to her (run 71,
+        -- 2026-11-02). A person who moved is not a press that got nothing.
+        if not npc_named and math.abs(a[1] - tx) + math.abs(a[2] - ty) == 1 then
           local k = ("(%d,%d) facing %s"):format(a[1], a[2], a[3])
           local dup = false
           for _, v in ipairs(pressed_empty) do if v == k then dup = true end end
