@@ -624,6 +624,28 @@ def _left_parts(ex, region: str) -> list:
     return parts
 
 
+def _lift_ride_words(ex, obs, car_mid=None) -> str:
+    """The elevator op as an example, with a floor THIS car's panel offers.
+
+    The example read {"floor":"5F"} and "(1F, 5F, B4F, ROOF)" on every
+    lift, and the Rocket Hideout's panel has B1F, B2F, B4F: run 70 hunted a
+    hideout 5th floor for the Secret Key across two legs, quoting that
+    list back as the panel's (2026-11-02). The floors come from the panel
+    as it was read (learned by pressing, never read ahead); unread, the
+    example names no floor.
+    """
+    mid = car_mid or str(((obs or {}).get("map") or {}).get("id") or "")
+    floors = (((obs or {}).get("map") or {}).get("lift_floors")
+              if not car_mid else None) \
+        or (getattr(ex, "lift_floors", None) or {}).get(mid) or []
+    floors = [str(f.get("label") if isinstance(f, dict) else f) for f in floors]
+    floors = [f for f in floors if f and f.upper() != "CANCEL"]
+    if floors:
+        return ('{"op":"elevator","floor":"%s"} (the label as it reads on '
+                'the panel — this one read %s)' % (floors[0], ", ".join(floors)))
+    return ('{"op":"elevator","floor":"<a floor as the panel spells it>"}')
+
+
 def something_beyond(ex, dest: str, here: str | None = None):
     """The nearest region reachable THROUGH `dest` over walked edges that
     still has an untried exit or an unpressed thing — (region, legs, parts)
@@ -1168,8 +1190,9 @@ def build(ex, obs: dict, target: str = "", outcomes: dict | None = None,
         if str(walked or "").split("|")[0].endswith("_ELEVATOR"):
             c.note = _join(c.note,
                            "this door is a LIFT CAR — you do not have to "
-                           "walk in and out of it: {\"op\":\"elevator\","
-                           "\"floor\":\"5F\"} from where you stand rides "
+                           "walk in and out of it: "
+                           + _lift_ride_words(ex, obs, str(walked).split("|")[0])
+                           + " from where you stand rides "
                            "it door to door and leaves you on that floor")
         if in_car:
             # INSIDE A CAR EVERY DOOR IS THE SAME DOOR: the exit warps are
@@ -3414,8 +3437,7 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
     if _car:
         head += (". THIS IS A LIFT CAR: the panel on the wall lists the "
                  "floors this lift serves, and riding is "
-                 "{\"op\":\"elevator\",\"floor\":\"5F\"} (the label as "
-                 "it reads on the panel — 1F, 5F, B4F, ROOF). The door here "
+                 + _lift_ride_words(ex, obs) + ". The door here "
                  "is one doorway; where it opens depends on the floor you "
                  "rode to, so this car is never finished with")
     elif unreached_ways(cands):
