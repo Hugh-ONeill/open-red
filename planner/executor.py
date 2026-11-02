@@ -29583,7 +29583,23 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
                         if o.get("toggle")}
                 _lever = [n for n in live if _tog.get(str(n))]
                 _open = [n for n in live if n not in _talk and n not in _lever]
-                if _lever:
+                # ...AND NOT "PRESS ONE" RIGHT AFTER ONE WAS PRESSED. Run 57's
+                # Mansion 2F rounds 9-16 pressed SWITCH_2F_2_11 every round,
+                # and this line, printed after that press, still said "Press
+                # one and look" (2026-10-21). Say it was pressed this round
+                # and where the setting stands now.
+                _pressed_lv = [str(st.get("name")) for st in (clean or [])
+                               if isinstance(st, dict) and st.get("op") == "interact"
+                               and _tog.get(str(st.get("name")))]
+                if _lever and _pressed_lv:
+                    _set = _tog.get(_pressed_lv[-1]) or "?"
+                    trace.append(
+                        f"A LEVER IS WITHIN REACH HERE: you pressed "
+                        f"{_pressed_lv[-1]} this round, and the setting every "
+                        f"switch statue in this building shares is {_set} "
+                        f"now. Pressing one again flips it straight back, "
+                        f"with you standing at the one you press.")
+                elif _lever:
                     _set = _tog.get(str(_lever[0])) or "?"
                     trace.append(
                         f"A LEVER IS WITHIN REACH HERE: "
