@@ -22,3 +22,9 @@ plans/outline.done.[0-9]*
 plans/candidates/
 plans/archive-*/
 plans/legs.*/
+# Outline snapshots the authoring and undo paths leave beside the outline,
+# the executor's running name tally, and the scratch dir.
+plans/outline.authored.*
+plans/outline.txt.[0-9]*
+plans/names_used
+tmp/
