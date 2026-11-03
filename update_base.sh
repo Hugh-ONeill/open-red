@@ -16,7 +16,7 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 BASE="$HOME/Developer/gen1recomp"
-ROM="${RED_ROM:-$HOME/Downloads/Pokemon - Red Version (USA, Europe).gb}"
+ROM="${RED_ROM:-$HOME/Documents/Games/roms/Pokemon - Red Version (USA, Europe).gb}"
 UPSTREAM="${RED_BASE_UPSTREAM:-origin/dev}"
 
 if pgrep -f "^bash ./fresh_discovery.sh|^bash ./campaign.sh|planner/executor.py --bootstrap" >/dev/null; then
