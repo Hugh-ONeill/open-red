@@ -4756,6 +4756,80 @@ def _objective_words(goal) -> set:
             if w not in _OBJECTIVE_STOP}
 
 
+def level_record_text(log: Path, cap_rows: int = 14) -> str:
+    """THE PARTY'S LEVELS AGAINST THE TRAINERS IT HAS FOUGHT, from this run's
+    own fight recaps: where each fight was, its strongest Pokemon's level,
+    won or lost, and the party's levels at the time, then the party now.
+
+    Run 71's outline asked for levels once, "every party member is at least
+    level 50" before the Plateau, so the train rule never ran in nine hours
+    (0 train events) and PIKACHU and PIDGEY were still L8 at Erika's L29
+    VICTREEBEL beside a L39 GRAVELER; the outline that had played well had a
+    level leg every few badges (user, 2026-11-03: "part of what made that one
+    outline with the mistakes good was that it had regular leveling legs").
+    Nothing an author was shown set the party's levels beside the levels it
+    was meeting. Its own fights, read back; what level to aim for, and when,
+    stays the model's."""
+    rows = []
+    try:
+        with open(log) as fh:
+            for line in fh:
+                if '"fight_recap"' not in line:
+                    continue
+                try:
+                    r = json.loads(line)
+                except ValueError:
+                    continue
+                if r.get("kind") == "fight_recap":
+                    rows.append(r)
+    except OSError:
+        return ""
+
+    def _lv(s):
+        m = re.search(r"\bL(\d+)\b", str(s))
+        return int(m.group(1)) if m else None
+
+    out = []
+    for r in rows:
+        foes = [f for f in (r.get("foes") or []) if _lv(f) is not None]
+        party = [p for p in (r.get("party") or []) if _lv(p) is not None]
+        if not foes or not party:
+            continue
+        top = max(foes, key=_lv)
+        out.append((r, top, party))
+    if not out:
+        return ""
+    # every loss, the LAST fight in each gym (the one its leader's comes
+    # at, not the trainers before it: Celadon's six filled the list and
+    # Brock fell off the front), and the latest few, oldest first
+    _gym_last = {}
+    for i, (r, _, _) in enumerate(out):
+        if str(r.get("where") or "").endswith("_GYM"):
+            _gym_last[str(r.get("where"))] = i
+    keep = {i for i, (r, _, _) in enumerate(out) if r.get("lost")}
+    keep |= set(_gym_last.values())
+    keep |= set(range(max(0, len(out) - 4), len(out)))
+    idx = sorted(keep)[-cap_rows:]
+    lines = []
+    for i in idx:
+        r, top, party = out[i]
+        lvs = [_lv(p) for p in party]
+        lines.append(
+            f"  {r.get('who') or 'a trainer'} at {r.get('where') or '?'} "
+            f"({'LOST' if r.get('lost') else 'won'}): strongest sent out "
+            f"{top}; your party then: {', '.join(party)} "
+            f"(highest L{max(lvs)}, lowest L{min(lvs)})")
+    _last = out[-1][2]
+    return ("\n\nYOUR LEVELS AGAINST THE TRAINERS YOU HAVE FOUGHT, from this "
+            "run's own fights, oldest first: every loss, the last fight in each "
+            f"gym, and the latest ({len(lines)} of {len(out)} fights). A Pokemon gains "
+            "levels by fighting (or by a RARE CANDY), and a fight's "
+            "experience goes only to the party members that took part in "
+            "it:\n"
+            + "\n".join(lines)
+            + f"\nYOUR PARTY AT THE LAST OF THESE: {', '.join(_last)}")
+
+
 def observed_text(path: Path) -> str:
     """What earlier runs actually WALKED, as evidence for the audit.
 
@@ -5450,6 +5524,7 @@ def observed_text(path: Path) -> str:
                     "claimed about them:\n" + "\n".join(_rows[:10]))
     out += prize_lists_text(path)
     out += wild_met_text(d)
+    out += level_record_text(Path(path).parent / "executor_log.jsonl")
     # Nearness = the maps the run has spent the most time in, which is
     # where it is and where it keeps returning. Mechanical, not a judgment
     # about what matters.
@@ -8216,6 +8291,9 @@ def _outline_upkeep_once(goal: str, legs: list, model: str,
     """
     body = (f"THE GOAL: {goal}\n\nTHE OUTLINE YOU WROTE:\n"
             + "\n".join(f"  {i}. {leg}" for i, leg in enumerate(legs, 1)))
+    # ...AND, MID-RUN, THE LEVELS IT HAS BEEN MEETING (level_record_text):
+    # empty on a fresh world, the run's own fights once there are some.
+    body += level_record_text(_RunPath("executor_log.jsonl"))
     try:
         reply = brock_probe.chat(
             [{"role": "system", "content": OUTLINE_UPKEEP_SYS},
