@@ -4994,7 +4994,17 @@ class Executor:
             # at all, and the dry_walks ledger stayed empty the whole time
             # (2026-09-13, user: "otherwise itll go to the blocker and not
             # explore anywhere else").
-            self._count_dry_walk(self._where(obs), tr)
+            # A SWEEP THE PARTY GUARD REFUSED LOOKED AT NOTHING. It took no
+            # step, so its "0 cell(s) newly on screen" says the party was
+            # spent, not that the floor is: Pokemon Tower 7F's two sweeps
+            # after the Rocket fights stopped at "your party is nearly out",
+            # counted dry, and after the heal explore called the floor
+            # worked and walked the run two floors down past the unseen
+            # ground Mr. Fuji stands on (run 71, 2026-11-03). Neither tally
+            # moves on a refusal.
+            _refused = "a sweep does not walk" in " ".join(str(t) for t in tr)
+            if not _refused:
+                self._count_dry_walk(self._where(obs), tr)
             # ...and the consecutive count this gate reads, kept here
             # because this is the only place a LOCAL sweep's own result is
             # in hand: it showed something, or it did not.
@@ -5005,7 +5015,9 @@ class Executor:
                 if _sd is None:
                     _sd = self._sweep_dry = {}
                 _k = str(_reg_here)
-                if _new and int(_new.group(1)) == 0:
+                if _refused:
+                    pass
+                elif _new and int(_new.group(1)) == 0:
                     _sd[_k] = int(_sd.get(_k, 0) or 0) + 1
                     self.log("sweep_dry", region=_k, n=_sd[_k],
                              before_other=self.SWEEPS_DRY_BEFORE_OTHER)
