@@ -13666,6 +13666,13 @@ class Executor:
                             continue
                     except (TypeError, ValueError):
                         pass
+                # ...AND THE POKEDEX IS A FLAG. Gen 1's item list names it,
+                # but Oak's gift is EVENT_GOT_POKEDEX and never a bag row, so
+                # "now that I have the Pokedex" read back as "the bag holds no
+                # POKEDEX" every round after the parcel (run 71, 2026-11-02).
+                if nm == "POKEDEX" and "EVENT_GOT_POKEDEX" in set(
+                        (obs or {}).get("flags") or []):
+                    continue
                 out.append(nm)
         if not out:
             return ""
