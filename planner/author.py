@@ -8209,6 +8209,40 @@ before everything). Say what each is for before you keep it: a party
 objective that serves nothing you can name is not missing."""
 
 
+# the one kind the levels question may add
+_LEVEL_SHAPE = re.compile(r"^\s*every party member is at least level \d+\s*$", re.I)
+
+OUTLINE_LEVELS_SYS = """You wrote a Pokemon Red playthrough outline, and a
+second pass added what your PARTY has to become along the way. This
+question is about ONE thing a list like this leaves out most often: LEVELS.
+
+A Pokemon gains levels only by fighting (or by a RARE CANDY), and a fight's
+experience goes only to the party members that took part in it. This list
+is worked through IN ORDER, one objective at a time, and nothing is trained
+in the background: a level the list never asks for is a level the party
+does not have when it gets there. The trainers ahead grow stronger as the
+game goes on; how strong, and where, is yours to judge.
+
+Read your list back and say what level EVERY member of the party should
+have reached, and BEFORE WHICH objective, as many times through the game as
+you judge the party needs. Each one is written exactly as a state:
+  - every party member is at least level N
+
+Rules:
+- You may only ADD. Nothing already on the list may be reworded, moved or
+  removed.
+- Add only levels. Types, moves, catches and items are another question.
+- Put each one BEFORE the objective it is for, not at the end.
+- A level the list already asks for, in any wording, is not missing.
+- If the list already asks for every level you judge it needs, reply with
+  an empty array. That is a real answer.
+
+Reply with ONLY a JSON array; each element is
+{"item": "every party member is at least level N", "after": N, "for": "<the
+objective it is for, in a few words>"} where N is the outline position it
+must come after (0 = before everything)."""
+
+
 def _outline_upkeep(goal: str, legs: list, model: str,
                     cap: int = 20, rounds: int = 3) -> list:
     """Repeat the question until it stops finding anything.
@@ -8241,6 +8275,17 @@ def _outline_upkeep(goal: str, legs: list, model: str,
         if gained <= 0 or budget <= 0:
             break
         print(f"[upkeep] round {r + 1} added {gained}; asking again")
+    # ...AND THE LEVELS, ASKED ON THEIR OWN. Asked beside types, moves and
+    # catches, the model wrote a level curve in about one draw in three
+    # (27 candidate outlines 2026-09-23..11-02: nine with a curve of
+    # level legs, the rest one level leg near the end); run 71 played
+    # one of the others, its train rule never ran, and two members were L8
+    # at Erika (user, 2026-11-03: "part of what made that one outline with
+    # the mistakes good was that it had regular leveling legs"). Same
+    # add-only round, one question, levels only; every number and every
+    # place stays the model's.
+    out = _outline_upkeep_once(goal, out, model, cap=10,
+                               system=OUTLINE_LEVELS_SYS, only=_LEVEL_SHAPE)
     # WHICH LEGS ARE UPKEEP, kept beside the outline rather than baked into
     # the objective text: a plan is addressed by its objective's WORDING,
     # so decorating the line would orphan every plan written for it. Same
@@ -8269,7 +8314,8 @@ _UPKEEP_SHAPE = re.compile(r"^\s*(a party pokemon knows|the party holds|"
 
 
 def _outline_upkeep_once(goal: str, legs: list, model: str,
-                         cap: int = 12) -> list:
+                         cap: int = 12, system: str | None = None,
+                         only=None) -> list:
     """Ask the outline what it takes for granted, and let it add.
 
     Measured, not assumed: a run that plans only story beats plays the
@@ -8296,7 +8342,7 @@ def _outline_upkeep_once(goal: str, legs: list, model: str,
     body += level_record_text(_RunPath("executor_log.jsonl"))
     try:
         reply = brock_probe.chat(
-            [{"role": "system", "content": OUTLINE_UPKEEP_SYS},
+            [{"role": "system", "content": system or OUTLINE_UPKEEP_SYS},
              {"role": "user", "content": body}], model)
         m = re.search(r"\[.*\]", reply, re.S)
         if not m:
@@ -8319,6 +8365,12 @@ def _outline_upkeep_once(goal: str, legs: list, model: str,
             continue
         item = str(a.get("item") or "").strip()
         if not item:
+            continue
+        if only is not None and not only.match(item):
+            print(f"[upkeep] not this question's kind, dropped: {item!r}")
+            continue
+        if item in result:
+            print(f"[upkeep] already on the list: {item!r}")
             continue
         _for = " ".join(str(a.get("for") or "").split())[:160]
         # ALREADY THERE IN OTHER WORDS. The same test the done-ledger uses
