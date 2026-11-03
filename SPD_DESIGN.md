@@ -1,6 +1,6 @@
 # SPD architecture — Scripted Policy Distillation for Red (sketch v0)
 
-Design sketch, 2026-08-10. Companion to `~/Documents/red-recomp-project/
+Design sketch, 2026-08-10. Companion to `~/Documents/projects/red-recomp-project/
 CLAIM_RULES_v1.md` (the model-claim + the "model authors / executor runs / RL
 refines / fallback declared" structure) and `project_red_recomp_campaign`.
 
