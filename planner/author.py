@@ -9550,6 +9550,17 @@ def _through_by_record(goal: str, observed=None) -> str | None:
     Nothing here says where a place SHOULD come out — only that this one
     has been left by two different ways."""
     got = _through_place_mouths(goal, observed, exit_too=True)
+    # ...AND "CLEAR", ON THIS SIDE ONLY. "Clear Mt. Moon" ended in Cerulean
+    # City with the far mouth walked (MT_MOON_B1F --(27,3)--> ROUTE_4|36,2
+    # beside MT_MOON_1F --(14,35)--> ROUTE_4|4,4); the judge's "only
+    # possible after exiting Mt. Moon" was refused as one fact reasoned
+    # from another, and the leg was walked again from the mountain's door
+    # (run 72, 2026-11-03). Two mouths used is a crossing whatever the verb.
+    # Not on _not_through_yet's side: "Clear the Pokemon Tower" is cleared
+    # of its trainers through its one door, and one mouth would refuse it
+    # for ever; a one-door place never shows two mouths here.
+    if not got and _re.search(r"\bclear(?:s|ed|ing)?\b", str(goal or ""), _re.I):
+        got = _through_place_mouths(f"{goal} through", observed)
     if not got:
         return None
     fam, out = got
