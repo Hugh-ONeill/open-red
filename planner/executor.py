@@ -10547,6 +10547,21 @@ class Executor:
             e = node.setdefault(k, {"n": 0, "to": dst})
             e["n"] = int(e.get("n") or 0) + 1
             e["to"] = dst
+            # ...AND THE FLOOR'S DOOR INTO THE CAR IS THE ONE YOU CAME OUT
+            # OF. The ride sets you down off the doorway, so nothing names it
+            # as the way in: Rocket Hideout B4F's (24,15) read "-> UNKNOWN —
+            # never taken from here" a step after the car let the party out
+            # through it, and the model took it as a new door, rode back to
+            # B1F and left the floor it had come down to (run 71,
+            # 2026-11-03). The floor's warp into the car is a fixed door;
+            # only the car's own exits move.
+            _cmap = str(src).split("|")[0]
+            _back = self.explored.setdefault(dst, {})
+            for _w in (((after_obs or {}).get("map") or {}).get("warps") or []):
+                if (_w.get("dest") == _cmap and _w.get("x") is not None
+                        and _w.get("y") is not None):
+                    _back.setdefault(f"{_w['x']},{_w['y']}",
+                                     {"n": 0, "to": src, "inferred": True})
             self.log("elevator_exit", frm=src, to=dst, key=k)
             self._save_memory()
             return
