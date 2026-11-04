@@ -6932,6 +6932,42 @@ class Executor:
             except Exception:
                 continue
         undone.sort()
+        # ...BUT ONLY THE PLACES ON THE WAY BACK. Waking at the Cerulean
+        # Center from a wipe on the S.S. Anne put no earlier step back in
+        # force, so every place step from the first reopened and the plan
+        # regressed to exit_bills_house {map: ROUTE_25}: go walked Cerulean
+        # to Route 25 and back before heading south (run 71, 2026-11-02). A
+        # place step is walked again only when its map lies on the walked
+        # way from where the party woke to the last place step reopened;
+        # with no walked way known, every one stays (run 27's league rooms
+        # lie on the way to the room it lost in).
+        try:
+            _pl = [(i, n) for i, n in undone
+                   if not (set(sgs[i].get("done_when") or {}) - {"map", "area"})]
+            if len(_pl) >= 2:
+                _dw = sgs[_pl[-1][0]].get("done_when") or {}
+                _tm = str(_dw.get("area") or _dw.get("map") or "")
+                _here_r = self._where(o)
+                _cands = ([_tm] if "|" in _tm else
+                          [r for r in set(list(self.explored or {})
+                                          + list(getattr(self, "visits", None) or {}))
+                           if str(r).split("|")[0] == _tm])
+                _best = None
+                for _r in _cands:
+                    _p = self._route(_here_r, _r)
+                    if _p is not None and (_best is None or len(_p) < len(_best)):
+                        _best = _p
+                if _best is not None:
+                    _on = {str(mid)} | {str(n).split("|")[0] for _k, n in _best}
+                    _off = [(i, n) for i, n in _pl[:-1]
+                            if str((sgs[i].get("done_when") or {}).get("area")
+                                   or (sgs[i].get("done_when") or {}).get("map")
+                                   or "").split("|")[0] not in _on]
+                    if _off:
+                        undone = [u for u in undone if u not in _off]
+                        self.log("regress_off_route", skipped=[n for _, n in _off])
+        except Exception:
+            pass                    # a filter is never worth the wake-up
         if undone:
             self._wipe_note += (
                 " STEPS OF YOUR PLAN THAT HAD BEEN DONE ARE UNDONE — their "
