@@ -14813,6 +14813,17 @@ function OPS.sweep(G, c)
                 end
               end
             end
+            -- A DOORWAY WALLED RIGHT NOW SAYS SO. The Game Corner's stairs
+            -- to the hideout came into view as "a doorway at (17,4)", and the
+            -- next round's use_warp found it "a WALL right now" (closed until
+            -- the poster's switch): two true layers, and the first read as an
+            -- open door and cost a round (run 71, 2026-11-03). The same
+            -- live-grid test use_warp makes.
+            if ow.map and ow.map.isWalkableCell and not ow.map:isWalkableCell(x, y)
+               and not (ow.map.isWaterCell and ow.map:isWaterCell(x, y)) then
+              text = text .. " — WALLED right now: the game has this tile "
+                .. "blocked in the map's current state"
+            end
             out[#out + 1] = { kind = "door", x = x, y = y, text = text }
           end
         end
