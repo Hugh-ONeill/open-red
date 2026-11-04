@@ -4187,6 +4187,45 @@ class Executor:
                            f"field_move CUT said: {_why[:140]}")
         self._save_memory()
 
+    def _refute_walk(self, pre_obs, op: str, step: dict, note: str) -> None:
+        """A WALK FROM A PART WITH NOTHING LEFT TO SEE, REFUSED "NO PATH" TO A
+        CELL OF ANOTHER PART, IS THAT HOP REFUTED.
+
+        go's chain-break note told the run east of Route 4's ledges to walk
+        to the road's western parts, and every walk there (use_warp to the
+        Mt Moon doors at (18,5) and (24,5), filed under those parts) came back
+        "no path" from ground with nothing left unseen; nothing kept the
+        answer, so the note offered the same hop every round and the model
+        walked Cerulean and east Route 4 for hours (runs 71 and 72,
+        2026-11-02/04). "No path" over seen ground alone may be unseen ground
+        not yet looked at, so only a part whose seen ground ends nowhere
+        counts. The cell's part: a part is named by its first cell, and a
+        door is the part's it is filed under. The refusal goes where a
+        failed inferred hop goes (_bad_seam), which _route_gap does not
+        offer."""
+        if op not in ("walk_to", "use_warp") or "no path" not in str(note or ""):
+            return
+        m = (pre_obs or {}).get("map") or {}
+        if m.get("frontier"):
+            return
+        here = self._where(pre_obs)
+        mid = str(m.get("id") or "")
+        try:
+            x, y = int(step.get("x")), int(step.get("y"))
+        except (TypeError, ValueError):
+            return
+        cell = f"{x},{y}"
+        parts = [r for r in (self.explored or {}) if str(r).split("|")[0] == mid]
+        tgt = (f"{mid}|{cell}" if f"{mid}|{cell}" in parts else
+               next((r for r in parts if r != here
+                     and cell in ((self.explored or {}).get(r) or {})), None))
+        if not tgt or tgt == here or "|" not in str(here):
+            return
+        if (here, f"walk:{tgt}", tgt) not in self._bad_seam:
+            self._bad_seam.add((here, f"walk:{tgt}", tgt))
+            self.log("walk_refuted", frm=here, to=tgt, op=op, cell=cell)
+            self._save_memory()
+
     def _record_outcome(self, pre_obs, op: str, step: dict, note: str):
         """The outcome ledger: per (target|area) per key, how many times
         THIS subgoal did this thing here and what happened last, verbatim
@@ -4195,6 +4234,10 @@ class Executor:
         says "taken 4x — ok (map->ROUTE_1, crossed)" or "pressed 3x — the
         world did not change, but it SPOKE — it said: ...". A wiped-out op
         is recorded like any other: what happened is what happened."""
+        try:
+            self._refute_walk(pre_obs, op, step, note)
+        except Exception:
+            pass                    # a refutation is never worth the round
         if op == "field_move":
             self._note_cut_refused(pre_obs, step, note)
             return
@@ -4665,6 +4708,15 @@ class Executor:
                         _note_g += (f" From {_gb} the way on ({_gk} -> "
                                     f"{_ge.get('to')}){_sw}.")
                         break
+            _rg = getattr(self, "_route_gap_refuted", None)
+            if not _gap and _rg:
+                _rm, _ra, _rb = _rg
+                _note_g = (f" The chain breaks inside {_rm}: from here you can reach "
+                           f"its part {_ra}, and from its part {_rb} the rest of the "
+                           f"way to {want} is walked ground — and a walk from {_ra} "
+                           f"to {_rb} has been tried in this world state and did not "
+                           f"land, so on foot those two parts do not join that way "
+                           f"as things stand.")
             _note_m = ""
             try:
                 _note_m = self._printed_road_note(here, want, _gap)
@@ -12235,11 +12287,36 @@ class Executor:
                 return int(x), int(y)
             except (IndexError, ValueError):
                 return (0, 0)
+        # ...AND NOT A HOP A WALK HAS ALREADY TRIED. East of Route 4's ledges
+        # every go said "the chain breaks inside ROUTE_4 ... go to 63,10 then
+        # walk_to 36,2 is how they join", with that very walk refuted in the
+        # record (_bad_seam: 63,10 walk:36,2), and the model walked Cerulean
+        # and east Route 4 for hours, runs 71 and 72 alike (2026-11-02/04).
+        # A refuted pair is not offered; if it is the only one, the caller
+        # says it was tried (_route_gap_refuted).
+        self._route_gap_refuted = None
+        _bad = getattr(self, "_bad_seam", None) or set()
         for m, (a, b) in sorted(by_map.items()):
             # the place stood in to the place asked for is the question, not
             # where the record breaks
             pairs = [(x, y) for x in a for y in b
                      if (x, y) != (here, str(want))]
+            # ...and a part walked into and back out of the refused one is
+            # the same ground on foot: what one cannot walk to, neither can
+            # it (Route 9's middle and east, run 16's record)
+            def _both(p1, p2):
+                e1 = ((self.explored or {}).get(p1) or {}).get(f"walk:{p2}") or {}
+                e2 = ((self.explored or {}).get(p2) or {}).get(f"walk:{p1}") or {}
+                return (int(e1.get("n") or 0) > 0 and not e1.get("inferred")
+                        and int(e2.get("n") or 0) > 0 and not e2.get("inferred"))
+            _ref = [(x, y) for x, y in pairs
+                    if (x, f"walk:{y}", y) in _bad
+                    or any((x2, f"walk:{y}", y) in _bad and _both(x, x2)
+                           for x2 in a)]
+            if _ref and self._route_gap_refuted is None and not (a & b):
+                self._route_gap_refuted = (m,) + min(
+                    _ref, key=lambda t: abs(_xy(t[0])[0] - _xy(t[1])[0]) + abs(_xy(t[0])[1] - _xy(t[1])[1]))
+            pairs = [t for t in pairs if t not in _ref]
             if pairs and not (a & b):
                 # the two parts nearest each other: that is where the unwalked hop lies
                 pa, pb = min(pairs,

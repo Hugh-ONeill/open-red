@@ -45,8 +45,11 @@ ck("the middle-to-west walk back is inferred, so the chain holds",
 # ...and when the walk refutes it (a ledge going up), the break is named
 fake._bad_seam = {("ROUTE_9|6,2", "walk:ROUTE_9|0,8", "ROUTE_9|0,8")}
 gap = E.Executor._route_gap(fake, "CELADON_CITY|2,1", "VERMILION_CITY")
+# (since run 72, 2026-11-04, a refuted hop is named as tried, not offered
+# again as a join: _route_gap_refuted, read by go's note)
 ck("the break is found on Route 9, between the middle part and the west end",
-   gap == ("ROUTE_9", "ROUTE_9|6,2", "ROUTE_9|0,8"), gap)
+   gap is None and getattr(fake, "_route_gap_refuted", None)
+   == ("ROUTE_9", "ROUTE_9|6,2", "ROUTE_9|0,8"), (gap, getattr(fake, "_route_gap_refuted", None)))
 explored["ROUTE_9|6,2"]["walk:ROUTE_9|0,8"] = {"to": "ROUTE_9|0,8", "n": 1}
 ck("once that walk is made, there is no gap", E.Executor._route_gap(fake, "CELADON_CITY|2,1", "VERMILION_CITY") is None)
 ck("the go refusal carries the note with the two ops that would join the parts",
