@@ -17028,6 +17028,77 @@ class Executor:
                 + "; ".join(f"{it} (leg {pos}: \"{leg}\")" for it, pos, leg in hits)
                 + ".")
 
+    def _why_still_false(self, done, obs) -> str:
+        """For each condition of DONE_WHEN that does not hold, what it asks
+        beside what the observation shows now, one clause each; "" when all
+        hold. Facts off the screen and the save, nothing about how to make
+        it true. Only new_map_from, not_maps and player_at had words; the
+        rest were bare JSON (user, 2026-11-04: say why for every kind)."""
+        if not isinstance(done, dict) or not obs:
+            return ""
+        party = [m for m in (obs.get("party") or []) if isinstance(m, dict)]
+        bag = obs.get("bag") or {}
+        lv = ", ".join(f"{m.get('species')} L{m.get('level')}" for m in party) or "no Pokemon"
+        out = []
+        for k, v in done.items():
+            try:
+                if pred_holds({k: v}, obs):
+                    continue
+            except Exception:
+                continue
+            if k == "any_of":
+                f = "none of its alternatives holds"
+            elif k in ("map", "area", "not_area", "new_part", "new_map_from",
+                       "not_maps", "player_at"):
+                p = obs.get("player") or {}
+                f = (f"you stand on {self._where(obs)} at "
+                     f"({p.get('x')},{p.get('y')})")
+            elif k in ("mode", "no_battle"):
+                f = f"the screen is in mode {obs.get('mode')}"
+            elif k == "screen":
+                f = f"the screen on top is {((obs.get('ui') or {}).get('screenId'))}"
+            elif k == "hall_of_fame":
+                f = f"the Hall of Fame count is {int(obs.get('hall_of_fame') or 0)}"
+            elif k in ("party_nonempty", "party_alive", "party_healthy"):
+                f = ("party HP: " + ", ".join(
+                    f"{m.get('species')} {m.get('hp')}/{m.get('max_hp')}" for m in party)
+                    if party else "the party is empty")
+            elif k in ("lead_level", "party_min_level", "slot_level"):
+                f = f"party levels: {lv}"
+            elif k in ("has_species", "party_fully_evolved", "party_size"):
+                f = (f"the party holds {len(party)}: "
+                     + (", ".join(str(m.get('species')) for m in party) or "none"))
+            elif k == "party_type":
+                f = "party types: " + (", ".join(
+                    f"{m.get('species')} {'/'.join(m.get('types') or [])}" for m in party) or "none")
+            elif k == "dex_owned":
+                f = f"the Pokedex owns {int(((obs.get('pokedex') or {}).get('owned')) or 0)}"
+            elif k in ("has_item", "lacks_item", "bag_kinds_below"):
+                want = v if isinstance(v, dict) else {}
+                held = "; ".join(f"{it} x{int(bag.get(it) or 0)}" for it in want) if want else ""
+                f = (f"the bag holds {held}" if held else
+                     f"the bag holds {len(bag)} kind(s)")
+            elif k == "knows_move":
+                f = "moves known: " + ("; ".join(
+                    f"{m.get('species')} " + "/".join(str(x.get('id')) for x in (m.get('moves') or [])
+                                                      if isinstance(x, dict))
+                    for m in party) or "none")
+            elif k == "pc_holds":
+                f = (f"the PC holds items {obs.get('pc_items') or {}} and "
+                     f"{len(obs.get('pc_mons') or [])} Pokemon")
+            elif k == "badge":
+                f = "badges held: " + (", ".join(obs.get("badges") or []) or "none")
+            elif k == "flag":
+                f = "that event has not fired"
+            elif k == "spoke_to":
+                f = "no press of that name has counted toward it yet"
+            else:
+                f = "it does not hold yet"
+            out.append(f"{k} {pred_text.dumps(v)}: {f}")
+        if not out:
+            return ""
+        return "\nNOT YET TRUE: " + "; ".join(out) + "."
+
     def _type_legs_ahead(self, obs) -> str:
         """The outline's legs still ahead that a party member answers by
         type or species (the starter question's list), or ""."""
@@ -28918,6 +28989,7 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # 0 and "is not" every time (run 53, 2026-10-12: SILPH_CO_11F
             # "0 already set" with its TRAINER_1 beaten).
             user = (f"SUBGOAL: {goal}\nDONE_WHEN: {pred_text.dumps(done)}"
+                    f"{self._why_still_false(done, start)}"
                     f"{self._area_ids_note(done, obs)}"
                     f"{self._player_at_off_map_note(done, obs)}"
                     f"{self._words_vs_condition(goal, done, start)}"
