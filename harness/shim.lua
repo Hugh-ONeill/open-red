@@ -14820,7 +14820,7 @@ function OPS.sweep(G, c)
             -- open door and cost a round (run 71, 2026-11-03). The same
             -- live-grid test use_warp makes.
             if ow.map and ow.map.isWalkableCell and not ow.map:isWalkableCell(x, y)
-               and not (ow.map.isWaterCell and ow.map:isWaterCell(x, y)) then
+               and not real_water(G, ow.map, x, y) then
               text = text .. " — WALLED right now: the game has this tile "
                 .. "blocked in the map's current state"
             end
