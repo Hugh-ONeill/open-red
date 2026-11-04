@@ -6658,6 +6658,46 @@ class Executor:
         shut = self._sealed(region)
         left = [e for e in (self.frontier.get(region) or [])
                 if e not in done and e not in shut]
+        # ...AND NOT THE DOOR YOU CAME IN BY. Every crossing keeps the tile
+        # it set the party down on (`land`); a door at that tile, from the
+        # inside, is the way back. Cerulean's Badge House was walked into
+        # through its north door from the city's west part, and explore then
+        # walked the run there for "1 exit(s) never taken": that door (run
+        # 71, 2026-11-02). A pad is not this: its ride back can set you down
+        # elsewhere (Silph 9F), so a pad's landing stays untried.
+        _mid = str(region).split("|")[0]
+        _looks = (getattr(self, "warp_looks", None) or {}).get(_mid) or {}
+        _pads = {str(k).split("|", 1)[1] for k in (getattr(self, "pad_lands", None) or {})
+                 if str(k).split("|")[0] == _mid and "|" in str(k)}
+        _dd = (getattr(self, "door_dests", {}) or {}).get(_mid) or {}
+
+        def _came_in_by(e):
+            # the tile landed on, or the door one step from it whose recorded
+            # destination is the map the walk came from (ledger._came_in_by)
+            try:
+                ex_, ey_ = (int(v) for v in str(e).split(","))
+            except (TypeError, ValueError):
+                return False
+            for r2, es in (self.explored or {}).items():
+                if r2 == region:
+                    continue
+                for e2 in (es or {}).values():
+                    if not (isinstance(e2, dict) and e2.get("to") == region
+                            and e2.get("land")):
+                        continue
+                    try:
+                        lx, ly = (int(v) for v in str(e2["land"]).split(","))
+                    except (TypeError, ValueError):
+                        continue
+                    if (lx, ly) == (ex_, ey_) or (
+                            abs(lx - ex_) + abs(ly - ey_) <= 1
+                            and str(_dd.get(e) or "") in (str(r2).split("|")[0],
+                                                          "LAST_MAP")):
+                        return True
+            return False
+
+        left = [e for e in left
+                if not (_looks.get(e) != "pad" and e not in _pads and _came_in_by(e))]
         # ONE DOORWAY, ONE ENTRY — the same grouping every reader applies
         # (_door_groups; untried.py's law). A twin tile of a door already
         # walked is not an unopened way, and counting it kept "1 exit(s)
