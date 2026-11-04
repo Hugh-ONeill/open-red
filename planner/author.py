@@ -12345,11 +12345,33 @@ def maps_named(goal: str, map_ids) -> list:
         # (2026-09-02).
         return part in words or (part.endswith("S") and part[:-1] in words)
 
+    # ...AND WRITTEN TOGETHER. A set of words named any map whose parts
+    # appeared anywhere in the sentence: "reached Cerulean City, which
+    # constitutes clearing the cave" named CERULEAN_CAVE_1F, and the VOID
+    # rung refused a true reason as resting on ground never stood in (run
+    # 72, 2026-11-03). The parts must stand side by side, in order; a
+    # possessive's split-off S joins the word before it.
+    seq = re.sub(r"[^A-Z0-9]+", " ", goal.upper()).split()
+    joined = []
+    for w in seq:
+        if w == "S" and joined:
+            joined[-1] += "S"
+        else:
+            joined.append(w)
+
+    def _together(parts) -> bool:
+        for toks in (seq, joined):
+            for i in range(len(toks) - len(parts) + 1):
+                if all(toks[i + j] == p or (p.endswith("S") and toks[i + j] == p[:-1])
+                       for j, p in enumerate(parts)):
+                    return True
+        return False
+
     out = []
     for mid in sorted(set(map_ids)):
         parts = mid.split("_")
         k = min(2, len(parts))
-        if parts[:k] and all(_said(p) for p in parts[:k]):
+        if parts[:k] and all(_said(p) for p in parts[:k]) and _together(parts[:k]):
             out.append(mid)
     return out
 
