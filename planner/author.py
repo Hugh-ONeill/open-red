@@ -521,6 +521,10 @@ try:
 except (OSError, ValueError):
     MAP_EDGES = {}
 
+# The roads the same printed map draws as SEA (the booklet's World Map,
+# pp.4-5): crossed on the water, riding a Pokemon that knows SURF.
+PRINTED_SEA_ROUTES = frozenset({"ROUTE_19", "ROUTE_20", "ROUTE_21"})
+
 # The same printed map's LABELLED PLACES: which named cave, tunnel or
 # landmark each road has a door into (planner/gen_map_doors.py). Same tier
 # as the edges above — the Town Map draws ROCK TUNNEL its own pin at (14,3)
@@ -2767,6 +2771,60 @@ def validate(plan: dict) -> list:
                 f"is satisfied by the part of that map you already know. "
                 f"not_area carves off the region you are LEAVING, and the "
                 f"ledger names the ones you have stood in.")
+
+    # A SEA ROUTE IS CROSSED ON THE WATER. The booklet's World Map draws
+    # Routes 19, 20 and 21 as sea, and a sea is crossed riding a Pokemon
+    # that knows SURF. Run 68's "Reach Vermilion City" was accepted as a
+    # 22-step world loop through Cinnabar by water with no SURF in the party
+    # (2026-10-28; user, 2026-11-04: mark the sea routes). Refused when a
+    # step ends on one, nobody knows SURF now, and no step before it makes
+    # somebody know it.
+    _surf_now = any(
+        str((mv or {}).get("id") or mv).upper() == "SURF"
+        for m in ((_obs_now().get("party")) or []) if isinstance(m, dict)
+        for mv in (m.get("moves") or []))
+    _surf_planned = False
+    for _i6, _s6 in enumerate(subs or []):
+        if not isinstance(_s6, dict):
+            continue
+        _dw6 = _s6.get("done_when") or {}
+        if not isinstance(_dw6, dict):
+            continue
+        if "SURF" in str(_dw6.get("knows_move") or "").upper():
+            _surf_planned = True
+        _m6 = str(_dw6.get("map") or _dw6.get("area") or "").split("|")[0]
+        if _m6 in PRINTED_SEA_ROUTES and not (_surf_now or _surf_planned):
+            probs.append(
+                f"subgoal[{_i6}] ({_s6.get('id')}) ends on {_m6}, which the "
+                f"booklet's map draws as sea: it is crossed riding a Pokemon "
+                f"that knows SURF, nobody in the party knows SURF now, and no "
+                f"step before it makes somebody know it.")
+
+    # A SPOT IN THE PART THE STEP BEFORE LEFT. Run 70's Route 23 plan put a
+    # step "a part of ROUTE_23 other than <the south part>" before one that
+    # stands at a spot; the user ruled (2026-11-04) that a spot inside the
+    # part just ruled out is refused. A part is named by its first cell, so
+    # what can be told for certain is a spot ON that cell; that is all this
+    # refuses.
+    for _i7 in range(1, len(subs or [])):
+        _a7, _b7 = (subs or [])[_i7 - 1], (subs or [])[_i7]
+        if not (isinstance(_a7, dict) and isinstance(_b7, dict)):
+            continue
+        _na7 = (_a7.get("done_when") or {}).get("not_area") if isinstance(_a7.get("done_when"), dict) else None
+        _dw7 = _b7.get("done_when") if isinstance(_b7.get("done_when"), dict) else {}
+        _pa7 = _dw7.get("player_at")
+        if not (_na7 and isinstance(_pa7, dict)):
+            continue
+        _m7 = str(_dw7.get("map") or _dw7.get("area") or "").split("|")[0]
+        _cell7 = f"{_m7}|{_pa7.get('x')},{_pa7.get('y')}"
+        _nas7 = [str(x) for x in (_na7 if isinstance(_na7, (list, tuple)) else [_na7])]
+        if _m7 and _cell7 in _nas7:
+            probs.append(
+                f"subgoal[{_i7}] ({_b7.get('id')}) stands at ({_pa7.get('x')},"
+                f"{_pa7.get('y')}) on {_m7}, which is the first cell of "
+                f"{_cell7} — the part the step before it, "
+                f"{_a7.get('id')}, says to be somewhere other than. The plan "
+                f"leaves that part and then asks to stand in it.")
 
     # A MAP YOU HAVE STOOD ON IS ALREADY REACHED. "Navigate through the exit
     # of Victory Road to reach Route 23" ended on {"map": "ROUTE_23"}, and
