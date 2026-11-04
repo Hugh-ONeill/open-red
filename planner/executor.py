@@ -17015,6 +17015,19 @@ class Executor:
         return ("\nWHAT THE GAME'S BOOKLET SAYS OF THEM: "
                 + "; ".join(f"{k}: {v}" for k, v in rows)) if rows else ""
 
+    def _bag_named_ahead_words(self, bag) -> str:
+        """The held kinds a leg still ahead in the model's own outline names,
+        said beside the bag (outline_ahead.items_named_ahead), or ""."""
+        try:
+            hits = outline_ahead.items_named_ahead(PLANS, RUN, list((bag or {}).keys()))
+        except Exception:
+            return ""
+        if not hits:
+            return ""
+        return (" YOUR OWN OUTLINE, STILL AHEAD, NAMES "
+                + "; ".join(f"{it} (leg {pos}: \"{leg}\")" for it, pos, leg in hits)
+                + ".")
+
     def _type_legs_ahead(self, obs) -> str:
         """The outline's legs still ahead that a party member answers by
         type or species (the starter question's list), or ""."""
@@ -19651,6 +19664,7 @@ class Executor:
                + ", ".join(singles) + "." if singles else "")
             + (f" Stacks (the whole count must go): "
                + ", ".join(f"{k} x{v}" for k, v in stacks) + "." if stacks else "")
+            + self._bag_named_ahead_words(bag)
             + (f" Of the singles, KEY ITEMS AND HMs ({', '.join(keyk)}) the "
                f"game will neither toss nor sell — STORING is the one way "
                f"those {len(keyk)} go, and the PC takes them." if keyk else "")

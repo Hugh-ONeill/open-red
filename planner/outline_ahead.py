@@ -72,6 +72,26 @@ def legs_ahead(plans: Path, run: Path) -> list[tuple[int, str]]:
     return [(i, l) for i, l in enumerate(lines, 1) if i > mark]
 
 
+def items_named_ahead(plans: Path, run: Path, items) -> list[tuple[str, int, str]]:
+    """(item, position, wording) for each held item a leg still ahead names
+    by all of its words ("Obtain the Moon Stone" names MOON_STONE). The
+    model's own outline, read back beside its bag: run 71 tossed MOON_STONE
+    as "not needed" on Pokemon Tower 3F with "Obtain the Moon Stone" still
+    ahead in its outline (2026-11-03; user, 2026-11-04: build it)."""
+    ahead = legs_ahead(plans, run)
+    out = []
+    for it in sorted(items or []):
+        parts = [w for w in str(it).upper().split("_") if w]
+        if not parts:
+            continue
+        for pos, leg in ahead:
+            words = set(re.sub(r"[^A-Z0-9]+", " ", str(leg).upper()).split())
+            if all(w in words for w in parts):
+                out.append((str(it), pos, leg))
+                break
+    return out
+
+
 def goal_of(leg: str, species_names: set | None = None) -> dict | None:
     """The types and species a caught Pokemon would answer this leg with,
     or None when the leg is not that kind of thing."""
