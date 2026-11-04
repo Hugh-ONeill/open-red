@@ -15387,7 +15387,13 @@ class Executor:
                 frozenset((str(r), str(n))
                           for r, v in (getattr(self, "_tried_objs", {}) or {}).items()
                           for n in (v or ())),
-                sum(len(v or {}) for v in (self.explored or {}).values()))
+                self._edge_set())
+
+    def _edge_set(self) -> frozenset:
+        """Every walked way as (part, key, where it led)."""
+        return frozenset((str(r), str(k), str((e or {}).get("to") or ""))
+                         for r, v in (self.explored or {}).items()
+                         for k, e in (v or {}).items() if isinstance(e, dict))
 
     # A SIGN READ IS NOT NEWS ENOUGH TO EXTEND A STEP. A department store has
     # dozens of signs and counters; each first press earned the step a bonus
@@ -15425,9 +15431,22 @@ class Executor:
         _new = [n for _r, n in (t1 - _t0) if not self._fixture_name(n)]
         if _new:
             parts.append(f"{len(_new)} person/thing(s) pressed for the first time")
-        e1 = sum(len(v or {}) for v in (self.explored or {}).values())
-        if e1 > edges0:
-            parts.append(f"{e1 - edges0} way(s) taken for the first time")
+        # A SEAM CROSSED AGAIN AT ANOTHER CELL IS NOT A NEW WAY when it lands
+        # where that seam already led. Cerulean's north edge crossed at
+        # (21,0) after (20,0) filed "north#skip1", landed in the same part of
+        # Route 24, and was counted "1 way(s) taken for the first time" with
+        # a free round for it (run 71, 2026-11-02). A seam is a row; the cell
+        # it was crossed at matters only where it lands somewhere else.
+        if isinstance(edges0, (set, frozenset)):
+            _base = {(r, k.split("#")[0], t) for r, k, t in edges0}
+            _new_e = [(r, k, t) for r, k, t in (self._edge_set() - edges0)
+                      if (r, k.split("#")[0], t) not in _base]
+            if _new_e:
+                parts.append(f"{len(_new_e)} way(s) taken for the first time")
+        else:
+            e1 = sum(len(v or {}) for v in (self.explored or {}).values())
+            if e1 > edges0:
+                parts.append(f"{e1 - edges0} way(s) taken for the first time")
         return ", ".join(parts)
 
     def _same_place(self, a, b) -> bool:
