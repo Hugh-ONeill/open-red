@@ -4380,7 +4380,9 @@ def render(cands: list[Candidate], ex, obs: dict, target: str = "",
                         "now takes NOTHING and answers \"No more room for "
                         "items!\" — a slot has to be free FIRST"
                         if _bagfull else
-                        "PRESS IT: pressing A takes it and it costs nothing"
+                        # not every ball is taken (Oak's starters, run 71)
+                        "PRESS IT: pressing A costs nothing, and what it is "
+                        "shows when you do"
                         + ("" if c.reachable else
                            " — WALKING TO IT IS NOT THE JOB. No walk reaches "
                            "it, and it does not have to: send the press and "

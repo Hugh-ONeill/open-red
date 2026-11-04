@@ -34,7 +34,7 @@ def ck(name, cond):
 
 i = lg.index("if c.kind == \"item\" and c.status == \"untouched\":")
 blk = lg[i:i + 3000]
-ck("the press comes first", '"PRESS IT: pressing A takes it and it costs nothing"' in blk)
+ck("the press comes first", '"PRESS IT: pressing A costs nothing, and what it is "' in blk)
 ck("...and the unreachable clause hangs off it, not before it", blk.index("PRESS IT:") < blk.index("WALKING TO IT IS NOT THE JOB"))
 ck("...saying no walk reaches it as the reason the press exists, not as a verdict", "it does not have to: send the press" in blk and "is not a reason to skip it" in blk)
 ck("...and still naming the mechanic that gets there", "the HARNESS rides a pad or door you have already " in blk and "presses again from " in blk)
