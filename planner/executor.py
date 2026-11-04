@@ -26181,8 +26181,21 @@ survives from one leg to the next","ops":[{"op":"use_warp","x":7,"y":1}]}
             # 51, 2026-10-11: his first box was filed by the main path, his
             # BILL box, an extra, was dropped). No battle starts before the
             # op that walks into it.
+            # ...AND A LINE THE COUNTER SAYS THIS OP PRINTED IS THIS OP'S.
+            # The guard is older than the counter (text_seq, 2026-08-17),
+            # and a resumed save's leftover line is not printed again, so
+            # the counter does not move for it. Bill's Cell Separator
+            # answered the attempt's first press with "TELEPORTER is
+            # displayed on the PC monitor." (Bill had not gone into the
+            # machine) and the trace read "ok (moved)"; the step took the
+            # press as done and the run walked away to look for the ticket
+            # on the S.S. Anne (run 72, 2026-11-04).
+            _s0 = (pre_obs or {}).get("text_seq")
+            _s1 = (obs or {}).get("text_seq")
             _fresh = bool(self._said_ready
-                          or getattr(self, "_last_fight", None) is not _fight0)
+                          or getattr(self, "_last_fight", None) is not _fight0
+                          or (isinstance(_s0, int) and isinstance(_s1, int)
+                              and _s1 > _s0))
             _earlier = self._earlier_speech(pre_obs, obs, _pre_mapped, sg,
                                             said, _fresh)
             self._speech_mark = (obs or {}).get("text_seq")

@@ -7,7 +7,7 @@
 #   JOBS=4 tests/run_suite.sh     # fewer at once
 set -u
 cd "$(dirname "$0")/.."
-BOOTS='pc_box|contract|dig_out|stop_all_kills_the_whole_tree|a_crash_saves|a_naming_screen|a_name_is_the|a_machine_is_the|a_dead_game|a_policy_is_fit|a_fence_at|a_save_waits|an_arena_keeps|a_long_speech|a_save_whose|a_leg_is_measured|a_nurse_behind|a_level_up_move|a_staircase_is_not|an_edge_is_news|a_tm_reads|repeat_gate|a_lift_panel|an_hm_in_the|a_wipe_is|a_leg_boundary|saving_is_the|predicates|replay_smoke'
+BOOTS='a_first_press_is|pc_box|contract|dig_out|stop_all_kills_the_whole_tree|a_crash_saves|a_naming_screen|a_name_is_the|a_machine_is_the|a_dead_game|a_policy_is_fit|a_fence_at|a_save_waits|an_arena_keeps|a_long_speech|a_save_whose|a_leg_is_measured|a_nurse_behind|a_level_up_move|a_staircase_is_not|an_edge_is_news|a_tm_reads|repeat_gate|a_lift_panel|an_hm_in_the|a_wipe_is|a_leg_boundary|saving_is_the|predicates|replay_smoke'
 # /tmp IS A RAM DISK HERE. Every run left two folders behind and nothing
 # cleared them: after a day of suites 2,335 temp folders held 8.2G of a 30G
 # box, and the kernel's OOM killer took ollama's model server three times

@@ -31,7 +31,7 @@ def ck(name, cond, detail=""):
 
 
 ck("fresh when ready, or when a fight was recorded this op",
-   '_fresh = bool(self._said_ready\n                          or getattr(self, "_last_fight", None) is not _fight0)' in SRC)
+   '_fresh = bool(self._said_ready\n                          or getattr(self, "_last_fight", None) is not _fight0\n' in SRC)
 ck("the round's quote reads it", 'heard = said if _fresh else ""' in SRC)
 ck("the extra boxes read it", "for _xn, _xs in (_extra if _fresh else []):" in SRC)
 ck("the earlier speeches read it", "said, _fresh)" in SRC)
